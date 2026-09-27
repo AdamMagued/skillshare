@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useId, type ReactNode } from 'react';
+import { Fragment, useState, useRef, useEffect, useCallback, useId, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronDown, X } from 'lucide-react';
 
@@ -7,6 +7,8 @@ export interface SelectOption {
   label: string;
   description?: string;
   icon?: ReactNode;
+  /** Heading shown above the first of consecutive options that share it. */
+  group?: string;
 }
 
 interface SelectProps {
@@ -269,9 +271,11 @@ export function Select({ label, ariaLabel, value = '', onChange, values, onChang
           {options.map((opt, i) => {
             const isSelected = isOn(opt.value);
             const isFocused = i === focusIdx;
+            const heading = opt.group && opt.group !== options[i - 1]?.group ? opt.group : '';
             return (
+              <Fragment key={opt.value}>
+              {heading && <li role="presentation" className="px-2 pt-2 pb-1 text-xs font-semibold text-ink-3">{heading}</li>}
               <li
-                key={opt.value}
                 role="option"
                 aria-selected={isSelected}
                 className={`min-h-8 shrink-0 px-2 py-1.5 rounded-[7px] cursor-pointer flex items-center gap-2 ${isFocused ? 'bg-sel text-sel-ink' : isSelected ? 'text-ink' : 'text-ink-2'}`}
@@ -293,6 +297,7 @@ export function Select({ label, ariaLabel, value = '', onChange, values, onChang
                   )}
                 </span>
               </li>
+              </Fragment>
             );
           })}
         </ul>,

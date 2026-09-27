@@ -54,6 +54,7 @@ import { Select } from '../components/Select';
 import { PageSkeleton } from '../components/Skeleton';
 import { resolveSource, type SourceType } from '../components/SourceBadge';
 import TargetMenu, { SkillContextMenu } from '../components/TargetMenu';
+import Tooltip from '../components/Tooltip';
 import SkillTree from '../components/resources/SkillTree';
 import type { SelectMode } from '../components/resources/SkillTree';
 import TreeDetailPane from '../components/resources/TreeDetailPane';
@@ -131,6 +132,23 @@ export function syncedByTarget(items: Skill[], matrix: SyncMatrixEntry[]): Map<s
     set.add(e.skill);
   }
   return byTarget;
+}
+
+/** The project a target name belongs to, or '' for a global target. */
+const projectOf = (name: string) => (name.includes('@') ? name.slice(0, name.lastIndexOf('@')) : '');
+
+/**
+ * Folds each project's targets into one filter entry keyed `<project>@`, holding what any of its
+ * tools receives; global targets keep their own entries.
+ */
+export function byTargetOrProject(byTarget: Map<string, Set<string>>): Map<string, Set<string>> {
+  const out = new Map<string, Set<string>>();
+  for (const [name, names] of byTarget) {
+    const project = projectOf(name);
+    const key = project ? `${project}@` : name;
+    out.set(key, new Set([...(out.get(key) ?? []), ...names]));
+  }
+  return out;
 }
 
 // Group key for sorting: tracked repo name or first dir segment.
@@ -222,17 +240,72 @@ function limitGroups<G extends { items: Skill[] }>(groups: G[], limit: number): 
 
 /* -- Small pieces --------------------------------- */
 
-function TargetStack({ names, max = 4 }: { names: string[]; max?: number }) {
+/** Splits target names into global tools and projects; `myapp@claude` is claude in the myapp project. */
+export function splitTargets(names: string[]): { global: string[]; projects: [string, string[]][] } {
+  const global: string[] = [];
+  const projects = new Map<string, string[]>();
+  for (const n of names) {
+    const i = n.lastIndexOf('@');
+    if (i < 0) {
+      global.push(n);
+      continue;
+    }
+    const project = n.slice(0, i);
+    projects.set(project, [...(projects.get(project) ?? []), n.slice(i + 1)]);
+  }
+  return { global, projects: [...projects] };
+}
+
+/**
+ * Global tools as icons, then how many projects the item reaches. A project's tools share icons
+ * with the global ones, so drawing them too repeats the same icon once per project.
+ * `reachable` lists the projects the item could sync to; without any, this renders as before projects existed.
+ */
+function TargetStack({ names, reachable = [], max = 4 }: { names: string[]; reachable?: string[]; max?: number }) {
+  const t = useT();
   if (names.length === 0) return <span className="text-ink-3">—</span>;
-  return (
-    <span className="inline-flex items-center" title={names.join(', ')}>
+  const { global, projects } = splitTargets(names);
+  const icons = global.length > 0 && (
+    <>
       <span className="ss-stack">
-        {names.slice(0, max).map((n) => (
+        {global.slice(0, max).map((n) => (
           <span key={n} className="ss-at"><AgentIcon target={n} size={14} /></span>
         ))}
       </span>
-      {names.length > max && <span className="ml-1.5 text-xs text-ink-3">+{names.length - max}</span>}
-    </span>
+      {global.length > max && <span className="ml-1.5 text-xs text-ink-3">+{global.length - max}</span>}
+    </>
+  );
+  if (reachable.length === 0) return <span className="inline-flex items-center" title={names.join(', ')}>{icons}</span>;
+  const synced = new Map(projects);
+  return (
+    <Tooltip
+      content={
+        <span className="flex min-w-[180px] flex-col gap-1">
+          {global.length > 0 && (
+            <>
+              <span className="font-semibold">{t('resources.targets.global')}</span>
+              <span className="opacity-70">{global.join(', ')}</span>
+            </>
+          )}
+          <span className={`font-semibold ${global.length > 0 ? 'mt-1.5' : ''}`}>{t('resources.targets.projects')}</span>
+          {reachable.map((p) => (
+            <span key={p} className="flex justify-between gap-4">
+              <span>{p}</span>
+              <span className="opacity-70">{synced.get(p)?.join(', ') ?? t('resources.targets.notIncluded')}</span>
+            </span>
+          ))}
+        </span>
+      }
+    >
+      <span className="inline-flex items-center">
+        {icons}
+        {projects.length > 0 && (
+          <span className={`ss-pj ${global.length > 0 ? 'ml-1.5' : ''}`} aria-label={t('resources.targets.projectCount', { count: projects.length })}>
+            <Folder size={12} aria-hidden="true" />{projects.length}
+          </span>
+        )}
+      </span>
+    </Tooltip>
   );
 }
 
@@ -272,6 +345,9 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
   const syncPending = diffData ? countChanges(resourceGroups(diffData.diffs, targetsData?.targets ?? [], new Set([kind]), false).groups) > 0 : false;
   const [syncOpen, setSyncOpen] = useState(false);
   const { matrix, getSkillTargets } = useSyncMatrix();
+  // The project count needs room, and the wider column fits more icons; without projects nothing changes.
+  const hasProjects = matrix.some((e) => projectOf(e.target));
+  const targetsCol = hasProjects ? 'w-[360px]' : 'w-[140px]';
   const { updating, update } = useRepoUpdate();
   const [checks] = useCheckStatuses();
   const [params, setParams] = useSearchParams();
@@ -309,9 +385,17 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
   const all = data?.resources ?? EMPTY;
   const items = useMemo(() => all.filter((s) => s.kind === kind), [all, kind]);
 
-  const targetIndex = useMemo(() => syncedByTarget(items, matrix), [items, matrix]);
+  const targetIndex = useMemo(() => byTargetOrProject(syncedByTarget(items, matrix)), [items, matrix]);
   // A target that stopped appearing (kind switch, uninstall) would filter everything out.
   const activeTarget = targetIndex.has(target) ? target : 'all';
+  // Global tools, then projects. Headings appear only once there are projects to tell apart.
+  const targetOptions = useMemo(() => {
+    const entries = [...targetIndex].sort(([a], [b]) => Number(a.endsWith('@')) - Number(b.endsWith('@')) || a.localeCompare(b));
+    const grouped = entries.some(([name]) => name.endsWith('@'));
+    return entries.map(([name, set]) => name.endsWith('@')
+      ? { value: name, label: `${name.slice(0, -1)} (${set.size})`, icon: <Folder size={13} />, group: t('resources.targets.projects') }
+      : { value: name, label: `${name} (${set.size})`, group: grouped ? t('resources.targets.global') : undefined });
+  }, [targetIndex, t]);
   const folderIndex = useMemo(() => {
     const counts = new Map<string, number>();
     for (const s of items) counts.set(folderOf(s), (counts.get(folderOf(s)) ?? 0) + 1);
@@ -377,14 +461,20 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
     return { supported: [...supported].sort(), total: targets.size };
   }, [isAgent, items, matrix]);
 
-  const rowInfo = (s: Skill): { synced: string[]; tone: Tone; label: string } => {
+  const rowInfo = (s: Skill): { synced: string[]; reachable: string[]; tone: Tone; label: string } => {
     const entries = getSkillTargets(s.flatName);
     const synced = entries.filter((e) => e.status === 'synced').map((e) => e.target).sort();
     const applicable = entries.some((e) => e.status !== 'na');
-    if (s.disabled) return { synced, tone: 'off', label: t('resources.status.disabled') };
-    if (entries.length > 0 && !applicable) return { synced, tone: 'off', label: t('resources.tree.noAgentTargets.label') };
-    if (applicable && synced.length === 0) return { synced, tone: 'off', label: t('resources.tree.filteredOut.label') };
-    return { synced, tone: 'ok', label: t('resources.status.enabled') };
+    // Projects this item could sync to, whether or not it does: the tooltip names the ones it misses.
+    const reachable = [...new Set(entries.filter((e) => e.status !== 'na').map((e) => projectOf(e.target)).filter(Boolean))].sort();
+    if (s.disabled) return { synced, reachable, tone: 'off', label: t('resources.status.disabled') };
+    if (entries.length > 0 && !applicable) return { synced, reachable, tone: 'off', label: t('resources.tree.noAgentTargets.label') };
+    if (applicable && synced.length === 0) return { synced, reachable, tone: 'off', label: t('resources.tree.filteredOut.label') };
+    return { synced, reachable, tone: 'ok', label: t('resources.status.enabled') };
+  };
+  const syncedCell = (s: Skill) => {
+    const { synced, reachable } = rowInfo(s);
+    return <TargetStack names={synced} reachable={reachable} max={8} />;
   };
 
   /* -- Mutations -- */
@@ -581,7 +671,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
   );
 
   const itemRow = (s: Skill) => {
-    const { synced, tone, label } = rowInfo(s);
+    const { synced, reachable, tone, label } = rowInfo(s);
     // Grouped by folder, the header already names the parent path.
     const sub = group === 'folder' ? '' : parentPath(s, group === 'source');
     return (
@@ -600,7 +690,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
           {sub && <span className="font-mono text-xs text-ink-3 truncate">{sub}</span>}
         </span>
         {group !== 'source' && view === 'list' && <span className="w-[150px] font-mono text-xs text-ink-3 truncate">{sourceName(s)}</span>}
-        <span className="w-[140px]"><TargetStack names={synced} /></span>
+        <span className={targetsCol}><TargetStack names={synced} reachable={reachable} max={hasProjects ? 8 : 4} /></span>
         <span className="w-[120px]">{status$(tone, label)}</span>
         {actionsButton(s)}
       </div>
@@ -608,7 +698,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
   };
 
   const card = (s: Skill) => {
-    const { synced, tone, label } = rowInfo(s);
+    const { synced, reachable, tone, label } = rowInfo(s);
     return (
       <div
         key={s.flatName}
@@ -624,7 +714,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
         <span className="ds text-[13px] text-ink-2">{group === 'source' ? parentPath(s, true) : group === 'folder' ? sourceName(s) : parentPath(s) || sourceName(s)}</span>
         <div className="ft">
           <span className="flex items-center gap-2">
-            <TargetStack names={synced} max={3} />
+            <TargetStack names={synced} reachable={reachable} max={3} />
             {s.manualOnly && <span className="ss-tag shrink-0" title={t('frontmatterEditor.field.disableModelInvocation.hint')}>manual only</span>}
           </span>
           {status$(tone, label)}
@@ -708,6 +798,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
               else if (subject.type === 'multi') setMenu({ mode: 'bulk', names: subject.skills.map((s) => s.flatName), point });
             }}
             onUninstall={() => setUninstalling(treeSkills)}
+            syncedTo={subject.type === 'skill' && syncedCell(subject.skill)}
             repoActions={repoRoot && (
               <>
                 <Button variant="secondary" size="sm" loading={updating === repoRoot} disabled={updating !== null} onClick={() => update(repoRoot)}>
@@ -739,7 +830,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
           <span className="flex-1">{t('resources.col.name')}</span>
         )}
         {group !== 'source' && view === 'list' && <span className="w-[150px]">{t('resources.col.source')}</span>}
-        <span className="w-[140px]">{t('resources.col.targets')}</span>
+        <span className={targetsCol}>{t('resources.col.targets')}</span>
         <span className="w-[120px]">{t('resources.col.status')}</span>
         <span className="w-[30px]" />
       </div>
@@ -853,9 +944,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
                 onChange={resetting(setTarget)}
                 options={[
                   { value: 'all', label: 'All' },
-                  ...[...targetIndex]
-                    .sort((a, b) => a[0].localeCompare(b[0]))
-                    .map(([name, set]) => ({ value: name, label: `${name} (${set.size})` })),
+                  ...targetOptions,
                 ]}
               />
             )}

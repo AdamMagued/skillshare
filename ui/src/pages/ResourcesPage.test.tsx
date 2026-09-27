@@ -7,7 +7,7 @@ import { api } from '../api/client';
 import type { Skill, SyncMatrixEntry } from '../api/client';
 import { I18nProvider } from '../i18n';
 import { ToastProvider } from '../components/Toast';
-import ResourcesPage, { syncedByTarget } from './ResourcesPage';
+import ResourcesPage, { byTargetOrProject, splitTargets, syncedByTarget } from './ResourcesPage';
 
 vi.mock('../context/AppContext', () => ({ useAppContext: () => ({ isProjectMode: false }) }));
 vi.mock('../api/client', async (load) => {
@@ -23,6 +23,27 @@ const skill = (flatName: string): Skill => ({
 
 const entry = (s: string, target: string, status: SyncMatrixEntry['status']): SyncMatrixEntry =>
   ({ skill: s, target, status, reason: '' });
+
+describe('splitTargets', () => {
+  it('groups project targets by project and keeps global tools apart', () => {
+    expect(splitTargets(['blog@claude', 'claude', 'codex', 'myapp@claude', 'myapp@codex'])).toEqual({
+      global: ['claude', 'codex'],
+      projects: [['blog', ['claude']], ['myapp', ['claude', 'codex']]],
+    });
+  });
+});
+
+describe('byTargetOrProject', () => {
+  it('merges a project\'s tools into one entry and keeps global targets apart', () => {
+    const index = byTargetOrProject(new Map([
+      ['claude', new Set(['a'])],
+      ['blog@claude', new Set(['a'])],
+      ['blog@codex', new Set(['b'])],
+    ]));
+
+    expect([...index].map(([k, v]) => [k, [...v]])).toEqual([['claude', ['a']], ['blog@', ['a', 'b']]]);
+  });
+});
 
 describe('syncedByTarget', () => {
   it('indexes only entries that are synced and belong to the given items', () => {

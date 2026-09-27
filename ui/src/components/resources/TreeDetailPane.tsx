@@ -5,6 +5,7 @@ import type { Skill } from '../../api/client';
 import { useT } from '../../i18n';
 import { formatTrackedRepoName, resourceHref } from '../../lib/resourceNames';
 import AgentIcon from '../AgentIcon';
+import Tooltip from '../Tooltip';
 import Button from '../Button';
 import { isRepoRoot, summarize } from './tree';
 import type { FolderNode } from './tree';
@@ -26,6 +27,8 @@ interface Props {
   onUninstall: () => void;
   /** Update / Uninstall for a tracked repo root. */
   repoActions?: ReactNode;
+  /** Where a single selected item actually syncs to, as the list's Targets column shows it; replaces its `targets:` setting. */
+  syncedTo?: ReactNode;
 }
 
 /** "_team-repo/frontend" → "team-repo / frontend": the repo's leading "_" is how it is stored, not its name. */
@@ -50,7 +53,7 @@ function Switch({ on, mixed, label, disabled, onClick }: { on: boolean; mixed?: 
 }
 
 /** Right side of the tree view: what is selected, whether it is on, and where it goes. */
-export default function TreeDetailPane({ kind, subject, busy, onToggleAll, onToggleOne, onSetTargets, onUninstall, repoActions }: Props) {
+export default function TreeDetailPane({ kind, subject, busy, onToggleAll, onToggleOne, onSetTargets, onUninstall, repoActions, syncedTo }: Props) {
   const t = useT();
   const isAgent = kind === 'agent';
   const ItemIcon = isAgent ? Bot : Puzzle;
@@ -123,10 +126,20 @@ export default function TreeDetailPane({ kind, subject, busy, onToggleAll, onTog
           />
           <span className="text-[13px] font-semibold">{state}</span>
         </div>
-        {!isAgent && (
+        {(!isAgent || syncedTo) && (
           <div>
             <span className="lb">{t('resources.col.targets')}</span>
-            {!summary.isUniform ? (
+            {syncedTo ? (
+              // One item: where it actually goes. Its own `targets:` only shows when it narrows that.
+              <span className="flex min-w-0 items-center gap-2">
+                {syncedTo}
+                {summary.targets.length > 0 && (
+                  <Tooltip content={summary.targets.join(', ')}>
+                    <span className="ss-tag">{t('resources.tree.pane.limited')}</span>
+                  </Tooltip>
+                )}
+              </span>
+            ) : !summary.isUniform ? (
               <span className="text-[13px]">{t('resources.tree.mixed')}</span>
             ) : summary.targets.length === 0 ? (
               <span className="text-[13px]">{t('targetMenu.allTargets')}</span>
@@ -139,10 +152,12 @@ export default function TreeDetailPane({ kind, subject, busy, onToggleAll, onTog
               </span>
             )}
             <span className="flex-1" />
-            <Button variant="secondary" size="sm" className="shrink-0" onClick={onSetTargets}>
-              <Target size={14} />
-              {t('resources.setTargets')}
-            </Button>
+            {!isAgent && (
+              <Button variant="secondary" size="sm" className="shrink-0" onClick={onSetTargets}>
+                <Target size={14} />
+                {t('resources.setTargets')}
+              </Button>
+            )}
           </div>
         )}
         {repoActions && (
