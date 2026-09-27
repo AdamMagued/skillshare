@@ -319,9 +319,12 @@ func (s *Server) handleRemoveTarget(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, name+" belongs to a project; remove the project instead")
 		return
 	}
-	if status, err := s.detachSkillsTarget(sc.Path); err != nil {
-		writeError(w, status, err.Error())
-		return
+	// Another target writing the same folder (codex and universal) still owns its links.
+	if config.SkillsPathKeptBy(s.cfg.Targets, name, nil) == "" {
+		if status, err := s.detachSkillsTarget(sc.Path); err != nil {
+			writeError(w, status, err.Error())
+			return
+		}
 	}
 
 	// Read the MCP config before it is saved without the target: afterwards its own

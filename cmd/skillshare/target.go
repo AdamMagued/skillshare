@@ -375,10 +375,17 @@ func targetRemove(args []string) error {
 	backupTargets(cfg, toRemove)
 
 	ui.Header("Unlinking targets")
+	leaving := make(map[string]bool, len(toRemove))
+	for _, targetName := range toRemove {
+		leaving[targetName] = true
+	}
 	var stillNamed []string
 	for _, targetName := range toRemove {
 		target := cfg.Targets[targetName]
-		if err := unlinkTarget(targetName, target, cfg.EffectiveSkillsSource()); err != nil {
+		// Another target writing the same folder (codex and universal) still owns its links.
+		if keeper := config.SkillsPathKeptBy(cfg.Targets, targetName, leaving); keeper != "" {
+			ui.Info("%s: skills kept, %s uses the same folder", targetName, keeper)
+		} else if err := unlinkTarget(targetName, target, cfg.EffectiveSkillsSource()); err != nil {
 			ui.Error("%s: %v", targetName, err)
 			continue
 		}
@@ -410,8 +417,17 @@ func targetRemoveDryRun(cfg *config.Config, toRemove []string) error {
 	}
 
 	ui.Header("Unlinking targets")
+	leaving := make(map[string]bool, len(toRemove))
+	for _, targetName := range toRemove {
+		leaving[targetName] = true
+	}
 	for _, targetName := range toRemove {
 		target := cfg.Targets[targetName]
+		if keeper := config.SkillsPathKeptBy(cfg.Targets, targetName, leaving); keeper != "" {
+			ui.Info("%s: would keep skills, %s uses the same folder", targetName, keeper)
+			ui.Info("%s: would remove from config", targetName)
+			continue
+		}
 		info, err := os.Lstat(target.SkillsConfig().Path)
 		if err != nil {
 			if os.IsNotExist(err) {
