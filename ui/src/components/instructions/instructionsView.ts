@@ -161,7 +161,8 @@ export type RowHint =
   | { kind: 'noSource' }
   | { kind: 'tooLong'; max: number }
   | { kind: 'usesOther'; name: string }
-  | { kind: 'alsoUses'; names: string[] };
+  | { kind: 'alsoUses'; names: string[] }
+  | { kind: 'riderOf'; name: string };
 
 /** The one line under a target row that says what matters most about it for file. */
 export function rowHint(target: SharedInstructionsTarget, file: SharedInstructionsFile): RowHint | null {
@@ -171,7 +172,8 @@ export function rowHint(target: SharedInstructionsTarget, file: SharedInstructio
   if (a?.status === 'no source') return { kind: 'noSource' };
   if (target.max_chars && file.chars > target.max_chars) return { kind: 'tooLong', max: target.max_chars };
   const others = usesOf(target).filter((n) => n !== file.name);
-  if (!others.length) return null;
+  // Not a target: say where it comes from, since it has no page of its own.
+  if (!others.length) return target.rider_of ? { kind: 'riderOf', name: target.rider_of } : null;
   return target.import ? { kind: 'alsoUses', names: others } : { kind: 'usesOther', name: others[0] };
 }
 

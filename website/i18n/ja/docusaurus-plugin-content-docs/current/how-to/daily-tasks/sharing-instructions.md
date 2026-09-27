@@ -39,6 +39,7 @@ skillshare が把握しているファイルは次のとおりです。
 | antigravity | `~/.gemini/GEMINI.md`（gemini と同じファイル） | `AGENTS.md` | いいえ |
 | antigravity-cli | `~/.gemini/GEMINI.md`（gemini と同じファイル） | `AGENTS.md` | いいえ |
 | claude | `~/.claude/CLAUDE.md` と `~/.claude/rules/` | `CLAUDE.md`（`CLAUDE.md` がなければ `AGENTS.md`）と `.claude/rules/` | はい |
+| cline | `~/.agents/AGENTS.md`（universal と同じファイル）と `~/Documents/Cline/Rules/` | `AGENTS.md` と `.clinerules/` | いいえ |
 | codebuddy | `~/.codebuddy/CODEBUDDY.md` と `~/.codebuddy/rules/` | `CODEBUDDY.md`（`CODEBUDDY.md` がなければ `AGENTS.md`）と `.codebuddy/rules/` | はい |
 | codex | `~/.codex/AGENTS.md` | `AGENTS.md` | いいえ |
 | commandcode | `~/.commandcode/AGENTS.md` | `AGENTS.md` | はい |
@@ -66,12 +67,31 @@ skillshare が把握しているファイルは次のとおりです。
 | universal | `~/.agents/AGENTS.md` | `AGENTS.md` | いいえ |
 | verdent | `~/.verdent/VERDENT.md` | `AGENTS.md` | いいえ |
 | vibe | `~/.vibe/AGENTS.md` | `AGENTS.md` | いいえ |
+| warp | `~/.agents/AGENTS.md`（universal と同じファイル） | `AGENTS.md` | いいえ |
 | windsurf | `~/.codeium/windsurf/memories/global_rules.md`（先頭 6,000 文字） | `AGENTS.md` | いいえ |
 | zed | `~/.config/zed/AGENTS.md` | `AGENTS.md` | いいえ |
 
 Claude、Codex、Pi の[別のアカウント](../../reference/targets/configuration.md#agent-config-dir)は、
 自身の Config ディレクトリ内の同じファイル（例: `~/.claude-work/CLAUDE.md`）を読みます。その他の
 Target については、[どのファイルを読むかを skillshare に教えます](#tools-skillshare-doesnt-know)。
+
+## universal 経由で skills を読むツール {#tools-that-read-skills-through-universal}
+
+多くのツールが、universal Target のフォルダーである `~/.agents/skills` から skills を読みます。
+Codex と Goose はこれを自身の skills フォルダーとして使い、Gemini CLI、Pi、OpenCode などは自身の
+フォルダーに加えてこれも読みます。universal 経由で skills を同期し、これらを Target として追加して
+いない場合でも、各ツールが読む指示ファイルは `~/.agents/AGENTS.md` ではなく自身のファイルです。
+たとえば Codex は `~/.codex/AGENTS.md`、Gemini CLI は `~/.gemini/GEMINI.md` を読みます。
+
+global モードでは、universal の **AGENTS.md** タブのエディター上部にドロップダウンがあり、インストール
+済みのこうしたツールが一覧表示されます。skillshare は `~/.codex` や `~/.gemini` などのフォルダーが
+あるかどうかで判断します。1 つ選ぶと、そのツール自身のファイルを確認・編集できます。選択は URL に
+`?tool=<name>` として残ります。**Extras** の共有 AGENTS.md の一覧にも表示されるので、共有ファイルを
+つなぐこともできます。Target の設定がないため、ファイルの場所は変更できません。一覧にないツールは、
+独自の Target として追加できます。
+
+Cline や Warp Agent CLI など、`~/.agents/AGENTS.md` そのものを読むツールもあります。Codex、
+Gemini CLI、Pi は自身のファイルを読みます。
 
 ## CLAUDE.md を AGENTS.md に変換する {#convert-claudemd-to-agentsmd}
 
@@ -142,10 +162,12 @@ URL の一部になる（`/extras?tab=instructions&file=<name>`）ため、リ�
   説明とともに一覧します。一部の Target だけを変更するには、行にチェックを入れて、選択バーの **接続** または
   **復元** を使います。
 
-特別な Target が 2 つあります。
+特別な Target がいくつかあります。
 
 - antigravity は gemini と同じ `~/.gemini/GEMINI.md` を読みます。両方が Target の場合、antigravity の
   行は gemini に従い、単独では変更できません。
+- cline と warp は universal と同じ `~/.agents/AGENTS.md` を読みます。universal も Target の場合、
+  これらの行は universal に従います。
 - cursor は表示されません。ユーザールールはファイルではなく Cursor の設定に保存されます。
 
 ## 1 つの共有ファイルを管理する {#manage-one-shared-file}

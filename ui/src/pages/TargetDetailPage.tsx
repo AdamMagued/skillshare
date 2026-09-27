@@ -128,13 +128,14 @@ function TargetEditor({ target }: { target: Target }) {
         : entriesOf(k).length) || null;
   // Name the tab after the file this target actually reads (CLAUDE.md, GEMINI.md, …).
   const instructionsTab = instructions.data?.supported && instructions.data.path ? instructions.data.path.split('/').pop() : 'AGENTS.md';
-  const subtitle = tab === 'mcp' ? mcpPath ?? '' : tab === 'instructions' ? instructions.data?.path ?? '' : agent ? target.agentPath ?? '' : target.path;
+  // The instructions tab shows its file path in the panel, for whichever tool is picked.
+  const subtitle = tab === 'mcp' ? mcpPath ?? '' : tab === 'instructions' ? '' : agent ? target.agentPath ?? '' : target.path;
   return (
     <div className="animate-fade-in">
       <PageHeader
         crumbs={[{ label: t('targets.title'), to: '/targets' }, { label: target.name }]}
         title={target.name}
-        subtitle={<span className="font-mono">{shortenHome(subtitle)}</span>}
+        subtitle={subtitle && <span className="font-mono">{shortenHome(subtitle)}</span>}
         actions={
           <>
             {tab === 'skill' && <Link to={`/skills?tab=analyze&target=${encodeURIComponent(target.name)}`} className="ss-btn ghost">{t('analyze.open')}</Link>}
@@ -157,7 +158,7 @@ function TargetEditor({ target }: { target: Target }) {
       )}
 
       {tab === 'instructions' ? (
-        <TargetInstructions name={target.name} />
+        <TargetInstructions name={target.name} skillsPath={target.path} />
       ) : tab === 'mcp' ? (
         mcp.data ? <TargetMCP name={client} data={mcp.data} /> : mcp.error ? <div className="ss-note bad"><span className="flex-1">{mcp.error.message}</span></div> : <PageSkeleton />
       ) : (

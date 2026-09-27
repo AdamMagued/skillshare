@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"sort"
 	"time"
 
 	"skillshare/internal/config"
@@ -28,10 +29,16 @@ func (s *Server) instructionsResolver() instructions.Resolver {
 }
 
 // targetInstructions returns the named target's instruction file with
-// absolute paths. Callers must hold s.mu.
+// absolute paths. In global mode a rider of a configured target (a tool that
+// reads its skills but keeps its own file, see config.InstructionRiders)
+// resolves too, so its file can be edited and shared without configuring it.
+// Callers must hold s.mu.
 func (s *Server) targetInstructions(name string) (config.InstructionsTarget, bool, bool) {
 	tc, found := s.cfg.Targets[name]
 	if !found {
+		if rider, ok := s.instructionRider(name); ok {
+			return rider.InstructionsTarget, true, true
+		}
 		return config.InstructionsTarget{}, false, false
 	}
 	it, ok := config.TargetInstructions(name, tc, s.IsProjectMode())
@@ -39,6 +46,47 @@ func (s *Server) targetInstructions(name string) (config.InstructionsTarget, boo
 		return config.InstructionsTarget{}, true, false
 	}
 	return instructions.Resolve(it, s.projectRoot), true, true
+}
+
+// instructionRiders returns the riders of every configured target, sorted by
+// name, each listed once. Empty in project mode. Callers must hold s.mu.
+func (s *Server) instructionRiders() []config.InstructionsRider {
+	if s.IsProjectMode() {
+		return nil
+	}
+	names := make([]string, 0, len(s.cfg.Targets))
+	for name := range s.cfg.Targets {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	seen := map[string]bool{}
+	var out []config.InstructionsRider
+	for _, name := range names {
+		for _, r := range config.InstructionRiders(name, s.cfg.Targets) {
+			if !seen[r.Name] {
+				seen[r.Name] = true
+				out = append(out, r)
+			}
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out
+}
+
+// instructionRider finds a rider by name. Callers must hold s.mu.
+func (s *Server) instructionRider(name string) (config.InstructionsRider, bool) {
+	for _, r := range s.instructionRiders() {
+		if r.Name == name {
+			return r, true
+		}
+	}
+	return config.InstructionsRider{}, false
+}
+
+type instructionsRiderFile struct {
+	Name   string `json:"name"`
+	Path   string `json:"path"`
+	Exists bool   `json:"exists"`
 }
 
 type instructionsFileResponse struct {
@@ -60,6 +108,9 @@ type instructionsFileResponse struct {
 	Shared      []instructions.Assignment        `json:"shared"`
 	Convert     []string                         `json:"convert"` // conversion methods on offer
 	Blocked     map[string]string                `json:"convert_blocked,omitempty"`
+	RiderOf     string                           `json:"rider_of,omitempty"` // configured target whose skills this unconfigured tool reads
+	Riders      []instructionsRiderFile          `json:"riders"`             // tools reading this target's skills from their own file
+	ReadBy      []string                         `json:"read_by"`            // other tools that read this very file
 }
 
 // handleGetTargetInstructions — GET /api/targets/{name}/instructions
@@ -73,14 +124,28 @@ func (s *Server) handleGetTargetInstructions(w http.ResponseWriter, r *http.Requ
 		writeError(w, http.StatusNotFound, "target not found: "+name)
 		return
 	}
-	resp := instructionsFileResponse{Target: name, Project: s.IsProjectMode(), ReadOrder: []instructions.Entry{}, ImportLines: []int{}, Shared: []instructions.Assignment{}, Convert: []string{}}
+	resp := instructionsFileResponse{Target: name, Project: s.IsProjectMode(), ReadOrder: []instructions.Entry{}, ImportLines: []int{}, Shared: []instructions.Assignment{}, Convert: []string{}, Riders: []instructionsRiderFile{}, ReadBy: []string{}}
+	tc, configured := s.cfg.Targets[name]
+	if configured && !s.IsProjectMode() {
+		for _, r := range config.InstructionRiders(name, s.cfg.Targets) {
+			_, err := os.Stat(r.Path)
+			resp.Riders = append(resp.Riders, instructionsRiderFile{Name: r.Name, Path: r.Path, Exists: err == nil})
+		}
+	} else if rider, isRider := s.instructionRider(name); !configured && isRider {
+		resp.RiderOf = rider.Via
+	}
 	if !ok {
 		writeJSON(w, resp)
 		return
 	}
 	resp.Supported, resp.Path, resp.Import, resp.MaxChars = true, it.Path, it.Import, it.MaxChars
-	resp.Setup = s.cfg.Targets[name].Instructions
+	resp.Setup = tc.Instructions
 	resp.Custom = resp.Setup != nil
+	if !s.IsProjectMode() {
+		if readers := config.InstructionReaders(name, it.Path); readers != nil {
+			resp.ReadBy = readers
+		}
+	}
 	resp.ReadOrder = instructions.ReadOrder(it, !s.IsProjectMode())
 	if info, err := os.Stat(it.Path); err == nil && !info.IsDir() {
 		data, err := readLimited(it.Path)

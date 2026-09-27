@@ -45,13 +45,15 @@ type sharedInstructionsTarget struct {
 	Path     string                    `json:"path"`
 	Import   bool                      `json:"import"`
 	Exists   bool                      `json:"exists"`
-	SameAs   string                    `json:"same_as,omitempty"` // locked to this target: both read the same file
+	SameAs   string                    `json:"same_as,omitempty"`  // locked to this target: both read the same file
+	RiderOf  string                    `json:"rider_of,omitempty"` // not configured; reads this configured target's skills
 	MaxChars int                       `json:"max_chars,omitempty"`
 	Assigned []instructions.Assignment `json:"assigned"`
 }
 
 // instructionTargets returns the configured targets with a global instruction
-// file, sorted by name. Callers must hold s.mu.
+// file and their riders (see config.InstructionRiders), sorted by name.
+// Callers must hold s.mu.
 func (s *Server) instructionTargets() []sharedInstructionsTarget {
 	names := make([]string, 0, len(s.cfg.Targets))
 	for name := range s.cfg.Targets {
@@ -74,6 +76,14 @@ func (s *Server) instructionTargets() []sharedInstructionsTarget {
 		t.Assigned = instructions.Assignments(s.cfg.Extras, it.Path, res)
 		out = append(out, t)
 	}
+	for _, r := range s.instructionRiders() {
+		t := sharedInstructionsTarget{Name: r.Name, Path: r.Path, Import: r.Import, MaxChars: r.MaxChars, RiderOf: r.Via}
+		_, err := os.Stat(r.Path)
+		t.Exists = err == nil
+		t.Assigned = instructions.Assignments(s.cfg.Extras, r.Path, res)
+		out = append(out, t)
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out
 }
 
@@ -158,11 +168,10 @@ func (s *Server) handleCreateSharedInstructions(w http.ResponseWriter, r *http.R
 // backed up and linked. It appends extra to the config. Callers must hold
 // s.mu and save the config afterwards.
 func (s *Server) moveTargetIntoShared(target string, extra *config.ExtraConfig, path string) (int, error) {
-	tc, found := s.cfg.Targets[target]
+	it, found, ok := s.targetInstructions(target)
 	if !found {
 		return http.StatusBadRequest, fmt.Errorf("target not found: %s", target)
 	}
-	it, ok := config.TargetInstructions(target, tc, false)
 	if !ok {
 		return http.StatusBadRequest, fmt.Errorf("%s has no global instruction file", target)
 	}
@@ -263,11 +272,10 @@ func (s *Server) handlePutSharedInstructionsContent(w http.ResponseWriter, r *ht
 // assignTarget attaches exactly want to the named target. Callers must hold
 // s.mu and save the config afterwards.
 func (s *Server) assignTarget(name string, want []string) error {
-	tc, found := s.cfg.Targets[name]
+	it, found, ok := s.targetInstructions(name)
 	if !found {
 		return fmt.Errorf("target not found: %s", name)
 	}
-	it, ok := config.TargetInstructions(name, tc, false)
 	if !ok {
 		return fmt.Errorf("%s has no global instruction file", name)
 	}

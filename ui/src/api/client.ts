@@ -229,6 +229,16 @@ export interface TargetInstructions {
   shared: InstructionsAssignment[];
   convert: ConvertMethod[];
   convert_blocked?: Partial<Record<ConvertMethod, string>>;
+  rider_of?: string; // not a target: reads this target's skills
+  riders: InstructionsRider[]; // tools reading this target's skills from their own file
+  read_by: string[]; // other tools that read this very file
+}
+
+/** A tool that reads a target's skills but keeps its own instruction file. */
+export interface InstructionsRider {
+  name: string;
+  path: string;
+  exists: boolean;
 }
 
 /** The instruction file a user set for a target skillshare does not know. */
@@ -262,6 +272,7 @@ export interface SharedInstructionsTarget {
   import: boolean;
   exists: boolean;
   same_as?: string;
+  rider_of?: string; // not a target: reads this target's skills
   max_chars?: number;
   assigned: InstructionsAssignment[];
 }

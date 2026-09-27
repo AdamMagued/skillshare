@@ -1,14 +1,17 @@
-import { useId, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useId, useRef, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FileX, Info, TriangleAlert } from 'lucide-react';
 import { api, ApiError } from '../../api/client';
 import type { InstructionsEntry, TargetInstructions as Data } from '../../api/client';
+import AgentIcon from '../AgentIcon';
 import Button from '../Button';
 import CodeEditor from '../CodeEditor';
 import ConfirmDialog from '../ConfirmDialog';
 import EmptyState from '../EmptyState';
 import { Checkbox, Input } from '../Input';
+import { Select } from '../Select';
+import { targetLabel } from '../mcp/mcpView';
 import { PageSkeleton } from '../Skeleton';
 import { useToast } from '../Toast';
 import { useT } from '../../i18n';
@@ -19,8 +22,61 @@ import { formatSize, importLines, isImportLine, lineRanges, refreshInstructions,
 
 const base = (path: string) => path.split('/').pop() ?? path;
 
-/** ① A target's Instructions tab: the files it reads, in order, and an editor for its own file. */
-export default function TargetInstructions({ name }: { name: string }) {
+/**
+ * ① A target's Instructions tab. Tools that read this target's skills but keep
+ * their own instruction file (riders: Codex under universal) get a switch
+ * above the panel; the pick lives in ?tool= so it survives a reload.
+ * skillsPath: the target's skills folder, which the riders read too.
+ */
+export default function TargetInstructions({ name, skillsPath }: { name: string; skillsPath: string }) {
+  const t = useT();
+  const [params, setParams] = useSearchParams();
+  const { data } = useQuery({ queryKey: queryKeys.instructions.target(name), queryFn: () => api.getTargetInstructions(name) });
+  // Switching tools remounts the panel, so an unsaved edit asks before it is dropped.
+  const dirty = useRef(false);
+  const [pending, setPending] = useState<string | null>(null);
+  const riders = data?.riders ?? [];
+  if (!data?.supported || riders.length === 0) return <Panel name={name} />;
+
+  const tool = riders.find((r) => r.name === params.get('tool'))?.name ?? name;
+  const go = (next: string) => setParams((prev) => {
+    const p = new URLSearchParams(prev);
+    if (next === name) p.delete('tool');
+    else p.set('tool', next);
+    return p;
+  }, { replace: true });
+  const pick = (next: string) => (dirty.current ? setPending(next) : go(next));
+  // Tools by the name people know them by (Codex, not codex); the target itself keeps its own name.
+  const list = (names: string[]) => names.map(targetLabel).join(t('instructions.shared.listSep'));
+  const rider = riders.find((r) => r.name === tool);
+  const note = rider
+    ? t('instructions.riders.rider', { rider: targetLabel(rider.name), skills: shortenHome(skillsPath), file: shortenHome(rider.path) })
+    : data.read_by.length > 0 ? t('instructions.riders.readBy', { names: list(data.read_by) }) : '';
+  // A dropdown, not buttons: several installed tools can read the same skills folder.
+  const option = (target: string, label: string, path: string) => ({ value: target, label, description: shortenHome(path), icon: <AgentIcon target={target} size={16} /> });
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-2">
+        <Select ariaLabel={t('instructions.riders.label')} value={tool} onChange={pick} options={[option(name, name, data.path ?? ''), ...riders.map((r) => option(r.name, targetLabel(r.name), r.path))]} className="w-[280px] self-start" />
+        {note && <span className="text-[13px] text-ink-2">{note}</span>}
+      </div>
+      <Panel key={tool} name={tool} onDirty={(d) => { dirty.current = d; }} />
+      <ConfirmDialog
+        open={pending !== null}
+        title={t('config.discard.title')}
+        message={t('config.discard.message')}
+        confirmText={t('config.discard.confirmText')}
+        variant="danger"
+        onConfirm={() => { if (pending !== null) go(pending); setPending(null); }}
+        onCancel={() => setPending(null)}
+      />
+    </div>
+  );
+}
+
+/** The files a target (or rider) reads, in order, and an editor for its own file. */
+function Panel({ name, onDirty }: { name: string; onDirty?: (dirty: boolean) => void }) {
   const t = useT();
   const { data, error, isPending } = useQuery({ queryKey: queryKeys.instructions.target(name), queryFn: () => api.getTargetInstructions(name) });
   const [changingSetup, setChangingSetup] = useState(false);
@@ -39,7 +95,7 @@ export default function TargetInstructions({ name }: { name: string }) {
     );
   }
   // Remount on a new file version so the draft starts from it.
-  return <Editor key={`${data.path}:${data.content}`} data={data} onChangeSetup={() => setChangingSetup(true)} />;
+  return <Editor key={`${data.path}:${data.content}`} data={data} onChangeSetup={() => setChangingSetup(true)} onDirty={onDirty} />;
 }
 
 /** Where the target's instruction file is, for a tool skillshare does not know. onClose: changing an existing setting. */
@@ -90,7 +146,7 @@ function SetupForm({ data, onClose }: { data: Data; onClose?: () => void }) {
   );
 }
 
-function Editor({ data, onChangeSetup }: { data: Data; onChangeSetup: () => void }) {
+function Editor({ data, onChangeSetup, onDirty }: { data: Data; onChangeSetup: () => void; onDirty?: (dirty: boolean) => void }) {
   const t = useT();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -106,6 +162,11 @@ function Editor({ data, onChangeSetup }: { data: Data; onChangeSetup: () => void
   const imports = importLines(draft);
   const tooLong = Boolean(data.max_chars) && [...draft].length > (data.max_chars ?? 0);
   const importNote = !data.project && data.convert.includes('import') && shared.length === 0;
+
+  useEffect(() => {
+    onDirty?.(draft !== data.content);
+    return () => onDirty?.(false);
+  }, [draft, data.content, onDirty]);
 
   const save = async () => {
     setSaving(true);

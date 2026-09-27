@@ -37,6 +37,7 @@ skillshare 知道這些指示檔案：
 | antigravity | `~/.gemini/GEMINI.md`（與 gemini 是同一個檔案） | `AGENTS.md` | 否 |
 | antigravity-cli | `~/.gemini/GEMINI.md`（與 gemini 是同一個檔案） | `AGENTS.md` | 否 |
 | claude | `~/.claude/CLAUDE.md`，加上 `~/.claude/rules/` | `CLAUDE.md`，沒有 `CLAUDE.md` 時則為 `AGENTS.md`，加上 `.claude/rules/` | 是 |
+| cline | `~/.agents/AGENTS.md`（與 universal 是同一個檔案），加上 `~/Documents/Cline/Rules/` | `AGENTS.md`，加上 `.clinerules/` | 否 |
 | codebuddy | `~/.codebuddy/CODEBUDDY.md`，加上 `~/.codebuddy/rules/` | `CODEBUDDY.md`，沒有 `CODEBUDDY.md` 時則為 `AGENTS.md`，加上 `.codebuddy/rules/` | 是 |
 | codex | `~/.codex/AGENTS.md` | `AGENTS.md` | 否 |
 | commandcode | `~/.commandcode/AGENTS.md` | `AGENTS.md` | 是 |
@@ -64,12 +65,29 @@ skillshare 知道這些指示檔案：
 | universal | `~/.agents/AGENTS.md` | `AGENTS.md` | 否 |
 | verdent | `~/.verdent/VERDENT.md` | `AGENTS.md` | 否 |
 | vibe | `~/.vibe/AGENTS.md` | `AGENTS.md` | 否 |
+| warp | `~/.agents/AGENTS.md`（與 universal 是同一個檔案） | `AGENTS.md` | 否 |
 | windsurf | `~/.codeium/windsurf/memories/global_rules.md`（前 6,000 個字元） | `AGENTS.md` | 否 |
 | zed | `~/.config/zed/AGENTS.md` | `AGENTS.md` | 否 |
 
 Claude、Codex 或 Pi 的[第二個帳號](../../reference/targets/configuration.md#agent-config-dir)
 會讀取自己 config 目錄中的同名檔案，例如 `~/.claude-work/CLAUDE.md`。至於其他 target，你可以
 [告訴 skillshare 它讀哪個檔案](#tools-skillshare-doesnt-know)。
+
+## 透過 universal 讀取 skills 的工具 {#tools-that-read-skills-through-universal}
+
+很多工具會從 universal target 的資料夾 `~/.agents/skills` 讀取 skills。Codex 和 Goose 把它當成自己的
+skills 資料夾，Gemini CLI、Pi、OpenCode 等工具則是除了自己的資料夾外也會讀它。如果你透過 universal
+把 skills 同步給它們，而沒有把它們加成 target，它們讀的仍是自己的指令檔，而不是
+`~/.agents/AGENTS.md`：例如 Codex 讀 `~/.codex/AGENTS.md`，Gemini CLI 讀 `~/.gemini/GEMINI.md`。
+
+在 global 模式下，universal 的 **AGENTS.md** 分頁會在編輯器上方提供一個下拉選單，列出已安裝的這類工具；
+skillshare 以它們的資料夾（例如 `~/.codex` 或 `~/.gemini`）是否存在來判斷。選擇其中一個就能查看並編輯
+它自己的檔案，選擇會以 `?tool=<name>` 記在網址裡。它們也會出現在 **Extras** 的共用 AGENTS.md 清單中，
+所以可以替它們接上共用檔案。它們的檔案位置無法變更，因為它們沒有 target 設定可以存放這個值。沒有列出的
+工具，可以把它加成獨立的 target。
+
+有些工具會讀 `~/.agents/AGENTS.md` 本身，例如 Cline 和 Warp Agent CLI。Codex、Gemini CLI 和 Pi
+讀的是自己的檔案。
 
 ## 把 CLAUDE.md 轉換成 AGENTS.md {#convert-claudemd-to-agentsmd}
 
@@ -134,10 +152,12 @@ Target 使用共用檔案的方式，取決於它是否會展開 `@` import：
 - **全部接上** 與 **全部還原** 在動手之前，會先列出每個會變動的 target，並註明各自會發生什麼事。
   只想變更部分 target 時，勾選它們的列，再使用選取列上的 **接上** 或 **還原**。
 
-有兩個 target 比較特別：
+有幾個 target 比較特別：
 
 - antigravity 與 gemini 讀取同一個 `~/.gemini/GEMINI.md`。兩者都是 target 時，antigravity 那一列
   會跟著 gemini，無法單獨變更。
+- cline 與 warp 讀取與 universal 同一個 `~/.agents/AGENTS.md`。universal 也是 target 時，
+  它們那一列會跟著 universal。
 - cursor 不會列出：它的 User Rules 存在 Cursor 的設定裡，不是檔案。
 
 ## 管理單一共用檔案 {#manage-one-shared-file}

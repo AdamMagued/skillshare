@@ -42,6 +42,7 @@ skillshare가 알고 있는 지침 파일은 다음과 같습니다:
 | antigravity | `~/.gemini/GEMINI.md` (gemini와 같은 파일) | `AGENTS.md` | No |
 | antigravity-cli | `~/.gemini/GEMINI.md` (gemini와 같은 파일) | `AGENTS.md` | No |
 | claude | `~/.claude/CLAUDE.md`, 그리고 `~/.claude/rules/` | `CLAUDE.md`, `CLAUDE.md`가 없으면 `AGENTS.md`, 그리고 `.claude/rules/` | Yes |
+| cline | `~/.agents/AGENTS.md` (universal과 같은 파일), 그리고 `~/Documents/Cline/Rules/` | `AGENTS.md`, 그리고 `.clinerules/` | No |
 | codebuddy | `~/.codebuddy/CODEBUDDY.md`, 그리고 `~/.codebuddy/rules/` | `CODEBUDDY.md`, `CODEBUDDY.md`가 없으면 `AGENTS.md`, 그리고 `.codebuddy/rules/` | Yes |
 | codex | `~/.codex/AGENTS.md` | `AGENTS.md` | No |
 | commandcode | `~/.commandcode/AGENTS.md` | `AGENTS.md` | Yes |
@@ -69,12 +70,30 @@ skillshare가 알고 있는 지침 파일은 다음과 같습니다:
 | universal | `~/.agents/AGENTS.md` | `AGENTS.md` | No |
 | verdent | `~/.verdent/VERDENT.md` | `AGENTS.md` | No |
 | vibe | `~/.vibe/AGENTS.md` | `AGENTS.md` | No |
+| warp | `~/.agents/AGENTS.md` (universal과 같은 파일) | `AGENTS.md` | No |
 | windsurf | `~/.codeium/windsurf/memories/global_rules.md` (처음 6,000자) | `AGENTS.md` | No |
 | zed | `~/.config/zed/AGENTS.md` | `AGENTS.md` | No |
 
 Claude, Codex, Pi의 [두 번째 계정](../../reference/targets/configuration.md#agent-config-dir)은
 자기 config 디렉터리 안의 같은 파일을 읽습니다. 예: `~/.claude-work/CLAUDE.md`. 그 밖의
 target은 [어떤 파일을 읽는지 skillshare에 알려 주세요](#tools-skillshare-doesnt-know).
+
+## universal을 통해 skills를 읽는 도구 {#tools-that-read-skills-through-universal}
+
+많은 도구가 universal target의 폴더인 `~/.agents/skills`에서 skills를 읽습니다. Codex와 Goose는
+이 폴더를 자기 skills 폴더로 쓰고, Gemini CLI, Pi, OpenCode 같은 도구는 자기 폴더와 함께 이 폴더도
+읽습니다. universal을 통해 skills를 동기화하고 이 도구들을 target으로 추가하지 않았다면, 이들은
+`~/.agents/AGENTS.md`가 아니라 자기 지침 파일을 읽습니다. 예를 들어 Codex는 `~/.codex/AGENTS.md`,
+Gemini CLI는 `~/.gemini/GEMINI.md`를 읽습니다.
+
+global 모드에서는 universal의 **AGENTS.md** 탭 편집기 위에 드롭다운이 있으며, 설치된 이런 도구가
+표시됩니다. skillshare는 `~/.codex`나 `~/.gemini` 같은 폴더가 있는지로 판단합니다. 하나를 고르면 그
+도구의 파일을 보고 편집할 수 있으며, 선택은 URL에 `?tool=<name>`으로 남습니다. **Extras**의 공유
+AGENTS.md 목록에도 나타나므로 공유 파일을 연결할 수도 있습니다. 이 값을 저장할 target 설정이 없으므로
+파일 위치는 바꿀 수 없습니다. 목록에 없는 도구는 별도의 target으로 추가할 수 있습니다.
+
+Cline, Warp Agent CLI처럼 `~/.agents/AGENTS.md` 자체를 읽는 도구도 있습니다. Codex, Gemini CLI,
+Pi는 자기 파일을 읽습니다.
 
 ## CLAUDE.md를 AGENTS.md로 변환하기 {#convert-claudemd-to-agentsmd}
 
@@ -149,10 +168,12 @@ target이 공유 파일을 쓰는 방식은 `@` import를 따르는지에 따라
   되는지 안내합니다. 일부 target만 바꾸려면 행을 체크하고 선택 막대의 **연결** 또는
   **복원**을 사용하세요.
 
-특별한 target이 두 개 있습니다:
+특별한 target이 몇 개 있습니다:
 
 - antigravity는 gemini와 같은 `~/.gemini/GEMINI.md`를 읽습니다. 둘 다 target이면
   antigravity의 행은 gemini를 따르며 따로 바꿀 수 없습니다.
+- cline과 warp는 universal과 같은 `~/.agents/AGENTS.md`를 읽습니다. universal도 target이면
+  이들의 행은 universal을 따릅니다.
 - cursor는 표시되지 않습니다. 사용자 rules가 파일이 아닌 Cursor 설정에 있기 때문입니다.
 
 ## 공유 파일 하나 관리하기 {#manage-one-shared-file}

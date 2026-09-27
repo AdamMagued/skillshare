@@ -91,6 +91,13 @@ targets:
       project: ".cline/skills"
     also_scans:
       project: [".clinerules/skills", ".claude/skills"]
+    instructions:
+      global: "~/.agents/AGENTS.md"
+      project: "AGENTS.md"
+      same_as: universal
+      rules:
+        global: "~/Documents/Cline/Rules"
+        project: ".clinerules"
   - name: codebuddy
     skills:
       global: "~/.codebuddy/skills"
@@ -469,6 +476,10 @@ targets:
     skills:
       global: "~/.agents/skills"
       project: ".agents/skills"
+    instructions:
+      global: "~/.agents/AGENTS.md"
+      project: "AGENTS.md"
+      same_as: universal
   - name: windsurf
     skills:
       global: "~/.codeium/windsurf/skills"

@@ -375,3 +375,80 @@ func TestTargetInstructions_PutRefusesSharedLink(t *testing.T) {
 		t.Errorf("status %d, want 409", rr.Code)
 	}
 }
+
+// useAgentsSkills points universal at ~/.agents/skills, the folder its riders
+// (Codex, Goose) read, and saves the config.
+func useAgentsSkills(t *testing.T, s *Server, home string) {
+	t.Helper()
+	s.cfg.Targets["universal"] = config.TargetConfig{Path: filepath.Join(home, ".agents", "skills")}
+	if err := s.saveAndReloadConfig(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestTargetInstructions_RiderGetAndPut(t *testing.T) {
+	s, home := newInstructionsServer(t, "universal")
+	useAgentsSkills(t, s, home)
+	writeHome(t, home, ".codex/AGENTS.md", "codex own\n")
+
+	got := decodeBody[instructionsFileResponse](t, instructionsRequest(t, s, http.MethodGet, "/api/targets/codex/instructions", ""))
+	if !got.Supported || got.Path != filepath.Join(home, ".codex", "AGENTS.md") || got.Content != "codex own\n" || got.RiderOf != "universal" {
+		t.Fatalf("codex = %+v", got)
+	}
+	if rr := instructionsRequest(t, s, http.MethodPut, "/api/targets/codex/instructions", `{"content":"edited\n"}`); rr.Code != http.StatusOK {
+		t.Fatalf("put: %d %s", rr.Code, rr.Body.String())
+	}
+	if got := readFile(t, filepath.Join(home, ".codex", "AGENTS.md")); got != "edited\n" {
+		t.Errorf("AGENTS.md = %q", got)
+	}
+	// A rider has no config entry to hold a custom file.
+	if rr := instructionsRequest(t, s, http.MethodPut, "/api/targets/codex/instructions/setup", `{"path":"~/x/AGENTS.md"}`); rr.Code != http.StatusNotFound {
+		t.Errorf("setup: %d, want 404", rr.Code)
+	}
+}
+
+func TestTargetInstructions_UnknownTargetNotFound(t *testing.T) {
+	s, _ := newInstructionsServer(t, "universal")
+	// codex is not installed here, so it is no rider.
+	for _, name := range []string{"codex", "nope"} {
+		if rr := instructionsRequest(t, s, http.MethodGet, "/api/targets/"+name+"/instructions", ""); rr.Code != http.StatusNotFound {
+			t.Errorf("%s: %d, want 404", name, rr.Code)
+		}
+	}
+}
+
+func TestTargetInstructions_UniversalListsRidersAndReaders(t *testing.T) {
+	s, home := newInstructionsServer(t, "universal")
+	useAgentsSkills(t, s, home)
+	os.MkdirAll(filepath.Join(home, ".codex"), 0755)
+
+	got := decodeBody[instructionsFileResponse](t, instructionsRequest(t, s, http.MethodGet, "/api/targets/universal/instructions", ""))
+	if len(got.Riders) != 1 || got.Riders[0].Name != "codex" || got.Riders[0].Path != filepath.Join(home, ".codex", "AGENTS.md") || got.Riders[0].Exists {
+		t.Errorf("riders = %+v", got.Riders)
+	}
+	if strings.Join(got.ReadBy, ",") != "cline,warp" {
+		t.Errorf("read_by = %v", got.ReadBy)
+	}
+}
+
+func TestSharedInstructions_AssignAndRestoreRider(t *testing.T) {
+	s, home := newInstructionsServer(t, "universal")
+	useAgentsSkills(t, s, home)
+	codex := writeHome(t, home, ".codex/AGENTS.md", "codex own\n")
+	instructionsRequest(t, s, http.MethodPost, "/api/instructions", `{"name":"personal","content":"p\n"}`)
+
+	list := decodeBody[struct {
+		Targets []sharedInstructionsTarget `json:"targets"`
+	}](t, instructionsRequest(t, s, http.MethodGet, "/api/instructions", ""))
+	if len(list.Targets) != 2 || list.Targets[0].Name != "codex" || list.Targets[0].RiderOf != "universal" {
+		t.Fatalf("targets = %+v", list.Targets)
+	}
+	res := decodeBody[map[string]any](t, instructionsRequest(t, s, http.MethodPost, "/api/instructions/assign", `{"targets":["codex"],"extras":["personal"]}`))
+	if res["success"] != true || readFile(t, codex) != "p\n" {
+		t.Fatalf("assign: %v, codex = %q", res, readFile(t, codex))
+	}
+	res = decodeBody[map[string]any](t, instructionsRequest(t, s, http.MethodPost, "/api/instructions/personal/restore", `{"target":"codex"}`))
+	if res["success"] != true || readFile(t, codex) != "codex own\n" {
+		t.Errorf("restore: %v, codex = %q", res, readFile(t, codex))
+	}
+}

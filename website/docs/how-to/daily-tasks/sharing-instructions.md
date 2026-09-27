@@ -44,6 +44,7 @@ skillshare knows these instruction files:
 | antigravity | `~/.gemini/GEMINI.md` (the same file as gemini) | `AGENTS.md` | No |
 | antigravity-cli | `~/.gemini/GEMINI.md` (the same file as gemini) | `AGENTS.md` | No |
 | claude | `~/.claude/CLAUDE.md`, plus `~/.claude/rules/` | `CLAUDE.md`, or `AGENTS.md` when there is no `CLAUDE.md`, plus `.claude/rules/` | Yes |
+| cline | `~/.agents/AGENTS.md` (the same file as universal), plus `~/Documents/Cline/Rules/` | `AGENTS.md`, plus `.clinerules/` | No |
 | codebuddy | `~/.codebuddy/CODEBUDDY.md`, plus `~/.codebuddy/rules/` | `CODEBUDDY.md`, or `AGENTS.md` when there is no `CODEBUDDY.md`, plus `.codebuddy/rules/` | Yes |
 | codex | `~/.codex/AGENTS.md` | `AGENTS.md` | No |
 | commandcode | `~/.commandcode/AGENTS.md` | `AGENTS.md` | Yes |
@@ -71,6 +72,7 @@ skillshare knows these instruction files:
 | universal | `~/.agents/AGENTS.md` | `AGENTS.md` | No |
 | verdent | `~/.verdent/VERDENT.md` | `AGENTS.md` | No |
 | vibe | `~/.vibe/AGENTS.md` | `AGENTS.md` | No |
+| warp | `~/.agents/AGENTS.md` (the same file as universal) | `AGENTS.md` | No |
 | windsurf | `~/.codeium/windsurf/memories/global_rules.md` (first 6,000 characters) | `AGENTS.md` | No |
 | zed | `~/.config/zed/AGENTS.md` | `AGENTS.md` | No |
 
@@ -78,6 +80,26 @@ A [second account](../../reference/targets/configuration.md#agent-config-dir) of
 Claude, Codex or Pi reads the same file inside its own config directory, for example
 `~/.claude-work/CLAUDE.md`. For any other target, you
 [tell skillshare which file it reads](#tools-skillshare-doesnt-know).
+
+## Tools that read skills through universal
+
+Many tools read skills from `~/.agents/skills`, the universal target's folder.
+Codex and Goose use it as their skills folder, and tools such as Gemini CLI, Pi and
+OpenCode also read it next to their own. If you sync skills to them through
+universal and don't add them as targets, they still read their own instruction
+file, not `~/.agents/AGENTS.md`: for example, Codex reads `~/.codex/AGENTS.md` and
+Gemini CLI reads `~/.gemini/GEMINI.md`.
+
+In global mode, universal's **AGENTS.md** tab has a dropdown above the editor that
+lists these tools when they are installed, which skillshare tells by their folder,
+such as `~/.codex` or `~/.gemini`. Pick one to see and edit its own file; the
+choice is kept in the URL as `?tool=<name>`. They also appear in the shared
+AGENTS.md list under **Extras**, so you can connect a shared file to them. Their
+file location can't be changed, because they have no target entry to store it in.
+A tool that isn't listed can be added as its own target.
+
+Some tools, such as Cline and the Warp Agent CLI, read `~/.agents/AGENTS.md` itself.
+Codex, Gemini CLI and Pi read their own file.
 
 ## Convert CLAUDE.md to AGENTS.md
 
@@ -155,10 +177,12 @@ target with a switch. The selected file is part of the URL
   what happens to each one, before they do anything. To change only some targets,
   tick their rows and use **Connect** or **Restore** in the selection bar.
 
-Two targets are special:
+Some targets are special:
 
 - antigravity reads the same `~/.gemini/GEMINI.md` as gemini. When both are
   targets, antigravity's row follows gemini and can't be changed on its own.
+- cline and warp read the same `~/.agents/AGENTS.md` as universal. When universal
+  is a target too, their rows follow universal.
 - cursor isn't listed: its user rules live in Cursor's settings, not in a file.
 
 ## Manage one shared file

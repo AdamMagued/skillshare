@@ -10,6 +10,7 @@ import Button from '../Button';
 import { Checkbox } from '../Checkbox';
 import ConfirmDialog from '../ConfirmDialog';
 import EmptyState from '../EmptyState';
+import { targetLabel } from '../mcp/mcpView';
 import { PageSkeleton } from '../Skeleton';
 import { SkillContextMenu } from '../TargetMenu';
 import { useToast } from '../Toast';
@@ -268,6 +269,7 @@ function FilePanel({ file, targets, onDeleted }: {
       case 'tooLong': return t('instructions.shared.tooLong', { name, chars: file.chars.toLocaleString(), max: h.max.toLocaleString() });
       case 'usesOther': return t('instructions.hint.usesOther', { name: h.name });
       case 'alsoUses': return t('instructions.hint.alsoUses', { names: list(h.names) });
+      case 'riderOf': return t('instructions.hint.riderOf', { name: h.name });
     }
   };
 
@@ -340,7 +342,7 @@ function FilePanel({ file, targets, onDeleted }: {
                 <Checkbox label={t('instructions.shared.select', { name: tg.name })} hideLabel checked={selected.has(tg.name)} disabled={Boolean(tg.same_as)}
                   onChange={(v) => { const next = new Set(selected); if (v) next.add(tg.name); else next.delete(tg.name); setSelected(next); }} />
                 <span className="ss-at"><AgentIcon target={tg.name} size={17} /></span>
-                <Link to={`/targets/${encodeURIComponent(tg.name)}?tab=instructions`} className="w-[110px] shrink-0 truncate font-mono text-[13px] font-semibold hover:underline">{tg.name}</Link>
+                <Link to={tg.rider_of ? `/targets/${encodeURIComponent(tg.rider_of)}?tab=instructions&tool=${encodeURIComponent(tg.name)}` : `/targets/${encodeURIComponent(tg.name)}?tab=instructions`} className="w-[110px] shrink-0 truncate font-mono text-[13px] font-semibold hover:underline">{tg.rider_of ? targetLabel(tg.name) : tg.name}</Link>
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span className="truncate font-mono text-[12.5px] text-ink-2" title={tg.path}>{shortenHome(tg.path)}</span>
                   {hint && <span className={`text-[12px] ${hint.kind === 'tooLong' || hint.kind === 'noSource' ? 'text-warn' : 'text-ink-3'}`}>{hintText(hint)}</span>}
