@@ -58,7 +58,8 @@ function Row({ name, inventory, updates, busy, working, onToggle, onMenu, onAdd,
   // row opens. Its own key, outside `plugins`: a toggle must not send it back to the network.
   // ponytail: one discovery per plugin per session; give it a refresh control if sources change under an open dashboard.
   const found = useQuery({
-    queryKey: ['plugin-discover', source, sourceRef, entry],
+    // The name picks the snapshot: two plugins of one source can be at different commits.
+    queryKey: ['plugin-discover', source, sourceRef, entry, name],
     queryFn: () => pluginsApi.discover(source!, sourceRef, entry, name),
     enabled: expanded && !!source,
     staleTime: Infinity,

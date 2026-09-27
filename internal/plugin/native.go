@@ -49,14 +49,18 @@ func ErrorKey(err error) (string, map[string]string) {
 // stderr can echo a URL with credentials. LC_ALL=C keeps the words English.
 func gitFailure(stderr string) (agentError, bool) {
 	lower := strings.ToLower(stderr)
-	// A missing repository is checked first: git reports it as "unable to access" too, and
-	// GitHub asks for a username when the repository does not exist or is private.
-	for _, s := range []string{"repository not found", "does not appear to be a git repository", "couldn't find remote ref", "returned error: 404", "not found", "could not read username"} {
-		if strings.Contains(lower, s) {
-			return agentError{key: "plugins.error.sourceNotFound", message: "plugin source not found; check the repository address and branch"}, true
-		}
+	// GitHub asks for a username when the repository does not exist or is private. A bare
+	// "not found" is not enough: a missing git-lfs says "command not found".
+	missing := strings.Contains(lower, "fatal: repository '") && strings.Contains(lower, "' not found")
+	for _, s := range []string{"repository not found", "does not appear to be a git repository", "couldn't find remote ref", "returned error: 404", "could not read username"} {
+		missing = missing || strings.Contains(lower, s)
 	}
-	for _, s := range []string{"could not resolve host", "failed to connect", "connection timed out", "connection refused", "unable to access", "operation timed out", "network is unreachable"} {
+	if missing {
+		return agentError{key: "plugins.error.sourceNotFound", message: "plugin source not found; check the repository address and branch"}, true
+	}
+	// Not "unable to access": git opens every HTTPS failure with it, a bad certificate or a
+	// 403 included, and those are not the network's fault.
+	for _, s := range []string{"could not resolve host", "failed to connect", "connection timed out", "connection refused", "operation timed out", "network is unreachable", "resolving timed out"} {
 		if strings.Contains(lower, s) {
 			return agentError{key: "plugins.error.network", message: "could not reach the plugin source; check the network connection and try again"}, true
 		}

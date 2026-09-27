@@ -84,14 +84,23 @@ func TestGitFailureNamesTheCauseWithoutItsOutput(t *testing.T) {
 		"fatal: unable to access 'https://x/': Failed to connect to github.com port 443": "plugins.error.network",
 		"remote: Repository not found.\nfatal: repository 'https://x/' not found":        "plugins.error.sourceNotFound",
 		"fatal: couldn't find remote ref nope":                                           "plugins.error.sourceNotFound",
+		"fatal: repository 'https://x/' not found":                                       "plugins.error.sourceNotFound",
 	} {
 		failure, ok := gitFailure(stderr)
 		if !ok || failure.key != key || strings.Contains(failure.message, "https://x/") {
 			t.Errorf("%q: key = %q, message = %q, want %s", stderr, failure.key, failure.message, key)
 		}
 	}
-	if _, ok := gitFailure("fatal: something else"); ok {
-		t.Error("an unknown failure was classified")
+	// Git words other failures the same way; a wrong cause would send the user to the wrong fix.
+	for _, stderr := range []string{
+		"fatal: something else",
+		"git-lfs filter-process: git-lfs: command not found",
+		"fatal: unable to access 'https://x/': SSL certificate problem: self signed certificate",
+		"fatal: unable to access 'https://x/': The requested URL returned error: 403",
+	} {
+		if failure, ok := gitFailure(stderr); ok {
+			t.Errorf("%q was classified as %s", stderr, failure.key)
+		}
 	}
 }
 
