@@ -34,6 +34,36 @@ type agentError struct {
 func (e agentError) Error() string { return e.message }
 func (e agentError) Unwrap() error { return e.cause }
 
+// ErrorKey is the translation key and arguments of a fixed failure, "" when the message
+// was assembled at runtime.
+func ErrorKey(err error) (string, map[string]string) {
+	var keyed agentError
+	if errors.As(err, &keyed) {
+		return keyed.key, keyed.args
+	}
+	return "", nil
+}
+
+// gitFailure sorts a git failure by the words in its stderr, so the dashboard can say
+// whether the network or the source is at fault. Only the key leaves this function:
+// stderr can echo a URL with credentials. LC_ALL=C keeps the words English.
+func gitFailure(stderr string) (agentError, bool) {
+	lower := strings.ToLower(stderr)
+	// A missing repository is checked first: git reports it as "unable to access" too, and
+	// GitHub asks for a username when the repository does not exist or is private.
+	for _, s := range []string{"repository not found", "does not appear to be a git repository", "couldn't find remote ref", "returned error: 404", "not found", "could not read username"} {
+		if strings.Contains(lower, s) {
+			return agentError{key: "plugins.error.sourceNotFound", message: "plugin source not found; check the repository address and branch"}, true
+		}
+	}
+	for _, s := range []string{"could not resolve host", "failed to connect", "connection timed out", "connection refused", "unable to access", "operation timed out", "network is unreachable"} {
+		if strings.Contains(lower, s) {
+			return agentError{key: "plugins.error.network", message: "could not reach the plugin source; check the network connection and try again"}, true
+		}
+	}
+	return agentError{}, false
+}
+
 func runCommand(ctx context.Context, dir string, env []string, bin string, args ...string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, 90*time.Second)
 	defer cancel()
@@ -41,6 +71,9 @@ func runCommand(ctx context.Context, dir string, env []string, bin string, args 
 	cmd.Dir = dir
 	// No shell, inherited stdin, or automatic native trust/command confirmation.
 	cmd.Env = append(append(os.Environ(), "GIT_TERMINAL_PROMPT=0"), env...)
+	if bin == "git" {
+		cmd.Env = append(cmd.Env, "LC_ALL=C")
+	}
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -50,6 +83,11 @@ func runCommand(ctx context.Context, dir string, env []string, bin string, args 
 		}
 		if ctx.Err() != nil {
 			return nil, agentError{key: "plugins.error.timeout", message: fmt.Sprintf("%s timed out or was cancelled; inspect native status before retrying", bin)}
+		}
+		if bin == "git" {
+			if failure, ok := gitFailure(stderr.String()); ok {
+				return nil, failure
+			}
 		}
 		// Native output can contain credentials or command-source scripts.
 		return nil, agentError{key: "plugins.error.commandFailed", message: fmt.Sprintf("%s command failed; open the native client to resolve authentication, trust, or configuration", bin)}

@@ -5,6 +5,8 @@ import { pluginsApi, syncAction, targetMap, type PluginInventory, type PluginReq
 import AgentIcon from '../AgentIcon';
 import Spinner from '../Spinner';
 import { agentReasons } from './agentReasons';
+import SourceHint from './SourceHint';
+import { pluginErrorMessage } from './pluginError';
 import { useT } from '../../i18n';
 import { useAppContext } from '../../context/AppContext';
 import { shortenPath } from '../../lib/paths';
@@ -57,7 +59,7 @@ function Row({ name, inventory, updates, busy, working, onToggle, onMenu, onAdd,
   // ponytail: one discovery per plugin per session; give it a refresh control if sources change under an open dashboard.
   const found = useQuery({
     queryKey: ['plugin-discover', source, sourceRef, entry],
-    queryFn: () => pluginsApi.discover(source!, sourceRef, entry),
+    queryFn: () => pluginsApi.discover(source!, sourceRef, entry, name),
     enabled: expanded && !!source,
     staleTime: Infinity,
     retry: false,
@@ -127,7 +129,8 @@ function Row({ name, inventory, updates, busy, working, onToggle, onMenu, onAdd,
             />
           ))}
           {found.isFetching && <span className="flex items-center gap-2 text-[13px] text-ink-3"><Spinner size="sm" />{t('plugins.discovering')}</span>}
-          {found.error && <span className="text-xs text-ink-3">{(found.error as Error).message}</span>}
+          {(found.isFetching || found.error) && <SourceHint active={found.isFetching} />}
+          {found.error && <span className="text-xs text-ink-3">{pluginErrorMessage(found.error, t)}</span>}
           {blocked > 0 && <button type="button" className="ss-more" disabled={busy} onClick={() => onBlocked(name, source)}>{t('plugins.moreBlocked', { count: blocked })}</button>}
         </div>
       )}

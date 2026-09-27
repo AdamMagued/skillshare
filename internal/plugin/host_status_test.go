@@ -78,6 +78,23 @@ func TestRunCommandMarksAnAbsentBinary(t *testing.T) {
 	}
 }
 
+func TestGitFailureNamesTheCauseWithoutItsOutput(t *testing.T) {
+	for stderr, key := range map[string]string{
+		"fatal: unable to access 'https://x/': Could not resolve host: github.com":       "plugins.error.network",
+		"fatal: unable to access 'https://x/': Failed to connect to github.com port 443": "plugins.error.network",
+		"remote: Repository not found.\nfatal: repository 'https://x/' not found":        "plugins.error.sourceNotFound",
+		"fatal: couldn't find remote ref nope":                                           "plugins.error.sourceNotFound",
+	} {
+		failure, ok := gitFailure(stderr)
+		if !ok || failure.key != key || strings.Contains(failure.message, "https://x/") {
+			t.Errorf("%q: key = %q, message = %q, want %s", stderr, failure.key, failure.message, key)
+		}
+	}
+	if _, ok := gitFailure("fatal: something else"); ok {
+		t.Error("an unknown failure was classified")
+	}
+}
+
 func TestRunCommandReadsVersionFromStderr(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "pi"), []byte("#!/bin/sh\necho 0.73.1 >&2\n"), 0755); err != nil {
