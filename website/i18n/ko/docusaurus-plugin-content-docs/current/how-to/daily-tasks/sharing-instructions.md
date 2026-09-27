@@ -56,7 +56,7 @@ target은 [어떤 파일을 읽는지 skillshare에 알려 주세요](#tools-ski
 
 ## CLAUDE.md를 AGENTS.md로 변환하기 {#convert-claudemd-to-agentsmd}
 
-target 탭에서 **변환…**을 클릭하면 그 내용을 다른 도구도 읽을 수 있게 만듭니다.
+target 탭에서 **변환…** 을 클릭하면 그 내용을 다른 도구도 읽을 수 있게 만듭니다.
 이 버튼은 파일에 옮길 내용이 있고 파일이 이미 `AGENTS.md`가 아닐 때 나타납니다.
 대화상자는 기록하기 전에 모든 변경 사항을 미리 보여 주며, 변경하거나 제거하는 파일은
 모두 먼저 백업됩니다.
@@ -113,16 +113,21 @@ target이 공유 파일을 쓰는 방식은 `@` import를 따르는지에 따라
 - **그 밖의 target**(codex, gemini 등)은 공유 파일 하나를 씁니다. 기존 파일은 백업된 뒤
   공유 파일에 대한 링크(symlink)로 교체됩니다.
 
-탭 왼쪽에는 공유 파일 목록이 있습니다: **모든 대상**, 사용 중인 target 수가 표시된 각
-공유 파일, 그리고 **자체 파일**. 하나를 클릭하면 해당 target만 표시됩니다. 공유 파일
-옆의 화살표는 그 파일의 페이지를 엽니다. 공유 파일을 선택하면 헤더에 **대상 추가**와
-**AGENTS.md 편집**도 나타납니다.
+탭 왼쪽에는 공유 파일 목록이 있고, 각 파일에 연결된 target이 함께 표시됩니다. 하나를
+클릭하면 오른쪽에 그 파일의 경로, 내용 미리보기, 스위치가 달린 모든 target이 표시됩니다.
+선택한 파일은 URL(`/extras?tab=instructions&file=<name>`)에 포함되므로, 링크로 그 파일을
+바로 열 수 있습니다.
 
-오른쪽의 각 행에는 target, 기록되는 파일, **사용 중** 선택 상자가 표시됩니다. import
-target은 여러 공유 파일을 선택할 수 있고, 다른 target은 하나 또는 **자체 파일**을
-선택합니다. 여러 target을 한 번에 바꾸려면 행을 체크하고 **변경…**을 사용하세요.
-**자체 파일**로 되돌릴 때는 target을 [복원](#restore-and-delete)하므로 항상 먼저
-확인을 요청합니다.
+- target의 스위치를 켜면 연결됩니다. import target은 import 줄이 하나 더 추가되고 다른
+  공유 파일은 그대로 유지됩니다. 이미 다른 공유 파일을 쓰는 target은 하나만 쓸 수 있으므로
+  먼저 확인을 요청합니다.
+- 스위치를 끄면 target을 [복원](#restore-and-delete)합니다. 먼저 확인을 요청합니다. import
+  target은 이 파일의 import 줄만 제거되고 다른 공유 파일은 유지됩니다.
+- **모두 연결**과 **모두 복원**은 실행하기 전에 바뀌는 target을 모두 나열하고, 각각 어떻게
+  되는지 안내합니다. 일부 target만 바꾸려면 행을 체크하고 선택 막대의 **연결** 또는
+  **복원**을 사용하세요.
+
+특별한 target이 두 개 있습니다:
 
 - antigravity는 gemini와 같은 `~/.gemini/GEMINI.md`를 읽습니다. 둘 다 target이면
   antigravity의 행은 gemini를 따르며 따로 바꿀 수 없습니다.
@@ -130,8 +135,7 @@ target은 여러 공유 파일을 선택할 수 있고, 다른 target은 하나 
 
 ## 공유 파일 하나 관리하기 {#manage-one-shared-file}
 
-공유 파일의 페이지에는 그 파일을 사용하는 target이 나열되며, 각 target이 기록하는 파일,
-mode(`import` 또는 `symlink`), 상태가 표시됩니다:
+연결된 각 target에는 mode(`import` 또는 `symlink`)와 상태가 표시됩니다:
 
 | 상태 | 의미 |
 |--------|---------|
@@ -141,42 +145,42 @@ mode(`import` 또는 `symlink`), 상태가 표시됩니다:
 | `not synced` (동기화되지 않음) | target 파일이 아직 없음 |
 | `no source` (소스 없음) | 공유 파일 자체가 없음 |
 
-이 페이지에서 할 수 있는 작업:
+연결된 target이 `drift` 또는 `not synced`이면, 제목에 sync가 필요한 target 수와 이 파일의
+링크와 import 줄을 다시 제자리에 두는 **동기화** 버튼이 표시됩니다.
 
-- **대상 추가**: target을 하나 더 연결합니다. 목록에는 아직 이 파일을 쓰지 않는 import
-  target과, 아직 어떤 공유 파일도 쓰지 않는 다른 target이 표시됩니다.
-- **AGENTS.md 편집**: 이 파일을 쓰는 모든 target이 변경 사항을 읽습니다. 이전 버전은
-  백업됩니다.
-- **동기화**: 이 파일의 링크와 import 줄을 다시 제자리에 둡니다.
-- target 하나를 **복원**하거나 **공유 AGENTS.md 삭제**.
+**편집**은 큰 편집기에서 파일을 엽니다. 옆 패널에는 저장한 파일을 바로 읽는 target이
+나열되고, 긴 파일의 일부만 읽는 target에 대한 경고가 표시됩니다. ⌘S(Ctrl+S)를 눌러
+저장하세요. 이전 버전은 백업됩니다.
+
+**⋯** 메뉴에서 파일 경로를 복사하거나 공유 파일을 삭제할 수 있습니다.
 
 ### 복원과 삭제 {#restore-and-delete}
 
-**복원**은 확인을 요청한 뒤 target을 공유 파일을 연결하기 전 상태로 되돌립니다. 원래
-있던 파일이나 symlink가 돌아오고, 원래 없었다면 파일이 제거됩니다. import target의 경우
-skillshare의 import 줄만 제거되며, skillshare가 블록만을 위해 만든 `CLAUDE.md`는 비게
-되면 제거됩니다. 공유 파일 자체는 유지됩니다. target이 여전히 `modified`이면, 복원은
-먼저 편집된 파일을 [drift 백업](#backups)으로 보관합니다.
+target을 복원하면 공유 파일을 연결하기 전 상태로 돌아갑니다. 원래 있던 파일이나
+symlink가 돌아오고, 원래 없었다면 파일이 제거됩니다. import target의 경우 skillshare의
+import 줄만 제거되며, skillshare가 블록만을 위해 만든 `CLAUDE.md`는 비게 되면 제거됩니다.
+공유 파일 자체는 유지됩니다. target이 여전히 `modified`이면, 편집된 파일을 먼저
+[drift 백업](#backups)으로 보관합니다.
 
-**공유 AGENTS.md 삭제**는 config에서 제거하고 그것을 쓰던 모든 target을 복원합니다.
-파일은 extras 폴더에 남습니다.
+공유 파일을 삭제하면 config에서 제거되고 그것을 쓰던 모든 target이 복원됩니다. 파일은
+extras 폴더에 남습니다.
 
 ## 링크된 파일이 편집되었을 때 {#when-a-linked-file-is-edited}
 
 사용자나 도구가 target 파일을 직접 편집해 링크가 내용이 다른 일반 파일로 바뀌면, 상태가
-`modified`가 됩니다. 공유 파일의 페이지나 **AGENTS.md** 탭의 행 메뉴에서 어느 쪽을
-유지할지 선택하세요:
+`modified`가 되고, 행에 두 가지 선택지가 있는 안내가 표시됩니다:
 
-- **되가져오기**: 편집 내용이 공유 파일에 반영되고, 그것을 쓰는 모든 target이 변경
+- **공유 파일에 반영**: 편집 내용이 공유 파일에 반영되고, 그것을 쓰는 모든 target이 변경
   사항을 받습니다. 현재 공유 파일은 먼저 백업됩니다.
-- **다시 적용**: 편집된 파일은 [drift 백업](#backups)으로 보관되고 링크가 돌아옵니다.
+- **공유 파일로 덮어쓰기**: 편집된 파일은 [drift 백업](#backups)으로 보관되고 링크가
+  돌아옵니다. 다른 target은 영향을 받지 않습니다.
 
-어느 쪽이든, 나중에 **복원**하면 target은 편집된 버전이 아니라 공유 파일을 쓰기 전
-상태로 돌아갑니다.
+어느 쪽이든, 나중에 복원하면 target은 편집된 버전이 아니라 공유 파일을 쓰기 전 상태로
+돌아갑니다.
 
 `skillshare sync extras`와 **동기화**도 묻지 않고 `modified` 파일을 링크로 교체합니다.
 편집 내용은 먼저 drift 백업으로 보관되므로, 공유 파일에 반영하려면 sync 전에
-**되가져오기**를 선택하세요.
+**공유 파일에 반영**을 선택하세요.
 
 ## skillshare가 모르는 도구 {#tools-skillshare-doesnt-know}
 
@@ -220,7 +224,7 @@ claude처럼 여러 공유 파일을 동시에 쓸 수 있습니다. 이 설정�
 지침을 분리하려면 global 모드에서 공유 파일을 사용하세요.
 
 target 탭은 프로젝트에서도 동작합니다. 이때 읽는 순서에는 프로젝트 파일이 표시되고,
-**변환…**은 claude에 대해 **CLAUDE.md 이름을 AGENTS.md로 변경**도 제공합니다.
+**변환…** 은 claude에 대해 **CLAUDE.md 이름을 AGENTS.md로 변경**도 제공합니다.
 
 ## 백업 {#backups}
 
@@ -230,8 +234,8 @@ skillshare의 state 디렉터리, 즉 macOS와 Linux에서는
 `~/.local/state/skillshare/extras/backups/`(`XDG_STATE_HOME` 변수가 설정되어 있으면
 `$XDG_STATE_HOME/skillshare/extras/backups/`)에 보관됩니다.
 
-복원은 가장 최근 백업이 아니라 공유 파일을 연결할 때 있던 것을 사용합니다. 동기화, 다시
-적용, 복원이 교체한 편집 내용은 별도의 `drift/` 폴더인 `extras/backups/<id>/drift/`에
+복원은 가장 최근 백업이 아니라 공유 파일을 연결할 때 있던 것을 사용합니다. 동기화, 덮어쓰기,
+복원이 교체한 편집 내용은 별도의 `drift/` 폴더인 `extras/backups/<id>/drift/`에
 저장되며, `<id>`는 target 파일 경로에서 만들어집니다. 복원은 이것을 되돌리지 않으므로,
 필요하면 직접 복사해 오세요.
 

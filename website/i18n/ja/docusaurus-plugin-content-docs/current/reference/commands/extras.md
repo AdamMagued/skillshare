@@ -454,7 +454,7 @@ Claude Code のように `@` import に従うツールでのみ使ってくだ�
   `--prune` なしの `--remove-target` はファイルをそのまま残して復元ポイントを忘れるため、後の sync では
   その時点にあるものがバックアップされます。
 - `extras collect` はサポートされていません。Target で行った編集を残すには、ダッシュボードの
-  **取り込む** を使ってください。
+  **AGENTS.md** タブで共有ファイル**に取り込む**を使ってください。
 
 バックアップは skillshare の state ディレクトリ（macOS と Linux では
 `~/.local/state/skillshare/extras/backups/`）に、ファイルごとに最新 10 件まで保存されます。

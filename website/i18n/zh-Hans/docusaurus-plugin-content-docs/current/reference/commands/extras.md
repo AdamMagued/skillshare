@@ -453,8 +453,8 @@ extras:
   import 行，并放回第一次 sync 之前的文件或 symlink（原本没有文件则不留文件）。
   `modified` 的 target 会先作为 drift 备份保留。不带 `--prune` 的 `--remove-target`
   会保留文件并忘记该还原点，因此之后的 sync 会备份届时存在的内容。
-- 不支持 `extras collect`。要保留在 target 中做的修改，请在控制台中使用
-  **收回来源**。
+- 不支持 `extras collect`。要保留在 target 中做的修改，请在控制台的
+  **AGENTS.md** 标签页中使用 **收进**。
 
 备份保存在 skillshare 的 state 目录中（macOS 和 Linux 上为
 `~/.local/state/skillshare/extras/backups/`），每个文件保留最近 10 份。drift 备份位于该处的

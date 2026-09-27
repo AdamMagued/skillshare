@@ -472,8 +472,8 @@ extras:
   (원래 없었다면 파일도 없습니다). `modified` target은 먼저 drift 백업으로 보관됩니다.
   `--prune` 없는 `--remove-target`은 파일을 그대로 두고 그 복원 지점을 잊으므로,
   이후 sync는 그때 있는 파일을 백업합니다.
-- `extras collect`는 지원하지 않습니다. target에서 한 편집을 유지하려면 대시보드의
-  **되가져오기**를 사용하세요.
+- `extras collect`는 지원하지 않습니다. target에서 한 편집을 유지하려면 대시보드
+  **AGENTS.md** 탭의 **공유 파일에 반영**을 사용하세요.
 
 백업은 skillshare의 state 디렉터리(macOS와 Linux에서는
 `~/.local/state/skillshare/extras/backups/`)에 파일당 최근 10개까지 보관됩니다.

@@ -473,7 +473,7 @@ Rules:
   drift backup first. `--remove-target` without `--prune` leaves the file and forgets
   that restore point, so a later sync backs up whatever is there then.
 - `extras collect` is not supported. To keep an edit made in a target, use
-  **Collect back** in the dashboard.
+  **Collect into** on the dashboard's **AGENTS.md** tab.
 
 Backups are kept in skillshare's state directory
 (`~/.local/state/skillshare/extras/backups/` on macOS and Linux), the last 10 per

@@ -104,14 +104,19 @@ target 如何使用共享文件，取决于它是否会展开 `@` import：
 - **其他 target**（codex、gemini 等）使用一份共享文件。它们的文件会先备份，然后被替换为
   指向共享文件的链接（symlink）。
 
-标签页左侧列出共享文件：**全部目标**、每份共享文件及使用它的 target 数量，以及
-**自己的文件**。点击其中一项，右侧就只列出相应的 target。共享文件旁的箭头会打开它的页面。
-选中某份共享文件时，标题栏还会有 **添加目标** 和 **编辑 AGENTS.md**。
+标签页左侧列出共享文件，每份都附上连接到它的 target。点击其中一份，右侧就会显示它的路径、
+内容预览，以及每个 target 和对应的开关。选中的文件会写进 URL
+（`/extras?tab=instructions&file=<name>`），因此通过链接可以直接打开那份文件。
 
-右侧每一行显示一个 target、它写入的文件，以及一个 **用哪一份** 选择框。对于 import
-target，这个选择框可以选多份共享文件；对于其他 target，只能选一份，或选 **自己的文件**。
-要一次修改多个 target，勾选它们的行，然后使用 **改为…**。切回 **自己的文件** 前总是会先
-要求确认，因为这会[还原](#restore-and-delete)该 target。
+- 打开某个 target 的开关即可连接它。import target 会多一行 import，并保留它的其他共享文件。
+  已经在使用另一份共享文件的 target 会先询问，因为它只能使用一份。
+- 关闭开关会[还原](#restore-and-delete)该 target，并且会先要求确认。对于 import target，
+  只会去掉这份文件的 import 行，其他共享文件保留。
+- **全部连接** 和 **全部还原** 在执行任何操作之前，会列出所有将被修改的 target，并说明每个
+  target 会发生什么。只想修改部分 target 时，勾选它们的行，然后使用选择栏中的 **连接** 或
+  **还原**。
+
+有两个 target 比较特殊：
 
 - antigravity 与 gemini 读取同一个 `~/.gemini/GEMINI.md`。当两者都是 target 时，antigravity
   的行会跟随 gemini，不能单独修改。
@@ -119,8 +124,7 @@ target，这个选择框可以选多份共享文件；对于其他 target，只�
 
 ## 管理一份共享文件 {#manage-one-shared-file}
 
-共享文件的页面会列出使用它的 target，以及每个 target 写入的文件、mode（`import` 或
-`symlink`）和状态：
+每个已连接的 target 都会显示它的 mode（`import` 或 `symlink`）和状态：
 
 | 状态 | 含义 |
 |--------|---------|
@@ -130,40 +134,39 @@ target，这个选择框可以选多份共享文件；对于其他 target，只�
 | `not synced` | target 文件还不存在 |
 | `no source` | 共享文件本身不存在 |
 
-在这个页面上你可以：
+当有已连接的 target 处于 `drift` 或 `not synced` 时，标题会显示有多少个需要 sync，并提供
+**同步** 按钮，把这份文件的链接和 import 行放回原位。
 
-- **添加目标**：再接上一个 target。列表会提供尚未使用这份文件的 import target，以及尚未
-  使用任何共享文件的其他 target。
-- **编辑 AGENTS.md**：所有使用这份文件的 target 都会读到修改。上一个版本会被备份。
-- **同步**：把这份文件的链接和 import 行放回原位。
-- **还原** 单个 target，或 **删除共享 AGENTS.md**。
+**编辑** 会在大尺寸编辑器中打开文件。侧边栏列出保存后会立即读到这份文件的 target，并对只
+读取长文件前一部分的 target 给出警告。按 ⌘S（Ctrl+S）保存。上一个版本会被备份。
+
+**⋯** 菜单可以复制文件路径，或删除这份共享文件。
 
 ### 还原与删除 {#restore-and-delete}
 
-**还原** 会先要求确认，然后让 target 回到接上共享文件之前的状态。原本的文件或 symlink
-会被放回；如果原本没有文件，则删除该文件。对于 import target，只会移除 skillshare 的
-import 行；skillshare 仅为该区块而创建的 `CLAUDE.md`，在变空后会被删除。共享文件本身会
-保留。如果 target 仍处于 `modified`，还原会先把编辑过的文件保留为
-[drift 备份](#backups)。
+还原 target 会让它回到接上共享文件之前的状态。原本的文件或 symlink 会被放回；如果原本
+没有文件，则删除该文件。对于 import target，只会移除 skillshare 的 import 行；skillshare
+仅为该区块而创建的 `CLAUDE.md`，在变空后会被删除。共享文件本身会保留。如果 target 仍处于
+`modified`，编辑过的文件会先保留为 [drift 备份](#backups)。
 
-**删除共享 AGENTS.md** 会将它从配置中移除，并还原所有使用它的 target。文件本身会保留在
-extras 文件夹中。
+删除共享文件会将它从配置中移除，并还原所有使用它的 target。文件本身会保留在 extras
+文件夹中。
 
 ## 当链接的文件被编辑时 {#when-a-linked-file-is-edited}
 
 如果你或某个工具直接编辑了 target 的文件，链接被替换为内容不同的普通文件，其状态就会
-变为 `modified`。在共享文件的页面上，或在 **AGENTS.md** 标签页的行菜单中，选择要保留
-哪一边：
+变为 `modified`，该行会显示一条提示，提供两个选择：
 
-- **收回来源**：修改写回共享文件，所有使用它的 target 都会获得这些修改。当前的共享文件会
-  先备份。
-- **重新应用**：编辑过的文件会保留为 [drift 备份](#backups)，链接恢复。
+- **收进**共享文件：修改写回共享文件，所有使用它的 target 都会获得这些修改。当前的共享
+  文件会先备份。
+- **用**共享文件**覆盖**：编辑过的文件会保留为 [drift 备份](#backups)，链接恢复。其他
+  target 不受影响。
 
-无论哪种方式，之后的 **还原** 仍会让 target 回到使用共享文件之前的状态，而不是编辑后的
+无论哪种方式，之后的还原仍会让 target 回到使用共享文件之前的状态，而不是编辑后的
 版本。
 
 `skillshare sync extras` 和 **同步** 也会不经询问地用链接替换 `modified` 的文件。修改会先
-保留为 drift 备份，所以如果共享文件应该获得这些修改，请在同步之前选择 **收回来源**。
+保留为 drift 备份，所以如果共享文件应该获得这些修改，请在同步之前选择 **收进**。
 
 ## skillshare 不认识的工具 {#tools-skillshare-doesnt-know}
 
@@ -212,7 +215,7 @@ import 行则不需要备份。每个文件最近的 10 个版本保存在 skill
 macOS 和 Linux 上位于 `~/.local/state/skillshare/extras/backups/`（设置了
 `$XDG_STATE_HOME` 时为 `$XDG_STATE_HOME/skillshare/extras/backups/`）。
 
-还原使用的是接上共享文件时原本存在的内容，而不是最新的备份。被同步、重新应用或还原替换
+还原使用的是接上共享文件时原本存在的内容，而不是最新的备份。被同步、覆盖或还原替换
 掉的修改会进入单独的 `drift/` 文件夹，即 `extras/backups/<id>/drift/`，其中 `<id>` 由
 target 文件的路径推导而来。还原从不会把这些放回去；如有需要，请手动复制回来。
 

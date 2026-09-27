@@ -118,16 +118,22 @@ How a target uses a shared file depends on whether it follows `@` imports:
 - **Other targets** (codex, gemini and the rest) use one shared file. Their file is
   backed up, then replaced by a link (symlink) to the shared file.
 
-The tab lists shared files on the left: **All targets**, each shared file with the
-number of targets using it, and **Own file**. Click one to list only those targets.
-The arrow next to a shared file opens its page. With a shared file selected, the
-header also has **Add target** and **Edit AGENTS.md**.
+The tab lists the shared files on the left, each with the targets connected to it.
+Click one to show it on the right: its path, a preview of its content, and every
+target with a switch. The selected file is part of the URL
+(`/extras?tab=instructions&file=<name>`), so a link opens that file directly.
 
-Each row on the right shows a target, the file it writes to, and a **Uses** select.
-For an import target the select takes several shared files; for other targets it
-takes one, or **Own file**. To change many targets at once, tick their rows and use
-**Change to…**. Going back to **Own file** always asks for confirmation first,
-because it [restores](#restore-and-delete) the target.
+- Turn a target's switch on to connect it. An import target gets one more import line
+  and keeps its other shared files. A target that already uses another shared file
+  asks first, because it can use only one.
+- Turn the switch off to [restore](#restore-and-delete) the target. It asks for
+  confirmation first. For an import target only this file's import line goes; its
+  other shared files stay.
+- **Connect all** and **Restore all** list every target they change, with a note on
+  what happens to each one, before they do anything. To change only some targets,
+  tick their rows and use **Connect** or **Restore** in the selection bar.
+
+Two targets are special:
 
 - antigravity reads the same `~/.gemini/GEMINI.md` as gemini. When both are
   targets, antigravity's row follows gemini and can't be changed on its own.
@@ -135,8 +141,7 @@ because it [restores](#restore-and-delete) the target.
 
 ## Manage one shared file
 
-A shared file's page lists the targets that use it, with the file each one writes
-to, its mode (`import` or `symlink`) and its status:
+Each connected target shows its mode (`import` or `symlink`) and its status:
 
 | Status | Meaning |
 |--------|---------|
@@ -146,43 +151,44 @@ to, its mode (`import` or `symlink`) and its status:
 | `not synced` | The target file doesn't exist yet |
 | `no source` | The shared file itself is missing |
 
-From this page you can:
+When a connected target is `drift` or `not synced`, the heading shows how many need a
+sync and a **Sync** button that puts the links and import lines of this file back in
+place.
 
-- **Add target**: attach one more target. The list offers import targets that don't
-  use this file yet, and other targets that don't use any shared file yet.
-- **Edit AGENTS.md**: every target that uses the file reads the change. The previous
-  version is backed up.
-- **Sync**: put the links and import lines of this file back in place.
-- **Restore** a single target, or **Delete shared AGENTS.md**.
+**Edit** opens the file in a large editor. The side panel lists the targets that read
+the saved file right away, and warns about targets that read only part of a long file.
+Press ⌘S (Ctrl+S) to save. The previous version is backed up.
+
+The **⋯** menu copies the file's path or deletes the shared file.
 
 ### Restore and delete
 
-**Restore** asks for confirmation, then returns the target to how it was before the
-shared file was attached. The file or symlink that was there is put back, or the
-file is removed if there was none. For an import target, only skillshare's import line is removed; a
-`CLAUDE.md` that skillshare created just for the block is removed once it is empty.
-The shared file itself is kept. If the target is still `modified`, Restore first
-keeps the edited file as a [drift backup](#backups).
+Restoring a target returns it to how it was before the shared file was attached. The
+file or symlink that was there is put back, or the file is removed if there was none.
+For an import target, only skillshare's import line is removed; a `CLAUDE.md` that
+skillshare created just for the block is removed once it is empty. The shared file
+itself is kept. If the target is still `modified`, the edited file is first kept as a
+[drift backup](#backups).
 
-**Delete shared AGENTS.md** removes it from the config and restores every target
-that used it. The file stays in the extras folder.
+Deleting a shared file removes it from the config and restores every target that used
+it. The file stays in the extras folder.
 
 ## When a linked file is edited
 
 If you or a tool edit a target's file directly and the link is replaced by a regular
-file with different content, its status becomes `modified`. Choose which side to
-keep, on the shared file's page or from the row menu on the **AGENTS.md** tab:
+file with different content, its status becomes `modified` and the row shows a note
+with two choices:
 
-- **Collect back**: the edit goes into the shared file, and every target using it
-  gets the change. The current shared file is backed up first.
-- **Reapply**: the edited file is kept as a [drift backup](#backups), and the link
-  comes back.
+- **Collect into** the shared file: the edit goes into the shared file, and every
+  target using it gets the change. The current shared file is backed up first.
+- **Overwrite with** the shared file: the edited file is kept as a
+  [drift backup](#backups), and the link comes back. Other targets are not affected.
 
-Either way, a later **Restore** still returns the target to how it was before it
-used the shared file, not to the edited version.
+Either way, a later restore still returns the target to how it was before it used the
+shared file, not to the edited version.
 
 `skillshare sync extras` and **Sync** also replace a `modified` file with the link
-without asking. The edit is kept as a drift backup first, so choose **Collect back**
+without asking. The edit is kept as a drift backup first, so choose **Collect into**
 before syncing if the shared file should get it.
 
 ## Tools skillshare doesn't know
@@ -239,7 +245,7 @@ versions of each file are kept in skillshare's state directory, under
 (`$XDG_STATE_HOME/skillshare/extras/backups/` when that variable is set).
 
 Restore uses what was there when the shared file was attached, not the newest
-backup. Edits that Sync, Reapply or Restore replace go to a separate `drift/`
+backup. Edits that Sync, Overwrite or Restore replace go to a separate `drift/`
 folder, `extras/backups/<id>/drift/`, where `<id>` is derived from the target
 file's path. Restore never puts those back; copy one back by hand if you need it.
 

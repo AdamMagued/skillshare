@@ -101,13 +101,18 @@ Target 使用共用檔案的方式，取決於它是否會展開 `@` import：
 - **其他 target**（codex、gemini 及其餘工具）只使用一份共用檔案。它們的檔案會先備份，再換成
   指向共用檔案的連結（symlink）。
 
-分頁左側列出共用檔案：**全部目標**、每份共用檔案及使用它的 target 數量，以及 **自己的**。
-點其中一項，右側就只列出那些 target。共用檔案旁的箭頭會開啟它的頁面。選取某份共用檔案時，
-標題列還會出現 **加入目標** 與 **編輯 AGENTS.md**。
+分頁左側列出共用檔案，每份都附上接上它的 target。點其中一份，右側就會顯示它的路徑、內容預覽，
+以及每個 target 和它的開關。選取的檔案會寫進 URL（`/extras?tab=instructions&file=<name>`），
+所以用連結就能直接開啟那份檔案。
 
-右側每一列顯示一個 target、它寫入的檔案，以及 **用哪一份** 選單。Import target 的選單可以選多份
-共用檔案；其他 target 則只能選一份，或 **自己的**。要一次變更多個 target，勾選它們的列，再使用
-**改接到…**。改回 **自己的** 一律會先要求確認，因為這會[還原](#restore-and-delete)該 target。
+- 打開 target 的開關就會接上。Import target 會多一行 import，其他共用檔案維持不變。已經在使用
+  另一份共用檔案的 target 會先詢問，因為它只能用一份。
+- 關掉開關會[還原](#restore-and-delete)該 target，並會先要求確認。對 import target 來說，只會拿掉
+  這份檔案的 import 行，其他共用檔案保留。
+- **全部接上** 與 **全部還原** 在動手之前，會先列出每個會變動的 target，並註明各自會發生什麼事。
+  只想變更部分 target 時，勾選它們的列，再使用選取列上的 **接上** 或 **還原**。
+
+有兩個 target 比較特別：
 
 - antigravity 與 gemini 讀取同一個 `~/.gemini/GEMINI.md`。兩者都是 target 時，antigravity 那一列
   會跟著 gemini，無法單獨變更。
@@ -115,7 +120,7 @@ Target 使用共用檔案的方式，取決於它是否會展開 `@` import：
 
 ## 管理單一共用檔案 {#manage-one-shared-file}
 
-共用檔案的頁面會列出使用它的 target，以及每個 target 寫入的檔案、模式（`import` 或 `symlink`）與狀態：
+每個已接上的 target 都會顯示模式（`import` 或 `symlink`）與狀態：
 
 | 狀態 | 意義 |
 |--------|---------|
@@ -125,35 +130,36 @@ Target 使用共用檔案的方式，取決於它是否會展開 `@` import：
 | `not synced`（尚未同步） | Target 檔案還不存在 |
 | `no source`（來源不存在） | 共用檔案本身不見了 |
 
-在這個頁面上你可以：
+當已接上的 target 是 `drift` 或 `not synced` 時，標題會顯示有幾個需要同步，並出現 **同步** 按鈕，
+把這份檔案的連結與 import 行放回正確位置。
 
-- **加入目標**：再接上一個 target。清單會提供尚未使用這份檔案的 import target，以及尚未使用任何
-  共用檔案的其他 target。
-- **編輯 AGENTS.md**：所有使用這份檔案的 target 都會讀到改動。前一個版本會先備份。
-- **同步**：把這份檔案的連結與 import 行放回正確位置。
-- **還原** 單一 target，或 **刪除共用 AGENTS.md**。
+**編輯** 會在大型編輯器中開啟檔案。側邊面板會列出存檔後立即讀到新內容的 target，並警告哪些 target
+只會讀取長檔案的一部分。按 ⌘S（Ctrl+S）儲存。前一個版本會先備份。
+
+**⋯** 選單可以複製檔案路徑，或刪除這份共用檔案。
 
 ### 還原與刪除 {#restore-and-delete}
 
-**還原** 會先要求確認，然後讓 target 回到接上共用檔案之前的樣子。原本的檔案或 symlink 會被放回；
+還原 target 會讓它回到接上共用檔案之前的樣子。原本的檔案或 symlink 會被放回；
 若原本沒有檔案，就會刪除該檔案。對 import target 來說，只會移除 skillshare 的 import 行；若
 `CLAUDE.md` 是 skillshare 只為了這個區塊而建立的，它在清空後就會被移除。共用檔案本身會保留。
-若 target 仍是 `modified`，還原會先把修改過的檔案保存為 [drift backup](#backups)。
+若 target 仍是 `modified`，會先把修改過的檔案保存為 [drift backup](#backups)。
 
-**刪除共用 AGENTS.md** 會把它從設定中移除，並還原所有使用它的 target。檔案本身會留在 extras 資料夾中。
+刪除共用檔案會把它從設定中移除，並還原所有使用它的 target。檔案本身會留在 extras 資料夾中。
 
 ## 已連結的檔案被修改時 {#when-a-linked-file-is-edited}
 
 如果你或某個工具直接編輯了 target 的檔案，讓連結被換成內容不同的一般檔案，它的狀態就會變成
-`modified`。你可以在共用檔案的頁面，或在 **AGENTS.md** 分頁該列的選單中，選擇要保留哪一邊：
+`modified`，該列會出現一則附有兩個選項的提示：
 
-- **收回來源**：改動會寫進共用檔案，所有使用它的 target 都會拿到。目前的共用檔案會先備份。
-- **重新套用**：修改過的檔案會保存為 [drift backup](#backups)，並換回連結。
+- **收進** 共用檔案：改動會寫進共用檔案，所有使用它的 target 都會拿到。目前的共用檔案會先備份。
+- **用** 共用檔案 **覆蓋**：修改過的檔案會保存為 [drift backup](#backups)，並換回連結。其他 target
+  不受影響。
 
-無論選哪一種，之後的 **還原** 仍會讓 target 回到使用共用檔案之前的樣子，而不是修改過的版本。
+無論選哪一種，之後的還原仍會讓 target 回到使用共用檔案之前的樣子，而不是修改過的版本。
 
 `skillshare sync extras` 與 **同步** 也會不經詢問，直接把 `modified` 的檔案換回連結。改動會先保存為
-drift backup，所以如果共用檔案應該拿到這些改動，請在同步之前選擇 **收回來源**。
+drift backup，所以如果共用檔案應該拿到這些改動，請在同步之前選擇 **收進**。
 
 ## skillshare 不認得的工具 {#tools-skillshare-doesnt-know}
 
@@ -201,7 +207,7 @@ skillshare 在取代、移除檔案，或更動你寫的內容之前，都會先
 `~/.local/state/skillshare/extras/backups/`（有設定 `$XDG_STATE_HOME` 時則為
 `$XDG_STATE_HOME/skillshare/extras/backups/`）。
 
-還原使用的是接上共用檔案時原本存在的內容，而不是最新的備份。被同步、重新套用或還原取代的改動，
+還原使用的是接上共用檔案時原本存在的內容，而不是最新的備份。被同步、覆蓋或還原取代的改動，
 會放到另一個 `drift/` 資料夾，也就是 `extras/backups/<id>/drift/`，其中 `<id>` 由 target 檔案的路徑
 推導而來。還原絕不會把這些放回去；如果需要，請手動複製回來。
 
