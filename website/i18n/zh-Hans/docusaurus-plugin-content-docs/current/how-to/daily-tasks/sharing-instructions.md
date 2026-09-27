@@ -37,17 +37,39 @@ skillshare 知道以下指示文件：
 |--------|-----------------|--------------|---------------------|
 | amp | `~/.config/amp/AGENTS.md` | `AGENTS.md` | 否 |
 | antigravity | `~/.gemini/GEMINI.md`（与 gemini 是同一个文件） | `AGENTS.md` | 否 |
+| antigravity-cli | `~/.gemini/GEMINI.md`（与 gemini 是同一个文件） | `AGENTS.md` | 否 |
 | claude | `~/.claude/CLAUDE.md`，以及 `~/.claude/rules/` | `CLAUDE.md`，没有 `CLAUDE.md` 时则为 `AGENTS.md`，以及 `.claude/rules/` | 是 |
+| codebuddy | `~/.codebuddy/CODEBUDDY.md`，以及 `~/.codebuddy/rules/` | `CODEBUDDY.md`，没有 `CODEBUDDY.md` 时则为 `AGENTS.md`，以及 `.codebuddy/rules/` | 是 |
 | codex | `~/.codex/AGENTS.md` | `AGENTS.md` | 否 |
+| commandcode | `~/.commandcode/AGENTS.md` | `AGENTS.md` | 是 |
+| copilot | `~/.copilot/copilot-instructions.md` | `.github/copilot-instructions.md` | 否 |
 | cursor | 无：User Rules 存在 Cursor 的设置里 | `AGENTS.md` | 否 |
+| deepagents | `~/.deepagents/agent/AGENTS.md` | `.deepagents/AGENTS.md` | 否 |
+| devin | `~/.config/devin/AGENTS.md` | `AGENTS.md` | 否 |
+| droid | `~/.factory/AGENTS.md` | `AGENTS.md` | 否 |
+| firebender | `~/.firebender/AGENTS.md` | `AGENTS.md` | 否 |
+| forgecode | `~/forge/AGENTS.md` | `AGENTS.md` | 否 |
 | gemini | `~/.gemini/GEMINI.md` | `GEMINI.md` | 否 |
 | goose | `~/.config/goose/.goosehints` | `AGENTS.md` | 否 |
+| grok | `~/.grok/AGENTS.md`，以及 `~/.grok/rules/` | `AGENTS.md`，以及 `.grok/rules/` | 否 |
+| iflow | `~/.iflow/IFLOW.md` | `IFLOW.md` | 是 |
+| junie | `~/.junie/AGENTS.md` | `AGENTS.md` | 否 |
 | kiro | `~/.kiro/steering/AGENTS.md` | `AGENTS.md` | 否 |
+| omp | `~/.omp/agent/AGENTS.md` | `AGENTS.md` | 是 |
 | opencode | `~/.config/opencode/AGENTS.md` | `AGENTS.md` | 否 |
+| pi | `~/.pi/agent/AGENTS.md` | `AGENTS.md` | 否 |
+| pochi | `~/.pochi/README.pochi.md` | `AGENTS.md` | 否 |
+| qoder | `~/.qoder/AGENTS.md`，以及 `~/.qoder/rules/` | `AGENTS.md`，以及 `.qoder/rules/` | 是 |
+| qwen | `~/.qwen/QWEN.md` | `QWEN.md` | 是 |
 | roo | `~/.roo/rules/AGENTS.md` | `AGENTS.md` | 否 |
+| rovodev | `~/.rovodev/AGENTS.md` | `AGENTS.md` | 否 |
+| universal | `~/.agents/AGENTS.md` | `AGENTS.md` | 否 |
+| verdent | `~/.verdent/VERDENT.md` | `AGENTS.md` | 否 |
+| vibe | `~/.vibe/AGENTS.md` | `AGENTS.md` | 否 |
 | windsurf | `~/.codeium/windsurf/memories/global_rules.md`（前 6,000 个字符） | `AGENTS.md` | 否 |
+| zed | `~/.config/zed/AGENTS.md` | `AGENTS.md` | 否 |
 
-Claude 或 Codex 的[第二个账号](../../reference/targets/configuration.md#agent-config-dir)
+Claude、Codex 或 Pi 的[第二个账号](../../reference/targets/configuration.md#agent-config-dir)
 读取的是其自身配置目录中的同一个文件，例如 `~/.claude-work/CLAUDE.md`。对于其他
 target，你可以[告诉 skillshare 它读取哪个文件](#tools-skillshare-doesnt-know)。
 

@@ -40,17 +40,39 @@ skillshare가 알고 있는 지침 파일은 다음과 같습니다:
 |--------|-----------------|--------------|---------------------|
 | amp | `~/.config/amp/AGENTS.md` | `AGENTS.md` | No |
 | antigravity | `~/.gemini/GEMINI.md` (gemini와 같은 파일) | `AGENTS.md` | No |
+| antigravity-cli | `~/.gemini/GEMINI.md` (gemini와 같은 파일) | `AGENTS.md` | No |
 | claude | `~/.claude/CLAUDE.md`, 그리고 `~/.claude/rules/` | `CLAUDE.md`, `CLAUDE.md`가 없으면 `AGENTS.md`, 그리고 `.claude/rules/` | Yes |
+| codebuddy | `~/.codebuddy/CODEBUDDY.md`, 그리고 `~/.codebuddy/rules/` | `CODEBUDDY.md`, `CODEBUDDY.md`가 없으면 `AGENTS.md`, 그리고 `.codebuddy/rules/` | Yes |
 | codex | `~/.codex/AGENTS.md` | `AGENTS.md` | No |
+| commandcode | `~/.commandcode/AGENTS.md` | `AGENTS.md` | Yes |
+| copilot | `~/.copilot/copilot-instructions.md` | `.github/copilot-instructions.md` | No |
 | cursor | 없음: 사용자 rules는 Cursor 설정에 있음 | `AGENTS.md` | No |
+| deepagents | `~/.deepagents/agent/AGENTS.md` | `.deepagents/AGENTS.md` | No |
+| devin | `~/.config/devin/AGENTS.md` | `AGENTS.md` | No |
+| droid | `~/.factory/AGENTS.md` | `AGENTS.md` | No |
+| firebender | `~/.firebender/AGENTS.md` | `AGENTS.md` | No |
+| forgecode | `~/forge/AGENTS.md` | `AGENTS.md` | No |
 | gemini | `~/.gemini/GEMINI.md` | `GEMINI.md` | No |
 | goose | `~/.config/goose/.goosehints` | `AGENTS.md` | No |
+| grok | `~/.grok/AGENTS.md`, 그리고 `~/.grok/rules/` | `AGENTS.md`, 그리고 `.grok/rules/` | No |
+| iflow | `~/.iflow/IFLOW.md` | `IFLOW.md` | Yes |
+| junie | `~/.junie/AGENTS.md` | `AGENTS.md` | No |
 | kiro | `~/.kiro/steering/AGENTS.md` | `AGENTS.md` | No |
+| omp | `~/.omp/agent/AGENTS.md` | `AGENTS.md` | Yes |
 | opencode | `~/.config/opencode/AGENTS.md` | `AGENTS.md` | No |
+| pi | `~/.pi/agent/AGENTS.md` | `AGENTS.md` | No |
+| pochi | `~/.pochi/README.pochi.md` | `AGENTS.md` | No |
+| qoder | `~/.qoder/AGENTS.md`, 그리고 `~/.qoder/rules/` | `AGENTS.md`, 그리고 `.qoder/rules/` | Yes |
+| qwen | `~/.qwen/QWEN.md` | `QWEN.md` | Yes |
 | roo | `~/.roo/rules/AGENTS.md` | `AGENTS.md` | No |
+| rovodev | `~/.rovodev/AGENTS.md` | `AGENTS.md` | No |
+| universal | `~/.agents/AGENTS.md` | `AGENTS.md` | No |
+| verdent | `~/.verdent/VERDENT.md` | `AGENTS.md` | No |
+| vibe | `~/.vibe/AGENTS.md` | `AGENTS.md` | No |
 | windsurf | `~/.codeium/windsurf/memories/global_rules.md` (처음 6,000자) | `AGENTS.md` | No |
+| zed | `~/.config/zed/AGENTS.md` | `AGENTS.md` | No |
 
-Claude나 Codex의 [두 번째 계정](../../reference/targets/configuration.md#agent-config-dir)은
+Claude, Codex, Pi의 [두 번째 계정](../../reference/targets/configuration.md#agent-config-dir)은
 자기 config 디렉터리 안의 같은 파일을 읽습니다. 예: `~/.claude-work/CLAUDE.md`. 그 밖의
 target은 [어떤 파일을 읽는지 skillshare에 알려 주세요](#tools-skillshare-doesnt-know).
 

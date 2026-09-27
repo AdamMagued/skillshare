@@ -42,18 +42,40 @@ skillshare knows these instruction files:
 |--------|-----------------|--------------|---------------------|
 | amp | `~/.config/amp/AGENTS.md` | `AGENTS.md` | No |
 | antigravity | `~/.gemini/GEMINI.md` (the same file as gemini) | `AGENTS.md` | No |
+| antigravity-cli | `~/.gemini/GEMINI.md` (the same file as gemini) | `AGENTS.md` | No |
 | claude | `~/.claude/CLAUDE.md`, plus `~/.claude/rules/` | `CLAUDE.md`, or `AGENTS.md` when there is no `CLAUDE.md`, plus `.claude/rules/` | Yes |
+| codebuddy | `~/.codebuddy/CODEBUDDY.md`, plus `~/.codebuddy/rules/` | `CODEBUDDY.md`, or `AGENTS.md` when there is no `CODEBUDDY.md`, plus `.codebuddy/rules/` | Yes |
 | codex | `~/.codex/AGENTS.md` | `AGENTS.md` | No |
+| commandcode | `~/.commandcode/AGENTS.md` | `AGENTS.md` | Yes |
+| copilot | `~/.copilot/copilot-instructions.md` | `.github/copilot-instructions.md` | No |
 | cursor | None: user rules live in Cursor's settings | `AGENTS.md` | No |
+| deepagents | `~/.deepagents/agent/AGENTS.md` | `.deepagents/AGENTS.md` | No |
+| devin | `~/.config/devin/AGENTS.md` | `AGENTS.md` | No |
+| droid | `~/.factory/AGENTS.md` | `AGENTS.md` | No |
+| firebender | `~/.firebender/AGENTS.md` | `AGENTS.md` | No |
+| forgecode | `~/forge/AGENTS.md` | `AGENTS.md` | No |
 | gemini | `~/.gemini/GEMINI.md` | `GEMINI.md` | No |
 | goose | `~/.config/goose/.goosehints` | `AGENTS.md` | No |
+| grok | `~/.grok/AGENTS.md`, plus `~/.grok/rules/` | `AGENTS.md`, plus `.grok/rules/` | No |
+| iflow | `~/.iflow/IFLOW.md` | `IFLOW.md` | Yes |
+| junie | `~/.junie/AGENTS.md` | `AGENTS.md` | No |
 | kiro | `~/.kiro/steering/AGENTS.md` | `AGENTS.md` | No |
+| omp | `~/.omp/agent/AGENTS.md` | `AGENTS.md` | Yes |
 | opencode | `~/.config/opencode/AGENTS.md` | `AGENTS.md` | No |
+| pi | `~/.pi/agent/AGENTS.md` | `AGENTS.md` | No |
+| pochi | `~/.pochi/README.pochi.md` | `AGENTS.md` | No |
+| qoder | `~/.qoder/AGENTS.md`, plus `~/.qoder/rules/` | `AGENTS.md`, plus `.qoder/rules/` | Yes |
+| qwen | `~/.qwen/QWEN.md` | `QWEN.md` | Yes |
 | roo | `~/.roo/rules/AGENTS.md` | `AGENTS.md` | No |
+| rovodev | `~/.rovodev/AGENTS.md` | `AGENTS.md` | No |
+| universal | `~/.agents/AGENTS.md` | `AGENTS.md` | No |
+| verdent | `~/.verdent/VERDENT.md` | `AGENTS.md` | No |
+| vibe | `~/.vibe/AGENTS.md` | `AGENTS.md` | No |
 | windsurf | `~/.codeium/windsurf/memories/global_rules.md` (first 6,000 characters) | `AGENTS.md` | No |
+| zed | `~/.config/zed/AGENTS.md` | `AGENTS.md` | No |
 
 A [second account](../../reference/targets/configuration.md#agent-config-dir) of
-Claude or Codex reads the same file inside its own config directory, for example
+Claude, Codex or Pi reads the same file inside its own config directory, for example
 `~/.claude-work/CLAUDE.md`. For any other target, you
 [tell skillshare which file it reads](#tools-skillshare-doesnt-know).
 

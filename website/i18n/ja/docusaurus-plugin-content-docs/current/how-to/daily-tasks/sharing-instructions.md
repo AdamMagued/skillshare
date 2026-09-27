@@ -37,17 +37,39 @@ skillshare が把握しているファイルは次のとおりです。
 |--------|-----------------|--------------|---------------------|
 | amp | `~/.config/amp/AGENTS.md` | `AGENTS.md` | いいえ |
 | antigravity | `~/.gemini/GEMINI.md`（gemini と同じファイル） | `AGENTS.md` | いいえ |
+| antigravity-cli | `~/.gemini/GEMINI.md`（gemini と同じファイル） | `AGENTS.md` | いいえ |
 | claude | `~/.claude/CLAUDE.md` と `~/.claude/rules/` | `CLAUDE.md`（`CLAUDE.md` がなければ `AGENTS.md`）と `.claude/rules/` | はい |
+| codebuddy | `~/.codebuddy/CODEBUDDY.md` と `~/.codebuddy/rules/` | `CODEBUDDY.md`（`CODEBUDDY.md` がなければ `AGENTS.md`）と `.codebuddy/rules/` | はい |
 | codex | `~/.codex/AGENTS.md` | `AGENTS.md` | いいえ |
+| commandcode | `~/.commandcode/AGENTS.md` | `AGENTS.md` | はい |
+| copilot | `~/.copilot/copilot-instructions.md` | `.github/copilot-instructions.md` | いいえ |
 | cursor | なし: ユーザールールは Cursor の設定内に保存される | `AGENTS.md` | いいえ |
+| deepagents | `~/.deepagents/agent/AGENTS.md` | `.deepagents/AGENTS.md` | いいえ |
+| devin | `~/.config/devin/AGENTS.md` | `AGENTS.md` | いいえ |
+| droid | `~/.factory/AGENTS.md` | `AGENTS.md` | いいえ |
+| firebender | `~/.firebender/AGENTS.md` | `AGENTS.md` | いいえ |
+| forgecode | `~/forge/AGENTS.md` | `AGENTS.md` | いいえ |
 | gemini | `~/.gemini/GEMINI.md` | `GEMINI.md` | いいえ |
 | goose | `~/.config/goose/.goosehints` | `AGENTS.md` | いいえ |
+| grok | `~/.grok/AGENTS.md` と `~/.grok/rules/` | `AGENTS.md` と `.grok/rules/` | いいえ |
+| iflow | `~/.iflow/IFLOW.md` | `IFLOW.md` | はい |
+| junie | `~/.junie/AGENTS.md` | `AGENTS.md` | いいえ |
 | kiro | `~/.kiro/steering/AGENTS.md` | `AGENTS.md` | いいえ |
+| omp | `~/.omp/agent/AGENTS.md` | `AGENTS.md` | はい |
 | opencode | `~/.config/opencode/AGENTS.md` | `AGENTS.md` | いいえ |
+| pi | `~/.pi/agent/AGENTS.md` | `AGENTS.md` | いいえ |
+| pochi | `~/.pochi/README.pochi.md` | `AGENTS.md` | いいえ |
+| qoder | `~/.qoder/AGENTS.md` と `~/.qoder/rules/` | `AGENTS.md` と `.qoder/rules/` | はい |
+| qwen | `~/.qwen/QWEN.md` | `QWEN.md` | はい |
 | roo | `~/.roo/rules/AGENTS.md` | `AGENTS.md` | いいえ |
+| rovodev | `~/.rovodev/AGENTS.md` | `AGENTS.md` | いいえ |
+| universal | `~/.agents/AGENTS.md` | `AGENTS.md` | いいえ |
+| verdent | `~/.verdent/VERDENT.md` | `AGENTS.md` | いいえ |
+| vibe | `~/.vibe/AGENTS.md` | `AGENTS.md` | いいえ |
 | windsurf | `~/.codeium/windsurf/memories/global_rules.md`（先頭 6,000 文字） | `AGENTS.md` | いいえ |
+| zed | `~/.config/zed/AGENTS.md` | `AGENTS.md` | いいえ |
 
-Claude や Codex の[別のアカウント](../../reference/targets/configuration.md#agent-config-dir)は、
+Claude、Codex、Pi の[別のアカウント](../../reference/targets/configuration.md#agent-config-dir)は、
 自身の Config ディレクトリ内の同じファイル（例: `~/.claude-work/CLAUDE.md`）を読みます。その他の
 Target については、[どのファイルを読むかを skillshare に教えます](#tools-skillshare-doesnt-know)。
 
