@@ -98,6 +98,12 @@ Downloading v0.21.4...  3.2 MB / 9.1 MB
 
 If the binary is in a protected directory (e.g., `/usr/local/bin`), skillshare asks `sudo` to replace only the binary — no manual prefix needed. The built-in skill, UI assets, and logs are still written as you, so don't run the whole upgrade with `sudo`: that leaves root-owned files in your skills source, and a later `git pull` fails with `Permission denied`.
 
+If an earlier upgrade already left such files, updating the built-in skill fails with `permission denied`, and the error shows the command that gives the skills source back to you, for example:
+
+```bash
+sudo chown -R "$(id -un)" ~/.config/skillshare/skills
+```
+
 When there is no terminal to ask for a password on (the dashboard's **Update now** button, CI), the upgrade stops right away and tells you to run `skillshare upgrade` in a terminal instead of waiting for input. Cached `sudo` credentials and `NOPASSWD` setups still upgrade without a prompt.
 
 ### Web UI Assets

@@ -97,6 +97,12 @@ Downloading v0.21.4...  3.2 MB / 9.1 MB
 
 バイナリが保護されたディレクトリ（例: `/usr/local/bin`）にある場合、skillshare は `sudo` を使ってバイナリの置き換えだけを行います — 手動でのプレフィックス指定は不要です。組み込み skill、UI アセット、ログはあなたのユーザーとして書き込まれるため、アップグレード全体を `sudo` で実行しないでください。skill ソースに root 所有のファイルが残り、後の `git pull` が `Permission denied` で失敗します。
 
+以前のアップグレードですでにそのようなファイルが残っている場合、組み込み skill の更新は `permission denied` で失敗し、エラーに skill ソースの所有者を自分に戻すコマンドが表示されます。例:
+
+```bash
+sudo chown -R "$(id -un)" ~/.config/skillshare/skills
+```
+
 パスワードを尋ねるための端末がない場合（Dashboard の **今すぐ更新** ボタン、CI など）、アップグレードは入力を待たずに即座に停止し、代わりにターミナルで `skillshare upgrade` を実行するよう案内します。キャッシュされた `sudo` の認証情報や `NOPASSWD` 設定がある場合は、プロンプトなしでアップグレードが続行されます。
 
 ### Web UI アセット
