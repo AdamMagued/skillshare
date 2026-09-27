@@ -171,7 +171,7 @@ function Editor({ data, onChangeSetup }: { data: Data; onChangeSetup: () => void
                   {shared.map((s, i) => (
                     <span key={s.name}>
                       {i > 0 && ', '}
-                      <Link to={`/extras/instructions/${encodeURIComponent(s.name)}`} className="font-mono font-semibold text-ink hover:underline">{s.name}</Link>
+                      <Link to={`/extras?tab=instructions&file=${encodeURIComponent(s.name)}`} className="font-mono font-semibold text-ink hover:underline">{s.name}</Link>
                     </span>
                   ))}
                 </span>
@@ -200,7 +200,7 @@ function Editor({ data, onChangeSetup }: { data: Data; onChangeSetup: () => void
             <div className="ss-r !min-h-0 !py-2.5 text-[13px] text-ink-2">
               <span className="flex-1">
                 {t('instructions.target.linkedHint')}{' '}
-                <Link to={`/extras/instructions/${encodeURIComponent(data.link_shared ?? '')}`} className="font-mono font-semibold text-ink hover:underline">{data.link_shared}</Link>
+                <Link to={`/extras?tab=instructions&file=${encodeURIComponent(data.link_shared ?? '')}`} className="font-mono font-semibold text-ink hover:underline">{data.link_shared}</Link>
               </span>
             </div>
           )}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SharedInstructionsFile, SharedInstructionsTarget } from '../../api/client';
-import { importLines, lineDiff, lineRanges, overLimit, setupPathProblem, sharedNameProblem, worstStatus } from './instructionsView';
+import { connectPlan, importLines, lineCount, lineDiff, lineRanges, needsSync, overLimit, restorePlan, rowHint, setupPathProblem, sharedNameProblem, worstStatus } from './instructionsView';
 
 describe('importLines', () => {
   it('finds @path lines outside code fences', () => {
@@ -83,5 +83,60 @@ describe('setupPathProblem', () => {
 
   it('refuses a directory', () => {
     expect(setupPathProblem('.myagent/', true)).toBe('directory');
+  });
+});
+
+describe('connect and restore plans', () => {
+  const general: SharedInstructionsFile = { name: 'general', file: 'AGENTS.md', path: '/x/general/AGENTS.md', exists: true, size: 7000, chars: 7000, targets: 0 };
+  const tg = (name: string, rest: Partial<SharedInstructionsTarget> = {}): SharedInstructionsTarget => ({ name, path: `/h/${name}/AGENTS.md`, import: false, exists: true, assigned: [], ...rest });
+  const claude = tg('claude', { import: true, assigned: [{ name: 'team', mode: 'import', status: 'synced' }] });
+  const opencode = tg('opencode', { assigned: [{ name: 'team', mode: 'symlink', status: 'synced' }] });
+  const windsurf = tg('windsurf', { max_chars: 6000 });
+  const antigravity = tg('antigravity', { same_as: 'gemini' });
+
+  it('adds an import line and keeps the other files of an import target', () => {
+    expect(connectPlan([claude], general)).toEqual([{ target: 'claude', extras: ['team', 'general'], note: 'import' }]);
+  });
+
+  it('replaces a link target on another file and says which', () => {
+    expect(connectPlan([opencode], general)).toEqual([{ target: 'opencode', extras: ['general'], note: 'switch', other: 'team' }]);
+  });
+
+  it('warns when a target reads less than the file holds', () => {
+    expect(connectPlan([windsurf], general)[0]).toMatchObject({ note: 'tooLong', max: 6000 });
+  });
+
+  it('never includes targets that read another target\'s file', () => {
+    expect(connectPlan([antigravity], general)).toEqual([]);
+  });
+
+  it('keeps the other import lines when restoring an import target', () => {
+    const both = tg('claude', { import: true, assigned: [{ name: 'team', mode: 'import', status: 'synced' }, { name: 'general', mode: 'import', status: 'synced' }] });
+    expect(restorePlan([both], 'general')).toEqual([{ target: 'claude', note: 'importKeep', others: ['team'] }]);
+  });
+
+  it('warns that outside edits are backed up before restoring', () => {
+    const edited = tg('gemini', { assigned: [{ name: 'general', mode: 'symlink', status: 'modified' }] });
+    expect(restorePlan([edited], 'general')).toEqual([{ target: 'gemini', note: 'modified' }]);
+  });
+
+  it('counts only connected targets whose file or link is missing or off as needing sync', () => {
+    const lost = tg('codex', { assigned: [{ name: 'general', mode: 'symlink', status: 'not synced' }] });
+    const fine = tg('amp', { assigned: [{ name: 'general', mode: 'symlink', status: 'synced' }] });
+    expect(needsSync([lost, fine, opencode], 'general').map((t) => t.name)).toEqual(['codex']);
+  });
+
+  it('tells a link target on another file which one it uses now', () => {
+    expect(rowHint(opencode, general)).toEqual({ kind: 'usesOther', name: 'team' });
+  });
+
+  it('tells an import target which other files it also uses', () => {
+    expect(rowHint(claude, general)).toEqual({ kind: 'alsoUses', names: ['team'] });
+  });
+});
+
+describe('lineCount', () => {
+  it('does not count the trailing newline as a line', () => {
+    expect(lineCount('# A\n\nb\n')).toBe(3);
   });
 });

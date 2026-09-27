@@ -114,3 +114,66 @@ export function overLimit(target: SharedInstructionsTarget, files: SharedInstruc
   if (!target.max_chars) return [];
   return files.filter((f) => f.chars > target.max_chars! && target.assigned.some((a) => a.name === f.name));
 }
+
+/** Names of the shared files a target uses. */
+export const usesOf = (target: SharedInstructionsTarget) => target.assigned.map((a) => a.name);
+
+/** Targets connected to a shared file, leaving out ones that only read another target's file. */
+export const connectedTo = (targets: SharedInstructionsTarget[], name: string) =>
+  targets.filter((tg) => !tg.same_as && usesOf(tg).includes(name));
+
+/** What a target should use after connecting it: import targets add one more file, link targets hold one. */
+export const connectExtras = (target: SharedInstructionsTarget, name: string) =>
+  (target.import ? [...usesOf(target).filter((n) => n !== name), name] : [name]);
+
+/** Connected targets a sync would fix: the file or its link is gone, or points elsewhere. */
+export const needsSync = (targets: SharedInstructionsTarget[], name: string) =>
+  connectedTo(targets, name).filter((tg) => ['not synced', 'drift'].includes(tg.assigned.find((a) => a.name === name)!.status));
+
+export type ConnectStep = { target: string; extras: string[]; note: 'import' | 'link' | 'switch' | 'tooLong'; other?: string; max?: number };
+
+/** One step per target that would be connected to file, with what changes for it. */
+export function connectPlan(targets: SharedInstructionsTarget[], file: SharedInstructionsFile): ConnectStep[] {
+  return targets.filter((tg) => !tg.same_as && !usesOf(tg).includes(file.name)).map((tg) => {
+    const step = { target: tg.name, extras: connectExtras(tg, file.name) };
+    if (!tg.import && tg.assigned.length > 0) return { ...step, note: 'switch', other: tg.assigned[0].name };
+    if (tg.max_chars && file.chars > tg.max_chars) return { ...step, note: 'tooLong', max: tg.max_chars };
+    return { ...step, note: tg.import ? 'import' : 'link' };
+  });
+}
+
+export type RestoreStep = { target: string; note: 'import' | 'importKeep' | 'link' | 'modified'; others?: string[] };
+
+/** One step per target that would stop using name, with what happens to its file. */
+export function restorePlan(targets: SharedInstructionsTarget[], name: string): RestoreStep[] {
+  return connectedTo(targets, name).map((tg) => {
+    const a = tg.assigned.find((x) => x.name === name)!;
+    const others = usesOf(tg).filter((n) => n !== name);
+    if (a.status === 'modified') return { target: tg.name, note: 'modified' };
+    if (a.mode === 'import') return others.length ? { target: tg.name, note: 'importKeep', others } : { target: tg.name, note: 'import' };
+    return { target: tg.name, note: 'link' };
+  });
+}
+
+export type RowHint =
+  | { kind: 'sameAs'; name: string }
+  | { kind: 'notSynced' | 'drift'; mode: string }
+  | { kind: 'noSource' }
+  | { kind: 'tooLong'; max: number }
+  | { kind: 'usesOther'; name: string }
+  | { kind: 'alsoUses'; names: string[] };
+
+/** The one line under a target row that says what matters most about it for file. */
+export function rowHint(target: SharedInstructionsTarget, file: SharedInstructionsFile): RowHint | null {
+  if (target.same_as) return { kind: 'sameAs', name: target.same_as };
+  const a = target.assigned.find((x) => x.name === file.name);
+  if (a?.status === 'not synced' || a?.status === 'drift') return { kind: a.status === 'drift' ? 'drift' : 'notSynced', mode: a.mode };
+  if (a?.status === 'no source') return { kind: 'noSource' };
+  if (target.max_chars && file.chars > target.max_chars) return { kind: 'tooLong', max: target.max_chars };
+  const others = usesOf(target).filter((n) => n !== file.name);
+  if (!others.length) return null;
+  return target.import ? { kind: 'alsoUses', names: others } : { kind: 'usesOther', name: others[0] };
+}
+
+/** Line count of a file as an editor shows it: a trailing newline does not start a new line. */
+export const lineCount = (content: string) => (content ? content.replace(/\n$/, '').split('\n').length : 0);
