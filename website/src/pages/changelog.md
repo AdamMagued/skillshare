@@ -9,6 +9,28 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.21.11] - 2026-09-27
+
+### New Features
+
+#### Dashboard
+
+- **More tools' instruction files are filled in** — the instruction file tab on a target page now knows the file 22 more targets read, instead of asking you for its path. For example, `universal` reads `~/.agents/AGENTS.md`, `pi` reads `~/.pi/agent/AGENTS.md`, `copilot` reads `~/.copilot/copilot-instructions.md` and `qwen` reads `~/.qwen/QWEN.md`. A file you already have at that path shows up with no setup. The full list is in [Share one AGENTS.md across your tools](https://skillshare.runkids.cc/docs/how-to/daily-tasks/sharing-instructions/).
+  ```bash
+  skillshare ui
+  ```
+
+### Bug Fixes
+
+#### Dashboard
+
+- **Reloading a page other than the first one no longer hangs** — opening or refreshing an address such as `/targets/claude` asked for the page's scripts in the wrong folder, so it stayed on its loading placeholder and the browser console showed `Failed to load module script` errors.
+
+#### Plugins
+
+- **Opening a plugin no longer downloads its source again** — expanding a plugin to see which other Agents can take it cloned its whole repository every time, which could take tens of seconds. Skillshare now reads the copy it reviewed when the plugin was added, and downloads the source only if that copy was changed.
+- **Clearer messages while a plugin source is read** — when a source can't be reached over the network, or the repository or branch doesn't exist, the dashboard now says which, instead of a general git failure. It also says when you are offline, and when reading a source or asking an Agent's CLI is taking a while. For example, `codex plugin list` can wait on Codex's remote marketplace; Skillshare waits up to 90 seconds for each Agent.
+
 ## [0.21.10] - 2026-09-27
 
 ### New Features
