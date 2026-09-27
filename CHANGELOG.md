@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.21.12] - 2026-09-28
+
+### New Features
+
+#### Dashboard
+
+- **Edit the instruction files of tools that get skills through universal** — Codex, Gemini CLI, Pi and other tools read skills from `~/.agents/skills`, but none of them reads `~/.agents/AGENTS.md`, so with only `universal` as a target their own files, such as `~/.codex/AGENTS.md`, had no page. Universal's **AGENTS.md** tab now has a dropdown with each of these tools that is installed and isn't a target of its own; pick one to see and edit its file. They also appear in the shared AGENTS.md list under **Extras**, so a shared file can be connected to them. Cline and the Warp Agent CLI read `~/.agents/AGENTS.md` itself, and are now shown as sharing universal's file.
+  ```bash
+  skillshare ui
+  ```
+
+### Bug Fixes
+
+#### Targets
+
+- **Removing a target no longer takes skills away from another target in the same folder** — `codex` and `universal` both write to `~/.agents/skills`. Removing one of them turned the other's synced skills into local copies that skillshare no longer managed. The folder is now left alone while another target still uses it, and `target remove` says so, including with `--dry-run`.
+  ```bash
+  skillshare target remove codex --dry-run
+  ```
+
+#### Upgrade
+
+- **A skill left owned by root now says how to fix it** — an upgrade run with sudo before v0.21.10 wrote the built-in skill as root, and every later upgrade failed with only `permission denied`. The error now includes the `chown` command that gives the skills folder back to you.
+
 ## [0.21.11] - 2026-09-27
 
 ### New Features
