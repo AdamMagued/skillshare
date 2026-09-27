@@ -9,7 +9,7 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
-## [0.22.0] - 2026-09-27
+## [0.21.10] - 2026-09-27
 
 ### New Features
 
@@ -30,6 +30,7 @@ All notable changes to skillshare are documented here. For the full commit histo
         path: ~/.myagent/AGENTS.md
         import: true        # the tool follows @path lines
   ```
+- **See which projects a skill reaches** — on the Skills page, the **Targets** column shows your global tools as icons, followed by a folder badge with the number of projects the skill is synced into. Before, each project repeated its tools' icons, so `claude` plus two projects showed three Claude icons. Hover to see the global tools and each project's tools, including projects the skill does not reach. The **Target** filter now groups global tools and projects, with one entry per project, and in the tree view the **Targets** row shows where the selected skill actually goes. Refs: #297.
 
 #### Extras
 
@@ -56,6 +57,13 @@ All notable changes to skillshare are documented here. For the full commit histo
 - **Upgrading with sudo no longer leaves root-owned files in your home** — when the binary lived in a root-owned folder, `upgrade` ran entirely under sudo, so the built-in skill, dashboard assets and logs were written as root and a later `git pull` of the skills source failed with `Permission denied`. Only the binary replacement now runs with sudo.
   ```bash
   skillshare upgrade
+  ```
+
+#### MCP
+
+- **Pi servers load again with `pi-mcp-adapter` 3.0** — the adapter stopped reading Pi's `mcp.json` and now reads `mcp-adapter.json` in the same folder, so servers synced for it were ignored. Skillshare now writes them to `~/.pi/agent/mcp-adapter.json`, `.pi/mcp-adapter.json` in a project, or `mcp-adapter.json` in a Pi account's folder. The next sync removes the entries Skillshare had written to `mcp.json` and leaves your own there. If you already renamed the file as Pi's warning suggests, Skillshare keeps managing the entries you moved. `pi-mcp-extension` still uses `mcp.json`. Refs: #298.
+  ```bash
+  skillshare sync mcp
   ```
 
 ## [0.21.9] - 2026-09-26
