@@ -1,6 +1,7 @@
+import type { ReactNode } from 'react';
 import MarkdownView from '../MarkdownView';
 import { useT } from '../../i18n';
-import { previewParts } from './instructionsView';
+import { formatSize, lineCount, previewParts } from './instructionsView';
 
 /**
  * Underline tabs that switch how a box shows an instruction file (Edit /
@@ -31,10 +32,35 @@ export function ViewTabs<V extends string>({ view, views: given, onChange, class
       }}>
       {views.map((v) => (
         <button key={v.value} type="button" role="tab" data-view={v.value} aria-selected={view === v.value} tabIndex={view === v.value ? 0 : -1} onClick={() => onChange(v.value)}
-          className={`-mb-px h-9 border-b-2 text-[12.5px] ${view === v.value ? 'border-ink font-semibold text-ink' : 'border-transparent text-ink-2 hover:text-ink'}`}>
+          className={`-mb-px h-9 border-b-2 text-[12.5px] font-semibold ${view === v.value ? 'border-ink text-ink' : 'border-transparent text-ink-2 hover:text-ink'}`}>
           {v.label}
         </button>
       ))}
+    </div>
+  );
+}
+
+/**
+ * The grey strip on top of every box that shows an instruction file: line
+ * count and size of content (live, so a draft counts as typed; … while it
+ * loads) on the left, the view switch and then any actions on the right.
+ */
+export function BoxHeader<V extends string>({ content, view, views, onChange, children }: {
+  content: string | undefined;
+  view: V;
+  views?: { value: V; label: string }[];
+  onChange: (view: V) => void;
+  children?: ReactNode;
+}) {
+  const t = useT();
+  return (
+    // Body font even inside a code box, so every box header reads the same.
+    <div className="flex h-[38px] shrink-0 items-center gap-2 border-b border-line bg-sunken pr-2 pl-4" style={{ fontFamily: 'var(--f)' }}>
+      <span className="flex-1 text-[12.5px] text-ink-2">
+        {content === undefined ? '…' : t('instructions.preview.stats', { lines: lineCount(content), size: formatSize(new TextEncoder().encode(content).length) })}
+      </span>
+      <ViewTabs view={view} views={views} onChange={onChange} className="mr-2 self-end" />
+      {children}
     </div>
   );
 }

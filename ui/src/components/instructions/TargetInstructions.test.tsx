@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -14,7 +14,7 @@ vi.mock('../CodeEditor', () => ({
 }));
 vi.mock('../../api/client', async (load) => {
   const actual = await load<typeof import('../../api/client')>();
-  return { ...actual, api: { ...actual.api, getTargetInstructions: vi.fn() } };
+  return { ...actual, api: { ...actual.api, getTargetInstructions: vi.fn(), putTargetInstructions: vi.fn().mockResolvedValue({ success: true }) } };
 });
 
 const file = (target: string, path: string, extra: Partial<Data> = {}): Data => ({
@@ -138,5 +138,17 @@ describe('Target instructions tab', () => {
     renderUniversal();
 
     expect(await screen.findByText('Cline, Warp also read this file')).toBeInTheDocument();
+  });
+
+  it('saves with Cmd+S from the Preview tab', async () => {
+    vi.mocked(api.getTargetInstructions).mockResolvedValue(file('codex', '~/.codex/AGENTS.md'));
+    renderTarget('codex');
+    const user = userEvent.setup();
+
+    await user.type(await screen.findByRole('textbox', { name: 'AGENTS.md' }), 'draft');
+    await user.click(screen.getByRole('tab', { name: 'Preview' }));
+    fireEvent.keyDown(document.body, { key: 's', metaKey: true });
+
+    await waitFor(() => expect(api.putTargetInstructions).toHaveBeenCalledWith('codex', 'codex file\ndraft'));
   });
 });

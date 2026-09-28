@@ -20,8 +20,9 @@ import { shortenHome } from '../../lib/paths';
 import ConvertDialog from './ConvertDialog';
 import InstructionFileList from './InstructionFileList';
 import { useFillHeight } from './useFillHeight';
-import { InstructionsPreview, ViewTabs } from './ViewTabs';
-import { formatSize, importDecor, readChain, refreshInstructions, setupPathOf, setupPathProblem, sharedOfImport } from './instructionsView';
+import { BoxHeader, InstructionsPreview } from './ViewTabs';
+import { useSaveShortcut } from './useSaveShortcut';
+import { importDecor, readChain, refreshInstructions, setupPathOf, setupPathProblem, sharedOfImport } from './instructionsView';
 
 const base = (path: string) => path.split('/').pop() ?? path;
 
@@ -261,6 +262,10 @@ function Editor({ data, onDirty }: { data: Data; onDirty?: (dirty: boolean) => v
       setSaving(false);
     }
   };
+  // Only an editable file with changes; the same in Edit and Preview.
+  useSaveShortcut(() => {
+    if (!saving && draft !== data.content) void save();
+  }, !linked);
 
   const order = readChain(data.read_order);
   const readBy = data.read_by.map(targetLabel).join(t('instructions.shared.listSep'));
@@ -278,10 +283,12 @@ function Editor({ data, onDirty }: { data: Data; onDirty?: (dirty: boolean) => v
 
       <div className="flex min-h-8 items-center gap-3.5">
         <span className="min-w-0 truncate font-mono text-[14px] font-semibold" title={path}>{shortenHome(path)}</span>
-        <span className="shrink-0 text-[12px] text-ink-3">
-          {data.exists ? formatSize(data.size) : t('instructions.target.notCreated')}
-          {linked && ` · ${t('instructions.target.linked')}`}
-        </span>
+        {/* Lines and size are in the box header below; this says only what they cannot. */}
+        {(!data.exists || linked) && (
+          <span className="shrink-0 text-[12px] text-ink-3">
+            {[!data.exists && t('instructions.target.notCreated'), linked && t('instructions.target.linked')].filter(Boolean).join(' · ')}
+          </span>
+        )}
         <span className="flex-1" />
         {/* A rider is not a target, so there is no setting to change for it. */}
         {!data.rider_of && <Button variant="ghost" size="sm" onClick={() => setChangingPath(true)}>{t('instructions.setup.changeLocation')}</Button>}
@@ -333,7 +340,7 @@ function Editor({ data, onDirty }: { data: Data; onDirty?: (dirty: boolean) => v
       )}
 
       <div className="ss-code flex min-h-[360px] flex-1 flex-col !bg-surface !overflow-hidden !p-0 !whitespace-normal focus-within:!border-[var(--accent)]">
-        <ViewTabs view={view} onChange={setView} />
+        <BoxHeader content={draft} view={view} onChange={setView} />
         {view === 'edit' ? (
           <CodeEditor value={draft} onChange={setDraft} ariaLabel={file} lineDecor={lineDecor} disabled={saving || linked} wrap fill
             className="min-h-0 flex-1 !rounded-none !border-0 !bg-surface" placeholder={t('instructions.target.placeholder', { file })} />

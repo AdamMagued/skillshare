@@ -13,7 +13,7 @@ import { useT } from '../../i18n';
 import { shortenHome } from '../../lib/paths';
 import { queryKeys } from '../../lib/queryKeys';
 import { isImportLine, sharedNameProblem, takenName } from './instructionsView';
-import { InstructionsPreview, ViewTabs } from './ViewTabs';
+import { BoxHeader, InstructionsPreview } from './ViewTabs';
 
 /** Creates a shared instruction file, from content or by moving a target's current file into it. */
 export default function NewSharedDialog({ targets, onClose, onCreated }: {
@@ -81,11 +81,11 @@ export default function NewSharedDialog({ targets, onClose, onCreated }: {
           </div>
         </div>
         {!from && (
-          <div className="ss-code flex h-[300px] flex-col !overflow-hidden !bg-surface !p-0 !whitespace-normal focus-within:!border-[var(--accent)]">
-            <ViewTabs view={view} onChange={setView} />
+          <div className="ss-code flex h-[300px] flex-col !overflow-hidden !p-0 !whitespace-normal focus-within:!border-[var(--accent)]">
+            <BoxHeader content={content} view={view} onChange={setView} />
             {view === 'edit' ? (
               <CodeEditor value={content} onChange={setContent} ariaLabel={t('instructions.shared.content')} markLine={isImportLine} disabled={saving} wrap fill
-                className="min-h-0 flex-1 !rounded-none !border-0 !bg-surface" placeholder={t('instructions.shared.contentPlaceholder')} />
+                className="min-h-0 flex-1 !rounded-none !border-0" placeholder={t('instructions.shared.contentPlaceholder')} />
             ) : (
               <InstructionsPreview content={content} names={[]} />
             )}

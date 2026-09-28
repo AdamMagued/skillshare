@@ -195,7 +195,7 @@ function ChangePreview({ change, label }: { change: InstructionsChange; label: s
           {added > 0 && <span className="text-ok">+{added}</span>} {removed > 0 && <span className="text-bad">−{removed}</span>}
         </span>
       </div>
-      <pre className="ss-code !max-h-[220px] !rounded-none !border-0 !overflow-auto">
+      <pre className="ss-code !max-h-[220px] !rounded-none !border-0 !overflow-auto !whitespace-pre-wrap" style={{ overflowWrap: 'anywhere' }}>
         {lines.map((l, i) => (
           <span key={i} className={l.kind === 'same' ? 'block' : l.kind}>{l.kind === 'add' ? '+ ' : l.kind === 'del' ? '− ' : '  '}{l.text || ' '}</span>
         ))}

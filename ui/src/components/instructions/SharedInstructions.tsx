@@ -21,9 +21,9 @@ import { shortenHome } from '../../lib/paths';
 import InstructionsEditorDialog from './InstructionsEditorDialog';
 import NewSharedDialog from './NewSharedDialog';
 import RestorePreviewDialog from './RestorePreviewDialog';
-import { InstructionsPreview, ViewTabs } from './ViewTabs';
+import { BoxHeader, InstructionsPreview } from './ViewTabs';
 import {
-  connectExtras, connectPlan, connectedTo, formatSize, lineCount, modeOptions, needsSync, pickedMode, refreshInstructions, restorePlan, rowHint, saveCopiesSummary, statusTone, usesOf,
+  connectExtras, connectPlan, connectedTo, modeOptions, needsSync, pickedMode, refreshInstructions, restorePlan, rowHint, saveCopiesSummary, statusTone, usesOf,
 } from './instructionsView';
 import type { ConnectStep, ModeOption, RestoreStep, RowHint } from './instructionsView';
 
@@ -112,8 +112,8 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
   const [deleting, setDeleting] = useState(false);
   const content = useQuery({ queryKey: queryKeys.instructions.sharedContent(name), queryFn: () => api.getSharedInstructionsContent(name), enabled: !deleting });
   const [expanded, setExpanded] = useState(false);
-  // The card is read-only: Source shows the text as written, Preview renders it.
-  const [view, setView] = useState<'source' | 'preview'>('source');
+  // The card is read-only: Preview renders it (the default), Source shows the text as written.
+  const [view, setView] = useState<'source' | 'preview'>('preview');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [pending, setPending] = useState<Pending | null>(null);
@@ -308,27 +308,23 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
       </div>
 
       <div className="ss-list">
-        <div className="flex h-[38px] items-center gap-2 border-b border-line bg-sunken pr-4 pl-4">
-          <span className="flex-1 text-[12.5px] text-ink-2">
-            {content.data ? t('instructions.preview.stats', { lines: lineCount(text), size: formatSize(file.size) }) : '…'}
-          </span>
+        <BoxHeader content={content.data ? text : undefined} view={view} onChange={setView} views={[
+          { value: 'preview', label: t('instructions.target.view.preview') },
+          { value: 'source', label: t('instructions.target.view.source') },
+        ]}>
           {lines.length > PREVIEW_LINES && (
             <Button variant="ghost" size="sm" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
               {t(expanded ? 'instructions.preview.collapse' : 'instructions.preview.expand')}
               {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
             </Button>
           )}
-          <ViewTabs view={view} onChange={setView} className="ml-2 self-end" views={[
-            { value: 'source', label: t('instructions.target.view.source') },
-            { value: 'preview', label: t('instructions.target.view.preview') },
-          ]} />
-        </div>
+        </BoxHeader>
         {content.error ? (
           <div className="px-[18px] py-3 text-[13px] text-bad">{content.error.message}</div>
         ) : view === 'preview' ? (
           <InstructionsPreview content={text} names={[]} className={expanded ? '' : 'max-h-[230px] overflow-hidden'} />
         ) : (
-          <pre className="overflow-x-auto px-[18px] pt-3 pb-3.5 font-mono text-[12.5px] leading-[1.7] whitespace-pre text-ink">
+          <pre className="px-[18px] pt-3 pb-3.5 font-mono text-[12.5px] leading-[1.7] whitespace-pre-wrap text-ink" style={{ overflowWrap: 'anywhere' }}>
             {(expanded ? lines : lines.slice(0, PREVIEW_LINES)).join('\n') || ' '}
             {!expanded && lines.length > PREVIEW_LINES && <span className="text-ink-3">{'\n…'}</span>}
           </pre>

@@ -69,11 +69,12 @@ export default function RestorePreviewDialog({ name, target, label, busy, onConf
                 </span>
               </div>
               {tab === 'content' ? (
-                <pre className="ss-code !max-h-[320px] !overflow-auto !rounded-none !border-0">
-                  {lines.map((l, i) => <span key={i} className="block"><span className="ln inline-block w-6 text-right">{i + 1}</span>{l || ' '}</span>)}
+                <pre className="ss-code !max-h-[320px] !overflow-auto !rounded-none !border-0 !whitespace-pre-wrap" style={{ overflowWrap: 'anywhere' }}>
+                  {/* Long lines wrap beside their number. */}
+                  {lines.map((l, i) => <span key={i} className="flex"><span className="ln w-6 shrink-0 text-right">{i + 1}</span><span className="min-w-0 flex-1">{l || ' '}</span></span>)}
                 </pre>
               ) : (
-                <pre className="ss-code !max-h-[320px] !overflow-auto !rounded-none !border-0">
+                <pre className="ss-code !max-h-[320px] !overflow-auto !rounded-none !border-0 !whitespace-pre-wrap" style={{ overflowWrap: 'anywhere' }}>
                   {lineDiff(data.current, data.content).map((l, i) => (
                     <span key={i} className={l.kind === 'same' ? 'block' : l.kind}>{l.kind === 'add' ? '+ ' : l.kind === 'del' ? '− ' : '  '}{l.text || ' '}</span>
                   ))}

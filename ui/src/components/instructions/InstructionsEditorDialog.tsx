@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { TriangleAlert, X } from 'lucide-react';
 import AgentIcon from '../AgentIcon';
 import Button from '../Button';
@@ -8,8 +8,9 @@ import DialogShell from '../DialogShell';
 import { useToast } from '../Toast';
 import { useT } from '../../i18n';
 import { shortenHome } from '../../lib/paths';
-import { formatSize, isImportLine, lineCount } from './instructionsView';
-import { InstructionsPreview, ViewTabs } from './ViewTabs';
+import { isImportLine } from './instructionsView';
+import { useSaveShortcut } from './useSaveShortcut';
+import { BoxHeader, InstructionsPreview } from './ViewTabs';
 
 /** Edits one instruction file in place: a shared file or the project AGENTS.md. */
 export default function InstructionsEditorDialog({ title, path, content, note, readers, warnings, onSave, onClose }: {
@@ -49,18 +50,7 @@ export default function InstructionsEditorDialog({ title, path, content, note, r
       setSaving(false);
     }
   };
-  const saveRef = useRef(save);
-  saveRef.current = save;
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
-        e.preventDefault();
-        void saveRef.current();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  useSaveShortcut(() => void save());
 
   return (
     <DialogShell open onClose={onClose} maxWidth="full" padding="none" preventClose={saving || dirty || reverting} ariaLabel={title}>
@@ -73,10 +63,10 @@ export default function InstructionsEditorDialog({ title, path, content, note, r
       </div>
       <div className="db">
         <div className="grid grid-cols-[minmax(0,1fr)_300px] items-start gap-6">
-          <div className="ss-code flex h-[calc(100vh-16rem)] min-w-0 flex-col !overflow-hidden !bg-surface !p-0 !whitespace-normal focus-within:!border-[var(--accent)]">
-            <ViewTabs view={view} onChange={setView} />
+          <div className="ss-code flex h-[calc(100vh-16rem)] min-w-0 flex-col !overflow-hidden !p-0 !whitespace-normal focus-within:!border-[var(--accent)]">
+            <BoxHeader content={draft} view={view} onChange={setView} />
             {view === 'edit' ? (
-              <CodeEditor value={draft} onChange={setDraft} ariaLabel={title} markLine={isImportLine} disabled={saving} wrap fill className="min-h-0 flex-1 !rounded-none !border-0 !bg-surface" />
+              <CodeEditor value={draft} onChange={setDraft} ariaLabel={title} markLine={isImportLine} disabled={saving} wrap fill className="min-h-0 flex-1 !rounded-none !border-0" />
             ) : (
               <InstructionsPreview content={draft} names={[]} />
             )}
@@ -84,7 +74,6 @@ export default function InstructionsEditorDialog({ title, path, content, note, r
           <aside className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <span className={`ss-st ${dirty ? 'warn' : 'off'}`}>{t(dirty ? 'instructions.editor.modified' : 'instructions.editor.unchanged')}</span>
-              <span className="text-[13px] text-ink-3">{t('instructions.preview.stats', { lines: lineCount(draft), size: formatSize(new TextEncoder().encode(draft).length) })}</span>
             </div>
             {readers && readers.length > 0 && (
               <div className="flex flex-col gap-2">
