@@ -229,6 +229,19 @@ source:     _team/frontend-skill
 
 이렇게 하면 상대 경로가 GitHub 축약형(`owner/repo`)으로 잘못 해석되는 것을 방지합니다.
 
+### Source를 tag 또는 commit에 고정
+
+항목을 특정 버전에 고정하려면 경로에 ref가 들어 있는 웹 URL을 사용하세요. `tree/` 또는 `blob/`(GitHub), `-/tree/` 또는 `-/blob/`(GitLab), `src/`(Bitbucket) 뒤의 브랜치, tag 또는 commit SHA가 `install --branch`와 동일하게 설치 ref로 사용됩니다:
+
+```json
+{
+  "name": "reviewer",
+  "source": "github.com/owner/repo/tree/v1.2.0/skills/reviewer"
+}
+```
+
+Hub에서 설치하는 모든 사람이 해당 리비전을 받으며, `skillshare update`도 그 리비전을 유지합니다. 고정을 옮기려면 index에서 ref를 수정하세요. remote에 없는 ref는 기본 브랜치로 대체하지 않고 설치를 실패시킵니다.
+
 절대 경로, URL, 도메인 접두사가 붙은 경로는 절대 결합되지 않습니다:
 
 | Source 패턴 | 결합됨? |

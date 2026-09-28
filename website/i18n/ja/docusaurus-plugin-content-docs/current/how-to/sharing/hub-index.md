@@ -272,6 +272,19 @@ source:     _team/frontend-skill
 
 これにより、相対パスが GitHub の省略形（`owner/repo`）と誤解釈されるのを防ぎます。
 
+### Source をタグまたはコミットに固定する
+
+エントリを特定のバージョンに固定するには、パスに ref を含む Web URL を使います。`tree/` または `blob/`（GitHub）、`-/tree/` または `-/blob/`（GitLab）、`src/`（Bitbucket）の後にあるブランチ、タグ、または commit SHA が、`install --branch` と同じようにインストール ref として使われます。
+
+```json
+{
+  "name": "reviewer",
+  "source": "github.com/owner/repo/tree/v1.2.0/skills/reviewer"
+}
+```
+
+Hub からインストールするすべての人がそのリビジョンを取得し、`skillshare update` もそれを維持します。固定を移動するには、インデックス内の ref を編集します。リモートに存在しない ref はデフォルトブランチにフォールバックせず、インストールが失敗します。
+
 絶対パス、URL、ドメインプレフィックス付きのパスは決して結合されません。
 
 | Source パターン | 結合されるか？ |

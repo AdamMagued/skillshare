@@ -229,6 +229,19 @@ source:     _team/frontend-skill
 
 這可以避免相對路徑被誤判為 GitHub 簡寫（`owner/repo`）。
 
+### 將 Source 釘選到 Tag 或 Commit
+
+要把某個項目釘選到特定版本，請使用在路徑中帶有 ref 的網頁 URL。位於 `tree/` 或 `blob/`（GitHub）、`-/tree/` 或 `-/blob/`（GitLab），或 `src/`（Bitbucket）之後的 branch、tag 或 commit SHA 會作為安裝的 ref，效果與 `install --branch` 相同：
+
+```json
+{
+  "name": "reviewer",
+  "source": "github.com/owner/repo/tree/v1.2.0/skills/reviewer"
+}
+```
+
+每個從這個 hub 安裝的人都會拿到該版本，`skillshare update` 也會維持這個版本。要移動釘選，請編輯索引中的 ref。remote 沒有的 ref 會讓安裝失敗，而不會退回預設 branch。
+
 絕對路徑、URL，以及帶有網域前綴的路徑絕對不會被結合：
 
 | Source 模式 | 是否結合？ |

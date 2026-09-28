@@ -227,6 +227,19 @@ source:     _team/frontend-skill
 
 这可避免相对路径被误判为 GitHub 简写（`owner/repo`）。
 
+### 将来源固定到 Tag 或 Commit
+
+若要将某个条目固定到特定版本，请使用在路径中带有 ref 的网页 URL。`tree/` 或 `blob/`（GitHub）、`-/tree/` 或 `-/blob/`（GitLab）、`src/`（Bitbucket）之后的分支、tag 或 commit SHA 会作为安装的 ref，效果与 `install --branch` 相同：
+
+```json
+{
+  "name": "reviewer",
+  "source": "github.com/owner/repo/tree/v1.2.0/skills/reviewer"
+}
+```
+
+所有从此 hub 安装的人都会得到该版本，`skillshare update` 也会保留该版本。若要移动固定点，请编辑 index 中的 ref。远程不存在的 ref 会让安装失败，而不会回退到默认分支。
+
 绝对路径、URL 与带域名前缀的路径永远不会被合并：
 
 | 来源模式 | 是否合并？ |

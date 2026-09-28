@@ -471,6 +471,8 @@ skillshare install github.com/team/skills --branch v1.2.0 --all
 skillshare install github.com/team/skills --branch 8f14e45fceea167a5a36dedd4bea2543ce848564 --all
 ```
 
+網頁 URL 也能用同樣方式釘選：`skillshare install github.com/team/skills/tree/v1.2.0/skills/foo` 會從 tag `v1.2.0` 安裝。GitLab（`-/tree/<ref>/`）與 Bitbucket（`src/<ref>/`）的 URL 也適用。包含 `/` 的 branch 名稱，例如 `tree/feature/x/skills/foo`，會與 remote 的 branch 和 tag 比對。remote 已經沒有的 ref，例如 branch 改名為 `main` 之後的 `tree/master/`，會讓安裝失敗，而不會退回預設 branch。GitHub 用來表示預設 branch 的 `tree/HEAD/` 連結，會從 remote 的預設 branch 安裝。明確指定的 `--branch` 會覆蓋 URL 中的 ref。
+
 在 project 中，你通常不需要這麼做：`.skillshare/skills.lock.json` 已經把每個遠端 skill 釘選到它安裝時的 commit，而 `skillshare update` 會移動這個釘選。詳見 [Lockfile](/docs/understand/project-skills#lockfile)。
 
 釘選的 ref 會存在 skill metadata 中，因此 `skillshare update` 會重新安裝同一個版本，`skillshare check` 對 SHA 釘選會直接回報已是最新，不會連線 remote。`--track` 必須是 branch：tag 或 commit SHA 會讓 clone 處於 detached 狀態，`skillshare update` 沒有東西可以 pull，因此安裝會被拒絕。

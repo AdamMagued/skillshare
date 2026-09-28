@@ -471,6 +471,8 @@ skillshare install github.com/team/skills --branch v1.2.0 --all
 skillshare install github.com/team/skills --branch 8f14e45fceea167a5a36dedd4bea2543ce848564 --all
 ```
 
+Web URL でも同じように固定できます。`skillshare install github.com/team/skills/tree/v1.2.0/skills/foo` はタグ `v1.2.0` からインストールします。GitLab（`-/tree/<ref>/`）と Bitbucket（`src/<ref>/`）の URL も使えます。`tree/feature/x/skills/foo` のように `/` を含むブランチ名は、リモートのブランチとタグに照合されます。`main` へのリネーム後の `tree/master/` のように、リモートにもう存在しない ref はデフォルトブランチにフォールバックせず、インストールが失敗します。GitHub がデフォルトブランチに使う `tree/HEAD/` リンクは、リモートのデフォルトブランチからインストールします。明示的な `--branch` は URL 内の ref より優先されます。
+
 プロジェクトでは通常これは不要です。`.skillshare/skills.lock.json` がすでにすべてのリモート skill をインストール時のコミットに固定しており、`skillshare update` がその固定を移動させるためです。[ロックファイル](/docs/understand/project-skills#lockfile)を参照してください。
 
 固定した ref は Skill のメタデータに保存されるため、`skillshare update` は同じリビジョンを再インストールし、`skillshare check` は SHA 固定をリモートに接続せずに最新として報告します。`--track` にはブランチが必要です。タグや commit SHA ではクローンが detached 状態になり、`skillshare update` が pull するものがないため、インストールは拒否されます。

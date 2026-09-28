@@ -471,6 +471,8 @@ skillshare install github.com/team/skills --branch v1.2.0 --all
 skillshare install github.com/team/skills --branch 8f14e45fceea167a5a36dedd4bea2543ce848564 --all
 ```
 
+网页 URL 也能以同样方式固定：`skillshare install github.com/team/skills/tree/v1.2.0/skills/foo` 会从 tag `v1.2.0` 安装。GitLab（`-/tree/<ref>/`）与 Bitbucket（`src/<ref>/`）的 URL 同样适用。包含 `/` 的分支名称（例如 `tree/feature/x/skills/foo`）会与远程的分支和 tag 进行比对。远程已不存在的 ref（例如分支改名为 `main` 后的 `tree/master/`）会让安装失败，而不会回退到默认分支。GitHub 用来表示默认分支的 `tree/HEAD/` 链接会从远程的默认分支安装。明确指定的 `--branch` 会覆盖 URL 中的 ref。
+
 在项目中你通常不需要这样做：`.skillshare/skills.lock.json` 已经把每个远程 Skill 固定到了其安装时所在的 commit，`skillshare update` 会移动这个固定点。参见[锁定文件](/docs/understand/project-skills#lockfile)。
 
 固定的 ref 会保存在 Skill 元数据中，因此 `skillshare update` 会重新安装同一版本，`skillshare check` 对 SHA 固定会直接报告为最新，不会连接远程。`--track` 必须是分支：tag 或 commit SHA 会让克隆处于 detached 状态，`skillshare update` 没有可以 pull 的内容，因此安装会被拒绝。
