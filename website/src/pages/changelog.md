@@ -9,6 +9,50 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.21.14] - 2026-09-28
+
+### New Features
+
+#### Install
+
+- **Pin a skill to a tag or commit from its web URL** — the branch, tag or commit SHA after `tree/` or `blob/` in a GitHub URL (`-/tree/` on GitLab, `src/` on Bitbucket) is now the install ref, so a pasted URL installs the version it names. `skillshare update` keeps the pin. A ref the remote no longer has, such as `tree/master/` after a rename to `main`, fails the install instead of falling back to the default branch. Branch names containing `/` are matched against the remote's branches and tags, `tree/HEAD/` links use the default branch, and `--branch` still overrides the URL. Refs: #293.
+  ```bash
+  skillshare install github.com/team/skills/tree/v1.2.0/skills/foo
+  ```
+  Skills installed earlier from a `tree/<ref>/` URL got the default branch, and `update` and `skillshare install` from config keep them there.
+- **Pin hub entries** — a hub index entry whose `source` names a ref installs that revision for everyone, from `skillshare search --hub` and the dashboard's **Hubs** page. Move the pin by editing the ref in the index. Pinned skills from one repo and ref still share one clone. Refs: #293.
+  ```json
+  { "name": "reviewer", "source": "github.com/owner/repo/tree/v1.2.0/skills/reviewer" }
+  ```
+
+#### Extras
+
+- **Sync any single file** — `skillshare extras init` takes `--file` to sync one file from the source folder instead of the whole folder, and `--as` to give it a different name at the targets. Use `--add-target <path> --as <name>` for a different name per target. `init` only writes the config: it does not create the source file or sync. Refs: #300.
+  ```bash
+  skillshare extras init pi-prompt --source ~/dotfiles/prompts --file system.md \
+    --target ~/.pi/agent --as APPEND_SYSTEM.md
+  ```
+  In global mode, several single-file extras can share one `--source` folder, each syncing only its own file. `extras list` shows the full source and target file paths, and the `extras init` wizard asks whether to sync a folder or a single file.
+- **Single files on the dashboard** — the first Extras tab is now **Folders & files** and lists every extra except shared AGENTS.md files. **Add extra** can create a single file, with a file name per target and `merge`, `copy` or `import` mode.
+
+#### Dashboard
+
+- **One Hubs page for browsing and building** — browsing a hub and building your own are now the same page: your hub is shown the way others will see it and edited in place. Entries can be added from any repository URL, with a branch or tag picked from the remote, and skills added from installed ones keep the version they were installed from.
+- **Backups grouped by day** — **Settings → Backup** groups folder backups by day with one compact row per backup. Opening a row lists each folder with its file count and size, and its own **Restore** button. The page says what it is doing while backups load and while **Back up now** runs.
+
+### Bug Fixes
+
+#### Dashboard
+
+- **Previewing your own hub shows it** — previewing a draft from the hub builder opened an empty "pick a hub" page instead of the draft.
+- **Counts of one read correctly** — labels such as "1 skills", "1 of 1 targets" and "1 backups" now use the singular in every language.
+- **The dashboard no longer looks stuck after an upgrade** — restarting after `skillshare upgrade` deleted the UI files the upgrade had just downloaded, so the server fetched them from GitHub again. On a slow connection that outlasted the reconnect wait.
+- **The project-mode note no longer says Backup is hidden** — **Settings → Backup** appears in project mode, scoped to the project.
+
+### Performance
+
+- **The Backup page opens faster** — each snapshot folder is read once for its size and file count, instead of twice.
+
 ## [0.21.13] - 2026-09-28
 
 ### New Features
