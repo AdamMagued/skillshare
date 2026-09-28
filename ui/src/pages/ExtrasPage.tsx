@@ -257,7 +257,7 @@ function AddExtraDialog({ onClose, onCreated, extensions, known, sharedDir }: {
             <span className="ss-inp">
               <input id="extra-name" autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder={t('extras.modal.namePlaceholder')} disabled={saving} />
             </span>
-            <span className="hp">{t('extras.modal.nameHint')}</span>
+            <span className="hp">{t(custom ? 'extras.modal.nameHintCustom' : 'extras.modal.nameHint')}</span>
           </div>
           <div className="ss-fld">
             <span id="extra-kind" className="text-[13px] font-semibold">{t('extras.modal.sync')}</span>

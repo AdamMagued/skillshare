@@ -664,27 +664,42 @@ func (m extrasListTUIModel) handleConfirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd
 	return m, nil
 }
 
+// confirmTargetLabel names the confirmed target: "all targets", its directory,
+// or for a single-file extra the file it writes. confirmTarget itself stays the
+// configured path, which executeAction matches targets by.
+func (m extrasListTUIModel) confirmTargetLabel(entry extrasListEntry) string {
+	if m.confirmTarget == "" {
+		return "all targets"
+	}
+	for _, t := range entry.Targets {
+		if t.Path == m.confirmTarget {
+			return shortenPath(extrasTargetDisplayPath(entry.File, t))
+		}
+	}
+	return shortenPath(m.confirmTarget)
+}
+
 func (m extrasListTUIModel) renderConfirmOverlay() string {
 	var title, body string
+	var entry extrasListEntry
+	if item, ok := m.list.SelectedItem().(extraTUIItem); ok {
+		entry = item.entry
+	}
 
 	switch m.confirmAction {
 	case "remove":
 		title = "Remove"
-		body = fmt.Sprintf("Remove extra %q?\nThis only removes config.\nRun sync to clean up orphaned links.", m.confirmExtra)
+		if entry.File != "" {
+			body = fmt.Sprintf("Remove extra %q?\nIts target files are restored to what was there before.", m.confirmExtra)
+		} else {
+			body = fmt.Sprintf("Remove extra %q?\nThis only removes config.\nRun sync to clean up orphaned links.", m.confirmExtra)
+		}
 	case "sync":
 		title = "Sync"
-		target := "all targets"
-		if m.confirmTarget != "" {
-			target = shortenPath(m.confirmTarget)
-		}
-		body = fmt.Sprintf("Sync %q to %s?", m.confirmExtra, target)
+		body = fmt.Sprintf("Sync %q to %s?", m.confirmExtra, m.confirmTargetLabel(entry))
 	case "collect":
 		title = "Collect"
-		target := "all targets"
-		if m.confirmTarget != "" {
-			target = shortenPath(m.confirmTarget)
-		}
-		body = fmt.Sprintf("Collect from %s into %q?", target, m.confirmExtra)
+		body = fmt.Sprintf("Collect from %s into %q?", m.confirmTargetLabel(entry), m.confirmExtra)
 	}
 
 	return fmt.Sprintf("\n%s\n\n%s\n\nProceed? [Y/n] ",
