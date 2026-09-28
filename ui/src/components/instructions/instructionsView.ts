@@ -306,14 +306,15 @@ export function locationFile(folder: string, as: string, file: string): string {
   return `${dir}${sep}${as.trim() || file}`;
 }
 
-export type LocationHint = 'folderLink' | 'directory' | 'noSource' | 'modified' | 'notSynced' | 'drift' | 'driftImport' | 'import';
+export type LocationHint = 'folderLink' | 'directory' | 'noSource' | 'notSynced' | 'drift' | 'driftImport' | 'import';
 
 /** The one line under a location row: a problem first, else what import leaves in the file. */
 export function locationHint(l: InstructionLocation): LocationHint | null {
   if (l.reason === 'folder_link') return 'folderLink';
   if (l.reason === 'directory') return 'directory';
   if (l.status === 'no source') return 'noSource';
-  if (l.status === 'modified') return 'modified';
+  // modified: the row shows a note with collect and reapply instead.
+  if (l.status === 'modified') return null;
   if (l.status === 'not synced') return 'notSynced';
   if (l.status === 'drift') return l.mode === 'import' ? 'driftImport' : 'drift';
   return l.mode === 'import' ? 'import' : null;

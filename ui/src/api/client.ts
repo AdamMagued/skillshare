@@ -809,10 +809,11 @@ export const api = {
     apiFetch<{ success: boolean; warnings?: InstructionsWarning[] }>(`/instructions/${encodeURIComponent(name)}/locations?path=${encodeURIComponent(path)}`, { method: 'DELETE' }),
   getLocationRestorePreview: (name: string, path: string) =>
     apiFetch<SharedRestorePreview>(`/instructions/${encodeURIComponent(name)}/locations/restore-preview?path=${encodeURIComponent(path)}`),
-  resolveSharedInstructions: (name: string, target: string, action: 'collect' | 'reapply') =>
+  /** Settles a modified target, or a location when `on` has its `path`. */
+  resolveSharedInstructions: (name: string, on: { target: string } | { path: string }, action: 'collect' | 'reapply') =>
     apiFetch<{ success: boolean }>(`/instructions/${encodeURIComponent(name)}/resolve`, {
       method: 'POST',
-      body: JSON.stringify({ target, action }),
+      body: JSON.stringify({ ...on, action }),
     }),
   getProjectInstructions: () => apiFetch<ProjectInstructions>('/instructions/project'),
   putProjectInstructions: (content: string) =>

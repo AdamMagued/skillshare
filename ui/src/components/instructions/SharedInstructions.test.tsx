@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -24,6 +24,7 @@ vi.mock('../../api/client', async (load) => {
       getSharedInstructionsContent: vi.fn(async (name: string) => ({ name, path: `/h/extras/${name}/AGENTS.md`, exists: true, content: `# ${name}\n` })),
       createSharedInstructions: vi.fn().mockResolvedValue({ success: true, path: '' }),
       assignSharedInstructions: vi.fn(),
+      resolveSharedInstructions: vi.fn().mockResolvedValue({ success: true }),
     },
   };
 });
@@ -127,6 +128,20 @@ describe('Other locations', () => {
     renderAt('/extras?tab=instructions&file=personal');
 
     expect(await screen.findByText('No other locations yet')).toBeInTheDocument();
+  });
+
+  it('collects an edited location by its path', async () => {
+    vi.mocked(api.listSharedInstructions).mockResolvedValue({
+      files: [{ ...shared('personal'), locations: [{ path: '/h/notes', file: '/h/notes/AGENTS.md', mode: 'symlink', status: 'modified' }] }],
+      targets: [],
+      file_links: true,
+    });
+    renderAt('/extras?tab=instructions&file=personal');
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Collect into personal' }));
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Collect into personal' }));
+
+    await waitFor(() => expect(api.resolveSharedInstructions).toHaveBeenCalledWith('personal', { path: '/h/notes' }, 'collect'));
   });
 });
 

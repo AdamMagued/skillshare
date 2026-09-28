@@ -283,13 +283,14 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
     run: () => detach(steps.map((s) => s.target)),
   });
 
-  const resolve = (tg: SharedInstructionsTarget, action: 'collect' | 'reapply') => ask({
-    title: t(`instructions.resolve.${action}.title`, { name, target: tg.name }),
-    message: t(`instructions.resolve.${action}.message`, { name, target: tg.name, count: connected.length }),
+  // label names the row in the messages: a target's name or a location's path.
+  const resolve = (label: string, on: { target: string } | { path: string }, action: 'collect' | 'reapply') => ask({
+    title: t(`instructions.resolve.${action}.title`, { name, target: label }),
+    message: t(`instructions.resolve.${action}.message`, { name, target: label, count: connected.length }),
     confirm: t(`instructions.resolve.${action}.item`, { name }),
     run: async () => {
-      await api.resolveSharedInstructions(name, tg.name, action);
-      toast(t(`instructions.resolve.${action}.done`, { name, target: tg.name }), 'success');
+      await api.resolveSharedInstructions(name, on, action);
+      toast(t(`instructions.resolve.${action}.done`, { name, target: label }), 'success');
     },
   });
 
@@ -357,7 +358,6 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
       case 'folderLink': return t('instructions.hint.folderLink');
       case 'directory': return t('instructions.hint.directory');
       case 'noSource': return t('instructions.hint.noSource', { name });
-      case 'modified': return t('instructions.row.modified');
       case 'notSynced': return t('instructions.locations.hint.notSynced');
       case 'drift': return t('instructions.locations.hint.drift', { name });
       case 'driftImport': return t('instructions.locations.hint.driftImport');
@@ -474,8 +474,8 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
                 <div className="ss-note warn mr-4 mb-3 ml-[82px] !items-center">
                   <TriangleAlert size={16} className="!mt-0" />
                   <span className="flex-1">{t('instructions.row.modified')}</span>
-                  <Button variant="secondary" size="sm" disabled={busy} onClick={() => resolve(tg, 'collect')}>{t('instructions.resolve.collect.item', { name })}</Button>
-                  <Button variant="secondary" size="sm" disabled={busy} onClick={() => resolve(tg, 'reapply')}>{t('instructions.resolve.reapply.item', { name })}</Button>
+                  <Button variant="secondary" size="sm" disabled={busy} onClick={() => resolve(tg.name, { target: tg.name }, 'collect')}>{t('instructions.resolve.collect.item', { name })}</Button>
+                  <Button variant="secondary" size="sm" disabled={busy} onClick={() => resolve(tg.name, { target: tg.name }, 'reapply')}>{t('instructions.resolve.reapply.item', { name })}</Button>
                 </div>
               )}
             </div>
@@ -495,7 +495,8 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
             const hint = locationHint(l);
             const path = shortenHome(l.file);
             return (
-              <div key={l.path} className="ss-r !min-h-[56px] !gap-3 !py-2">
+              <div key={l.path} className="ss-r !block !p-0">
+              <div className="flex min-h-[56px] items-center gap-3 px-4 py-2">
                 <span className="ss-at"><Folder size={15} className="text-ink-3" /></span>
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span className="truncate font-mono text-[13px] font-semibold" title={l.file}>{path}</span>
@@ -511,6 +512,15 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
                 <Button variant="ghost" size="sm" disabled={busy} aria-label={t('instructions.locations.removeLabel', { path })} onClick={() => setRemovingLocation(l)}>
                   {t('instructions.locations.remove')}
                 </Button>
+              </div>
+              {l.status === 'modified' && (
+                <div className="ss-note warn mr-4 mb-3 ml-[58px] !items-center">
+                  <TriangleAlert size={16} className="!mt-0" />
+                  <span className="flex-1">{t('instructions.row.modified')}</span>
+                  <Button variant="secondary" size="sm" disabled={busy} onClick={() => resolve(path, { path: l.path }, 'collect')}>{t('instructions.resolve.collect.item', { name })}</Button>
+                  <Button variant="secondary" size="sm" disabled={busy} onClick={() => resolve(path, { path: l.path }, 'reapply')}>{t('instructions.resolve.reapply.item', { name })}</Button>
+                </div>
+              )}
               </div>
             );
           })}
@@ -556,7 +566,8 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
       {removingLocation && (
         <RestorePreviewDialog location name={name} target={removingLocation.path} label={shortenHome(removingLocation.file)} mode={removingLocation.mode} busy={busy}
           onClose={() => setRemovingLocation(null)}
-          onConfirm={async () => { await removeLocation(removingLocation); setRemovingLocation(null); }} />
+          // Closed first: the refetch after removing would ask for the preview of a location that is gone.
+          onConfirm={() => { setRemovingLocation(null); void removeLocation(removingLocation); }} />
       )}
       {editing && content.data && (
         <InstructionsEditorDialog
