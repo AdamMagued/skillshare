@@ -270,6 +270,43 @@ On Windows, an original junction is recreated as a junction, without requiring D
 
 When a junction you made is replaced, the warning shows where it pointed.
 
+## Other locations
+
+Below the targets, **Other locations** lists the places a shared file is written that
+aren't a tool in the list: a folder that isn't a target, such as notes or a dotfiles
+repo, or a different file name, such as `instructions.md`. It does the same as
+`skillshare extras <name> --add-target <dir> --as <file>`, and locations added with
+that command show up here too.
+
+**Add location** asks for:
+
+- **Folder**: a full path or one that starts with `~`. It is created if missing.
+- **File name**: leave it empty to use the shared file's name, `AGENTS.md`.
+- How the location gets the file: `symlink` (the default), `copy`, or `import`.
+  `import` is available only after you tick that the tool reading this file supports
+  `@import`; other tools would only see a path line. `symlink` isn't available on
+  Windows without Developer Mode, where `copy` is the default.
+
+**Add and sync** writes the file right away; nothing is saved if it can't be written.
+skillshare refuses a location when:
+
+- A folder is in the way at that file path. Use another file name, or move the folder
+  first.
+- The file is a listed tool's own instruction file. Turn that tool on in **Targets**
+  instead.
+- The file already links to or copies another shared file. Remove it from that shared
+  file first, or use `import` on both.
+- The folder is already a location of this shared file. Change its mode in that row.
+
+Each row shows the file, a mode picker and the [status](#manage-one-shared-file).
+Changing the mode syncs the location right away. A location that is `drift` or
+`not synced` counts toward the heading's **Sync** button. **Remove** first shows the
+[restore preview](#restore-and-delete); **Remove and restore** puts back what the file
+held before and takes the location off the list.
+
+In a project, the **Extras** page lists single-file extras too. Their **Add target**
+row has a **File name** field in place of the extension, the same as `--as`.
+
 ## When a linked file is edited
 
 If you or a tool edit a target's file directly and the link is replaced by a regular
