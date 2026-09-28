@@ -196,7 +196,7 @@ function FolderBackups() {
           </div>
           <div className="flex items-center gap-3 text-[13px] text-ink-3">
             <span>
-              {t('backup.footer.count', { count: backups.length })}
+              {t(backups.length === 1 ? 'backup.footer.count.one' : 'backup.footer.count.other', { count: backups.length })}
               {data && data.totalSizeBytes > 0 ? ` · ${formatSize(data.totalSizeBytes, locale)}` : ''}
               {` · ${shortenHome(backupsDir(backups[0].path))}`}
             </span>
@@ -315,7 +315,7 @@ function RestoreDialog({ backup, target, onPick, onClose, onDone }: {
               <div className="ss-note bad"><span className="flex-1">{check.error.message}</span></div>
             ) : conflicts.length > 0 ? (
               <div className="ss-note warn flex-col !items-stretch">
-                <span>{t('backup.restore.overwriteWarning', { count: conflicts.length })}</span>
+                <span>{t(conflicts.length === 1 ? 'backup.restore.overwriteWarning.one' : 'backup.restore.overwriteWarning.other', { count: conflicts.length })}</span>
                 <ul className="mt-2 flex flex-col gap-1 font-mono text-[12px]">
                   {(more ? conflicts : conflicts.slice(0, CONFLICTS_SHOWN)).map((f) => <li key={f}>{f}</li>)}
                 </ul>

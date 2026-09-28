@@ -79,7 +79,7 @@ function Versions({ file }: { file: FileBackup }) {
       <div className="ss-gh !min-h-[52px]">
         <span className="flex min-w-0 flex-1 flex-col gap-px">
           <span className="truncate font-mono font-semibold" title={file.path}>{shortenHome(file.path)}</span>
-          <span className="text-xs text-ink-3">{t('backup.files.versionsCount', { count: data?.versions.length ?? file.versions })}</span>
+          <span className="text-xs text-ink-3">{t((data?.versions.length ?? file.versions) === 1 ? 'backup.files.versionsCount.one' : 'backup.files.versionsCount.other', { count: data?.versions.length ?? file.versions })}</span>
         </span>
         {file.extra && (
           <Link to={`/extras?tab=instructions&file=${encodeURIComponent(file.extra)}`} className="ss-btn sm ghost">{t('backup.files.toShared')}</Link>

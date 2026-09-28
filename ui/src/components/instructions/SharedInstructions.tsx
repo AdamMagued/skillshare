@@ -286,7 +286,7 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
   // label names the row in the messages: a target's name or a location's path.
   const resolve = (label: string, on: { target: string } | { path: string }, action: 'collect' | 'reapply') => ask({
     title: t(`instructions.resolve.${action}.title`, { name, target: label }),
-    message: t(`instructions.resolve.${action}.message`, { name, target: label, count: connected.length }),
+    message: t(action === 'collect' ? `instructions.resolve.collect.message.${connected.length === 1 ? 'one' : 'other'}` : 'instructions.resolve.reapply.message', { name, target: label, count: connected.length }),
     confirm: t(`instructions.resolve.${action}.item`, { name }),
     run: async () => {
       await api.resolveSharedInstructions(name, on, action);
@@ -304,7 +304,7 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
   const remove = () => ask({
     title: t('instructions.delete.title', { name }),
     message: connected.length
-      ? t('instructions.delete.message', { count: connected.length, targets: list(connected.map((tg) => tg.name)), name })
+      ? t(connected.length === 1 ? 'instructions.delete.message.one' : 'instructions.delete.message.other', { count: connected.length, targets: list(connected.map((tg) => tg.name)), name })
       : t('instructions.delete.unused', { name }),
     confirm: t('instructions.detail.delete.confirm'),
     danger: true,

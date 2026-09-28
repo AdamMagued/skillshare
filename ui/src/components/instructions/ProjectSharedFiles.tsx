@@ -103,7 +103,7 @@ function SharedFileCard({ file, fileLinks }: { file: SharedInstructionsFile; fil
 
   const resolve = (label: string, path: string, action: 'collect' | 'reapply') => setPending({
     title: t(`instructions.resolve.${action}.title`, { name, target: label }),
-    message: t(`instructions.resolve.${action}.message`, { name, target: label, count: locations.length }),
+    message: t(action === 'collect' ? `instructions.resolve.collect.message.${locations.length === 1 ? 'one' : 'other'}` : 'instructions.resolve.reapply.message', { name, target: label, count: locations.length }),
     confirm: t(`instructions.resolve.${action}.item`, { name }),
     run: async () => {
       await api.resolveSharedInstructions(name, { path }, action);
@@ -120,7 +120,7 @@ function SharedFileCard({ file, fileLinks }: { file: SharedInstructionsFile; fil
 
   const remove = () => setPending({
     title: t('instructions.delete.title', { name }),
-    message: locations.length ? t('instructions.projectShared.deleteMessage', { name, count: locations.length }) : t('instructions.delete.unused', { name }),
+    message: locations.length ? t(locations.length === 1 ? 'instructions.projectShared.deleteMessage.one' : 'instructions.projectShared.deleteMessage.other', { name, count: locations.length }) : t('instructions.delete.unused', { name }),
     confirm: t('instructions.detail.delete.confirm'),
     danger: true,
     run: async () => {

@@ -46,7 +46,7 @@ export default function MCPBackups() {
               <span className="ss-at"><AgentIcon target={group[0].target} size={16} /></span>
               <span className="font-semibold">{targetLabel(group[0].target)}</span>
               <span className="min-w-0 flex-1 truncate font-mono text-ink-3" title={group[0].path}>{shortenHome(group[0].path)}</span>
-              <span className="shrink-0 text-ink-3">{t('backup.mcp.count', { count: group.length })}</span>
+              <span className="shrink-0 text-ink-3">{t(group.length === 1 ? 'backup.mcp.count.one' : 'backup.mcp.count.other', { count: group.length })}</span>
             </div>
             {group.map((b) => {
               const taken = when(b);

@@ -75,6 +75,12 @@ describe('BackupPage', () => {
     await waitFor(() => expect(api.restore).toHaveBeenCalledWith({ timestamp: TS, target: 'claude-agents', force: false }));
   });
 
+  it('counts a single snapshot in the singular', async () => {
+    renderPage();
+
+    expect(await screen.findByText(/^1 backup ·/)).toBeInTheDocument();
+  });
+
   it('deletes a backup only after confirmation', async () => {
     vi.mocked(api.deleteBackup).mockResolvedValue({ success: true });
     const user = userEvent.setup();
