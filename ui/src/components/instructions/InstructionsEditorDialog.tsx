@@ -9,6 +9,7 @@ import { useToast } from '../Toast';
 import { useT } from '../../i18n';
 import { shortenHome } from '../../lib/paths';
 import { formatSize, isImportLine, lineCount } from './instructionsView';
+import { InstructionsPreview, ViewTabs } from './ViewTabs';
 
 /** Edits one instruction file in place: a shared file or the project AGENTS.md. */
 export default function InstructionsEditorDialog({ title, path, content, note, readers, warnings, onSave, onClose }: {
@@ -31,6 +32,8 @@ export default function InstructionsEditorDialog({ title, path, content, note, r
   const [draft, setDraft] = useState(content);
   const [saving, setSaving] = useState(false);
   const [reverting, setReverting] = useState(false);
+  // Preview shows the draft; the draft and ⌘S work the same in both views.
+  const [view, setView] = useState<'edit' | 'preview'>('edit');
   const dirty = draft !== base;
 
   const save = async () => {
@@ -70,7 +73,14 @@ export default function InstructionsEditorDialog({ title, path, content, note, r
       </div>
       <div className="db">
         <div className="grid grid-cols-[minmax(0,1fr)_300px] items-start gap-6">
-          <CodeEditor value={draft} onChange={setDraft} ariaLabel={title} minHeight="calc(100vh - 16rem)" maxHeight="calc(100vh - 16rem)" markLine={isImportLine} disabled={saving} wrap />
+          <div className="ss-code flex h-[calc(100vh-16rem)] min-w-0 flex-col !overflow-hidden !bg-surface !p-0 !whitespace-normal focus-within:!border-[var(--accent)]">
+            <ViewTabs view={view} onChange={setView} />
+            {view === 'edit' ? (
+              <CodeEditor value={draft} onChange={setDraft} ariaLabel={title} markLine={isImportLine} disabled={saving} wrap fill className="min-h-0 flex-1 !rounded-none !border-0 !bg-surface" />
+            ) : (
+              <InstructionsPreview content={draft} names={[]} />
+            )}
+          </div>
           <aside className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <span className={`ss-st ${dirty ? 'warn' : 'off'}`}>{t(dirty ? 'instructions.editor.modified' : 'instructions.editor.unchanged')}</span>

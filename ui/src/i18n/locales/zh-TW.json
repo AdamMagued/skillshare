@@ -1086,6 +1086,7 @@
   "instructions.target.view.label": "檢視",
   "instructions.target.view.edit": "編輯",
   "instructions.target.view.preview": "預覽",
+  "instructions.target.view.source": "原始碼",
   "instructions.target.previewEmpty": "還沒有內容可以預覽。",
   "instructions.target.unreadShort": "不讀使用者層級的 AGENTS.md",
   "instructions.target.sharedChange": "更換 →",

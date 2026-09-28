@@ -1086,6 +1086,7 @@
   "instructions.target.view.label": "보기",
   "instructions.target.view.edit": "편집",
   "instructions.target.view.preview": "미리 보기",
+  "instructions.target.view.source": "원본",
   "instructions.target.previewEmpty": "아직 미리 볼 내용이 없습니다.",
   "instructions.target.unreadShort": "사용자 수준 AGENTS.md는 읽지 않음",
   "instructions.target.sharedChange": "변경 →",

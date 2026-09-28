@@ -1086,6 +1086,7 @@
   "instructions.target.view.label": "Visualização",
   "instructions.target.view.edit": "Editar",
   "instructions.target.view.preview": "Pré-visualizar",
+  "instructions.target.view.source": "Código-fonte",
   "instructions.target.previewEmpty": "Ainda não há nada para pré-visualizar.",
   "instructions.target.unreadShort": "Não lê um AGENTS.md no nível do usuário",
   "instructions.target.sharedChange": "Trocar →",

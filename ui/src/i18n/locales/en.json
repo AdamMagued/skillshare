@@ -1086,6 +1086,7 @@
   "instructions.target.view.label": "View",
   "instructions.target.view.edit": "Edit",
   "instructions.target.view.preview": "Preview",
+  "instructions.target.view.source": "Source",
   "instructions.target.previewEmpty": "Nothing to preview yet.",
   "instructions.target.unreadShort": "Doesn't read a user-level AGENTS.md",
   "instructions.target.sharedChange": "Change →",

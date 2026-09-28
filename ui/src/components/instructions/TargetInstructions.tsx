@@ -9,7 +9,6 @@ import CodeEditor from '../CodeEditor';
 import ConfirmDialog from '../ConfirmDialog';
 import DialogShell from '../DialogShell';
 import EmptyState from '../EmptyState';
-import MarkdownView from '../MarkdownView';
 import { Checkbox, Input } from '../Input';
 import { targetLabel } from '../mcp/mcpView';
 import { PageSkeleton } from '../Skeleton';
@@ -21,7 +20,8 @@ import { shortenHome } from '../../lib/paths';
 import ConvertDialog from './ConvertDialog';
 import InstructionFileList from './InstructionFileList';
 import { useFillHeight } from './useFillHeight';
-import { formatSize, importDecor, previewParts, refreshInstructions, setupPathOf, setupPathProblem, sharedOfImport } from './instructionsView';
+import { InstructionsPreview, ViewTabs } from './ViewTabs';
+import { formatSize, importDecor, readChain, refreshInstructions, setupPathOf, setupPathProblem, sharedOfImport } from './instructionsView';
 
 const base = (path: string) => path.split('/').pop() ?? path;
 
@@ -262,7 +262,7 @@ function Editor({ data, onDirty }: { data: Data; onDirty?: (dirty: boolean) => v
     }
   };
 
-  const order = data.read_order.filter((e) => e.kind !== 'unread');
+  const order = readChain(data.read_order);
   const readBy = data.read_by.map(targetLabel).join(t('instructions.shared.listSep'));
   const unread = data.read_order.some((e) => e.kind === 'unread');
 
@@ -338,7 +338,7 @@ function Editor({ data, onDirty }: { data: Data; onDirty?: (dirty: boolean) => v
           <CodeEditor value={draft} onChange={setDraft} ariaLabel={file} lineDecor={lineDecor} disabled={saving || linked} wrap fill
             className="min-h-0 flex-1 !rounded-none !border-0 !bg-surface" placeholder={t('instructions.target.placeholder', { file })} />
         ) : (
-          <Preview content={draft} names={shared.map((s) => s.name)} />
+          <InstructionsPreview content={draft} names={shared.map((s) => s.name)} />
         )}
       </div>
       {tooLong && (
@@ -370,41 +370,3 @@ function ReadOrderItem({ entry, target }: { entry: InstructionsEntry; target: st
   );
 }
 
-/** Edit / Preview as underline tabs on the editor box's top strip. */
-function ViewTabs({ view, onChange }: { view: 'edit' | 'preview'; onChange: (view: 'edit' | 'preview') => void }) {
-  const t = useT();
-  const views = ['edit', 'preview'] as const;
-  return (
-    <div role="tablist" aria-label={t('instructions.target.view.label')} className="flex gap-5 border-b border-line-soft px-4"
-      onKeyDown={(e) => {
-        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-        e.preventDefault();
-        const next = view === 'edit' ? 'preview' : 'edit';
-        onChange(next);
-        e.currentTarget.querySelector<HTMLElement>(`[data-view="${next}"]`)?.focus();
-      }}>
-      {views.map((v) => (
-        <button key={v} type="button" role="tab" data-view={v} aria-selected={view === v} tabIndex={view === v ? 0 : -1} onClick={() => onChange(v)}
-          className={`-mb-px h-9 border-b-2 text-[12.5px] ${view === v ? 'border-ink font-semibold text-ink' : 'border-transparent text-ink-2 hover:text-ink'}`}>
-          {t(`instructions.target.view.${v}`)}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-/** The draft rendered as Markdown in the editor's box; the managed import block shows as what it imports. */
-function Preview({ content, names }: { content: string; names: string[] }) {
-  const t = useT();
-  const { before, imports, after } = previewParts(content, names);
-  const empty = !before.trim() && imports.length === 0 && !after.trim();
-  return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto px-6 py-5 text-[13.5px]" style={{ fontFamily: 'var(--f)' }}
-      role="tabpanel" aria-label={t('instructions.target.view.preview')}>
-      {before.trim() && <MarkdownView>{before}</MarkdownView>}
-      {imports.length > 0 && <p className="font-mono text-[12px] text-ink-3">{imports.map((n) => `@import ${n}`).join(' · ')}</p>}
-      {after.trim() && <MarkdownView>{after}</MarkdownView>}
-      {empty && <p className="text-[13px] text-ink-3">{t('instructions.target.previewEmpty')}</p>}
-    </div>
-  );
-}

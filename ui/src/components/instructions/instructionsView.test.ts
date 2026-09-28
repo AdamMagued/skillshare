@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SharedInstructionsFile, SharedInstructionsTarget } from '../../api/client';
-import { connectPlan, defaultShareName, saveCopiesSummary, importDecor, importLines, previewParts, lineCount, lineDiff, lineRanges, modeOptions, needsSync, overLimit, restorePlan, rowHint, setupPathOf, setupPathProblem, sharedNameProblem, sharedOfImport, worstStatus } from './instructionsView';
+import { connectPlan, defaultShareName, readChain, saveCopiesSummary, importDecor, importLines, previewParts, lineCount, lineDiff, lineRanges, modeOptions, needsSync, overLimit, restorePlan, rowHint, setupPathOf, setupPathProblem, sharedNameProblem, sharedOfImport, worstStatus } from './instructionsView';
 
 describe('importLines', () => {
   it('finds @path lines outside code fences', () => {
@@ -228,5 +228,19 @@ describe('saveCopiesSummary', () => {
       warnings: ['pi: backed up ~/.pi/agent/AGENTS.md before replacing it'],
       errors: ['grok: permission denied'],
     });
+  });
+});
+
+describe('readChain', () => {
+  it('leaves out an empty rules folder but keeps a main file that does not exist yet', () => {
+    expect(readChain([
+      { path: '/h/.claude/CLAUDE.md', kind: 'main', exists: false, read: false },
+      { path: '/h/.claude/rules', kind: 'rules', exists: false, read: false, count: 0 },
+      { path: '/h/AGENTS.md', kind: 'unread', exists: false, read: false },
+    ]).map((e) => e.kind)).toEqual(['main']);
+  });
+
+  it('keeps a rules folder that holds files', () => {
+    expect(readChain([{ path: '/h/.claude/rules', kind: 'rules', exists: true, read: true, count: 3 }])).toHaveLength(1);
   });
 });

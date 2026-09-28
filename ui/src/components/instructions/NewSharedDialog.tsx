@@ -13,6 +13,7 @@ import { useT } from '../../i18n';
 import { shortenHome } from '../../lib/paths';
 import { queryKeys } from '../../lib/queryKeys';
 import { isImportLine, sharedNameProblem, takenName } from './instructionsView';
+import { InstructionsPreview, ViewTabs } from './ViewTabs';
 
 /** Creates a shared instruction file, from content or by moving a target's current file into it. */
 export default function NewSharedDialog({ targets, onClose, onCreated }: {
@@ -26,6 +27,7 @@ export default function NewSharedDialog({ targets, onClose, onCreated }: {
   const [from, setFrom] = useState('');
   const [content, setContent] = useState('');
   const [saving, setSaving] = useState(false);
+  const [view, setView] = useState<'edit' | 'preview'>('edit');
   const title = t('instructions.shared.newTitle');
   // Extra names are one namespace: a folder extra takes the name too.
   const extras = useQuery({ queryKey: queryKeys.extras, queryFn: () => api.listExtras() });
@@ -78,7 +80,17 @@ export default function NewSharedDialog({ targets, onClose, onCreated }: {
             <span className="hp">{t(from ? 'instructions.shared.startCopyHint' : 'instructions.shared.startEmptyHint', { name: from })}</span>
           </div>
         </div>
-        {!from && <CodeEditor value={content} onChange={setContent} ariaLabel={t('instructions.shared.content')} minHeight="220px" markLine={isImportLine} disabled={saving} wrap placeholder={t('instructions.shared.contentPlaceholder')} />}
+        {!from && (
+          <div className="ss-code flex h-[300px] flex-col !overflow-hidden !bg-surface !p-0 !whitespace-normal focus-within:!border-[var(--accent)]">
+            <ViewTabs view={view} onChange={setView} />
+            {view === 'edit' ? (
+              <CodeEditor value={content} onChange={setContent} ariaLabel={t('instructions.shared.content')} markLine={isImportLine} disabled={saving} wrap fill
+                className="min-h-0 flex-1 !rounded-none !border-0 !bg-surface" placeholder={t('instructions.shared.contentPlaceholder')} />
+            ) : (
+              <InstructionsPreview content={content} names={[]} />
+            )}
+          </div>
+        )}
       </div>
       <div className="df">
         <span className="flex-1" />

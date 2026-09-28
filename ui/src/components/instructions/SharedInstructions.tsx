@@ -21,6 +21,7 @@ import { shortenHome } from '../../lib/paths';
 import InstructionsEditorDialog from './InstructionsEditorDialog';
 import NewSharedDialog from './NewSharedDialog';
 import RestorePreviewDialog from './RestorePreviewDialog';
+import { InstructionsPreview, ViewTabs } from './ViewTabs';
 import {
   connectExtras, connectPlan, connectedTo, formatSize, lineCount, modeOptions, needsSync, pickedMode, refreshInstructions, restorePlan, rowHint, saveCopiesSummary, statusTone, usesOf,
 } from './instructionsView';
@@ -111,6 +112,8 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
   const [deleting, setDeleting] = useState(false);
   const content = useQuery({ queryKey: queryKeys.instructions.sharedContent(name), queryFn: () => api.getSharedInstructionsContent(name), enabled: !deleting });
   const [expanded, setExpanded] = useState(false);
+  // The card is read-only: Source shows the text as written, Preview renders it.
+  const [view, setView] = useState<'source' | 'preview'>('source');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [pending, setPending] = useState<Pending | null>(null);
@@ -305,7 +308,7 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
       </div>
 
       <div className="ss-list">
-        <div className="flex h-[38px] items-center gap-2 border-b border-line bg-sunken pr-2 pl-4">
+        <div className="flex h-[38px] items-center gap-2 border-b border-line bg-sunken pr-4 pl-4">
           <span className="flex-1 text-[12.5px] text-ink-2">
             {content.data ? t('instructions.preview.stats', { lines: lineCount(text), size: formatSize(file.size) }) : '…'}
           </span>
@@ -315,9 +318,15 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
               {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
             </Button>
           )}
+          <ViewTabs view={view} onChange={setView} className="ml-2 self-end" views={[
+            { value: 'source', label: t('instructions.target.view.source') },
+            { value: 'preview', label: t('instructions.target.view.preview') },
+          ]} />
         </div>
         {content.error ? (
           <div className="px-[18px] py-3 text-[13px] text-bad">{content.error.message}</div>
+        ) : view === 'preview' ? (
+          <InstructionsPreview content={text} names={[]} className={expanded ? '' : 'max-h-[230px] overflow-hidden'} />
         ) : (
           <pre className="overflow-x-auto px-[18px] pt-3 pb-3.5 font-mono text-[12.5px] leading-[1.7] whitespace-pre text-ink">
             {(expanded ? lines : lines.slice(0, PREVIEW_LINES)).join('\n') || ' '}

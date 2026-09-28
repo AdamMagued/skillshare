@@ -1,5 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
-import type { InstructionsAssignment, SharedCopyResult, SharedInstructionsFile, SharedInstructionsTarget } from '../../api/client';
+import type { InstructionsAssignment, InstructionsEntry, SharedCopyResult, SharedInstructionsFile, SharedInstructionsTarget } from '../../api/client';
 import { shortenHome } from '../../lib/paths';
 import type { LineDecor } from '../CodeEditor';
 import { queryKeys } from '../../lib/queryKeys';
@@ -52,6 +52,10 @@ export function saveCopiesSummary(copies: SharedCopyResult[]): { updated: string
     errors: copies.filter((c) => c.error).map((c) => `${c.target}: ${c.error}`),
   };
 }
+
+/** The read-order entries shown as a chain: files the target reads in turn, without a rules folder that holds no files. */
+export const readChain = (entries: InstructionsEntry[]) =>
+  entries.filter((e) => e.kind !== 'unread' && !(e.kind === 'rules' && !e.count));
 
 /** Refetch everything a change to instruction files can touch. */
 export function refreshInstructions(queryClient: QueryClient) {
