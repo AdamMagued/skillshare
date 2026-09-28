@@ -13,6 +13,7 @@ import (
 
 	"skillshare/internal/config"
 	syncpkg "skillshare/internal/sync"
+	"skillshare/internal/utils"
 )
 
 // resolveExtensionSpec resolves a target's extension value into a transform
@@ -132,7 +133,7 @@ func (s *Server) handleExtras(w http.ResponseWriter, r *http.Request) {
 
 		entry.Targets = make([]extrasTargetInfo, 0, len(extra.Targets))
 		for _, t := range extra.Targets {
-			m := syncpkg.EffectiveMode(t.Mode)
+			m := syncpkg.ExtraTargetMode(t.Mode, extra.File != "")
 			targetPath := resolveExtrasTargetPath(projectRoot, t.Path)
 			ti := extrasTargetInfo{
 				Path:      t.Path,
@@ -280,7 +281,7 @@ func (s *Server) handleExtrasDiff(w http.ResponseWriter, r *http.Request) {
 		}
 
 		for _, t := range extra.Targets {
-			m := syncpkg.EffectiveMode(t.Mode)
+			m := syncpkg.ExtraTargetMode(t.Mode, extra.File != "")
 			// Transform extensions use copy semantics; resolve through the shared
 			// resolver so the diff isn't computed against the merge default. On an
 			// invalid (non-copy) mode, leave m as-is — sync surfaces that error.
@@ -366,7 +367,7 @@ func buildExtrasDiffItems(sourceFiles []string, sourceDir, targetDir, mode strin
 
 		switch mode {
 		case "symlink", "merge":
-			if info.Mode()&os.ModeSymlink != 0 {
+			if utils.IsLinkMode(targetFile, info.Mode()) {
 				link, readErr := os.Readlink(targetFile)
 				if readErr != nil || filepath.Clean(resolveExtrasTargetPath(filepath.Dir(targetFile), link)) != filepath.Clean(sourceFile) {
 					items = append(items, extrasDiffItem{
@@ -608,7 +609,7 @@ func (s *Server) syncExtras(name string, dryRun, force bool) []extraSyncResult {
 
 			tr := extraTargetSyncResult{
 				Target: t.Path,
-				Mode:   m,
+				Mode:   syncpkg.ExtraTargetMode(t.Mode, extra.File != ""),
 				Errors: []string{},
 			}
 

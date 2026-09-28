@@ -11,11 +11,14 @@ import (
 	"path/filepath"
 	"strings"
 	gosync "sync"
+
+	"skillshare/internal/utils"
 )
 
 // createLink creates a directory junction on Windows (no admin required).
 // If relative is true, first tries os.Symlink with a relative path
 // (requires Developer Mode). Falls back to junction with absolute paths.
+// A file source only gets a symlink: a junction to a file cannot be read.
 func createLink(linkPath, sourcePath string, relative bool) error {
 	absSource, err := filepath.Abs(sourcePath)
 	if err != nil {
@@ -26,12 +29,14 @@ func createLink(linkPath, sourcePath string, relative bool) error {
 		return fmt.Errorf("failed to resolve target path: %w", err)
 	}
 
-	if _, err := os.Stat(absSource); os.IsNotExist(err) {
+	srcInfo, statErr := os.Stat(absSource)
+	if os.IsNotExist(statErr) {
 		return fmt.Errorf("source directory does not exist: %s", absSource)
 	}
+	isFile := statErr == nil && !srcInfo.IsDir()
 
 	if info, err := os.Lstat(absTarget); err == nil {
-		if info.Mode()&os.ModeSymlink != 0 {
+		if utils.IsLinkMode(absTarget, info.Mode()) {
 			return fmt.Errorf("target already exists as a junction/symlink: %s", absTarget)
 		}
 		return fmt.Errorf("target already exists: %s", absTarget)
@@ -49,6 +54,13 @@ func createLink(linkPath, sourcePath string, relative bool) error {
 				return nil
 			}
 		}
+	}
+
+	if isFile {
+		if symlinkErr := os.Symlink(absSource, absTarget); symlinkErr == nil {
+			return nil
+		}
+		return fmt.Errorf("failed to create file link\n  symlink: requires Administrator or Developer Mode\n  target: %s\n  source: %s", absTarget, absSource)
 	}
 
 	// Try junction (no admin required, but requires absolute paths)
@@ -103,12 +115,43 @@ func canCreateRelativeLink() bool {
 	return relativeProbe.ok
 }
 
-// isJunctionOrSymlink checks if path is a junction or symlink
-func isJunctionOrSymlink(path string) bool {
+// platformCanCreateFileLink probes whether the OS can create file symlinks,
+// which requires Developer Mode (or Administrator) on Windows.
+var fileLinkProbe struct {
+	once gosync.Once
+	ok   bool
+}
+
+func platformCanCreateFileLink() bool {
+	fileLinkProbe.once.Do(func() {
+		dir, err := os.MkdirTemp("", "ss-fileprobe-*")
+		if err != nil {
+			return
+		}
+		defer os.RemoveAll(dir)
+		target := filepath.Join(dir, "t")
+		if err := os.WriteFile(target, nil, 0644); err != nil {
+			return
+		}
+		fileLinkProbe.ok = os.Symlink(target, filepath.Join(dir, "l")) == nil
+	})
+	return fileLinkProbe.ok
+}
+
+// fileLinkUsable reports whether a link to a file source can be read through:
+// it must be a real symlink resolving to a file. A junction (never a symlink
+// on Go 1.23+) to a file looks right to Readlink but cannot be opened.
+func fileLinkUsable(path string) bool {
 	info, err := os.Lstat(path)
-	if err != nil {
+	if err != nil || info.Mode()&os.ModeSymlink == 0 {
 		return false
 	}
-	// Both junctions and symlinks have ModeSymlink on Windows
-	return info.Mode()&os.ModeSymlink != 0
+	target, err := os.Stat(path)
+	return err == nil && !target.IsDir()
+}
+
+// isJunctionOrSymlink checks if path is a junction or symlink. Since Go 1.23
+// only symlinks have ModeSymlink; junctions are reported as ModeIrregular.
+func isJunctionOrSymlink(path string) bool {
+	return utils.IsSymlinkOrJunction(path)
 }

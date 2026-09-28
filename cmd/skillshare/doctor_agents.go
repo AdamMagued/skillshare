@@ -10,6 +10,7 @@ import (
 	"skillshare/internal/resource"
 	"skillshare/internal/sync"
 	"skillshare/internal/ui"
+	"skillshare/internal/utils"
 )
 
 // checkAgentTargetInline validates the agent target for a single target,
@@ -22,10 +23,7 @@ func checkAgentTargetInline(name string, target config.TargetConfig, builtinAgen
 	}
 
 	ac := target.AgentsConfig()
-	mode := ac.Mode
-	if mode == "" {
-		mode = "merge"
-	}
+	mode, _ := agentStatusLabel(ac)
 
 	// Apply per-target include/exclude filters to get expected agent count
 	filtered, filterErr := sync.FilterAgents(allAgents, ac.Include, ac.Exclude)
@@ -36,7 +34,8 @@ func checkAgentTargetInline(name string, target config.TargetConfig, builtinAgen
 			fmt.Sprintf("Agent target %s: invalid filter: %v", name, filterErr), nil)
 		return
 	}
-	agentCount := len(sync.FilterAgentsByTarget(filtered, name))
+	expected := sync.FilterAgentsByTarget(filtered, name)
+	agentCount := len(expected)
 
 	// Build details for JSON output
 	var details []string
@@ -73,6 +72,7 @@ func checkAgentTargetInline(name string, target config.TargetConfig, builtinAgen
 	}
 
 	linked, broken := countAgentLinksAndBroken(agentPath)
+	linked += sync.SyncedAgentCopies(agentPath, expected)
 	if broken > 0 {
 		msg := fmt.Sprintf("[%s] %d linked, %d broken", mode, linked, broken)
 		fmt.Printf("  agents   %s%s%s\n", ui.Yellow, msg, ui.Reset)
@@ -108,7 +108,7 @@ func countAgentLinksAndBroken(dir string) (linked, broken int) {
 		if !strings.HasSuffix(strings.ToLower(e.Name()), ".md") {
 			continue
 		}
-		if e.Type()&os.ModeSymlink == 0 {
+		if !utils.IsLinkMode(filepath.Join(dir, e.Name()), e.Type()) {
 			continue
 		}
 		// It's a symlink — check if target exists (os.Stat follows symlinks)

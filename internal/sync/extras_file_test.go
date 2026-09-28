@@ -440,3 +440,73 @@ func TestRestoreExtraTarget_ModeSwitchKeepsUserFile(t *testing.T) {
 		})
 	}
 }
+
+func TestSyncExtraFile_SwitchBackToImportRestoresUserLines(t *testing.T) {
+	for _, via := range []string{"copy", "symlink"} {
+		t.Run("import->"+via+"->import", func(t *testing.T) {
+			src, tgt := setupExtraFileTest(t, "# agents")
+			target := filepath.Join(tgt, "CLAUDE.md")
+			os.WriteFile(target, []byte("mine\n"), 0644)
+			imp := NewExtraFile(src, "AGENTS.md", tgt, "CLAUDE.md", "import")
+			SyncExtraFile(imp, false, "")
+			attached := readFile(t, target)
+			SyncExtraFile(NewExtraFile(src, "AGENTS.md", tgt, "CLAUDE.md", via), false, "")
+
+			if _, err := SyncExtraFile(imp, false, ""); err != nil {
+				t.Fatal(err)
+			}
+			if got := readFile(t, target); got != attached {
+				t.Fatalf("after switching back = %q, want %q", got, attached)
+			}
+			if _, err := RestoreExtraTarget(imp); err != nil {
+				t.Fatal(err)
+			}
+			if got := readFile(t, target); got != "mine\n" {
+				t.Errorf("restored %q, want the original file", got)
+			}
+		})
+	}
+}
+
+func TestSyncExtraFile_SwitchBackToImportBacksUpEditedCopy(t *testing.T) {
+	src, tgt := setupExtraFileTest(t, "# agents")
+	target := filepath.Join(tgt, "CLAUDE.md")
+	os.WriteFile(target, []byte("mine\n"), 0644)
+	imp := NewExtraFile(src, "AGENTS.md", tgt, "CLAUDE.md", "import")
+	SyncExtraFile(imp, false, "")
+	SyncExtraFile(NewExtraFile(src, "AGENTS.md", tgt, "CLAUDE.md", "copy"), false, "")
+	os.WriteFile(target, []byte("edited in copy mode"), 0644)
+
+	if _, err := SyncExtraFile(imp, false, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := driftBackups(t, target); len(got) != 1 || got[0] != "edited in copy mode" {
+		t.Errorf("drift = %v, want the edit", got)
+	}
+	if got := readFile(t, target); !strings.HasSuffix(got, "\nmine\n") {
+		t.Errorf("target = %q, want the user lines back", got)
+	}
+}
+
+func TestSyncExtraFile_SwitchBackToImportKeepsOtherImports(t *testing.T) {
+	src, tgt := setupExtraFileTest(t, "# agents")
+	os.WriteFile(filepath.Join(src, "TEAM.md"), []byte("# team"), 0644)
+	target := filepath.Join(tgt, "CLAUDE.md")
+	os.WriteFile(target, []byte("mine\n"), 0644)
+	a := NewExtraFile(src, "AGENTS.md", tgt, "CLAUDE.md", "import")
+	b := NewExtraFile(src, "TEAM.md", tgt, "CLAUDE.md", "import")
+	SyncExtraFile(a, false, "")
+	SyncExtraFile(b, false, "")
+	SyncExtraFile(NewExtraFile(src, "AGENTS.md", tgt, "CLAUDE.md", "copy"), false, "")
+	SyncExtraFile(b, false, "")
+
+	if _, err := SyncExtraFile(a, false, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	got := readFile(t, target)
+	if len(ManagedImportLines(got)) != 4 || !strings.Contains(got, a.ImportLine()) || !strings.Contains(got, b.ImportLine()) || !strings.HasSuffix(got, "\nmine\n") {
+		t.Errorf("target = %q, want both imports in one block and the user lines", got)
+	}
+}

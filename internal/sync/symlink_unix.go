@@ -27,6 +27,13 @@ func createLink(linkPath, sourcePath string, relative bool) error {
 // canCreateRelativeLink returns true on Unix where os.Symlink always works.
 func canCreateRelativeLink() bool { return true }
 
+// platformCanCreateFileLink returns true on Unix where os.Symlink always works.
+func platformCanCreateFileLink() bool { return true }
+
+// fileLinkUsable reports whether a link to a file source can be read through.
+// Unix symlinks always can; only Windows junctions cannot.
+func fileLinkUsable(string) bool { return true }
+
 // isJunctionOrSymlink checks if path is a symlink
 func isJunctionOrSymlink(path string) bool {
 	info, err := os.Lstat(path)

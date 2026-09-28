@@ -11,6 +11,7 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/instructions"
+	ssync "skillshare/internal/sync"
 )
 
 // newInstructionsServer creates a global-mode server whose HOME is a temp dir
@@ -450,5 +451,25 @@ func TestSharedInstructions_AssignAndRestoreRider(t *testing.T) {
 	res = decodeBody[map[string]any](t, instructionsRequest(t, s, http.MethodPost, "/api/instructions/personal/restore", `{"target":"codex"}`))
 	if res["success"] != true || readFile(t, codex) != "codex own\n" {
 		t.Errorf("restore: %v, codex = %q", res, readFile(t, codex))
+	}
+}
+
+func TestSharedInstructions_ReportsCopyWithoutFileLinks(t *testing.T) {
+	t.Cleanup(ssync.SetFileLinksForTest(false))
+	s, home := newInstructionsServer(t, "codex")
+	if rr := instructionsRequest(t, s, http.MethodPost, "/api/instructions", `{"name":"team","content":"team\n"}`); rr.Code != http.StatusOK {
+		t.Fatalf("create: %d %s", rr.Code, rr.Body.String())
+	}
+	if res := decodeBody[map[string]any](t, instructionsRequest(t, s, http.MethodPost, "/api/instructions/assign", `{"targets":["codex"],"extras":["team"]}`)); res["success"] != true {
+		t.Fatalf("assign: %v", res)
+	}
+
+	list := decodeBody[struct {
+		Targets []sharedInstructionsTarget `json:"targets"`
+	}](t, instructionsRequest(t, s, http.MethodGet, "/api/instructions", ""))
+
+	info, err := os.Lstat(filepath.Join(home, ".codex", "AGENTS.md"))
+	if a := list.Targets[0].Assigned; len(a) != 1 || a[0].Mode != "copy" || a[0].Status != "synced" || err != nil || !info.Mode().IsRegular() {
+		t.Errorf("codex assigned = %+v, want a synced copy", a)
 	}
 }

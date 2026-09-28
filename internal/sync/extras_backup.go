@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"skillshare/internal/config"
+	"skillshare/internal/utils"
 )
 
 // keepExtraBackups bounds the backups kept per replaced file.
@@ -220,9 +221,52 @@ func fileExists(path string) bool {
 // clearExtraAttach drops the attach-time record of path.
 func clearExtraAttach(path string) {
 	dir := extraBackupDir(path)
-	for _, name := range []string{attachCreated, attachRestore, attachRestoreLink} {
+	for _, name := range []string{attachCreated, attachRestore, attachRestoreLink, extraWritten} {
 		_ = os.Remove(filepath.Join(dir, name))
 	}
+}
+
+// extraWritten holds the hash of the copy skillshare last wrote at a target,
+// so a later sync can tell its own unedited copy from a user edit.
+const extraWritten = "written"
+
+// recordExtraWritten remembers the file now at path as skillshare's copy.
+func recordExtraWritten(path string) error {
+	h, err := utils.FileHash(path)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(extraBackupDir(path), extraWritten), []byte(h), 0644)
+}
+
+func clearExtraWritten(path string) {
+	_ = os.Remove(filepath.Join(extraBackupDir(path), extraWritten))
+}
+
+func hasExtraWritten(path string) bool {
+	return fileExists(filepath.Join(extraBackupDir(path), extraWritten))
+}
+
+// extraRestoreBase returns the file content recorded at attach time, or ""
+// when no file existed or a link was replaced (a link's content is not the
+// user's to rebuild).
+func extraRestoreBase(path string) string {
+	data, err := os.ReadFile(filepath.Join(extraBackupDir(path), attachRestore))
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
+// isOurExtraCopy reports whether the file at path is still exactly the copy
+// skillshare last wrote there.
+func isOurExtraCopy(path string) bool {
+	want, err := os.ReadFile(filepath.Join(extraBackupDir(path), extraWritten))
+	if err != nil {
+		return false
+	}
+	h, err := utils.FileHash(path)
+	return err == nil && h == string(want)
 }
 
 func extraCreated(path string) bool {

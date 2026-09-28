@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"skillshare/internal/config"
+	"skillshare/internal/utils"
 )
 
 // Managed import block markers. Claude strips block-level HTML comments before
@@ -22,10 +23,13 @@ type ExtraFile struct {
 	Source string // absolute path of <source dir>/<file>
 	Target string // <target path>/<as or file>
 	Mode   string // merge (default), symlink, copy, or import
+
+	linkFallback bool // Mode is copy because file links are unavailable
 }
 
 // NewExtraFile resolves the source and target files of a single-file extra.
-// merge and symlink both link the one file.
+// merge and symlink both link the one file, or copy it when file links are
+// unavailable (see ExtraTargetMode).
 func NewExtraFile(sourceDir, file, targetDir, as, mode string) ExtraFile {
 	if as == "" {
 		as = file
@@ -34,7 +38,8 @@ func NewExtraFile(sourceDir, file, targetDir, as, mode string) ExtraFile {
 	if abs, err := filepath.Abs(src); err == nil {
 		src = abs
 	}
-	return ExtraFile{Source: src, Target: filepath.Join(targetDir, as), Mode: EffectiveMode(mode)}
+	m := ExtraTargetMode(mode, true)
+	return ExtraFile{Source: src, Target: filepath.Join(targetDir, as), Mode: m, linkFallback: m != EffectiveMode(mode)}
 }
 
 // DiscoverExtraSource returns the source files of an extra relative to
@@ -82,7 +87,11 @@ func SyncExtraFile(f ExtraFile, dryRun bool, projectRoot string) (*ExtraResult, 
 	case "import":
 		return syncExtraImport(f, dryRun)
 	case "merge", "symlink", "copy":
-		return syncExtraFileReplace(f, dryRun, projectRoot)
+		result, err := syncExtraFileReplace(f, dryRun, projectRoot)
+		if err == nil && f.linkFallback {
+			result.Warnings = append(result.Warnings, FileLinkFallbackWarning)
+		}
+		return result, err
 	default:
 		return nil, fmt.Errorf("unsupported extras sync mode: %q", f.Mode)
 	}
@@ -99,8 +108,8 @@ func syncExtraFileReplace(f ExtraFile, dryRun bool, projectRoot string) (*ExtraR
 	case os.IsNotExist(err):
 	case err != nil:
 		return nil, fmt.Errorf("failed to inspect target: %w", err)
-	case info.Mode()&os.ModeSymlink != 0:
-		if !copyMode && f.isOurLink() {
+	case utils.IsSymlinkOrJunction(f.Target):
+		if !copyMode && f.isOurLink() && fileLinkUsable(f.Target) {
 			dest, _ := os.Readlink(f.Target)
 			if linkNeedsReformat(dest, relative) && !dryRun {
 				if err := reformatLink(f.Target, f.Source, relative); err != nil {
@@ -130,9 +139,14 @@ func syncExtraFileReplace(f ExtraFile, dryRun bool, projectRoot string) (*ExtraR
 	default:
 		same := contentEqual(f.Source, f.Target)
 		if copyMode && same {
+			if !dryRun && attached && !isOurExtraCopy(f.Target) {
+				_ = recordExtraWritten(f.Target) // best effort: only saves a later drift backup
+			}
 			result.Synced = 1
 			return result, nil
 		}
+		// skillshare's own earlier copy, left unedited, is replaced silently.
+		edited := !same && !isOurExtraCopy(f.Target)
 		if !dryRun {
 			// On first attach, back up even an identical file: restoring the
 			// target later has nothing else to put back once the link is
@@ -143,12 +157,12 @@ func syncExtraFileReplace(f ExtraFile, dryRun bool, projectRoot string) (*ExtraR
 					return nil, err
 				}
 				attached = true
-			} else if !same {
+			} else if edited {
 				if err := backupExtraDrift(f.Target); err != nil {
 					return nil, err
 				}
 			}
-			if !same {
+			if edited {
 				result.Warnings = append(result.Warnings, fmt.Sprintf("backed up %s before replacing it", f.Target))
 			}
 			if err := os.Remove(f.Target); err != nil {
@@ -175,6 +189,13 @@ func syncExtraFileReplace(f ExtraFile, dryRun bool, projectRoot string) (*ExtraR
 		if err := markExtraCreated(f.Target); err != nil {
 			return nil, fmt.Errorf("failed to record created file: %w", err)
 		}
+	}
+	if copyMode {
+		if err := recordExtraWritten(f.Target); err != nil {
+			return nil, fmt.Errorf("failed to record copied file: %w", err)
+		}
+	} else {
+		clearExtraWritten(f.Target)
 	}
 	result.Synced = 1
 	return result, nil
@@ -207,32 +228,60 @@ func BackupFile(path string) error { return backupExtraFile(path) }
 
 func syncExtraImport(f ExtraFile, dryRun bool) (*ExtraResult, error) {
 	result := &ExtraResult{Synced: 1}
+	attached := extraAttached(f.Target)
 
 	// A link to the source is left over from symlink mode; writing through it
-	// would edit the source, so drop it and start a new file.
+	// would edit the source, so it is replaced by a new file.
 	ourLink := f.isOurLink()
-	if ourLink && !dryRun {
-		if err := os.Remove(f.Target); err != nil {
-			return nil, fmt.Errorf("failed to remove leftover symlink: %w", err)
+	var data []byte
+	var err error
+	if !ourLink {
+		data, err = os.ReadFile(f.Target)
+		if err != nil && !os.IsNotExist(err) {
+			return nil, fmt.Errorf("failed to read target: %w", err)
 		}
 	}
-	// An attached copy of the source is left over from copy mode; replace it
-	// rather than keep it, so restore can put back the attach-time state.
-	leftoverCopy := !ourLink && extraAttached(f.Target) && contentEqual(f.Source, f.Target)
+	exists := ourLink || err == nil
+	rest, others := splitImportBlock(string(data))
 
-	data, err := os.ReadFile(f.Target)
-	created := os.IsNotExist(err) || ourLink || leftoverCopy
-	if err != nil && !os.IsNotExist(err) {
-		return nil, fmt.Errorf("failed to read target: %w", err)
+	// A whole-file copy is left over from copy mode: unedited when it is what
+	// skillshare wrote or, apart from other extras' import lines, the source.
+	// An edited one still came from copy mode when a written record remains.
+	var leftoverCopy, editedCopy bool
+	if !ourLink && exists && attached {
+		src, _ := os.ReadFile(f.Source)
+		leftoverCopy = isOurExtraCopy(f.Target) || rest == string(src)
+		editedCopy = !leftoverCopy && hasExtraWritten(f.Target)
 	}
-	if created {
-		data = nil
+
+	var updated string
+	changed := true
+	if ourLink || leftoverCopy || editedCopy {
+		// Rebuild the attach-time file plus the managed import block, so the
+		// target reads as it did right after the original import attach.
+		updated = extraRestoreBase(f.Target)
+		for _, line := range others {
+			updated, _ = addImportLine(updated, line)
+		}
+		updated, _ = addImportLine(updated, f.importLine())
+	} else {
+		updated, changed = addImportLine(string(data), f.importLine())
 	}
-	updated, changed := addImportLine(string(data), f.importLine())
 	if !changed || dryRun {
 		return result, nil
 	}
 
+	if editedCopy {
+		if err := backupExtraDrift(f.Target); err != nil {
+			return nil, err
+		}
+		result.Warnings = append(result.Warnings, fmt.Sprintf("backed up %s before replacing it", f.Target))
+	}
+	if ourLink {
+		if err := os.Remove(f.Target); err != nil {
+			return nil, fmt.Errorf("failed to remove leftover symlink: %w", err)
+		}
+	}
 	perm := os.FileMode(0644)
 	if info, statErr := os.Stat(f.Target); statErr == nil {
 		perm = info.Mode().Perm()
@@ -243,13 +292,34 @@ func syncExtraImport(f ExtraFile, dryRun bool) (*ExtraResult, error) {
 	if err := os.WriteFile(f.Target, []byte(updated), perm); err != nil {
 		return nil, fmt.Errorf("failed to write target: %w", err)
 	}
+	clearExtraWritten(f.Target)
 	// A switch from another mode keeps the restore point recorded then.
-	if created && !extraAttached(f.Target) {
+	if (!exists || ourLink) && !attached {
 		if err := markExtraCreated(f.Target); err != nil {
 			return nil, fmt.Errorf("failed to record created file: %w", err)
 		}
 	}
 	return result, nil
+}
+
+// splitImportBlock returns content without its managed import block (and the
+// blank line addImportLine puts after it), plus the block's import lines.
+func splitImportBlock(content string) (rest string, lines []string) {
+	all := strings.Split(content, "\n")
+	begin, end := findImportBlock(all)
+	if begin == -1 {
+		return content, nil
+	}
+	for _, l := range all[begin+1 : end] {
+		if t := strings.TrimSpace(l); t != "" {
+			lines = append(lines, t)
+		}
+	}
+	tail := all[end+1:]
+	if len(tail) > 1 && strings.TrimSpace(tail[0]) == "" {
+		tail = tail[1:]
+	}
+	return strings.Join(append(append([]string{}, all[:begin]...), tail...), "\n"), lines
 }
 
 // findImportBlock returns the line indexes of the managed block markers, or
@@ -363,13 +433,13 @@ func ExtraFileStatus(f ExtraFile) string {
 		}
 		return "drift"
 	}
-	if info.Mode()&os.ModeSymlink != 0 {
-		if f.isOurLink() {
+	if utils.IsSymlinkOrJunction(f.Target) {
+		if f.isOurLink() && fileLinkUsable(f.Target) {
 			return "synced"
 		}
 		return "drift"
 	}
-	if info.Mode().IsRegular() && !contentEqual(f.Source, f.Target) {
+	if info.Mode().IsRegular() && !contentEqual(f.Source, f.Target) && !isOurExtraCopy(f.Target) {
 		return "modified"
 	}
 	return "drift"
@@ -391,7 +461,7 @@ func RestoreExtraTarget(f ExtraFile) (bool, error) {
 	case os.IsNotExist(err):
 	case err != nil:
 		return false, fmt.Errorf("failed to inspect target: %w", err)
-	case f.isOurLink(), f.Mode == "copy" && info.Mode().IsRegular() && contentEqual(f.Source, f.Target):
+	case f.isOurLink(), f.Mode == "copy" && info.Mode().IsRegular() && (contentEqual(f.Source, f.Target) || isOurExtraCopy(f.Target)):
 		if err := os.Remove(f.Target); err != nil {
 			return false, fmt.Errorf("failed to remove target: %w", err)
 		}

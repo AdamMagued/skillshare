@@ -53,7 +53,7 @@ func buildExtrasListEntries(extras []config.ExtraConfig, extrasSource, extension
 		}
 
 		for _, t := range extra.Targets {
-			m := sync.EffectiveMode(t.Mode)
+			m := sync.ExtraTargetMode(t.Mode, extra.File != "")
 			resolvedPath := config.ExpandPath(t.Path)
 			ti := extrasTargetInfo{
 				Path:      t.Path,

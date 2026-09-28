@@ -3,6 +3,7 @@ package main
 import (
 	"skillshare/internal/config"
 	"skillshare/internal/resource"
+	"skillshare/internal/sync"
 )
 
 // statusJSONAgents is the agent section of status --json output.
@@ -45,7 +46,7 @@ func buildAgentStatusJSON(cfg *config.Config) *statusJSONAgents {
 			continue
 		}
 
-		linked := countLinkedAgents(agentPath)
+		linked := countLinkedAgents(agentPath, agents)
 		result.Targets = append(result.Targets, statusJSONAgentTarget{
 			Name:     name,
 			Path:     agentPath,
@@ -58,8 +59,25 @@ func buildAgentStatusJSON(cfg *config.Config) *statusJSONAgents {
 	return result
 }
 
-// countLinkedAgents counts healthy .md symlinks in the target agent directory.
-func countLinkedAgents(targetDir string) int {
+// countLinkedAgents counts healthy .md symlinks in the target agent directory,
+// plus up-to-date copies made where file links are unavailable.
+func countLinkedAgents(targetDir string, agents []resource.DiscoveredResource) int {
 	linked, _ := countAgentLinksAndBroken(targetDir)
-	return linked
+	return linked + sync.SyncedAgentCopies(targetDir, agents)
+}
+
+// agentStatusLabel returns the effective agent mode and the sub-item status
+// shown for a target in sync.
+func agentStatusLabel(ac config.ResourceTargetConfig) (mode, status string) {
+	mode = sync.EffectiveMode(ac.Mode)
+	if ac.Extension == "" {
+		mode = sync.EffectiveAgentMode(ac.Mode)
+	}
+	switch mode {
+	case "copy":
+		return mode, "copied"
+	case "symlink":
+		return mode, "linked"
+	}
+	return mode, "merged"
 }

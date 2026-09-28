@@ -210,7 +210,7 @@ func printExtrasStatus(extras []config.ExtraConfig, sourceDirFn func(config.Extr
 			continue
 		}
 		for _, t := range extra.Targets {
-			detail := fmt.Sprintf("[%s] %s (%d files)", sync.EffectiveMode(t.Mode), t.Path, len(files))
+			detail := fmt.Sprintf("[%s] %s (%d files)", sync.ExtraTargetMode(t.Mode, extra.File != ""), t.Path, len(files))
 			ui.Status(extra.Name, "has files", detail)
 		}
 	}
@@ -380,8 +380,9 @@ func printTargetsStatus(cfg *config.Config, discovered []sync.DiscoveredSkill) e
 	agentsSource := cfg.EffectiveAgentsSource()
 	agentsExist := dirExists(agentsSource)
 	var agentCount int
+	var agents []resource.DiscoveredResource
 	if agentsExist {
-		agents, _ := resource.AgentKind{}.Discover(agentsSource)
+		agents, _ = resource.AgentKind{}.Discover(agentsSource)
 		agentCount = len(agents)
 	}
 
@@ -418,14 +419,14 @@ func printTargetsStatus(cfg *config.Config, discovered []sync.DiscoveredSkill) e
 		if agentsExist {
 			agentPath := resolveAgentTargetPath(target, builtinAgents, name)
 			if agentPath != "" {
-				linked := countLinkedAgents(agentPath)
-				agentStatus := "merged"
+				linked := countLinkedAgents(agentPath, agents)
+				agentMode, agentStatus := agentStatusLabel(target.AgentsConfig())
 				driftLabel := ""
 				if linked != agentCount && agentCount > 0 {
 					agentStatus = "drift"
 					driftLabel = ui.Yellow + " (drift)" + ui.Reset
 				}
-				printTargetSubItem("agents", agentStatus, fmt.Sprintf("[merge] %d/%d linked%s", linked, agentCount, driftLabel))
+				printTargetSubItem("agents", agentStatus, fmt.Sprintf("[%s] %d/%d linked%s", agentMode, linked, agentCount, driftLabel))
 			}
 		}
 	}

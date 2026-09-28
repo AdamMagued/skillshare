@@ -189,10 +189,11 @@ func cmdSyncExtrasGlobal(dryRun, force, jsonOutput bool, start time.Time) error 
 
 			result, syncErr := syncExtraTarget(extra, target, extraSource, targetPath, mode, dryRun, force, "", spec)
 			shortTarget := shortenPath(targetPath)
+			shownMode := sync.ExtraTargetMode(mode, extra.File != "")
 
 			jsonTarget := syncExtrasJSONTarget{
 				Path: target.Path,
-				Mode: mode,
+				Mode: shownMode,
 			}
 
 			if syncErr != nil {
@@ -221,17 +222,17 @@ func cmdSyncExtrasGlobal(dryRun, force, jsonOutput bool, start time.Time) error 
 
 			if !jsonOutput {
 				// Report result
-				verb := syncVerb(mode)
+				verb := syncVerb(shownMode)
 				if result.Synced > 0 {
 					parts := []string{fmt.Sprintf("%d files %s", result.Synced, verb)}
 					if result.Pruned > 0 {
 						parts = append(parts, fmt.Sprintf("%d pruned", result.Pruned))
 					}
-					ui.Success("%s  %s (%s)", shortTarget, strings.Join(parts, ", "), mode)
+					ui.Success("%s  %s (%s)", shortTarget, strings.Join(parts, ", "), shownMode)
 				} else if result.Skipped > 0 {
 					ui.Warning("%s  %d files skipped (use --force to override)", shortTarget, result.Skipped)
 				} else {
-					ui.Success("%s  up to date (%s)", shortTarget, mode)
+					ui.Success("%s  up to date (%s)", shortTarget, shownMode)
 				}
 
 				for _, e := range result.Errors {
@@ -390,10 +391,11 @@ func cmdSyncExtrasProject(cwd string, dryRun, force, jsonOutput bool, start time
 
 			result, syncErr := syncExtraTarget(extra, target, extraSource, targetPath, mode, dryRun, force, cwd, spec)
 			shortTarget := shortenPath(targetPath)
+			shownMode := sync.ExtraTargetMode(mode, extra.File != "")
 
 			jsonTarget := syncExtrasJSONTarget{
 				Path: targetPath,
-				Mode: mode,
+				Mode: shownMode,
 			}
 
 			if syncErr != nil {
@@ -421,17 +423,17 @@ func cmdSyncExtrasProject(cwd string, dryRun, force, jsonOutput bool, start time
 			jsonEntry.Targets = append(jsonEntry.Targets, jsonTarget)
 
 			if !jsonOutput {
-				verb := syncVerb(mode)
+				verb := syncVerb(shownMode)
 				if result.Synced > 0 {
 					parts := []string{fmt.Sprintf("%d files %s", result.Synced, verb)}
 					if result.Pruned > 0 {
 						parts = append(parts, fmt.Sprintf("%d pruned", result.Pruned))
 					}
-					ui.Success("%s  %s (%s)", shortTarget, strings.Join(parts, ", "), mode)
+					ui.Success("%s  %s (%s)", shortTarget, strings.Join(parts, ", "), shownMode)
 				} else if result.Skipped > 0 {
 					ui.Warning("%s  %d files skipped (use --force to override)", shortTarget, result.Skipped)
 				} else {
-					ui.Success("%s  up to date (%s)", shortTarget, mode)
+					ui.Success("%s  up to date (%s)", shortTarget, shownMode)
 				}
 
 				for _, e := range result.Errors {
@@ -570,7 +572,7 @@ func runExtrasSyncEntries(extras []config.ExtraConfig, sourceFunc func(config.Ex
 			}
 
 			result, syncErr := syncExtraTarget(extra, target, extraSource, targetPath, mode, dryRun, force, projectRoot, spec)
-			jt := syncExtrasJSONTarget{Path: targetPath, Mode: mode}
+			jt := syncExtrasJSONTarget{Path: targetPath, Mode: sync.ExtraTargetMode(mode, extra.File != "")}
 			if syncErr != nil {
 				jt.Error = syncErr.Error()
 			} else {
