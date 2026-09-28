@@ -99,3 +99,23 @@ func TestBackupFiles_RestoreRefusesLinkWithoutUnlink(t *testing.T) {
 		t.Fatal("link was not replaced by the restored file")
 	}
 }
+
+func TestBackup_ListAndCleanup_ProjectMode(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	projectDir := sb.SetupProjectDir("claude")
+
+	projectBackups := filepath.Join(projectDir, ".skillshare", "backups")
+	sb.WriteFile(filepath.Join(projectBackups, "2024-01-15_14-30-45", "claude-agents", "a.md"), "# a")
+	globalBackups := filepath.Join(sb.Home, ".local", "share", "skillshare", "backups")
+	sb.WriteFile(filepath.Join(globalBackups, "2024-02-01_10-00-00", "claude", "s", "SKILL.md"), "# s")
+
+	list := sb.RunCLIInDir(projectDir, "backup", "--list", "-p")
+	list.AssertSuccess(t)
+	list.AssertAnyOutputContains(t, "2024-01-15_14-30-45")
+	list.AssertOutputNotContains(t, "2024-02-01_10-00-00")
+
+	cleanup := sb.RunCLIInDir(projectDir, "backup", "--cleanup", "--dry-run", "-p")
+	cleanup.AssertSuccess(t)
+	cleanup.AssertAnyOutputContains(t, "1 backups")
+}

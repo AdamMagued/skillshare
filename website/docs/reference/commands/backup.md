@@ -147,8 +147,8 @@ In project mode the page covers only the project: its agent snapshots in `.skill
 | `--all` | Backup both skills and agents |
 | `--project, -p` | Use project mode (`.skillshare/backups/`); **agents only** |
 | `--global, -g` | Use global mode (default for skills) |
-| `--list, -l` | List all backups |
-| `--cleanup, -c` | Remove old backups |
+| `--list, -l` | List all backups; with `-p`, the project's |
+| `--cleanup, -c` | Remove old backups; with `-p`, the project's |
 | `--delete <timestamp>` | Delete one backup; with `-p`, from `.skillshare/backups/` |
 | `--target, -t <name>` | Target specific backup (alternative to positional arg) |
 | `--dry-run, -n` | Preview without making changes |
@@ -230,7 +230,7 @@ Agents have their own backup flow that runs alongside skill backups, with two di
 backup is not supported in project mode (except for agents)
 ```
 
-So in project mode you must say either `skillshare backup -p agents` or `skillshare backup -p --all`.
+So in project mode you must say either `skillshare backup -p agents` or `skillshare backup -p --all`. `--list -p` and `--cleanup -p` need no filter; they work on `.skillshare/backups/`.
 
 ```bash
 skillshare backup agents                  # All agent targets (global)

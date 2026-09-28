@@ -147,8 +147,8 @@ project mode에서는 이 페이지가 프로젝트만 다룹니다. `.skillshar
 | `--all` | skill과 agent 모두 백업 |
 | `--project, -p` | project mode 사용(`.skillshare/backups/`); **agent 전용** |
 | `--global, -g` | global mode 사용(skill의 기본값) |
-| `--list, -l` | 모든 백업 목록 조회 |
-| `--cleanup, -c` | 오래된 백업 제거 |
+| `--list, -l` | 모든 백업 목록 조회 (`-p`는 프로젝트 백업) |
+| `--cleanup, -c` | 오래된 백업 제거 (`-p`는 프로젝트 백업) |
 | `--delete <timestamp>` | 백업 하나를 삭제. `-p`와 함께 사용하면 `.skillshare/backups/`에서 삭제 |
 | `--target, -t <name>` | 특정 백업 대상 지정(위치 인자의 대안) |
 | `--dry-run, -n` | 변경 없이 미리보기 |
@@ -230,7 +230,7 @@ Agent는 skill 백업과 함께 실행되는 자체 백업 흐름을 가지며, 
 backup is not supported in project mode (except for agents)
 ```
 
-따라서 project mode에서는 `skillshare backup -p agents` 또는 `skillshare backup -p --all` 중 하나를 명시해야 합니다.
+따라서 project mode에서는 `skillshare backup -p agents` 또는 `skillshare backup -p --all` 중 하나를 명시해야 합니다. `--list -p`와 `--cleanup -p`는 지정할 필요 없이 `.skillshare/backups/`를 대상으로 합니다.
 
 ```bash
 skillshare backup agents                  # All agent targets (global)

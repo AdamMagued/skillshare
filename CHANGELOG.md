@@ -25,7 +25,7 @@
   skillshare backup files restore ~/.claude/CLAUDE.md <id>
   skillshare backup --delete 2026-09-28_10-52-00
   ```
-  `skillshare backup files` is now a subcommand; to back up a target named `files`, use `skillshare backup -t files`.
+  `skillshare backup files` is now a subcommand; to back up a target named `files`, use `skillshare backup -t files`. In a project, `backup --list -p` and `backup --cleanup -p` work on the project's agent snapshots.
 
 #### Extras
 

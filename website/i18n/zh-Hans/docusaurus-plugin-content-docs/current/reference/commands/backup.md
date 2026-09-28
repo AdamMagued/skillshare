@@ -147,8 +147,8 @@ reason 说明 skillshare 当时要做什么：
 | `--all` | 同时备份 skills 和 agents |
 | `--project, -p` | 使用 project mode（`.skillshare/backups/`）；**仅限 agents** |
 | `--global, -g` | 使用 global mode（skills 的默认值） |
-| `--list, -l` | 列出所有 Backup |
-| `--cleanup, -c` | 移除旧的 Backup |
+| `--list, -l` | 列出所有 Backup；加 `-p` 时列出项目的 |
+| `--cleanup, -c` | 移除旧的 Backup；加 `-p` 时处理项目的 |
 | `--delete <timestamp>` | 删除一个 Backup；搭配 `-p` 时从 `.skillshare/backups/` 中删除 |
 | `--target, -t <name>` | 针对指定 target 备份（作为位置参数的替代方式） |
 | `--dry-run, -n` | 预览而不做任何变更 |
@@ -230,7 +230,7 @@ Agents 有自己的 Backup 流程，与 skill Backup 并行运行，有两点值
 backup is not supported in project mode (except for agents)
 ```
 
-因此在 project mode 下，你必须使用 `skillshare backup -p agents` 或 `skillshare backup -p --all`。
+因此在 project mode 下，你必须使用 `skillshare backup -p agents` 或 `skillshare backup -p --all`。`--list -p` 和 `--cleanup -p` 不需要指定，会直接处理 `.skillshare/backups/`。
 
 ```bash
 skillshare backup agents                  # 所有 agent target（global）

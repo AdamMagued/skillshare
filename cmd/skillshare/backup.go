@@ -45,16 +45,6 @@ func cmdBackup(args []string) error {
 	// Extract kind filter (e.g. "skillshare backup agents" or "--all").
 	kind, args := parseKindArgWithAll(args)
 
-	// Project mode is only supported for agents.
-	if mode == modeProject && kind != kindAgents && kind != kindAll {
-		return fmt.Errorf("backup is not supported in project mode (except for agents)")
-	}
-
-	if mode == modeAuto && kind == kindAgents && projectConfigExists(cwd) {
-		mode = modeProject
-	}
-	applyModeLabel(mode)
-
 	start := time.Now()
 	var targetName string
 	doList := false
@@ -82,15 +72,29 @@ func cmdBackup(args []string) error {
 		}
 	}
 
-	if doList {
-		return backupList()
+	if mode == modeAuto && kind == kindAgents && projectConfigExists(cwd) {
+		mode = modeProject
+	}
+	applyModeLabel(mode)
+
+	// Listing and cleanup work on the project's snapshots too (agents only).
+	if doList || doCleanup {
+		backupDir := backup.BackupDir()
+		if mode == modeProject {
+			backupDir = backup.ProjectBackupDir(cwd)
+		}
+		if doList {
+			return backupList(backupDir)
+		}
+		if dryRun {
+			return backupCleanupDryRun(backupDir)
+		}
+		return backupCleanup(backupDir)
 	}
 
-	if doCleanup {
-		if dryRun {
-			return backupCleanupDryRun()
-		}
-		return backupCleanup()
+	// Project mode is only supported for agents.
+	if mode == modeProject && kind != kindAgents && kind != kindAll {
+		return fmt.Errorf("backup is not supported in project mode (except for agents)")
 	}
 
 	if kind == kindAgents {
@@ -231,8 +235,8 @@ func previewBackup(targetName, targetPath string) error {
 	return nil
 }
 
-func backupList() error {
-	backups, err := backup.List()
+func backupList(backupDir string) error {
+	backups, err := backup.ListInDir(backupDir)
 	if err != nil {
 		return err
 	}
@@ -242,8 +246,8 @@ func backupList() error {
 		return nil
 	}
 
-	totalSize, _ := backup.TotalSize()
-	ui.Header(fmt.Sprintf("All backups (%s total)", formatBytes(totalSize)))
+	totalSize, _ := backup.TotalSizeInDir(backupDir)
+	ui.Header(fmt.Sprintf("All backups in %s (%s total)", backupDir, formatBytes(totalSize)))
 
 	for _, b := range backups {
 		size := backup.Size(b.Path)
@@ -292,11 +296,11 @@ func backupDelete(mode runMode, cwd, timestamp string, dryRun bool) error {
 	return nil
 }
 
-func backupCleanup() error {
+func backupCleanup(backupDir string) error {
 	ui.Header("Cleaning up old backups")
 
 	// Show current state
-	backups, err := backup.List()
+	backups, err := backup.ListInDir(backupDir)
 	if err != nil {
 		return err
 	}
@@ -306,18 +310,18 @@ func backupCleanup() error {
 		return nil
 	}
 
-	totalSize, _ := backup.TotalSize()
+	totalSize, _ := backup.TotalSizeInDir(backupDir)
 	ui.Info("Current: %d backups, %s total", len(backups), formatBytes(totalSize))
 
 	// Use default cleanup config
 	cfg := backup.DefaultCleanupConfig()
-	removed, err := backup.Cleanup(cfg)
+	removed, err := backup.CleanupInDir(backupDir, cfg)
 	if err != nil {
 		return err
 	}
 
 	if removed > 0 {
-		newSize, _ := backup.TotalSize()
+		newSize, _ := backup.TotalSizeInDir(backupDir)
 		ui.Success("Removed %d old backups (freed %s)",
 			removed,
 			formatBytes(totalSize-newSize))
@@ -328,10 +332,10 @@ func backupCleanup() error {
 	return nil
 }
 
-func backupCleanupDryRun() error {
+func backupCleanupDryRun(backupDir string) error {
 	ui.Header("Cleaning up old backups")
 
-	backups, err := backup.List()
+	backups, err := backup.ListInDir(backupDir)
 	if err != nil {
 		return err
 	}
@@ -341,7 +345,7 @@ func backupCleanupDryRun() error {
 		return nil
 	}
 
-	totalSize, _ := backup.TotalSize()
+	totalSize, _ := backup.TotalSizeInDir(backupDir)
 	ui.Info("Current: %d backups, %s total", len(backups), formatBytes(totalSize))
 
 	cfg := backup.DefaultCleanupConfig()
@@ -510,7 +514,7 @@ func restoreTUIDispatch(noTUI bool) error {
 	}
 
 	if !shouldLaunchTUI(noTUI, cfg) {
-		return backupList()
+		return backupList(backup.BackupDir())
 	}
 
 	// Step 1: Source picker — Backup or Trash
@@ -694,6 +698,7 @@ Examples:
   skillshare backup --list                  # List all backups
   skillshare backup --cleanup               # Remove old backups
   skillshare backup --cleanup --dry-run     # Preview cleanup
+  skillshare backup --list -p               # List this project's (agents) backups
   skillshare backup --delete 2024-01-15_14-30-45
   skillshare backup files                   # Files skillshare saved before rewriting them
   skillshare backup agents                  # Backup all agent targets

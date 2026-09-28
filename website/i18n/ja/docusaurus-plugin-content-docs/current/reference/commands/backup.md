@@ -147,8 +147,8 @@ Versions of /Users/me/.claude/CLAUDE.md
 | `--all` | Skill と agent の両方をバックアップ |
 | `--project, -p` | プロジェクトモードを使用（`.skillshare/backups/`）。**agent のみ** |
 | `--global, -g` | グローバルモードを使用（Skill のデフォルト） |
-| `--list, -l` | すべてのバックアップを一覧表示 |
-| `--cleanup, -c` | 古いバックアップを削除 |
+| `--list, -l` | すべてのバックアップを一覧表示（`-p` ではプロジェクトのもの） |
+| `--cleanup, -c` | 古いバックアップを削除（`-p` ではプロジェクトのもの） |
 | `--delete <timestamp>` | 1 つのバックアップを削除。`-p` 指定時は `.skillshare/backups/` から削除 |
 | `--target, -t <name>` | 特定のバックアップを対象にする（位置引数の代替） |
 | `--dry-run, -n` | 変更を加えずにプレビュー |
@@ -230,7 +230,7 @@ Agent には、Skill のバックアップと並行して動作する独自の�
 backup is not supported in project mode (except for agents)
 ```
 
-そのため、プロジェクトモードでは `skillshare backup -p agents` または `skillshare backup -p --all` のいずれかを指定する必要があります。
+そのため、プロジェクトモードでは `skillshare backup -p agents` または `skillshare backup -p --all` のいずれかを指定する必要があります。`--list -p` と `--cleanup -p` は指定不要で、`.skillshare/backups/` を対象にします。
 
 ```bash
 skillshare backup agents                  # すべての agent ターゲット（グローバル）
