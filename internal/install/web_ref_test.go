@@ -52,6 +52,12 @@ func TestResolveWebRef(t *testing.T) {
 			wantSubdir: "skills/foo",
 		},
 		{
+			name:       "HEAD means the default branch",
+			raw:        "github.com/o/r/tree/HEAD/skills/foo",
+			wantBranch: "",
+			wantSubdir: "skills/foo",
+		},
+		{
 			name:       "branch containing a slash",
 			raw:        "github.com/o/r/tree/feature/x/skills/foo",
 			wantBranch: "feature/x",

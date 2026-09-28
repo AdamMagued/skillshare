@@ -221,6 +221,14 @@ func TestParseSource_GitHubShorthand(t *testing.T) {
 			wantName:     "foo",
 			wantBranch:   "8f14e45fceea167a5a36dedd4bea2543ce848564",
 		},
+		{
+			name:         "github web URL at HEAD uses the default branch",
+			input:        "https://github.com/user/repo/tree/HEAD",
+			wantCloneURL: "https://github.com/user/repo.git",
+			wantSubdir:   "",
+			wantName:     "repo",
+			wantBranch:   "",
+		},
 	}
 
 	for _, tt := range tests {

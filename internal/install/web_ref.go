@@ -32,15 +32,21 @@ func (w webRef) split(ref string) (subdir string, explicit, ok bool) {
 // applyWebRef takes the tail's first segment as the ref and returns the subdir
 // after it. The ref (branch, tag or commit SHA) becomes the clone ref, so a
 // pasted or hub-listed URL installs the version it names. A branch name that
-// contains "/" is corrected later by resolveWebRef.
+// contains "/" is corrected later by resolveWebRef. HEAD, as in GitHub's
+// tree/HEAD links, means the remote's default branch.
 func (s *Source) applyWebRef(w webRef) string {
 	s.webRef = w
 	if w.tail == "" {
 		return ""
 	}
-	s.Branch, _, _ = strings.Cut(w.tail, "/")
-	subdir, explicit, _ := w.split(s.Branch)
+	ref, _, _ := strings.Cut(w.tail, "/")
+	subdir, explicit, _ := w.split(ref)
 	s.ExplicitSkill = explicit
+	if ref == "HEAD" {
+		s.webRef = webRef{}
+		return subdir
+	}
+	s.Branch = ref
 	return subdir
 }
 
