@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"skillshare/internal/config"
 	"skillshare/internal/resource"
 	"skillshare/internal/sync"
@@ -61,9 +62,9 @@ func buildAgentStatusJSON(cfg *config.Config) *statusJSONAgents {
 
 // countLinkedAgents counts healthy .md symlinks in the target agent directory,
 // plus up-to-date copies made where file links are unavailable.
-func countLinkedAgents(targetDir string, agents []resource.DiscoveredResource) int {
+func countLinkedAgents(targetDir string, agents []resource.DiscoveredResource, preserved ...*int) int {
 	linked, _ := countAgentLinksAndBroken(targetDir)
-	return linked + sync.SyncedAgentCopies(targetDir, agents)
+	return linked + sync.SyncedAgentCopies(targetDir, agents, preserved...)
 }
 
 // agentStatusLabel returns the effective agent mode and the sub-item status
@@ -80,4 +81,13 @@ func agentStatusLabel(ac config.ResourceTargetConfig) (mode, status string) {
 		return mode, "linked"
 	}
 	return mode, "merged"
+}
+
+// agentCountLabel distinguishes healthy local copies from managed links.
+func agentCountLabel(current, expected, preserved int) string {
+	label := fmt.Sprintf("%d/%d linked", current-preserved, expected)
+	if preserved > 0 {
+		label += fmt.Sprintf(", %d local preserved", preserved)
+	}
+	return label
 }

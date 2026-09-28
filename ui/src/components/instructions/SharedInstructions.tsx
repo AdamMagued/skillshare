@@ -1,10 +1,11 @@
+import Tooltip from '../Tooltip';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronDown, ChevronUp, Copy, Ellipsis, FilePlus, Plus, Trash2, TriangleAlert, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Copy, Ellipsis, FilePlus, Info, Plus, Trash2, TriangleAlert, X } from 'lucide-react';
 import { api, ApiError } from '../../api/client';
-import type { SharedInstructionsFile, SharedInstructionsTarget } from '../../api/client';
+import type { InstructionsWarning, SharedInstructionsFile, SharedInstructionsTarget } from '../../api/client';
 import AgentIcon from '../AgentIcon';
 import Button from '../Button';
 import { Checkbox } from '../Checkbox';
@@ -17,15 +18,15 @@ import { SkillContextMenu } from '../TargetMenu';
 import { useToast } from '../Toast';
 import { useT } from '../../i18n';
 import { queryKeys } from '../../lib/queryKeys';
-import { shortenHome } from '../../lib/paths';
+import { fileName, shortenHome } from '../../lib/paths';
 import InstructionsEditorDialog from './InstructionsEditorDialog';
 import NewSharedDialog from './NewSharedDialog';
 import RestorePreviewDialog from './RestorePreviewDialog';
 import { BoxHeader, InstructionsPreview } from './ViewTabs';
-import {
-  connectExtras, connectPlan, connectedTo, modeOptions, needsSync, pickedMode, refreshInstructions, restorePlan, rowHint, saveCopiesSummary, statusTone, usesOf,
-} from './instructionsView';
 import type { ConnectStep, ModeOption, RestoreStep, RowHint } from './instructionsView';
+import {
+  instructionsErrorMessage, instructionsWarningMessage, connectExtras, connectPlan, connectedTo, modeOptions, needsSync, pickedMode, refreshInstructions, restorePlan, rowHint, saveCopiesSummary, statusTone, usesOf,
+} from './instructionsView';
 
 const PREVIEW_LINES = 8;
 type Pending = { title: string; message: ReactNode; confirm: string; danger?: boolean; run: () => Promise<void> };
@@ -61,7 +62,7 @@ export default function SharedInstructions({ creating, setCreating }: { creating
   }, [asked, data, setCreating]);
 
   if (isPending) return <PageSkeleton />;
-  if (error) return <div className="ss-note bad"><span className="flex-1">{error.message}</span></div>;
+  if (error) return <div className="ss-note bad"><span className="flex-1">{instructionsErrorMessage(error, t)}</span></div>;
   const { files, targets } = data;
   // An older server does not say; file links then work as before.
   const fileLinks = data.file_links ?? true;
@@ -162,7 +163,7 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
     try {
       await fn();
     } catch (err) {
-      toast((err as Error).message, 'error');
+      toast(instructionsErrorMessage(err, t), 'error');
     } finally {
       setBusy(false);
       refreshInstructions(queryClient);
@@ -170,9 +171,9 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
   };
   const ask = (p: Pending) => setPending(p);
   // A target another shared file holds is refused (409); its row says why, and the rest go on.
-  const heldText = (err: unknown, target: string) => (err instanceof ApiError && err.code === 'instructions_target_held'
-    ? t('instructions.conflict.held', { target: String(err.params?.target ?? target), name: String(err.params?.name ?? '') }) : null);
-  const warn = (warnings?: string[]) => warnings?.forEach((w) => toast(w, 'warning'));
+  const heldText = (err: unknown) => (err instanceof ApiError && err.code === 'instructions_target_held'
+    ? instructionsErrorMessage(err, t) : null);
+  const warn = (warnings?: InstructionsWarning[]) => warnings?.forEach((w) => toast(instructionsWarningMessage(w, t), 'warning'));
 
   const connect = async (steps: { target: string; extras: string[] }[]) => {
     const errors: string[] = [];
@@ -185,7 +186,7 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
         if (res.success) done.push(s.target);
         else errors.push(...res.errors);
       } catch (err) {
-        const why = heldText(err, s.target);
+        const why = heldText(err);
         if (!why) throw err;
         refused[s.target] = why;
       }
@@ -227,7 +228,7 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
     try {
       warn((await api.setSharedInstructionsMode(name, tg.name, mode)).warnings);
     } catch (err) {
-      const why = heldText(err, tg.name);
+      const why = heldText(err);
       if (!why) throw err;
       setHeld({ [tg.name]: why });
       return;
@@ -237,7 +238,7 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
   const modeText = (o: ModeOption, tg: SharedInstructionsTarget) => {
     if (o.blocked) return t(`instructions.mode.blocked.${o.blocked}`, { target: tg.name });
     if (o.mode === 'copy') return `${t('targetDetail.mode.copy')} ${t('instructions.mode.copyAfter', { name })}`;
-    return t(`instructions.mode.${o.mode}`, { name, file: tg.path.split('/').pop() ?? '' });
+    return t(`instructions.mode.${o.mode}`, { name, file: fileName(tg.path) });
   };
 
   const connectNote = (s: ConnectStep) => (s.note === 'held' ? t('instructions.plan.held', { other: s.other ?? '' })
@@ -319,7 +320,7 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
       await navigator.clipboard.writeText(file.path);
       toast(t('instructions.shared.pathCopied', { path: shortenHome(file.path) }), 'success');
     } catch (err) {
-      toast((err as Error).message, 'error');
+      toast(instructionsErrorMessage(err, t), 'error');
     }
   };
 
@@ -370,7 +371,7 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
           )}
         </BoxHeader>
         {content.error ? (
-          <div className="px-[18px] py-3 text-[13px] text-bad">{content.error.message}</div>
+          <div className="px-[18px] py-3 text-[13px] text-bad">{instructionsErrorMessage(content.error, t)}</div>
         ) : view === 'preview' ? (
           <InstructionsPreview content={text} names={[]} className={expanded ? '' : 'max-h-[230px] overflow-y-auto'} />
         ) : (
@@ -385,6 +386,9 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
         <Checkbox label={t('instructions.shared.selectAll')} hideLabel checked={allOn} indeterminate={!allOn && chosen.length > 0}
           onChange={() => setSelected(allOn ? new Set() : new Set(selectable.map((tg) => tg.name)))} disabled={selectable.length === 0} />
         <h3 className="ml-2 text-[15px] font-bold">{t('instructions.detail.targets')}</h3>
+        {!fileLinks && <Tooltip content={t('instructions.fileLinks.tooltip')}>
+          <button type="button" className="ss-ib" aria-label={t('instructions.fileLinks.tooltip')}><Info size={16} /></button>
+        </Tooltip>}
         <span className="text-[12.5px] text-ink-3">{t('instructions.shared.connectedCount', { count: connected.length })}</span>
         <span className="flex-1" />
         {stale.length > 0 && (

@@ -25,3 +25,19 @@ func TestCountLinkedAgents_CountsFallbackCopiesAsCopyMode(t *testing.T) {
 		t.Errorf("linked = %d, mode = %q, status = %q; want 1 copy in sync", n, mode, status)
 	}
 }
+
+func TestAgentStatusPreservedFallbackCopy(t *testing.T) {
+	t.Cleanup(sync.SetFileLinksForTest(false))
+	src, tgt := t.TempDir(), t.TempDir()
+	path := filepath.Join(src, "tutor.md")
+	os.WriteFile(path, []byte("same"), 0644)
+	os.WriteFile(filepath.Join(tgt, "tutor.md"), []byte("same"), 0644)
+	agents := []resource.DiscoveredResource{{FlatName: "tutor.md", AbsPath: path}}
+	preserved := 0
+	if n := countLinkedAgents(tgt, agents, &preserved); n != 1 || preserved != 1 {
+		t.Fatalf("current=%d preserved=%d", n, preserved)
+	}
+	if got := agentCountLabel(1, 1, preserved); got != "0/1 linked, 1 local preserved" {
+		t.Fatal(got)
+	}
+}

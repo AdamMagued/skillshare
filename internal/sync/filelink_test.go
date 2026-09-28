@@ -312,7 +312,7 @@ func TestCopyFallbackMissingManifestIsSyncedButUnowned(t *testing.T) {
 	SyncExtra(src, tgt, "merge", false, false, false, "", nil)
 	os.Remove(filepath.Join(tgt, ".skillshare-manifest.json"))
 	extra, err := SyncExtra(src, tgt, "merge", false, false, false, "", nil)
-	if err != nil || extra.Synced != 0 || extra.Skipped != 1 {
+	if err != nil || extra.Synced != 0 || extra.Skipped != 1 || extra.Preserved != 1 {
 		t.Errorf("result=%+v err=%v", extra, err)
 	}
 	if status := CheckSyncStatus([]string{"a.md"}, src, tgt, "merge", false, ""); status != "synced" {

@@ -29,7 +29,7 @@ type Resolver struct {
 // line removed, the replaced file put back); newly wanted ones are added to
 // the extra's targets and synced. A target without import takes at most one.
 // It returns the updated extras; on error the extras reflect the steps done.
-func Assign(extras []config.ExtraConfig, t Target, want []string, r Resolver, warnings ...*[]string) ([]config.ExtraConfig, error) {
+func Assign(extras []config.ExtraConfig, t Target, want []string, r Resolver, warnings ...*[]syncpkg.FileWarning) ([]config.ExtraConfig, error) {
 	if _, err := PlanAssign(extras, t, want, r); err != nil {
 		return extras, err
 	}
@@ -76,7 +76,7 @@ func Assign(extras []config.ExtraConfig, t Target, want []string, r Resolver, wa
 			return extras, fmt.Errorf("attach %s to %s: %w", name, t.Name, err)
 		}
 		if len(warnings) > 0 {
-			*warnings[0] = append(*warnings[0], result.Warnings...)
+			*warnings[0] = append(*warnings[0], result.FileWarnings...)
 		}
 		if result.Skipped > 0 {
 			return extras, fmt.Errorf("%s", strings.Join(result.Warnings, "; "))

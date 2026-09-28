@@ -1,3 +1,6 @@
+import { ApiError } from '../../api/client';
+import type { InstructionsWarning } from '../../api/client';
+import type { useT } from '../../i18n';
 import type { QueryClient } from '@tanstack/react-query';
 import type { InstructionsAssignment, InstructionsEntry, SharedCopyResult, SharedInstructionsFile, SharedInstructionsTarget } from '../../api/client';
 import { shortenHome } from '../../lib/paths';
@@ -43,7 +46,11 @@ export function setupPathProblem(path: string, project: boolean): 'directory' | 
 
 /** A target's current file written as the location form takes it: ~/… in global mode, relative to projectRoot in a project. */
 export function setupPathOf(path: string, project: boolean, projectRoot = ''): string {
-  if (project) return projectRoot && path.startsWith(`${projectRoot}/`) ? path.slice(projectRoot.length + 1) : path;
+  if (project) {
+    const root = projectRoot.replace(/\\/g, '/');
+    const absolute = path.replace(/\\/g, '/');
+    return root && absolute.startsWith(`${root}/`) ? absolute.slice(root.length + 1) : path;
+  }
   const short = shortenHome(path);
   return short.startsWith('~\\') ? `~/${short.slice(2).replace(/\\/g, '/')}` : short;
 }
@@ -286,3 +293,19 @@ export function rowHint(target: SharedInstructionsTarget, file: SharedInstructio
 
 /** Line count of a file as an editor shows it: a trailing newline does not start a new line. */
 export const lineCount = (content: string) => (content ? content.replace(/\n$/, '').split('\n').length : 0);
+
+/** Translate backend messages while keeping unknown codes readable. */
+export function instructionsWarningMessage(warning: InstructionsWarning, t: ReturnType<typeof useT>): string {
+  const params = Object.fromEntries(Object.entries(warning.params).map(([key, value]) => [key, shortenHome(value)]));
+  return t(`instructions.warning.${warning.code}`, params, warning.message)
+    .replace(/\/(?:Users|home)\/[^/\s]+|[A-Z]:\\Users\\[^\\\s]+/gi, shortenHome);
+}
+
+export function instructionsErrorMessage(error: unknown, t: ReturnType<typeof useT>): string {
+  let message = (error as Error).message;
+  if (error instanceof ApiError && error.code?.startsWith('instructions_')) {
+    const params = Object.fromEntries(Object.entries(error.params ?? {}).map(([key, value]) => [key, typeof value === 'string' ? shortenHome(value) : String(value)]));
+    message = t(`instructions.error.${error.code}`, params, message);
+  }
+  return message.replace(/\/(?:Users|home)\/[^/\s]+|[A-Z]:\\Users\\[^\\\s]+/gi, shortenHome);
+}

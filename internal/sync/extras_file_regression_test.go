@@ -2,7 +2,9 @@ package sync
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -210,5 +212,62 @@ func TestExtraFileRestorePreservesUnmanagedImportLine(t *testing.T) {
 	}
 	if got := readFile(t, f.Target); got != original {
 		t.Fatalf("unmanaged import changed: %q", got)
+	}
+}
+
+func TestSingleFileJunctionWarning(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows directory junction")
+	}
+	src, tgt := setupExtraFileTest(t, "shared")
+	source, target, destination := filepath.Join(src, "AGENTS.md"), filepath.Join(tgt, "AGENTS.md"), t.TempDir()
+	if out, err := exec.Command("cmd", "/c", "mklink", "/J", target, destination).CombinedOutput(); err != nil {
+		t.Fatalf("mklink: %v: %s", err, out)
+	}
+	for _, dryRun := range []bool{true, false} {
+		res, err := SyncExtraFile(ExtraFile{Source: source, Target: target, Mode: "copy"}, dryRun, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		code := "junction_replaced"
+		if dryRun {
+			code = "would_replace_junction"
+		}
+		if len(res.FileWarnings) != 1 || res.FileWarnings[0].Code != code || res.FileWarnings[0].Params["destination"] != destination || !strings.Contains(res.Warnings[0], "junction "+target+" pointing to "+destination) {
+			t.Fatalf("%+v", res)
+		}
+	}
+}
+
+func TestSingleFileCodedWarnings(t *testing.T) {
+	for _, code := range []string{"backed_up", "would_back_up", "target_directory", "file_link_fallback"} {
+		t.Run(code, func(t *testing.T) {
+			src, tgt := setupExtraFileTest(t, "shared")
+			mode := "copy"
+			if code == "file_link_fallback" {
+				withoutFileLinks(t)
+				mode = "merge"
+			}
+			f := NewExtraFile(src, "AGENTS.md", tgt, "AGENTS.md", mode)
+			if code == "target_directory" {
+				if err := os.Mkdir(f.Target, 0755); err != nil {
+					t.Fatal(err)
+				}
+			} else if code != "file_link_fallback" {
+				if err := os.WriteFile(f.Target, []byte("local"), 0644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			res, err := SyncExtraFile(f, code == "would_back_up", "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(res.FileWarnings) != 1 || res.FileWarnings[0].Code != code || res.FileWarnings[0].Message != res.Warnings[0] {
+				t.Fatalf("%+v", res)
+			}
+			if code != "file_link_fallback" && res.FileWarnings[0].Params["path"] != f.Target {
+				t.Fatalf("%+v", res.FileWarnings[0])
+			}
+		})
 	}
 }

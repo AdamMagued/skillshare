@@ -14,11 +14,13 @@ import (
 
 // ExtraResult holds the result of an extras sync operation.
 type ExtraResult struct {
-	Synced   int      // Files synced (new + already correct)
-	Skipped  int      // Files skipped (local conflict, no --force)
-	Pruned   int      // Orphan files removed
-	Errors   []string // Non-fatal error messages
-	Warnings []string // Non-fatal warnings (e.g. flatten collisions)
+	Preserved    int           // Skipped files whose identical local content was kept
+	Synced       int           // Files synced (new + already correct)
+	Skipped      int           // Files skipped (local conflict, no --force)
+	Pruned       int           // Orphan files removed
+	Errors       []string      // Non-fatal error messages
+	Warnings     []string      // Non-fatal warnings (e.g. flatten collisions)
+	FileWarnings []FileWarning // Structured single-file warnings for API consumers
 }
 
 // reservedMetadataFile is skillshare's per-directory install-tracking store
@@ -352,6 +354,11 @@ func syncExtraPerFile(sourcePath, targetPath, mode string, dryRun, force, flatte
 		}
 		result.Synced += synced
 		result.Skipped += skipped
+		if skipped > 0 {
+			if info, err := os.Lstat(tgtFile); err == nil && info.Mode().IsRegular() && contentEqual(srcFile, tgtFile) {
+				result.Preserved += skipped
+			}
+		}
 	}
 
 	// Prune merge-mode symlink orphans (only when not dry-run). Copy targets do

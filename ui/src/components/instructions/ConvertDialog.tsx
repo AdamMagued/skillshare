@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { X } from 'lucide-react';
-import { ApiError, api } from '../../api/client';
+import { api } from '../../api/client';
 import type { ConvertMethod, InstructionsChange, TargetInstructions } from '../../api/client';
 import Button from '../Button';
 import { Checkbox } from '../Checkbox';
@@ -9,9 +9,9 @@ import DialogShell from '../DialogShell';
 import { Select } from '../Select';
 import { useToast } from '../Toast';
 import { useT } from '../../i18n';
-import { shortenHome } from '../../lib/paths';
+import { fileName, shortenHome } from '../../lib/paths';
 import { queryKeys } from '../../lib/queryKeys';
-import { defaultShareName, importLines, isFolderExtra, lineDiff, refreshInstructions, sharedNameProblem, takenName } from './instructionsView';
+import { instructionsErrorMessage, defaultShareName, importLines, isFolderExtra, lineDiff, refreshInstructions, sharedNameProblem, takenName } from './instructionsView';
 
 const METHODS: ConvertMethod[] = ['import', 'rename', 'copy'];
 // The share picker's choice for a new shared file; real names are extras names.
@@ -30,7 +30,7 @@ export default function ConvertDialog({ data, onClose }: { data: TargetInstructi
   const [typedName, setTypedName] = useState<string>();
   const [picked, setPicked] = useState<string>();
   const [busy, setBusy] = useState(false);
-  const file = (data.path ?? '').split('/').pop() ?? '';
+  const file = fileName(data.path ?? '');
   const tool = importLines(data.content).length;
   const sharing = share && method === 'import' && !data.project;
   const extras = useQuery({ queryKey: queryKeys.extras, queryFn: () => api.listExtras(), enabled: !data.project });
@@ -73,7 +73,7 @@ export default function ConvertDialog({ data, onClose }: { data: TargetInstructi
       toast(t('instructions.convert.done', { file }), 'success');
       onClose();
     } catch (err) {
-      toast((err as Error).message, 'error');
+      toast(instructionsErrorMessage(err, t), 'error');
       setBusy(false);
     }
   };
@@ -161,7 +161,7 @@ export default function ConvertDialog({ data, onClose }: { data: TargetInstructi
           <div className="flex min-w-0 flex-col gap-3">
             <span className="text-[12px] text-ink-3">{t('instructions.convert.after')}</span>
             {preview.error ? (
-              <div className="ss-note bad"><span className="flex-1">{preview.error instanceof ApiError && preview.error.code === 'conflict' && shareAs ? t('instructions.convert.nameTaken', { name: shareAs }) : preview.error.message}</span></div>
+              <div className="ss-note bad"><span className="flex-1">{instructionsErrorMessage(preview.error, t)}</span></div>
             ) : shareMissing ? (
               nameError ? <div className="ss-note bad"><span className="flex-1">{nameError}</span></div>
                 : <p className="text-[13px] text-ink-3">{t('instructions.convert.nameFirst')}</p>

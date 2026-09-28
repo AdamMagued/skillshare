@@ -238,7 +238,7 @@ func syncAgentsMergeCopy(agents []resource.DiscoveredResource, targetDir string,
 
 // SyncedAgentCopies counts regular files matching their source, independently
 // of ownership. Status equality does not authorize overwriting or pruning.
-func SyncedAgentCopies(targetDir string, agents []resource.DiscoveredResource) int {
+func SyncedAgentCopies(targetDir string, agents []resource.DiscoveredResource, preserved ...*int) int {
 	copies := loadCopyTracker(targetDir)
 	n := 0
 	for _, a := range agents {
@@ -249,6 +249,9 @@ func SyncedAgentCopies(targetDir string, agents []resource.DiscoveredResource) i
 		}
 		target := filepath.Join(targetDir, a.FlatName)
 		if info, err := os.Lstat(target); err == nil && info.Mode().IsRegular() && contentEqual(a.AbsPath, target) {
+			if len(preserved) > 0 && !copies.owns(a.FlatName) {
+				*preserved[0]++
+			}
 			n++
 		}
 	}

@@ -9,9 +9,9 @@ import DialogShell from '../DialogShell';
 import { useToast } from '../Toast';
 import { useT } from '../../i18n';
 import { shortenHome } from '../../lib/paths';
-import { isImportLine } from './instructionsView';
 import { useSaveShortcut } from './useSaveShortcut';
 import { BoxHeader, InstructionsPreview } from './ViewTabs';
+import { instructionsErrorMessage, isImportLine } from './instructionsView';
 
 /** Edits one instruction file in place: a shared file or the project AGENTS.md. */
 export default function InstructionsEditorDialog({ title, path, content, note, readers, warnings, onSave, onClose }: {
@@ -47,7 +47,7 @@ export default function InstructionsEditorDialog({ title, path, content, note, r
       setBase(draft);
       toast(message || t('instructions.saved', { path: shortenHome(path) }), 'success');
     } catch (err) {
-      toast((err as Error).message, 'error');
+      toast(instructionsErrorMessage(err, t), 'error');
     } finally {
       setSaving(false);
     }

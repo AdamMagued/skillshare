@@ -196,3 +196,9 @@ describe('Target instructions tab', () => {
     await waitFor(() => expect(api.putTargetInstructions).toHaveBeenCalledWith('codex', 'codex file\ndraft'));
   });
 });
+
+it('shows the file name for a Windows instruction path', async () => {
+  vi.mocked(api.getTargetInstructions).mockResolvedValue(file('claude', String.raw`C:\Users\Public\sstest\manual\.claude\CLAUDE.md`));
+  renderTarget('claude');
+  expect(await screen.findByRole('textbox', { name: 'CLAUDE.md' })).toBeInTheDocument();
+});

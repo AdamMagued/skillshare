@@ -8,7 +8,7 @@ import Spinner from '../Spinner';
 import { useT } from '../../i18n';
 import { shortenHome } from '../../lib/paths';
 import { queryKeys } from '../../lib/queryKeys';
-import { formatSize, lineCount, lineDiff } from './instructionsView';
+import { instructionsErrorMessage, formatSize, lineCount, lineDiff } from './instructionsView';
 
 /** Restore one target: shows what its file goes back to before taking the shared file off it. */
 export default function RestorePreviewDialog({ name, target, label, mode, busy, onConfirm, onClose }: {
@@ -46,7 +46,7 @@ export default function RestorePreviewDialog({ name, target, label, mode, busy, 
       </div>
       <div className="db flex flex-col gap-3">
         {error ? (
-          <div className="ss-note bad"><span className="flex-1">{error.message}</span></div>
+          <div className="ss-note bad"><span className="flex-1">{instructionsErrorMessage(error, t)}</span></div>
         ) : !data ? (
           <Spinner className="self-center" />
         ) : data.kind === 'delete' ? (

@@ -263,7 +263,7 @@ func TestSharedInstructions_AntigravityLockedToGemini(t *testing.T) {
 		t.Fatalf("targets = %+v", list.Targets)
 	}
 	res := decodeBody[map[string]any](t, instructionsRequest(t, s, http.MethodPost, "/api/instructions/assign", `{"targets":["antigravity"],"extras":["personal"]}`))
-	if res["success"] != false {
+	if res["error_code"] != "instructions_same_file" {
 		t.Errorf("assigning antigravity directly: %v, want failure", res)
 	}
 }

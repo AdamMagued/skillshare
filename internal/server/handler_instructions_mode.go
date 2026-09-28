@@ -20,7 +20,7 @@ var sharedInstructionsModes = []string{"import", "symlink", "copy"}
 // handlePutSharedInstructionsMode — PUT /api/instructions/{name}/targets/{target}/mode
 // Changes how one attached target gets the shared file and syncs it again. The
 // restore point recorded when the target was first attached stays.
-// The success response always includes warnings: []string from SyncExtraFile.
+// The success response always includes structured warnings from SyncExtraFile.
 func (s *Server) handlePutSharedInstructionsMode(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	name, target := r.PathValue("name"), r.PathValue("target")
@@ -28,15 +28,15 @@ func (s *Server) handlePutSharedInstructionsMode(w http.ResponseWriter, r *http.
 		Mode string `json:"mode"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		writeCodedError(w, http.StatusBadRequest, "instructions_invalid_json", "invalid JSON body", map[string]string{})
 		return
 	}
 	if !slices.Contains(sharedInstructionsModes, body.Mode) {
-		writeError(w, http.StatusBadRequest, "mode must be import, symlink, or copy")
+		writeCodedError(w, http.StatusBadRequest, "instructions_invalid_mode", "mode must be import, symlink, or copy", map[string]string{"mode": body.Mode})
 		return
 	}
 	if body.Mode == "symlink" && !syncpkg.CanCreateFileLink() {
-		writeError(w, http.StatusBadRequest, "file links need Windows Developer Mode; use copy")
+		writeCodedError(w, http.StatusBadRequest, "instructions_file_links_unavailable", "file links need Windows Developer Mode; use copy", map[string]string{})
 		return
 	}
 
@@ -44,25 +44,25 @@ func (s *Server) handlePutSharedInstructionsMode(w http.ResponseWriter, r *http.
 	defer s.mu.Unlock()
 	it, found, ok := s.targetInstructions(target)
 	if !found {
-		writeError(w, http.StatusNotFound, "target not found: "+target)
+		writeCodedError(w, http.StatusNotFound, "instructions_target_not_found", "target not found: "+target, map[string]string{"target": target})
 		return
 	}
 	if !ok {
-		writeError(w, http.StatusBadRequest, target+" has no instruction file")
+		writeCodedError(w, http.StatusBadRequest, "instructions_no_file", target+" has no instruction file", map[string]string{"target": target})
 		return
 	}
 	if err := config.ValidateImportMode(body.Mode, target, it.Import); err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeCodedError(w, http.StatusBadRequest, "instructions_import_unavailable", err.Error(), map[string]string{"target": target})
 		return
 	}
 	res := s.instructionsResolver()
 	i, j := instructions.Find(s.cfg.Extras, name, it.Path, res)
 	if i == -1 {
-		writeError(w, http.StatusNotFound, "shared instruction file not found: "+name)
+		writeCodedError(w, http.StatusNotFound, "instructions_shared_not_found", "shared instruction file not found: "+name, map[string]string{"name": name})
 		return
 	}
 	if j == -1 {
-		writeError(w, http.StatusNotFound, name+" is not attached to "+target)
+		writeCodedError(w, http.StatusNotFound, "instructions_not_attached", name+" is not attached to "+target, map[string]string{"name": name, "target": target})
 		return
 	}
 
@@ -73,23 +73,23 @@ func (s *Server) handlePutSharedInstructionsMode(w http.ResponseWriter, r *http.
 	tc.Mode = prev
 	if validationErr != nil {
 		if !writeExtraTargetConflict(w, validationErr, target) {
-			writeError(w, http.StatusBadRequest, validationErr.Error())
+			writeCodedError(w, http.StatusBadRequest, "instructions_mode_failed", validationErr.Error(), map[string]string{"detail": validationErr.Error()})
 		}
 		return
 	}
 	if tc.Mode == body.Mode {
-		writeJSON(w, map[string]any{"success": true, "warnings": []string{}})
+		writeJSON(w, map[string]any{"success": true, "warnings": []syncpkg.FileWarning{}})
 		return
 	}
 	args := map[string]any{"name": name, "target": target, "mode": body.Mode, "from": tc.Mode, "scope": "ui"}
 	fail := func(err error) {
 		s.writeOpsLog("instructions-mode", "error", start, args, err.Error())
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeCodedError(w, http.StatusInternalServerError, "instructions_mode_failed", err.Error(), map[string]string{"detail": err.Error()})
 	}
 	tc.Mode = body.Mode
 	if err := config.ValidateExtraConfig(s.cfg.Extras[i]); err != nil {
 		tc.Mode = prev
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeCodedError(w, http.StatusBadRequest, "instructions_mode_failed", err.Error(), map[string]string{"detail": err.Error()})
 		return
 	}
 	result, err := syncpkg.SyncExtraFile(instructions.ExtraFile(s.cfg.Extras[i], j, res), false, "")
@@ -102,7 +102,7 @@ func (s *Server) handlePutSharedInstructionsMode(w http.ResponseWriter, r *http.
 		tc.Mode = prev
 		diagnostic := strings.Join(result.Warnings, "; ")
 		s.writeOpsLog("instructions-mode", "error", start, args, diagnostic)
-		writeError(w, http.StatusConflict, diagnostic)
+		writeCodedError(w, http.StatusConflict, "instructions_target_directory", diagnostic, map[string]string{"path": it.Path})
 		return
 	}
 	if err := s.saveAndReloadConfig(); err != nil {
@@ -110,7 +110,7 @@ func (s *Server) handlePutSharedInstructionsMode(w http.ResponseWriter, r *http.
 		return
 	}
 	s.writeOpsLog("instructions-mode", "ok", start, args, "")
-	warnings := append([]string{}, result.Warnings...)
+	warnings := append([]syncpkg.FileWarning{}, result.FileWarnings...)
 	writeJSON(w, map[string]any{"success": true, "warnings": warnings})
 }
 
@@ -141,24 +141,24 @@ type sharedRestorePreview struct {
 func (s *Server) handleSharedInstructionsRestorePreview(w http.ResponseWriter, r *http.Request) {
 	name, target := r.PathValue("name"), r.URL.Query().Get("target")
 	if target == "" {
-		writeError(w, http.StatusBadRequest, "target is required")
+		writeCodedError(w, http.StatusBadRequest, "instructions_target_required", "target is required", map[string]string{})
 		return
 	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	it, found, ok := s.targetInstructions(target)
 	if !found {
-		writeError(w, http.StatusNotFound, "target not found: "+target)
+		writeCodedError(w, http.StatusNotFound, "instructions_target_not_found", "target not found: "+target, map[string]string{"target": target})
 		return
 	}
 	if !ok {
-		writeError(w, http.StatusBadRequest, target+" has no instruction file")
+		writeCodedError(w, http.StatusBadRequest, "instructions_no_file", target+" has no instruction file", map[string]string{"target": target})
 		return
 	}
 	res := s.instructionsResolver()
 	i, j := instructions.Find(s.cfg.Extras, name, it.Path, res)
 	if j == -1 {
-		writeError(w, http.StatusNotFound, name+" is not attached to "+target)
+		writeCodedError(w, http.StatusNotFound, "instructions_not_attached", name+" is not attached to "+target, map[string]string{"name": name, "target": target})
 		return
 	}
 	f := instructions.ExtraFile(s.cfg.Extras[i], j, res)

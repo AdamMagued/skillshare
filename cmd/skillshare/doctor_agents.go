@@ -72,9 +72,11 @@ func checkAgentTargetInline(name string, target config.TargetConfig, builtinAgen
 	}
 
 	linked, broken := countAgentLinksAndBroken(agentPath)
-	linked += sync.SyncedAgentCopies(agentPath, expected)
+	preserved := 0
+	linked += sync.SyncedAgentCopies(agentPath, expected, &preserved)
+	countLabel := agentCountLabel(linked, agentCount, preserved)
 	if broken > 0 {
-		msg := fmt.Sprintf("[%s] %d linked, %d broken", mode, linked, broken)
+		msg := fmt.Sprintf("[%s] %s, %d broken", mode, countLabel, broken)
 		fmt.Printf("  agents   %s%s%s\n", ui.Yellow, msg, ui.Reset)
 		result.addWarning()
 		result.addCheck("agent_target_"+name, checkWarning,
@@ -83,14 +85,14 @@ func checkAgentTargetInline(name string, target config.TargetConfig, builtinAgen
 	}
 
 	if linked != agentCount && agentCount > 0 {
-		fmt.Printf("  agents   [%s] %sdrift%s %s(%d/%d linked)%s\n", mode, ui.Yellow, ui.Reset, ui.Dim, linked, agentCount, ui.Reset)
+		fmt.Printf("  agents   [%s] %sdrift%s %s(%s)%s\n", mode, ui.Yellow, ui.Reset, ui.Dim, countLabel, ui.Reset)
 		result.addWarning()
 		result.addCheck("agent_target_"+name, checkWarning,
 			fmt.Sprintf("Agent target %s: drift (%d/%d agents linked)", name, linked, agentCount), details)
 		return
 	}
 
-	fmt.Printf("  agents   [%s] %ssynced%s %s(%d/%d linked)%s\n", mode, ui.Green, ui.Reset, ui.Dim, linked, agentCount, ui.Reset)
+	fmt.Printf("  agents   [%s] %ssynced%s %s(%s)%s\n", mode, ui.Green, ui.Reset, ui.Dim, countLabel, ui.Reset)
 	result.addCheck("agent_target_"+name, checkPass,
 		fmt.Sprintf("Agent target %s: %d agents synced", name, linked), details)
 }

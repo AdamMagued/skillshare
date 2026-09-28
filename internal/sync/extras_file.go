@@ -18,6 +18,18 @@ const (
 	importBlockEnd   = "<!-- skillshare:instructions:end -->"
 )
 
+// FileWarning preserves the CLI message alongside its translation code and values.
+type FileWarning struct {
+	Code    string            `json:"code"`
+	Params  map[string]string `json:"params"`
+	Message string            `json:"message"`
+}
+
+func (r *ExtraResult) addFileWarning(code, message string, params map[string]string) {
+	r.Warnings = append(r.Warnings, message)
+	r.FileWarnings = append(r.FileWarnings, FileWarning{Code: code, Params: params, Message: message})
+}
+
 // ExtraFile is one target of a single-file extra (an extra with file: set).
 type ExtraFile struct {
 	Source string // absolute path of <source dir>/<file>
@@ -91,7 +103,7 @@ func SyncExtraFile(f ExtraFile, dryRun bool, projectRoot string) (*ExtraResult, 
 	case "merge", "symlink", "copy":
 		result, err := syncExtraFileReplace(f, dryRun, projectRoot)
 		if err == nil && f.linkFallback {
-			result.Warnings = append(result.Warnings, FileLinkFallbackWarning)
+			result.addFileWarning("file_link_fallback", FileLinkFallbackWarning, map[string]string{})
 		}
 		return result, err
 	default:
@@ -127,7 +139,8 @@ func syncExtraFileReplace(f ExtraFile, dryRun bool, projectRoot string) (*ExtraR
 		base, leavingImport := f.removeImport(string(data))
 		drift := attached && !f.isOurLink() && !leavingImport
 		if drift || !attached && !f.isOurLink() {
-			result.Warnings = append(result.Warnings, replacementWarning(f.Target, dryRun))
+			warning := replacementWarning(f.Target, dryRun)
+			result.addFileWarning(warning.Code, warning.Message, warning.Params)
 		}
 		if !dryRun && leavingImport {
 			if !attached {
@@ -167,7 +180,7 @@ func syncExtraFileReplace(f ExtraFile, dryRun bool, projectRoot string) (*ExtraR
 		}
 	case info.IsDir():
 		result.Skipped = 1
-		result.Warnings = append(result.Warnings, fmt.Sprintf("%s is a directory; not replaced", f.Target))
+		result.addFileWarning("target_directory", fmt.Sprintf("%s is a directory; not replaced", f.Target), map[string]string{"path": f.Target})
 		return result, nil
 	default:
 		// A file leaving import mode: keep its own lines for switching back.
@@ -187,7 +200,8 @@ func syncExtraFileReplace(f ExtraFile, dryRun bool, projectRoot string) (*ExtraR
 		// skillshare's own earlier copy, left unedited, is replaced silently.
 		edited := !same && !isOurExtraCopy(f.Target)
 		if edited {
-			result.Warnings = append(result.Warnings, replacementWarning(f.Target, dryRun))
+			warning := replacementWarning(f.Target, dryRun)
+			result.addFileWarning(warning.Code, warning.Message, warning.Params)
 		}
 		if !dryRun {
 			// On first attach, back up even an identical file: restoring the
@@ -245,11 +259,21 @@ func syncExtraFileReplace(f ExtraFile, dryRun bool, projectRoot string) (*ExtraR
 	return result, nil
 }
 
-func replacementWarning(path string, dryRun bool) string {
-	if dryRun {
-		return fmt.Sprintf("would back up %s before replacing it", path)
+func replacementWarning(path string, dryRun bool) FileWarning {
+	if info, err := os.Lstat(path); err == nil && info.Mode()&os.ModeSymlink == 0 && utils.IsLinkMode(path, info.Mode()) {
+		if dest, err := os.Readlink(path); err == nil {
+			code, verb := "junction_replaced", "replaced"
+			if dryRun {
+				code, verb = "would_replace_junction", "would replace"
+			}
+			return FileWarning{Code: code, Params: map[string]string{"path": path, "destination": dest}, Message: fmt.Sprintf("%s junction %s pointing to %s; restore will recreate it", verb, path, dest)}
+		}
 	}
-	return fmt.Sprintf("backed up %s before replacing it", path)
+	code, message := "backed_up", fmt.Sprintf("backed up %s before replacing it", path)
+	if dryRun {
+		code, message = "would_back_up", fmt.Sprintf("would back up %s before replacing it", path)
+	}
+	return FileWarning{Code: code, Params: map[string]string{"path": path}, Message: message}
 }
 
 func (f ExtraFile) relativeImportLine() string {
@@ -349,7 +373,8 @@ func syncExtraImport(f ExtraFile, dryRun bool) (*ExtraResult, error) {
 		}
 	}
 	if editedCopy {
-		result.Warnings = append(result.Warnings, replacementWarning(f.Target, dryRun))
+		warning := replacementWarning(f.Target, dryRun)
+		result.addFileWarning(warning.Code, warning.Message, warning.Params)
 	}
 	if dryRun {
 		return result, nil

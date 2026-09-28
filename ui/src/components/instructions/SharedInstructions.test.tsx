@@ -108,3 +108,13 @@ describe('Shared instructions', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent("commandcode's file is zz-b (link or copy)");
   });
 });
+
+ describe('file link availability', () => {
+  it.each([false, true])('shows an accessible fallback hint only when file_links is false (%s)', async (fileLinks) => {
+   vi.mocked(api.listSharedInstructions).mockResolvedValue({ ...list('personal'), file_links: fileLinks });
+   renderAt('/extras?tab=instructions&file=personal');
+   await screen.findByText('Targets');
+   const hint = screen.queryByRole('button', { name: /Without Windows Developer Mode/ });
+   expect(Boolean(hint)).toBe(!fileLinks);
+  });
+ });

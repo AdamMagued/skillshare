@@ -815,7 +815,7 @@ func (s *Server) handleExtrasDelete(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if idx == -1 {
-		writeError(w, http.StatusNotFound, "extra not found: "+name)
+		writeCodedError(w, http.StatusNotFound, "instructions_shared_not_found", "extra not found: "+name, map[string]string{"name": name})
 		return
 	}
 
@@ -836,7 +836,7 @@ func (s *Server) handleExtrasDelete(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if err := s.saveAndReloadConfig(); err != nil {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeCodedError(w, http.StatusInternalServerError, "instructions_save_failed", err.Error(), map[string]string{"name": name, "detail": err.Error()})
 			return
 		}
 
@@ -853,7 +853,7 @@ func (s *Server) handleExtrasDelete(w http.ResponseWriter, r *http.Request) {
 	}, msg)
 
 	if restoreErr != nil {
-		writeError(w, http.StatusInternalServerError, restoreErr.Error())
+		writeCodedError(w, http.StatusInternalServerError, "instructions_restore_failed", restoreErr.Error(), map[string]string{"name": name, "detail": restoreErr.Error()})
 		return
 	}
 	writeJSON(w, map[string]any{"success": true, "name": name, "restored": restored})

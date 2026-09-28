@@ -2,7 +2,7 @@ import { Fragment, useId, useMemo, useState } from 'react';
 import { Link, useBeforeUnload, useBlocker, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FileX, Info, TriangleAlert, X } from 'lucide-react';
-import { api, ApiError } from '../../api/client';
+import { api } from '../../api/client';
 import type { InstructionsEntry, TargetInstructions as Data } from '../../api/client';
 import Button from '../Button';
 import CodeEditor from '../CodeEditor';
@@ -16,15 +16,14 @@ import { useToast } from '../Toast';
 import { useAppContext } from '../../context/AppContext';
 import { useT } from '../../i18n';
 import { queryKeys } from '../../lib/queryKeys';
-import { shortenHome } from '../../lib/paths';
+import { fileName, shortenHome } from '../../lib/paths';
 import ConvertDialog from './ConvertDialog';
 import InstructionFileList from './InstructionFileList';
 import { useFillHeight } from './useFillHeight';
 import { BoxHeader, InstructionsPreview } from './ViewTabs';
 import { useSaveShortcut } from './useSaveShortcut';
-import { importDecor, readChain, refreshInstructions, setupPathOf, setupPathProblem, sharedOfImport } from './instructionsView';
+import { instructionsErrorMessage, importDecor, readChain, refreshInstructions, setupPathOf, setupPathProblem, sharedOfImport } from './instructionsView';
 
-const base = (path: string) => path.split('/').pop() ?? path;
 
 // The page's bottom padding, and the least height the tab keeps on a short window.
 const PAGE_BOTTOM = 40;
@@ -75,7 +74,7 @@ function Panel({ name }: { name: string }) {
   const t = useT();
   const { data, error, isPending } = useQuery({ queryKey: queryKeys.instructions.target(name), queryFn: () => api.getTargetInstructions(name) });
   if (isPending) return <PageSkeleton />;
-  if (error) return <div className="ss-note bad"><span className="flex-1">{error.message}</span></div>;
+  if (error) return <div className="ss-note bad"><span className="flex-1">{instructionsErrorMessage(error, t)}</span></div>;
   // skillshare does not know the file: let the user say which one the tool reads.
   if (!data.supported && name !== 'cursor') return <SetupFormInline data={data} />;
   if (!data.supported) {
@@ -111,7 +110,7 @@ function useSetupForm(data: Data, onDone?: () => void) {
   const [failure, setFailure] = useState('');
   const problem = setupPathProblem(path, data.project);
   const example = data.project ? `.${data.target}/AGENTS.md` : `~/.${data.target}/AGENTS.md`;
-  const inUse = (err: unknown, key: string) => (err instanceof ApiError && err.code === 'instructions_in_use' ? t(key, { name: data.target }) : (err as Error).message);
+
 
   const save = async () => {
     setSaving(true);
@@ -122,7 +121,7 @@ function useSetupForm(data: Data, onDone?: () => void) {
       toast(t('instructions.setup.saved'), 'success');
       onDone?.();
     } catch (err) {
-      setFailure(inUse(err, 'instructions.setup.inUseChange'));
+      setFailure(instructionsErrorMessage(err, t));
     } finally {
       setSaving(false);
     }
@@ -138,7 +137,7 @@ function useSetupForm(data: Data, onDone?: () => void) {
       toast(t('instructions.setup.removed'), 'success');
       onDone?.();
     } catch (err) {
-      setFailure(inUse(err, 'instructions.setup.inUse'));
+      setFailure(instructionsErrorMessage(err, t));
     } finally {
       setResetting(false);
     }
@@ -219,7 +218,7 @@ function Editor({ data }: { data: Data }) {
   // Preview renders the draft, so switching keeps unsaved edits.
   const [view, setView] = useState<'edit' | 'preview'>('edit');
   const path = data.path ?? '';
-  const file = base(path);
+  const file = fileName(path);
   const linked = Boolean(data.link_shared);
   const shared = data.shared;
   const tooLong = Boolean(data.max_chars) && [...draft].length > (data.max_chars ?? 0);
@@ -253,7 +252,7 @@ function Editor({ data }: { data: Data }) {
       refreshInstructions(queryClient);
       toast(t('instructions.saved', { path: shortenHome(path) }), 'success');
     } catch (err) {
-      toast((err as Error).message, 'error');
+      toast(instructionsErrorMessage(err, t), 'error');
     } finally {
       setSaving(false);
     }
@@ -374,7 +373,7 @@ function Editor({ data }: { data: Data }) {
 /** One file in the read-order line: a dot for whether the target loads it now. */
 function ReadOrderItem({ entry, target }: { entry: InstructionsEntry; target: string }) {
   const t = useT();
-  const name = entry.kind === 'rules' ? `${base(entry.path)}/*.md` : base(entry.path);
+  const name = entry.kind === 'rules' ? `${fileName(entry.path)}/*.md` : fileName(entry.path);
   const detail = entry.kind === 'rules' ? t(entry.count === 1 ? 'instructions.target.rules.one' : 'instructions.target.rules.other', { count: entry.count ?? 0 })
     : entry.kind === 'fallback' && !entry.read && entry.exists ? t('instructions.target.fallbackSkipped', { name: target })
       : '';

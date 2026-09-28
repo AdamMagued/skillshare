@@ -270,14 +270,15 @@ func printProjectTargetsStatus(runtime *projectRuntime, discovered []sync.Discov
 		if agentsExist {
 			agentPath := resolveProjectAgentTargetPath(entry, builtinAgents, runtime.root)
 			if agentPath != "" {
-				linked := countLinkedAgents(agentPath, agents)
+				preserved := 0
+				linked := countLinkedAgents(agentPath, agents, &preserved)
 				agentMode, agentStatus := agentStatusLabel(entry.AgentsConfig())
 				driftLabel := ""
 				if linked != agentCount && agentCount > 0 {
 					agentStatus = "drift"
 					driftLabel = ui.Yellow + " (drift)" + ui.Reset
 				}
-				printTargetSubItem("agents", agentStatus, fmt.Sprintf("[%s] %d/%d linked%s", agentMode, linked, agentCount, driftLabel))
+				printTargetSubItem("agents", agentStatus, fmt.Sprintf("[%s] %s%s", agentMode, agentCountLabel(linked, agentCount, preserved), driftLabel))
 			}
 		}
 	}

@@ -12,8 +12,8 @@ import { useToast } from '../Toast';
 import { useT } from '../../i18n';
 import { shortenHome } from '../../lib/paths';
 import { queryKeys } from '../../lib/queryKeys';
-import { isFolderExtra, isImportLine, sharedNameProblem, takenName } from './instructionsView';
 import { BoxHeader, InstructionsPreview } from './ViewTabs';
+import { instructionsErrorMessage, isFolderExtra, isImportLine, sharedNameProblem, takenName } from './instructionsView';
 
 /** Creates a shared instruction file, from content or by moving a target's current file into it. */
 export default function NewSharedDialog({ targets, onClose, onCreated }: {
@@ -45,7 +45,7 @@ export default function NewSharedDialog({ targets, onClose, onCreated }: {
       await onCreated(name.trim());
       toast(t('instructions.shared.created', { name: name.trim() }), 'success');
     } catch (err) {
-      toast((err as Error).message, 'error');
+      toast(instructionsErrorMessage(err, t), 'error');
       setSaving(false);
     }
   };

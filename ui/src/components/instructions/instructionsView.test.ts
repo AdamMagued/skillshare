@@ -1,6 +1,8 @@
+import { ApiError } from '../../api/client';
+import { translate } from '../../i18n';
 import { describe, expect, it } from 'vitest';
 import type { SharedInstructionsFile, SharedInstructionsTarget } from '../../api/client';
-import { connectPlan, defaultShareName, readChain, saveCopiesSummary, importDecor, importLines, previewParts, lineCount, lineDiff, lineRanges, modeOptions, needsSync, overLimit, restorePlan, rowHint, setupPathOf, setupPathProblem, sharedNameProblem, sharedOfImport, worstStatus } from './instructionsView';
+import { instructionsErrorMessage, instructionsWarningMessage, connectPlan, defaultShareName, readChain, saveCopiesSummary, importDecor, importLines, previewParts, lineCount, lineDiff, lineRanges, modeOptions, needsSync, overLimit, restorePlan, rowHint, setupPathOf, setupPathProblem, sharedNameProblem, sharedOfImport, worstStatus } from './instructionsView';
 
 describe('importLines', () => {
   it('finds @path lines outside code fences', () => {
@@ -188,6 +190,7 @@ describe('setupPathOf', () => {
 
   it('writes a project file relative to the project root', () => {
     expect(setupPathOf('/work/app/.codex/AGENTS.md', true, '/work/app')).toBe('.codex/AGENTS.md');
+    expect(setupPathOf(String.raw`C:\work\app\.codex\AGENTS.md`, true, String.raw`C:\work\app`)).toBe('.codex/AGENTS.md');
   });
 });
 
@@ -256,3 +259,21 @@ describe('readChain', () => {
     expect(readChain([{ path: '/h/.claude/rules', kind: 'rules', exists: true, read: true, count: 3 }])).toHaveLength(1);
   });
 });
+
+ describe('instruction messages', () => {
+  const t = (key: string, params?: Parameters<typeof translate>[2], fallback?: string) => translate('zh-TW', key, params, fallback);
+  it('translates warnings and shortens interpolated paths', () => {
+   expect(instructionsWarningMessage({ code: 'backed_up', params: { path: '/home/sim/.codex/AGENTS.md' }, message: 'English backup' }, t)).toBe('已先備份 ~/.codex/AGENTS.md 再覆蓋。');
+  });
+  it('translates coded errors and preserves mode names', () => {
+   expect(instructionsErrorMessage(new ApiError(409, 'English directory', { code: 'instructions_target_directory', params: { path: '/Users/sim/.codex/AGENTS.md' } }), t)).toBe('~/.codex/AGENTS.md 是資料夾，沒有覆蓋。');
+   expect(instructionsErrorMessage(new ApiError(400, 'English mode', { code: 'instructions_invalid_mode', params: { mode: 'merge' } }), t)).toContain('import、symlink 或 copy');
+  });
+  it('falls back to English for unknown codes and uncoded errors', () => {
+   expect(instructionsWarningMessage({ code: 'future', params: {}, message: 'Future warning' }, t)).toBe('Future warning');
+   expect(instructionsErrorMessage(new ApiError(409, 'Future error', { code: 'instructions_future' }), t)).toBe('Future error');
+   expect(instructionsErrorMessage(new Error('Offline'), t)).toBe('Offline');
+   expect(instructionsErrorMessage(new ApiError(500, 'read /home/sim/AGENTS.md failed', { code: 'instructions_future' }), t)).toBe('read ~/AGENTS.md failed');
+   expect(instructionsErrorMessage(new ApiError(500, 'write failed', { code: 'instructions_write_failed', params: { detail: 'open /Users/sim/AGENTS.md: denied' } }), t)).toBe('無法寫入檔案：open ~/AGENTS.md: denied');
+  });
+ });

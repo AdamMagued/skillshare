@@ -2,6 +2,12 @@ import { BASE_PATH } from '../lib/basePath';
 
 const BASE = BASE_PATH + '/api';
 
+export interface InstructionsWarning {
+  code: string;
+  params: Record<string, string>;
+  message: string;
+}
+
 export class ApiError extends Error {
   status: number;
   code?: string;
@@ -762,7 +768,7 @@ export const api = {
     }),
   /** Sets exactly which shared files each target uses; [] restores their own files. */
   assignSharedInstructions: (targets: string[], extras: string[]) =>
-    apiFetch<{ success: boolean; errors: string[]; warnings?: string[] }>('/instructions/assign', {
+    apiFetch<{ success: boolean; errors: string[]; warnings?: InstructionsWarning[] }>('/instructions/assign', {
       method: 'POST',
       body: JSON.stringify({ targets, extras }),
     }),
@@ -772,7 +778,7 @@ export const api = {
       body: JSON.stringify({ target }),
     }),
   setSharedInstructionsMode: (name: string, target: string, mode: string) =>
-    apiFetch<{ success: boolean; warnings?: string[] }>(`/instructions/${encodeURIComponent(name)}/targets/${encodeURIComponent(target)}/mode`, {
+    apiFetch<{ success: boolean; warnings?: InstructionsWarning[] }>(`/instructions/${encodeURIComponent(name)}/targets/${encodeURIComponent(target)}/mode`, {
       method: 'PUT',
       body: JSON.stringify({ mode }),
     }),

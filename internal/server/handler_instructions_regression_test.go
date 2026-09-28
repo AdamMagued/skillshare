@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"skillshare/internal/config"
+	syncpkg "skillshare/internal/sync"
 	"strings"
 	"testing"
 )
@@ -26,9 +27,17 @@ func TestInstructionsModeReturnsWarnings(t *testing.T) {
 	instructionsRequest(t, s, http.MethodPut, "/api/instructions/team/targets/codex/mode", `{"mode":"copy"}`)
 	os.WriteFile(filepath.Join(home, ".codex", "AGENTS.md"), []byte("edited"), 0644)
 	rr := instructionsRequest(t, s, http.MethodPut, "/api/instructions/team/targets/codex/mode", `{"mode":"symlink"}`)
-	if rr.Code != 200 || !strings.Contains(rr.Body.String(), `"warnings":["backed up`) {
+	if rr.Code != 200 || !strings.Contains(rr.Body.String(), `"code":"backed_up"`) {
 		t.Fatalf("%d %s", rr.Code, rr.Body.String())
 	}
+	warnings := decodeBody[struct {
+		Warnings []syncpkg.FileWarning `json:"warnings"`
+	}](t, rr).Warnings
+	path := filepath.Join(home, ".codex", "AGENTS.md")
+	if len(warnings) != 1 || warnings[0].Params["path"] != path || warnings[0].Message != "backed up "+path+" before replacing it" {
+		t.Fatalf("warnings: %+v", warnings)
+	}
+
 }
 
 func TestInstructionsAssignRejectsMixedOwnership(t *testing.T) {
@@ -96,9 +105,17 @@ func TestInstructionsAssignIncludesWarnings(t *testing.T) {
 	writeHome(t, home, ".codex/AGENTS.md", "mine")
 	instructionsRequest(t, s, http.MethodPost, "/api/instructions", `{"name":"team","content":"team"}`)
 	rr := instructionsRequest(t, s, http.MethodPost, "/api/instructions/assign", `{"targets":["codex"],"extras":["team"]}`)
-	if rr.Code != 200 || !strings.Contains(rr.Body.String(), `"warnings":["backed up`) {
+	if rr.Code != 200 || !strings.Contains(rr.Body.String(), `"code":"backed_up"`) {
 		t.Fatalf("%d %s", rr.Code, rr.Body.String())
 	}
+	warnings := decodeBody[struct {
+		Warnings []syncpkg.FileWarning `json:"warnings"`
+	}](t, rr).Warnings
+	path := filepath.Join(home, ".codex", "AGENTS.md")
+	if len(warnings) != 1 || warnings[0].Params["path"] != path || warnings[0].Message != "backed up "+path+" before replacing it" {
+		t.Fatalf("warnings: %+v", warnings)
+	}
+
 	rr = instructionsRequest(t, s, http.MethodPost, "/api/instructions/assign", `{"targets":["codex"],"extras":["team"]}`)
 	if rr.Code != 200 || !strings.Contains(rr.Body.String(), `"warnings":[]`) {
 		t.Fatalf("%d %s", rr.Code, rr.Body.String())
@@ -135,5 +152,43 @@ func TestInstructionsDeleteKeepsConfigOnRestoreFailure(t *testing.T) {
 	}
 	if got := readFile(t, config.ConfigPath()); got != before {
 		t.Fatal("failed restore removed config")
+	}
+}
+
+func TestInstructionsCodedErrors(t *testing.T) {
+	s, home := newInstructionsServer(t, "codex")
+	cases := []struct{ method, url, body, code, key, value string }{
+		{"PUT", "/api/targets/codex/instructions/setup", `{"path":"~/.codex/"}`, "instructions_path_directory", "path", "~/.codex/"},
+		{"PUT", "/api/targets/codex/instructions/setup", `{"path":"relative.md"}`, "instructions_path_absolute", "path", "relative.md"},
+		{"PUT", "/api/instructions/team/targets/missing/mode", `{"mode":"copy"}`, "instructions_target_not_found", "target", "missing"},
+		{"PUT", "/api/instructions/team/targets/codex/mode", `{"mode":"invalid"}`, "instructions_invalid_mode", "mode", "invalid"},
+		{"POST", "/api/instructions/team/restore", `{}`, "instructions_target_required", "", ""},
+		{"POST", "/api/targets/codex/instructions/convert", `{"method":"invalid"}`, "instructions_method_unavailable", "method", "invalid"},
+	}
+	for _, c := range cases {
+		rr := instructionsRequest(t, s, c.method, c.url, c.body)
+		body := decodeBody[struct {
+			Code   string            `json:"error_code"`
+			Params map[string]string `json:"error_params"`
+		}](t, rr)
+		if rr.Code < 400 || body.Code != c.code || c.key != "" && body.Params[c.key] != c.value {
+			t.Fatalf("%s: %d %s", c.url, rr.Code, rr.Body.String())
+		}
+	}
+	attachShared(t, s, "codex")
+	path := filepath.Join(home, ".codex", "AGENTS.md")
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(path, 0755); err != nil {
+		t.Fatal(err)
+	}
+	rr := instructionsRequest(t, s, "PUT", "/api/instructions/team/targets/codex/mode", `{"mode":"copy"}`)
+	body := decodeBody[struct {
+		Code   string            `json:"error_code"`
+		Params map[string]string `json:"error_params"`
+	}](t, rr)
+	if rr.Code != 409 || body.Code != "instructions_target_directory" || body.Params["path"] != path {
+		t.Fatalf("%d %s", rr.Code, rr.Body.String())
 	}
 }

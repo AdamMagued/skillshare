@@ -232,10 +232,13 @@ func cmdSyncExtrasGlobal(dryRun, force, jsonOutput bool, start time.Time) error 
 						parts = append(parts, fmt.Sprintf("%d pruned", result.Pruned))
 					}
 					ui.Success("%s  %s (%s)", shortTarget, strings.Join(parts, ", "), shownMode)
-				} else if result.Skipped > 0 {
-					ui.Warning("%s  %d files skipped (use --force to override)", shortTarget, result.Skipped)
-				} else {
+				} else if result.Skipped > result.Preserved {
+					ui.Warning("%s  %d files skipped (use --force to override)", shortTarget, result.Skipped-result.Preserved)
+				} else if result.Preserved == 0 {
 					ui.Success("%s  up to date (%s)", shortTarget, shownMode)
+				}
+				if result.Preserved > 0 {
+					ui.Success("%s  %d local preserved", shortTarget, result.Preserved)
 				}
 
 				for _, e := range result.Errors {
@@ -442,10 +445,13 @@ func cmdSyncExtrasProject(cwd string, dryRun, force, jsonOutput bool, start time
 						parts = append(parts, fmt.Sprintf("%d pruned", result.Pruned))
 					}
 					ui.Success("%s  %s (%s)", shortTarget, strings.Join(parts, ", "), shownMode)
-				} else if result.Skipped > 0 {
-					ui.Warning("%s  %d files skipped (use --force to override)", shortTarget, result.Skipped)
-				} else {
+				} else if result.Skipped > result.Preserved {
+					ui.Warning("%s  %d files skipped (use --force to override)", shortTarget, result.Skipped-result.Preserved)
+				} else if result.Preserved == 0 {
 					ui.Success("%s  up to date (%s)", shortTarget, shownMode)
+				}
+				if result.Preserved > 0 {
+					ui.Success("%s  %d local preserved", shortTarget, result.Preserved)
 				}
 
 				for _, e := range result.Errors {
