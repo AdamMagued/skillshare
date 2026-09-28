@@ -10,6 +10,7 @@ import (
 
 	"skillshare/internal/config"
 	syncpkg "skillshare/internal/sync"
+	"skillshare/internal/utils"
 )
 
 // AgentsFile is the cross-tool instruction file name.
@@ -110,7 +111,13 @@ type Assignment struct {
 	Name   string `json:"name"`
 	Mode   string `json:"mode"`
 	Status string `json:"status"`
+	// Reason explains a status that is not synced: ReasonFolderLink.
+	Reason string `json:"reason,omitempty"`
 }
+
+// ReasonFolderLink: the target is a Windows directory junction to the file,
+// which tools cannot read.
+const ReasonFolderLink = "folder_link"
 
 // Assignments returns the single-file extras whose targets write file, in
 // config order.
@@ -123,11 +130,22 @@ func Assignments(extras []config.ExtraConfig, file string, r Resolver) []Assignm
 		for j := range extra.Targets {
 			f := ExtraFile(extra, j, r)
 			if samePath(f.Target, file) {
-				out = append(out, Assignment{Name: extra.Name, Mode: f.Mode, Status: syncpkg.ExtraFileStatus(f)})
+				a := Assignment{Name: extra.Name, Mode: f.Mode, Status: syncpkg.ExtraFileStatus(f)}
+				if a.Status != "synced" && folderLink(f.Target) {
+					a.Reason = ReasonFolderLink
+				}
+				out = append(out, a)
 			}
 		}
 	}
 	return out
+}
+
+// folderLink reports whether path is a directory junction rather than a
+// symlink. Only Windows has them.
+func folderLink(path string) bool {
+	info, err := os.Lstat(path)
+	return err == nil && info.Mode()&os.ModeSymlink == 0 && utils.IsSymlinkOrJunction(path)
 }
 
 func samePath(a, b string) bool { return filepath.Clean(a) == filepath.Clean(b) }

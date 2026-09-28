@@ -158,7 +158,7 @@ function TargetEditor({ target }: { target: Target }) {
       )}
 
       {tab === 'instructions' ? (
-        <TargetInstructions name={target.name} skillsPath={target.path} />
+        <TargetInstructions name={target.name} />
       ) : tab === 'mcp' ? (
         mcp.data ? <TargetMCP name={client} data={mcp.data} /> : mcp.error ? <div className="ss-note bad"><span className="flex-1">{mcp.error.message}</span></div> : <PageSkeleton />
       ) : (

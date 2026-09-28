@@ -1,0 +1,120 @@
+package server
+
+import (
+	"net/http"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	ssync "skillshare/internal/sync"
+)
+
+// attachShared creates the shared file team and attaches it to target.
+func attachShared(t *testing.T, s *Server, target string) {
+	t.Helper()
+	if rr := instructionsRequest(t, s, http.MethodPost, "/api/instructions", `{"name":"team","content":"team\n"}`); rr.Code != http.StatusOK {
+		t.Fatalf("create: %d %s", rr.Code, rr.Body.String())
+	}
+	if res := decodeBody[map[string]any](t, instructionsRequest(t, s, http.MethodPost, "/api/instructions/assign", `{"targets":["`+target+`"],"extras":["team"]}`)); res["success"] != true {
+		t.Fatalf("assign: %v", res)
+	}
+}
+
+func TestSharedInstructionsMode_SwitchKeepsRestorePoint(t *testing.T) {
+	s, home := newInstructionsServer(t, "claude")
+	claude := writeHome(t, home, ".claude/CLAUDE.md", "mine\n")
+	attachShared(t, s, "claude")
+
+	if rr := instructionsRequest(t, s, http.MethodPut, "/api/instructions/team/targets/claude/mode", `{"mode":"copy"}`); rr.Code != http.StatusOK {
+		t.Fatalf("mode: %d %s", rr.Code, rr.Body.String())
+	}
+	if got := readFile(t, claude); got != "team\n" {
+		t.Fatalf("after copy CLAUDE.md = %q, want the shared file", got)
+	}
+	if res := decodeBody[map[string]any](t, instructionsRequest(t, s, http.MethodPost, "/api/instructions/team/restore", `{"target":"claude"}`)); res["success"] != true {
+		t.Fatalf("restore: %v", res)
+	}
+	if got := readFile(t, claude); got != "mine\n" {
+		t.Errorf("restored CLAUDE.md = %q, want the file from before attaching", got)
+	}
+}
+
+func TestSharedInstructionsMode_ImportNeedsImportTarget(t *testing.T) {
+	s, _ := newInstructionsServer(t, "codex")
+	attachShared(t, s, "codex")
+
+	rr := instructionsRequest(t, s, http.MethodPut, "/api/instructions/team/targets/codex/mode", `{"mode":"import"}`)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", rr.Code)
+	}
+}
+
+func TestSharedInstructionsMode_SymlinkNeedsFileLinks(t *testing.T) {
+	t.Cleanup(ssync.SetFileLinksForTest(false))
+	s, _ := newInstructionsServer(t, "codex")
+	attachShared(t, s, "codex")
+
+	list := decodeBody[map[string]any](t, instructionsRequest(t, s, http.MethodGet, "/api/instructions", ""))
+	rr := instructionsRequest(t, s, http.MethodPut, "/api/instructions/team/targets/codex/mode", `{"mode":"symlink"}`)
+	if list["file_links"] != false || rr.Code != http.StatusBadRequest {
+		t.Errorf("file_links = %v, symlink status = %d; want false and 400", list["file_links"], rr.Code)
+	}
+}
+
+func TestSharedInstructionsRestorePreview_ReplacedFile(t *testing.T) {
+	s, home := newInstructionsServer(t, "codex")
+	writeHome(t, home, ".codex/AGENTS.md", "mine\n")
+	attachShared(t, s, "codex")
+
+	got := decodeBody[sharedRestorePreview](t, instructionsRequest(t, s, http.MethodGet, "/api/instructions/team/restore-preview?target=codex", ""))
+	if got.Kind != ssync.RestoreKindContent || got.Content != "mine\n" || got.Current != "team\n" || got.RecordedAt == nil || got.Drift {
+		t.Errorf("preview = %+v, want the replaced file", got)
+	}
+}
+
+func TestSharedInstructionsRestorePreview_NoFileBefore(t *testing.T) {
+	s, _ := newInstructionsServer(t, "codex")
+	attachShared(t, s, "codex")
+
+	got := decodeBody[sharedRestorePreview](t, instructionsRequest(t, s, http.MethodGet, "/api/instructions/team/restore-preview?target=codex", ""))
+	if got.Kind != ssync.RestoreKindDelete {
+		t.Errorf("kind = %q, want delete", got.Kind)
+	}
+}
+
+func TestSharedInstructionsRestorePreview_ImportKeepsOwnLines(t *testing.T) {
+	s, home := newInstructionsServer(t, "claude")
+	writeHome(t, home, ".claude/CLAUDE.md", "mine\n")
+	attachShared(t, s, "claude")
+
+	got := decodeBody[sharedRestorePreview](t, instructionsRequest(t, s, http.MethodGet, "/api/instructions/team/restore-preview?target=claude", ""))
+	if got.Kind != ssync.RestoreKindContent || got.Content != "mine\n" {
+		t.Errorf("preview = %+v, want the file without the import block", got)
+	}
+}
+
+func TestSharedInstructionsRestorePreview_EditedTargetIsDrift(t *testing.T) {
+	s, home := newInstructionsServer(t, "codex")
+	attachShared(t, s, "codex")
+	if rr := instructionsRequest(t, s, http.MethodPut, "/api/instructions/team/targets/codex/mode", `{"mode":"copy"}`); rr.Code != http.StatusOK {
+		t.Fatalf("mode: %d %s", rr.Code, rr.Body.String())
+	}
+	writeHome(t, home, ".codex/AGENTS.md", "edited in codex\n")
+
+	got := decodeBody[sharedRestorePreview](t, instructionsRequest(t, s, http.MethodGet, "/api/instructions/team/restore-preview?target=codex", ""))
+	if !got.Drift {
+		t.Errorf("drift = false, want the edit reported as backed up")
+	}
+}
+
+func TestTargetInstructions_DefaultPathWithCustomLocation(t *testing.T) {
+	s, home := newInstructionsServer(t, "codex")
+	if rr := instructionsRequest(t, s, http.MethodPut, "/api/targets/codex/instructions/setup", `{"path":"~/.codex/instructions.md"}`); rr.Code != http.StatusOK {
+		t.Fatalf("setup: %d %s", rr.Code, rr.Body.String())
+	}
+
+	got := decodeBody[instructionsFileResponse](t, instructionsRequest(t, s, http.MethodGet, "/api/targets/codex/instructions", ""))
+	if got.DefaultPath != filepath.Join(home, ".codex", "AGENTS.md") || !strings.HasSuffix(got.Path, "instructions.md") {
+		t.Errorf("default_path = %q, path = %q", got.DefaultPath, got.Path)
+	}
+}

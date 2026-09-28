@@ -69,7 +69,7 @@ export default function InstructionsEditorDialog({ title, path, content, note, r
       </div>
       <div className="db">
         <div className="grid grid-cols-[minmax(0,1fr)_300px] items-start gap-6">
-          <CodeEditor value={draft} onChange={setDraft} ariaLabel={title} minHeight="calc(100vh - 16rem)" maxHeight="calc(100vh - 16rem)" markLine={isImportLine} disabled={saving} />
+          <CodeEditor value={draft} onChange={setDraft} ariaLabel={title} minHeight="calc(100vh - 16rem)" maxHeight="calc(100vh - 16rem)" markLine={isImportLine} disabled={saving} wrap />
           <aside className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <span className={`ss-st ${dirty ? 'warn' : 'off'}`}>{t(dirty ? 'instructions.editor.modified' : 'instructions.editor.unchanged')}</span>

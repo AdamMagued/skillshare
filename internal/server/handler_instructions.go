@@ -108,9 +108,10 @@ type instructionsFileResponse struct {
 	Shared      []instructions.Assignment        `json:"shared"`
 	Convert     []string                         `json:"convert"` // conversion methods on offer
 	Blocked     map[string]string                `json:"convert_blocked,omitempty"`
-	RiderOf     string                           `json:"rider_of,omitempty"` // configured target whose skills this unconfigured tool reads
-	Riders      []instructionsRiderFile          `json:"riders"`             // tools reading this target's skills from their own file
-	ReadBy      []string                         `json:"read_by"`            // other tools that read this very file
+	RiderOf     string                           `json:"rider_of,omitempty"`     // configured target whose skills this unconfigured tool reads
+	Riders      []instructionsRiderFile          `json:"riders"`                 // tools reading this target's skills from their own file
+	ReadBy      []string                         `json:"read_by"`                // other tools that read this very file
+	DefaultPath string                           `json:"default_path,omitempty"` // built-in file, used when no location is set
 }
 
 // handleGetTargetInstructions — GET /api/targets/{name}/instructions
@@ -141,6 +142,13 @@ func (s *Server) handleGetTargetInstructions(w http.ResponseWriter, r *http.Requ
 	resp.Supported, resp.Path, resp.Import, resp.MaxChars = true, it.Path, it.Import, it.MaxChars
 	resp.Setup = tc.Instructions
 	resp.Custom = resp.Setup != nil
+	if configured {
+		plain := tc
+		plain.Instructions = nil
+		if def, ok := config.TargetInstructions(name, plain, s.IsProjectMode()); ok {
+			resp.DefaultPath = instructions.Resolve(def, s.projectRoot).Path
+		}
+	}
 	if !s.IsProjectMode() {
 		if readers := config.InstructionReaders(name, it.Path); readers != nil {
 			resp.ReadBy = readers

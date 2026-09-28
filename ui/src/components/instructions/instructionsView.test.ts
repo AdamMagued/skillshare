@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SharedInstructionsFile, SharedInstructionsTarget } from '../../api/client';
-import { connectPlan, importLines, lineCount, lineDiff, lineRanges, needsSync, overLimit, restorePlan, rowHint, setupPathProblem, sharedNameProblem, worstStatus } from './instructionsView';
+import { connectPlan, defaultShareName, importDecor, importLines, previewParts, lineCount, lineDiff, lineRanges, modeOptions, needsSync, overLimit, restorePlan, rowHint, setupPathOf, setupPathProblem, sharedNameProblem, sharedOfImport, worstStatus } from './instructionsView';
 
 describe('importLines', () => {
   it('finds @path lines outside code fences', () => {
@@ -138,5 +138,82 @@ describe('connect and restore plans', () => {
 describe('lineCount', () => {
   it('does not count the trailing newline as a line', () => {
     expect(lineCount('# A\n\nb\n')).toBe(3);
+  });
+});
+
+describe('modeOptions', () => {
+  const tg = (rest: Partial<SharedInstructionsTarget>): SharedInstructionsTarget => ({ name: 'codex', path: '/h/.codex/AGENTS.md', import: false, exists: true, assigned: [{ name: 'team', mode: 'symlink', status: 'synced' }], ...rest });
+
+  it('offers import first and as the default where the tool reads @import lines', () => {
+    expect(modeOptions(tg({ import: true }), true)).toEqual([
+      { mode: 'import', isDefault: true }, { mode: 'symlink', isDefault: false }, { mode: 'copy', isDefault: false },
+    ]);
+  });
+
+  it('offers only symlink and copy to other tools, with symlink as the default', () => {
+    expect(modeOptions(tg({}), true)).toEqual([{ mode: 'symlink', isDefault: true }, { mode: 'copy', isDefault: false }]);
+  });
+
+  it('blocks symlink and makes copy the default without file links', () => {
+    expect(modeOptions(tg({}), false)).toEqual([{ mode: 'symlink', isDefault: false, blocked: 'fileLinks' }, { mode: 'copy', isDefault: true }]);
+  });
+
+  it('keeps an import target on several shared files to import', () => {
+    const both = tg({ import: true, assigned: [{ name: 'team', mode: 'import', status: 'synced' }, { name: 'work', mode: 'import', status: 'synced' }] });
+    expect(modeOptions(both, true).filter((o) => o.blocked).map((o) => o.mode)).toEqual(['symlink', 'copy']);
+  });
+
+  it('warns about a folder link the tool cannot read', () => {
+    const file: SharedInstructionsFile = { name: 'team', file: 'AGENTS.md', path: '/x/team/AGENTS.md', exists: true, size: 1, chars: 1, targets: 1 };
+    expect(rowHint(tg({ assigned: [{ name: 'team', mode: 'symlink', status: 'drift', reason: 'folder_link' }] }), file)).toEqual({ kind: 'folderLink' });
+  });
+});
+
+describe('setupPathOf', () => {
+  it('writes a global file from the home folder with ~/', () => {
+    expect(setupPathOf('/home/me/.codex/AGENTS.md', false)).toBe('~/.codex/AGENTS.md');
+  });
+
+  it('writes a project file relative to the project root', () => {
+    expect(setupPathOf('/work/app/.codex/AGENTS.md', true, '/work/app')).toBe('.codex/AGENTS.md');
+  });
+});
+
+describe('importDecor', () => {
+  const lines = ['<!-- skillshare:instructions:begin -->', '@/h/.config/skillshare/extras/personal/AGENTS.md', '<!-- skillshare:instructions:end -->', '', '# Mine'];
+
+  it('tints the managed block and notes its import line', () => {
+    expect(importDecor(lines, (_, inBlock) => (inBlock ? 'managed' : 'own'))).toEqual([
+      { block: true }, { block: true, note: 'managed' }, { block: true }, null, null,
+    ]);
+  });
+
+  it('names the shared file an import line of the block points at', () => {
+    expect(sharedOfImport(lines[1], ['work', 'personal'])).toBe('personal');
+  });
+});
+
+describe('previewParts', () => {
+  it('shows the managed import block as the shared files it imports', () => {
+    const content = '<!-- skillshare:instructions:begin -->\n@/h/.config/skillshare/extras/personal/AGENTS.md\n<!-- skillshare:instructions:end -->\n\n# Mine\n';
+    expect(previewParts(content, ['personal'])).toEqual({ before: '', imports: ['personal'], after: '\n# Mine\n' });
+  });
+
+  it('drops HTML comments that Markdown would show as text', () => {
+    expect(previewParts('# A\n<!-- note -->\nB', []).before).toBe('# A\n\nB');
+  });
+});
+
+describe('defaultShareName', () => {
+  it('names the shared file after the target', () => {
+    expect(defaultShareName('claude', ['personal'])).toBe('claude');
+  });
+
+  it('adds a number when that name is taken, ignoring case', () => {
+    expect(defaultShareName('claude', ['Claude', 'claude-2'])).toBe('claude-3');
+  });
+
+  it('turns a target name the server would refuse into a valid one', () => {
+    expect(defaultShareName('.my tool', [])).toBe('my-tool');
   });
 });

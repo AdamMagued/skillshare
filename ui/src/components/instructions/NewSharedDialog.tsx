@@ -78,7 +78,7 @@ export default function NewSharedDialog({ targets, onClose, onCreated }: {
             <span className="hp">{t(from ? 'instructions.shared.startCopyHint' : 'instructions.shared.startEmptyHint', { name: from })}</span>
           </div>
         </div>
-        {!from && <CodeEditor value={content} onChange={setContent} ariaLabel={t('instructions.shared.content')} minHeight="220px" markLine={isImportLine} disabled={saving} placeholder={t('instructions.shared.contentPlaceholder')} />}
+        {!from && <CodeEditor value={content} onChange={setContent} ariaLabel={t('instructions.shared.content')} minHeight="220px" markLine={isImportLine} disabled={saving} wrap placeholder={t('instructions.shared.contentPlaceholder')} />}
       </div>
       <div className="df">
         <span className="flex-1" />

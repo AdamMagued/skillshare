@@ -437,6 +437,8 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("PUT /api/instructions/{name}/content", s.requireGlobalInstructions(s.handlePutSharedInstructionsContent))
 	s.mux.HandleFunc("POST /api/instructions/{name}/restore", s.requireGlobalInstructions(s.handleRestoreSharedInstructions))
 	s.mux.HandleFunc("POST /api/instructions/{name}/resolve", s.requireGlobalInstructions(s.handleResolveSharedInstructions))
+	s.mux.HandleFunc("GET /api/instructions/{name}/restore-preview", s.requireGlobalInstructions(s.handleSharedInstructionsRestorePreview))
+	s.mux.HandleFunc("PUT /api/instructions/{name}/targets/{target}/mode", s.requireGlobalInstructions(s.handlePutSharedInstructionsMode))
 	s.mux.HandleFunc("GET /api/instructions/project", s.requireProjectInstructions(s.handleGetProjectInstructions))
 	s.mux.HandleFunc("PUT /api/instructions/project", s.requireProjectInstructions(s.handlePutProjectInstructions))
 	s.mux.HandleFunc("POST /api/instructions/project/shim", s.requireProjectInstructions(s.handleProjectInstructionsShim))

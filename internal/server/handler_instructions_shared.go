@@ -103,7 +103,8 @@ func (s *Server) handleListSharedInstructions(w http.ResponseWriter, r *http.Req
 		}
 		files = append(files, f)
 	}
-	writeJSON(w, map[string]any{"files": files, "targets": s.instructionTargets()})
+	// file_links: false on Windows without Developer Mode, where link modes copy.
+	writeJSON(w, map[string]any{"files": files, "targets": s.instructionTargets(), "file_links": syncpkg.CanCreateFileLink()})
 }
 
 // handleCreateSharedInstructions — POST /api/instructions

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -22,11 +22,19 @@ const file = (target: string, path: string, extra: Partial<Data> = {}): Data => 
   read_order: [{ path, kind: 'main', exists: true, read: true }], import_lines: [], shared: [], convert: [], riders: [], read_by: [], ...extra,
 });
 
-// The tool is picked from a dropdown: open it, then choose the option.
+// The tool is picked from the file list beside the panel.
 const pickTool = async (user: ReturnType<typeof userEvent.setup>, name: RegExp) => {
-  await user.click(await screen.findByRole('combobox', { name: 'Instruction files' }));
-  await user.click(await screen.findByRole('option', { name }));
+  const list = await screen.findByRole('navigation', { name: 'Files on this page' });
+  await user.click(within(list).getByRole('button', { name }));
 };
+
+const renderTarget = (name: string) => render(
+  <MemoryRouter initialEntries={[`/targets/${name}?tab=instructions`]}>
+    <QueryClientProvider client={new QueryClient()}>
+      <I18nProvider><ToastProvider><TargetInstructions name={name} /></ToastProvider></I18nProvider>
+    </QueryClientProvider>
+  </MemoryRouter>,
+);
 
 const renderUniversal = () => {
   vi.mocked(api.getTargetInstructions).mockImplementation(async (name) => name === 'codex'
@@ -35,7 +43,7 @@ const renderUniversal = () => {
   render(
     <MemoryRouter initialEntries={['/targets/universal?tab=instructions']}>
       <QueryClientProvider client={new QueryClient()}>
-        <I18nProvider><ToastProvider><TargetInstructions name="universal" skillsPath="~/.agents/skills" /></ToastProvider></I18nProvider>
+        <I18nProvider><ToastProvider><TargetInstructions name="universal" /></ToastProvider></I18nProvider>
       </QueryClientProvider>
     </MemoryRouter>,
   );
@@ -65,5 +73,70 @@ describe('Target instructions tab', () => {
     await user.click(await screen.findByRole('button', { name: 'Cancel' }));
 
     expect(screen.getByRole('textbox', { name: 'AGENTS.md' })).toHaveValue('universal file\ndraft');
+  });
+
+  // Built-in targets can move their file too; the form starts from the file in use.
+  it('changes the location of a built-in target starting from its current file', async () => {
+    vi.mocked(api.getTargetInstructions).mockResolvedValue(file('codex', '~/.codex/AGENTS.md', { default_path: '~/.codex/AGENTS.md' }));
+    renderTarget('codex');
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Change location' }));
+
+    expect(screen.getByRole('textbox', { name: 'File location' })).toHaveValue('~/.codex/AGENTS.md');
+  });
+
+  it('offers going back to the default only when a location is set', async () => {
+    vi.mocked(api.getTargetInstructions).mockResolvedValue(file('codex', '~/.codex/instructions.md', {
+      default_path: '~/.codex/AGENTS.md', custom: true, setup: { path: '~/.codex/instructions.md' },
+    }));
+    renderTarget('codex');
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Change location' }));
+
+    expect(screen.getByRole('button', { name: 'Reset to default' })).toBeInTheDocument();
+  });
+
+  it('opens the location form in a dialog', async () => {
+    vi.mocked(api.getTargetInstructions).mockResolvedValue(file('codex', '~/.codex/AGENTS.md', { default_path: '~/.codex/AGENTS.md' }));
+    renderTarget('codex');
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Change location' }));
+
+    expect(screen.getByRole('dialog', { name: 'Which file codex reads' })).toBeInTheDocument();
+  });
+
+  // The read order and the shared file sit on one line above the editor.
+  it('says which files a target does not read and which shared file it uses', async () => {
+    vi.mocked(api.getTargetInstructions).mockResolvedValue(file('claude', '~/.claude/CLAUDE.md', {
+      import: true,
+      read_order: [{ path: '~/.claude/CLAUDE.md', kind: 'main', exists: true, read: true }, { path: '~/.claude/AGENTS.md', kind: 'unread', exists: false, read: false }],
+      shared: [{ name: 'personal', mode: 'import', status: 'synced' }],
+    }));
+    renderTarget('claude');
+
+    expect(await screen.findByText("Doesn't read a user-level AGENTS.md")).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'personal' })).toHaveAttribute('href', '/extras?tab=instructions&file=personal');
+  });
+
+  it('keeps an unsaved edit when switching to preview and back', async () => {
+    vi.mocked(api.getTargetInstructions).mockResolvedValue(file('codex', '~/.codex/AGENTS.md'));
+    renderTarget('codex');
+    const user = userEvent.setup();
+
+    await user.type(await screen.findByRole('textbox', { name: 'AGENTS.md' }), 'draft');
+    await user.click(screen.getByRole('tab', { name: 'Preview' }));
+    await user.click(screen.getByRole('tab', { name: 'Edit' }));
+
+    expect(screen.getByRole('textbox', { name: 'AGENTS.md' })).toHaveValue('codex file\ndraft');
+  });
+
+  // read_by moved from a note above the panel into the read-order line.
+  it('says which other tools read the same file', async () => {
+    renderUniversal();
+
+    expect(await screen.findByText('Cline, Warp also read this file')).toBeInTheDocument();
   });
 });

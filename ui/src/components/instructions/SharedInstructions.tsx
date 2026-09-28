@@ -11,6 +11,7 @@ import { Checkbox } from '../Checkbox';
 import ConfirmDialog from '../ConfirmDialog';
 import EmptyState from '../EmptyState';
 import { targetLabel } from '../mcp/mcpView';
+import { Select } from '../Select';
 import { PageSkeleton } from '../Skeleton';
 import { SkillContextMenu } from '../TargetMenu';
 import { useToast } from '../Toast';
@@ -19,10 +20,11 @@ import { queryKeys } from '../../lib/queryKeys';
 import { shortenHome } from '../../lib/paths';
 import InstructionsEditorDialog from './InstructionsEditorDialog';
 import NewSharedDialog from './NewSharedDialog';
+import RestorePreviewDialog from './RestorePreviewDialog';
 import {
-  connectExtras, connectPlan, connectedTo, formatSize, lineCount, needsSync, refreshInstructions, restorePlan, rowHint, statusTone, usesOf,
+  connectExtras, connectPlan, connectedTo, formatSize, lineCount, modeOptions, needsSync, pickedMode, refreshInstructions, restorePlan, rowHint, statusTone, usesOf,
 } from './instructionsView';
-import type { ConnectStep, RestoreStep, RowHint } from './instructionsView';
+import type { ConnectStep, ModeOption, RestoreStep, RowHint } from './instructionsView';
 
 const PREVIEW_LINES = 8;
 type Pending = { title: string; message: ReactNode; confirm: string; danger?: boolean; run: () => Promise<void> };
@@ -44,6 +46,8 @@ export default function SharedInstructions({ creating, setCreating }: { creating
   if (isPending) return <PageSkeleton />;
   if (error) return <div className="ss-note bad"><span className="flex-1">{error.message}</span></div>;
   const { files, targets } = data;
+  // An older server does not say; file links then work as before.
+  const fileLinks = data.file_links ?? true;
   const current = files.find((f) => f.name === params.get('file')) ?? files[0];
 
   return (
@@ -77,7 +81,7 @@ export default function SharedInstructions({ creating, setCreating }: { creating
               );
             })}
           </nav>
-          <FilePanel key={current.name} file={current} targets={targets}
+          <FilePanel key={current.name} file={current} targets={targets} fileLinks={fileLinks}
             onDeleted={() => pick(files.find((f) => f.name !== current.name)?.name ?? null)} />
         </div>
       )}
@@ -93,9 +97,10 @@ export default function SharedInstructions({ creating, setCreating }: { creating
   );
 }
 
-function FilePanel({ file, targets, onDeleted }: {
+function FilePanel({ file, targets, fileLinks, onDeleted }: {
   file: SharedInstructionsFile;
   targets: SharedInstructionsTarget[];
+  fileLinks: boolean;
   onDeleted: () => void;
 }) {
   const t = useT();
@@ -111,6 +116,7 @@ function FilePanel({ file, targets, onDeleted }: {
   const [pending, setPending] = useState<Pending | null>(null);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [restoring, setRestoring] = useState<string | null>(null);
 
   const connected = connectedTo(targets, name);
   const isOn = (tg: SharedInstructionsTarget) => !tg.same_as && usesOf(tg).includes(name);
@@ -162,12 +168,7 @@ function FilePanel({ file, targets, onDeleted }: {
 
   const toggle = (tg: SharedInstructionsTarget) => {
     if (isOn(tg)) {
-      ask({
-        title: t('instructions.turnOff.title', { target: tg.name }),
-        message: t('instructions.turnOff.message', { path: shortenHome(tg.path), name, target: tg.name }),
-        confirm: t('instructions.detail.restore'),
-        run: () => detach([tg.name]),
-      });
+      setRestoring(tg.name);
     } else if (!tg.import && tg.assigned.length > 0) {
       const other = tg.assigned[0].name;
       ask({
@@ -179,6 +180,16 @@ function FilePanel({ file, targets, onDeleted }: {
     } else {
       void act(() => connect([{ target: tg.name, extras: connectExtras(tg, name) }]));
     }
+  };
+
+  const setMode = (tg: SharedInstructionsTarget, mode: string) => act(async () => {
+    await api.setSharedInstructionsMode(name, tg.name, mode);
+    toast(t('instructions.mode.changed', { target: tg.name, name, mode }), 'success');
+  });
+  const modeText = (o: ModeOption, tg: SharedInstructionsTarget) => {
+    if (o.blocked) return t(`instructions.mode.blocked.${o.blocked}`, { target: tg.name });
+    if (o.mode === 'copy') return `${t('targetDetail.mode.copy')} ${t('instructions.mode.copyAfter', { name })}`;
+    return t(`instructions.mode.${o.mode}`, { name, file: tg.path.split('/').pop() ?? '' });
   };
 
   const connectNote = (s: ConnectStep) => (s.note === 'switch' ? t('instructions.plan.switch', { other: s.other ?? '', name })
@@ -263,6 +274,7 @@ function FilePanel({ file, targets, onDeleted }: {
   const hintText = (h: RowHint) => {
     switch (h.kind) {
       case 'sameAs': return t('instructions.hint.sameAs', { name: h.name });
+      case 'folderLink': return t('instructions.hint.folderLink');
       case 'notSynced': return t(h.mode === 'symlink' ? 'instructions.hint.missingLink' : 'instructions.hint.missingFile');
       case 'drift': return h.mode === 'import' ? t('instructions.hint.driftImport') : t('instructions.hint.drift', { name });
       case 'noSource': return t('instructions.hint.noSource', { name });
@@ -345,9 +357,15 @@ function FilePanel({ file, targets, onDeleted }: {
                 <Link to={tg.rider_of ? `/targets/${encodeURIComponent(tg.rider_of)}?tab=instructions&tool=${encodeURIComponent(tg.name)}` : `/targets/${encodeURIComponent(tg.name)}?tab=instructions`} className="w-[110px] shrink-0 truncate font-mono text-[13px] font-semibold hover:underline">{tg.rider_of ? targetLabel(tg.name) : tg.name}</Link>
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span className="truncate font-mono text-[12.5px] text-ink-2" title={tg.path}>{shortenHome(tg.path)}</span>
-                  {hint && <span className={`text-[12px] ${hint.kind === 'tooLong' || hint.kind === 'noSource' ? 'text-warn' : 'text-ink-3'}`}>{hintText(hint)}</span>}
+                  {hint && <span className={`text-[12px] ${hint.kind === 'tooLong' || hint.kind === 'noSource' || hint.kind === 'folderLink' ? 'text-warn' : 'text-ink-3'}`}>{hintText(hint)}</span>}
                 </span>
-                {on && a && <span className="ss-tag shrink-0">{a.mode}</span>}
+                {on && a && (
+                  <Select size="sm" align="end" className="w-[104px] shrink-0 font-mono" ariaLabel={t('instructions.mode.label', { target: tg.name, name })} value={pickedMode(a.mode)} disabled={busy}
+                    onChange={(m) => { if (m !== pickedMode(a.mode)) void setMode(tg, m); }}
+                    options={modeOptions(tg, fileLinks).map((o) => ({
+                      value: o.mode, label: o.mode, note: o.isDefault ? t('instructions.mode.default') : undefined, disabled: Boolean(o.blocked), description: modeText(o, tg),
+                    }))} />
+                )}
                 <span className="w-[90px] shrink-0">{on && a && <span className={`ss-st ${statusTone(a.status)}`}>{a.status}</span>}</span>
                 <button type="button" role="switch" aria-checked={on} aria-label={label} title={label}
                   className={`ss-sw ${on ? 'on' : ''} disabled:opacity-50`} disabled={busy || Boolean(tg.same_as)} onClick={() => toggle(tg)}><i /></button>
@@ -382,6 +400,10 @@ function FilePanel({ file, targets, onDeleted }: {
         </div>
       )}
 
+      {restoring && (
+        <RestorePreviewDialog name={name} target={restoring} label={targets.find((tg) => tg.name === restoring)?.rider_of ? targetLabel(restoring) : restoring} busy={busy} onClose={() => setRestoring(null)}
+          onConfirm={async () => { await act(() => detach([restoring])); setRestoring(null); }} />
+      )}
       {editing && content.data && (
         <InstructionsEditorDialog
           title={`${name} · ${file.file}`}

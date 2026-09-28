@@ -200,6 +200,7 @@ export interface InstructionsAssignment {
   name: string; // shared instruction file (a single-file extra)
   mode: string; // import | symlink | copy
   status: string; // synced | drift | modified | not synced | no source
+  reason?: 'folder_link'; // why it is not synced: a folder link (Windows junction) the tool cannot read
 }
 
 export interface InstructionsEntry {
@@ -232,6 +233,7 @@ export interface TargetInstructions {
   rider_of?: string; // not a target: reads this target's skills
   riders: InstructionsRider[]; // tools reading this target's skills from their own file
   read_by: string[]; // other tools that read this very file
+  default_path?: string; // the built-in file, used when no location is set
 }
 
 /** A tool that reads a target's skills but keeps its own instruction file. */
@@ -275,6 +277,17 @@ export interface SharedInstructionsTarget {
   rider_of?: string; // not a target: reads this target's skills
   max_chars?: number;
   assigned: InstructionsAssignment[];
+}
+
+/** What restoring one target puts back, from the record made when it was attached. */
+export interface SharedRestorePreview {
+  kind: 'content' | 'delete' | 'link';
+  path: string;
+  content: string; // the file after restore (kind content)
+  current: string; // the file now
+  link_to?: string; // kind link
+  recorded_at?: string;
+  drift: boolean; // edits made after attaching are backed up, not restored
 }
 
 export interface ProjectInstructionsReach {
@@ -725,7 +738,7 @@ export const api = {
   removeTargetInstructionsSetup: (name: string) =>
     apiFetch<{ success: boolean }>(`/targets/${encodeURIComponent(name)}/instructions/setup`, { method: 'DELETE' }),
   listSharedInstructions: () =>
-    apiFetch<{ files: SharedInstructionsFile[]; targets: SharedInstructionsTarget[] }>('/instructions'),
+    apiFetch<{ files: SharedInstructionsFile[]; targets: SharedInstructionsTarget[]; file_links: boolean }>('/instructions'),
   createSharedInstructions: (body: { name: string; content?: string; from_target?: string }) =>
     apiFetch<{ success: boolean; path: string }>('/instructions', {
       method: 'POST',
@@ -749,6 +762,13 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ target }),
     }),
+  setSharedInstructionsMode: (name: string, target: string, mode: string) =>
+    apiFetch<{ success: boolean }>(`/instructions/${encodeURIComponent(name)}/targets/${encodeURIComponent(target)}/mode`, {
+      method: 'PUT',
+      body: JSON.stringify({ mode }),
+    }),
+  getSharedRestorePreview: (name: string, target: string) =>
+    apiFetch<SharedRestorePreview>(`/instructions/${encodeURIComponent(name)}/restore-preview?target=${encodeURIComponent(target)}`),
   resolveSharedInstructions: (name: string, target: string, action: 'collect' | 'reapply') =>
     apiFetch<{ success: boolean }>(`/instructions/${encodeURIComponent(name)}/resolve`, {
       method: 'POST',

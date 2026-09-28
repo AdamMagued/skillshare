@@ -52,6 +52,7 @@ export const queryKeys = {
     target: (name: string) => ['instructions', 'target', name] as const,
     shared: ['instructions', 'shared'] as const,
     sharedContent: (name: string) => ['instructions', 'shared', name] as const,
+    restorePreview: (name: string, target: string) => ['instructions', 'restore-preview', name, target] as const,
     project: ['instructions', 'project'] as const,
   },
   mcp: ['mcp'] as const,
