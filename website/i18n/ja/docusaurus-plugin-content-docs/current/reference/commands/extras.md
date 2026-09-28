@@ -15,9 +15,9 @@ Extras は skillshare が管理する追加のリソースタイプです — �
 - **Source ディレクトリ** — `extras_source` または Extras ごとの `source` で設定可能。デフォルトは `~/.config/skillshare/extras/<name>/`（グローバル）または `.skillshare/extras/<name>/`（Project）
 - 同期先となる 1 つ以上の **Target**
 
-ダッシュボードの **Extras → Folders** には、各 Extras とその Target、モードが並びます。
+ダッシュボードの **Extras → Folders & files** には、各 Extras とその Target、モードが並びます。
 
-![Extras › Folders：rules と commands をそれぞれの Target に同期](/img/extras-folders.png)
+![Extras › Folders & files：rules と commands をそれぞれの Target に同期](/img/extras-folders.png)
 
 ## コマンド
 
@@ -31,15 +31,22 @@ skillshare extras init
 
 # CLI フラグ
 skillshare extras init <name> --target <path> [--target <path2>] [--mode <mode>]
+
+# 単一ファイルの Extras
+skillshare extras init <name> --file <filename> [--as <filename>] --target <path> [--source <dir>] [--mode <mode>]
 ```
+
+ウィザードは名前の後に **What do you want to sync?** と尋ねます。**Folder** または **Single file** を選びます。
 
 **オプション:**
 
 | フラグ | 説明 |
 |------|-------------|
 | `--target <path>` | Target ディレクトリのパス（複数指定可） |
-| `--mode <mode>` | sync モード: `merge`（デフォルト）、`copy`、または `symlink` |
-| `--flatten` | サブディレクトリ内のファイルを Target のルート直下に sync する（`symlink` モードとは併用不可） |
+| `--file <filename>` | Source ディレクトリ内のこのファイルだけを sync し、[単一ファイルの Extras](#single-file-extras) にする。`/` や `\` を含まない単純なファイル名 |
+| `--as <filename>` | すべての Target で書き出すファイル名（デフォルト: `--file` の名前）。`--file` が必要 |
+| `--mode <mode>` | sync モード: `merge`（デフォルト）、`copy`、または `symlink`。`import` は `--file` 指定時のみ |
+| `--flatten` | サブディレクトリ内のファイルを Target のルート直下に sync する（`symlink` モードや `--file` とは併用不可） |
 | `--source <path>` | この Extras 用のカスタム Source ディレクトリ（`extras_source` とデフォルトを上書き。**グローバルモードのみ**） |
 | `--force` | すでに存在する Extras を上書き |
 | `--no-tui` | インタラクティブウィザードをスキップし、CLI フラグのみを使用 |
@@ -67,7 +74,22 @@ skillshare extras init prompts --target .claude/prompts --mode copy -p
 
 # agents をフラットに sync（Claude Code のようなツールはフラットなファイルしか検出しない）
 skillshare extras init agents --target ~/.claude/agents --flatten
+
+# 1 つのファイルを sync し、Target では名前を変える
+skillshare extras init pi-prompt --file system.md --as APPEND_SYSTEM.md \
+  --source ~/dotfiles/prompts --target ~/.pi/agent
 ```
+
+`extras init` は設定を書き込むだけです。Source ファイルの作成や sync は行いません。単一ファイルの Extras では、Source と Target のファイルのフルパスを表示します。
+
+```
+✓ Created extra pi-prompt (single file)
+Source: ~/dotfiles/prompts/system.md
+Target: ~/.pi/agent/APPEND_SYSTEM.md [merge]
+Run 'skillshare sync extras' to sync.
+```
+
+Source ファイルがまだ存在しない場合、Source の行の末尾に `(not found)` が付き、最後の行は `Create the source file, then run 'skillshare sync extras'.` になります。
 
 ### `extras list`
 
@@ -126,6 +148,8 @@ Extras
 → codex-agents  ~/.config/skillshare/agents · 3 files
   ✓ ~/.codex/agents  extension: codex-agents
 ```
+
+[単一ファイルの Extras](#single-file-extras) では、Source と各 Target にディレクトリではなくファイルのフルパスが表示されます。
 
 sync 済みの行にはアイコン、パス、モードのみが表示されます。未 sync の行にはステータス語（`drift`、`modified`、`not synced`、`no source`）が追記されます。変換拡張子（extension）を持つ Target は、sync モードの代わりに `extension: <name>` と表示されます（実際のモードは常に `copy` です）。
 
@@ -422,8 +446,37 @@ Target はディレクトリであるため、各 Target はそれぞれの Sour
 ## 単一ファイルの Extras {#single-file-extras}
 
 `file` を持つ Extras は、ディレクトリ全体ではなく Source ディレクトリ内の 1 つのファイルだけを sync します。
-各 Target は `<path>/<as>` を受け取ります。`as` のデフォルトは `file` の名前です。ダッシュボードの
-[共有 AGENTS.md](../../how-to/daily-tasks/sharing-instructions.md) は単一ファイルの Extras です。
+各 Target は `<path>/<as>` を受け取ります。`as` のデフォルトは `file` の名前です。固定のパスにある
+1 つのファイルを読み込むツールならどれにでも使えます。たとえば Pi は `~/.pi/agent/APPEND_SYSTEM.md` を
+システムプロンプトに追加します。その内容を dotfiles に `system.md` として置き、リンクで取り込みます。
+
+```yaml
+extras:
+  - name: pi-prompt
+    source: ~/dotfiles/prompts     # global モードのみ
+    file: system.md                # ~/dotfiles/prompts/system.md
+    targets:
+      - path: ~/.pi/agent
+        as: APPEND_SYSTEM.md       # ~/.pi/agent/APPEND_SYSTEM.md がリンクになる
+```
+
+同じ Extras を CLI から作成する場合:
+
+```bash
+skillshare extras init pi-prompt --file system.md --as APPEND_SYSTEM.md \
+  --source ~/dotfiles/prompts --target ~/.pi/agent
+skillshare sync extras
+```
+
+`extras init` の `--as` はすべての Target に適用されます。1 つの Target だけ別のファイル名にするには、
+その Target を個別に追加します。
+
+```bash
+skillshare extras pi-prompt --add-target ~/Documents/prompts --as pi-system.md
+```
+
+ダッシュボードの [共有 AGENTS.md](../../how-to/daily-tasks/sharing-instructions.md) も単一ファイルの
+Extras で、通常のリンク、名前の変更、import を組み合わせられます。
 
 ```yaml
 extras:
@@ -466,8 +519,44 @@ Claude Code のように `@` import に従うツールでのみ使ってくだ�
   コピー、または import 行が取り除かれ、最初の sync の前にあったファイルやシンボリックリンクが戻ります
   （元々なかった場合はファイルなし）。`modified` の Target は、先に drift バックアップとして保存されます。
   `--prune` なしの `--remove-target` は単一ファイルの Target を残し、管理対象から外して復元ポイントを破棄します。後の sync では削除されず、再接続時に新しい復元ポイントが記録されます。
-- `extras collect` はサポートされていません。Target で行った編集を残すには、ダッシュボードの
-  **AGENTS.md** タブで共有ファイル**に取り込む**を使ってください。
+- `extras collect` はサポートされていません。Target で行った編集を残すには、Source ファイルに
+  コピーし直してください。共有 `AGENTS.md` の場合は、ダッシュボードの **AGENTS.md** タブで
+  共有ファイル**に取り込む**を使うとこれを自動で行えます。
+
+ダッシュボードでは、`file` が `AGENTS.md` の単一ファイルの Extras は **AGENTS.md** タブに表示され、
+それ以外の単一ファイルの Extras は **Folders & files** に表示されます。そこでは **Add extra** で
+**Folder** または **Single file** を選べ、各 Target には **File name** があり、単一ファイルでは
+`merge`、`copy`、`import` を使えます。ダッシュボードはファイルの内容を編集しません。Source ファイルを直接編集してください。
+
+### 1 つのフォルダーに複数のファイル
+
+グローバルモードでは、複数の単一ファイルの Extras が 1 つの `source` ディレクトリを共有できます。
+ファイルごとに Extras を 1 つ作成してください。どの Extras にも指定されていないフォルダー内のファイルは sync されません。
+
+```yaml
+extras:
+  - name: pi-system
+    source: ~/dotfiles/pi
+    file: system.md
+    targets:
+      - path: ~/.pi/agent
+        as: APPEND_SYSTEM.md
+  - name: pi-agents
+    source: ~/dotfiles/pi
+    file: agents.md
+    targets:
+      - path: ~/.pi/agent
+        as: AGENTS.md
+```
+
+```bash
+skillshare extras init pi-system --source ~/dotfiles/pi --file system.md \
+  --as APPEND_SYSTEM.md --target ~/.pi/agent
+skillshare extras init pi-agents --source ~/dotfiles/pi --file agents.md \
+  --as AGENTS.md --target ~/.pi/agent
+```
+
+Project モードでは各 Extras の Source が常に `.skillshare/extras/<name>/` であるため、これは適用されません。
 
 バックアップは skillshare の state ディレクトリ（macOS と Linux では
 `~/.local/state/skillshare/extras/backups/`）に、ファイルごとに最新 10 件まで保存されます。

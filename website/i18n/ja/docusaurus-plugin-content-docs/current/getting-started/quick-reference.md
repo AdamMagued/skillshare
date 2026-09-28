@@ -47,6 +47,7 @@ skillshare のコマンド早見表です。
 | コマンド | 説明 |
 |---------|-------------|
 | `extras init <name> --target <path>` | extras エントリを設定に追加 |
+| `extras init <name> --file <file> --target <path>` | 1 つのファイルを sync する extra を追加（`--as` で Target でのファイル名を変更） |
 | `extras list` | 設定済みの extras を Sync 状態つきで一覧表示 |
 | `extras remove <name>` | extras エントリを設定から削除 |
 | `extras <name> --add-target <path>` | 既存の extras エントリに Target を追加 |

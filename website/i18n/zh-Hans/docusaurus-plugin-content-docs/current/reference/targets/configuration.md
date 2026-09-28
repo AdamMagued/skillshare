@@ -533,7 +533,7 @@ extras:
 |-------|----------|-------------|
 | `name` | 是 | Extra 标识符 |
 | `source` | 否 | 该 extra 的自定义 Source 目录（覆盖 `extras_source` 和默认值） |
-| `file` | 否 | 只同步 source 目录中的这个文件：单纯的文件名，例如 `AGENTS.md`。参见[单文件 extras](../commands/extras.md#single-file-extras) |
+| `file` | 否 | 只同步 source 目录中的这个文件：单纯的文件名，例如 `system.md` 或 `AGENTS.md`。参见[单文件 extras](../commands/extras.md#single-file-extras) |
 | `targets` | 是 | Target 路径列表 |
 | `targets[].path` | 是 | 目标目录 |
 | `targets[].mode` | 否 | `merge`（默认）、`copy` 或 `symlink`；`import` 仅用于单文件 extras |

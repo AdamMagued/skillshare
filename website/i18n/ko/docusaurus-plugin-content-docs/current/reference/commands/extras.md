@@ -15,9 +15,9 @@ Extras는 skillshare가 관리하는 추가 리소스 유형입니다 — "skill
 - **source directory** — `extras_source` 또는 extra별 `source`로 설정 가능하며, 기본값은 `~/.config/skillshare/extras/<name>/` (전역) 또는 `.skillshare/extras/<name>/` (프로젝트)
 - 파일이 동기화되는 하나 이상의 **target**
 
-대시보드의 **Extras → Folders**에는 각 extra와 그 Target, 모드가 표시됩니다.
+대시보드의 **Extras → Folders & files**에는 각 extra와 그 Target, 모드가 표시됩니다.
 
-![Extras › Folders: 각 Target에 동기화된 rules와 commands](/img/extras-folders.png)
+![Extras › Folders & files: 각 Target에 동기화된 rules와 commands](/img/extras-folders.png)
 
 ## Commands
 
@@ -31,15 +31,22 @@ skillshare extras init
 
 # CLI flags
 skillshare extras init <name> --target <path> [--target <path2>] [--mode <mode>]
+
+# Single-file extra
+skillshare extras init <name> --file <filename> [--as <filename>] --target <path> [--source <dir>] [--mode <mode>]
 ```
+
+wizard는 이름 다음에 **What do you want to sync?**를 묻습니다: **Folder** 또는 **Single file**.
 
 **Options:**
 
 | Flag | 설명 |
 |------|-------------|
 | `--target <path>` | target 디렉터리 경로 (반복 가능) |
-| `--mode <mode>` | 동기화 mode: `merge` (기본값), `copy`, 또는 `symlink` |
-| `--flatten` | 하위 디렉터리의 파일을 target 루트에 바로 동기화 (`symlink` mode와 함께 사용 불가) |
+| `--file <filename>` | source 디렉터리에서 이 파일만 동기화하여 [single-file extra](#single-file-extras)를 만듭니다. `/`나 `\` 없는 단순한 파일 이름 |
+| `--as <filename>` | 모든 target에 쓸 파일 이름 (기본값: `--file` 이름). `--file` 필요 |
+| `--mode <mode>` | 동기화 mode: `merge` (기본값), `copy`, 또는 `symlink`. `import`는 `--file`과 함께만 사용 가능 |
+| `--flatten` | 하위 디렉터리의 파일을 target 루트에 바로 동기화 (`symlink` mode 또는 `--file`과 함께 사용 불가) |
 | `--source <path>` | 이 extra에 대한 사용자 지정 source 디렉터리 (`extras_source` 및 기본값을 재정의; **전역 모드 전용**) |
 | `--force` | extra가 이미 존재하면 덮어쓰기 |
 | `--no-tui` | interactive wizard 생략, CLI 플래그만 사용 |
@@ -67,7 +74,22 @@ skillshare extras init prompts --target .claude/prompts --mode copy -p
 
 # Sync agents flat (tools like Claude Code only discover flat files)
 skillshare extras init agents --target ~/.claude/agents --flatten
+
+# Sync one file, renamed at the target
+skillshare extras init pi-prompt --file system.md --as APPEND_SYSTEM.md \
+  --source ~/dotfiles/prompts --target ~/.pi/agent
 ```
+
+`extras init`는 config만 작성합니다. source 파일을 만들지 않으며 동기화하지도 않습니다. single-file extra의 경우 source와 target 파일의 전체 경로를 출력합니다:
+
+```
+✓ Created extra pi-prompt (single file)
+Source: ~/dotfiles/prompts/system.md
+Target: ~/.pi/agent/APPEND_SYSTEM.md [merge]
+Run 'skillshare sync extras' to sync.
+```
+
+source 파일이 아직 없으면 source 줄 끝에 `(not found)`가 붙고, 마지막 줄은 `Create the source file, then run 'skillshare sync extras'.`가 됩니다.
 
 ### `extras list`
 
@@ -126,6 +148,8 @@ Extras
 → codex-agents  ~/.config/skillshare/agents · 3 files
   ✓ ~/.codex/agents  extension: codex-agents
 ```
+
+[single-file extra](#single-file-extras)의 경우 source와 각 target은 디렉터리 대신 파일의 전체 경로를 표시합니다.
 
 동기화된 행은 아이콘, 경로, mode만 표시합니다. 동기화되지 않은 행은 상태 단어(`drift`, `modified`, `not synced`, `no source`)를 추가로 표시합니다. transform extension이 있는 target은 동기화 mode 대신 `extension: <name>`으로 표시됩니다 (실제 mode는 항상 `copy`).
 
@@ -441,8 +465,37 @@ source 디렉터리는 모든 곳에 배포하고 싶은 파일로만 유지하�
 ## Single-file extras {#single-file-extras}
 
 `file`이 있는 extra는 source 디렉터리 전체가 아니라 그 안의 파일 하나만 동기화합니다.
-각 target은 `<path>/<as>`를 받으며, `as`의 기본값은 `file` 이름입니다. 대시보드의
-[공유 AGENTS.md](../../how-to/daily-tasks/sharing-instructions.md)는 single-file extra입니다.
+각 target은 `<path>/<as>`를 받으며, `as`의 기본값은 `file` 이름입니다. 고정된 경로의 파일
+하나를 읽는 도구라면 어디에나 사용할 수 있습니다. 예를 들어 Pi는 `~/.pi/agent/APPEND_SYSTEM.md`를
+system prompt에 덧붙입니다. 그 내용을 dotfiles에 `system.md`로 두고 링크하세요:
+
+```yaml
+extras:
+  - name: pi-prompt
+    source: ~/dotfiles/prompts     # global mode only
+    file: system.md                # ~/dotfiles/prompts/system.md
+    targets:
+      - path: ~/.pi/agent
+        as: APPEND_SYSTEM.md       # ~/.pi/agent/APPEND_SYSTEM.md becomes a link
+```
+
+같은 extra를 CLI로 만들려면:
+
+```bash
+skillshare extras init pi-prompt --file system.md --as APPEND_SYSTEM.md \
+  --source ~/dotfiles/prompts --target ~/.pi/agent
+skillshare sync extras
+```
+
+`extras init`의 `--as`는 모든 target에 적용됩니다. 특정 target에서만 다른 파일 이름을 쓰려면
+그 target을 따로 추가하세요:
+
+```bash
+skillshare extras pi-prompt --add-target ~/Documents/prompts --as pi-system.md
+```
+
+대시보드의 [공유 AGENTS.md](../../how-to/daily-tasks/sharing-instructions.md)도 single-file extra이며,
+일반 링크, 이름 변경, import를 함께 사용할 수 있습니다:
 
 ```yaml
 extras:
@@ -485,8 +538,45 @@ extras:
   복사본 또는 import 줄이 사라지고, 첫 sync 전에 있던 파일이나 symlink가 돌아옵니다
   (원래 없었다면 파일도 없습니다). `modified` target은 먼저 drift 백업으로 보관됩니다.
   `--prune` 없는 `--remove-target`은 single-file target을 그대로 두고 관리를 중단하며 복원 지점을 잊습니다. 이후 sync는 이를 정리하지 않으며, 다시 연결할 때 새 복원 지점을 기록합니다.
-- `extras collect`는 지원하지 않습니다. target에서 한 편집을 유지하려면 대시보드
-  **AGENTS.md** 탭의 **공유 파일에 반영**을 사용하세요.
+- `extras collect`는 지원하지 않습니다. target에서 한 편집을 유지하려면 source 파일에 다시
+  복사하세요. 공유 `AGENTS.md`의 경우 대시보드 **AGENTS.md** 탭의 **공유 파일에 반영**이
+  이 작업을 대신합니다.
+
+대시보드에서 `file`이 `AGENTS.md`인 single-file extra는 **AGENTS.md** 탭에 표시되고, 그 밖의
+single-file extra는 **Folders & files**에 표시됩니다. 그곳의 **Add extra**에서 **Folder** 또는
+**Single file**을 고를 수 있고, 각 target에는 **File name**이 있으며, 단일 파일은 `merge`, `copy`,
+`import`를 사용할 수 있습니다. 대시보드는 파일 내용을 편집하지 않으므로 source 파일을 직접 편집하세요.
+
+### 폴더 하나, 여러 파일
+
+전역 모드에서는 여러 single-file extra가 하나의 `source` 디렉터리를 공유할 수 있습니다. 파일마다
+extra를 하나씩 만드세요. 어떤 extra에도 지정되지 않은 폴더 안의 파일은 동기화되지 않습니다:
+
+```yaml
+extras:
+  - name: pi-system
+    source: ~/dotfiles/pi
+    file: system.md
+    targets:
+      - path: ~/.pi/agent
+        as: APPEND_SYSTEM.md
+  - name: pi-agents
+    source: ~/dotfiles/pi
+    file: agents.md
+    targets:
+      - path: ~/.pi/agent
+        as: AGENTS.md
+```
+
+```bash
+skillshare extras init pi-system --source ~/dotfiles/pi --file system.md \
+  --as APPEND_SYSTEM.md --target ~/.pi/agent
+skillshare extras init pi-agents --source ~/dotfiles/pi --file agents.md \
+  --as AGENTS.md --target ~/.pi/agent
+```
+
+프로젝트 모드에서는 적용되지 않습니다. 프로젝트 모드에서 각 extra의 source는 항상
+`.skillshare/extras/<name>/`입니다.
 
 백업은 skillshare의 state 디렉터리(macOS와 Linux에서는
 `~/.local/state/skillshare/extras/backups/`)에 파일당 최근 10개까지 보관됩니다.

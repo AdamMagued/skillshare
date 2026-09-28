@@ -558,7 +558,7 @@ extras:
 |-------|----------|--------------|
 | `name` | はい | Extra の識別子 |
 | `source` | いいえ | この Extra 用のカスタム Source ディレクトリ（`extras_source` とデフォルトを上書き） |
-| `file` | いいえ | Source ディレクトリからこのファイルだけを Sync する: `AGENTS.md` のような単純なファイル名。[単一ファイルの Extras](../commands/extras.md#single-file-extras) を参照 |
+| `file` | いいえ | Source ディレクトリからこのファイルだけを Sync する: `system.md` や `AGENTS.md` のような単純なファイル名。[単一ファイルの Extras](../commands/extras.md#single-file-extras) を参照 |
 | `targets` | はい | Target パスのリスト |
 | `targets[].path` | はい | 宛先ディレクトリ |
 | `targets[].mode` | いいえ | `merge`（デフォルト）、`copy`、または `symlink`。`import` は単一ファイルの Extras でのみ使用可 |

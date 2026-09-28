@@ -15,9 +15,9 @@ Each extra has:
 - A **source directory** — configurable via `extras_source` or per-extra `source`, defaults to `~/.config/skillshare/extras/<name>/` (global) or `.skillshare/extras/<name>/` (project)
 - One or more **targets** where files are synced to
 
-In the dashboard, **Extras → Folders** lists each extra with its targets and mode:
+In the dashboard, **Extras → Folders & files** lists each extra with its targets and mode:
 
-![Extras › Folders: rules and commands synced to their targets](/img/extras-folders.png)
+![Extras › Folders & files: rules and commands synced to their targets](/img/extras-folders.png)
 
 ## Commands
 
@@ -31,15 +31,22 @@ skillshare extras init
 
 # CLI flags
 skillshare extras init <name> --target <path> [--target <path2>] [--mode <mode>]
+
+# Single-file extra
+skillshare extras init <name> --file <filename> [--as <filename>] --target <path> [--source <dir>] [--mode <mode>]
 ```
+
+The wizard asks **What do you want to sync?** after the name: **Folder** or **Single file**.
 
 **Options:**
 
 | Flag | Description |
 |------|-------------|
 | `--target <path>` | Target directory path (repeatable) |
-| `--mode <mode>` | Sync mode: `merge` (default), `copy`, or `symlink` |
-| `--flatten` | Sync files from subdirectories directly into the target root (cannot be used with `symlink` mode) |
+| `--file <filename>` | Sync only this file from the source directory, making a [single-file extra](#single-file-extras). A plain file name, without `/` or `\` |
+| `--as <filename>` | File name to write at every target (default: the `--file` name). Requires `--file` |
+| `--mode <mode>` | Sync mode: `merge` (default), `copy`, or `symlink`; `import` only with `--file` |
+| `--flatten` | Sync files from subdirectories directly into the target root (cannot be used with `symlink` mode or `--file`) |
 | `--source <path>` | Custom source directory for this extra (overrides `extras_source` and default; **global mode only**) |
 | `--force` | Overwrite if extra already exists |
 | `--no-tui` | Skip interactive wizard, use CLI flags only |
@@ -67,7 +74,22 @@ skillshare extras init prompts --target .claude/prompts --mode copy -p
 
 # Sync agents flat (tools like Claude Code only discover flat files)
 skillshare extras init agents --target ~/.claude/agents --flatten
+
+# Sync one file, renamed at the target
+skillshare extras init pi-prompt --file system.md --as APPEND_SYSTEM.md \
+  --source ~/dotfiles/prompts --target ~/.pi/agent
 ```
+
+`extras init` only writes the config. It does not create the source file and does not sync. For a single-file extra it prints the full source and target file paths:
+
+```
+✓ Created extra pi-prompt (single file)
+Source: ~/dotfiles/prompts/system.md
+Target: ~/.pi/agent/APPEND_SYSTEM.md [merge]
+Run 'skillshare sync extras' to sync.
+```
+
+If the source file does not exist yet, the source line ends with `(not found)` and the last line reads `Create the source file, then run 'skillshare sync extras'.`
 
 ### `extras list`
 
@@ -126,6 +148,8 @@ Extras
 → codex-agents  ~/.config/skillshare/agents · 3 files
   ✓ ~/.codex/agents  extension: codex-agents
 ```
+
+For a [single-file extra](#single-file-extras), the source and each target show the full file path instead of the directory.
 
 A synced row shows only its icon, path, and mode; non-synced rows append a status word (`drift`, `modified`, `not synced`, `no source`). Targets with a transform extension are labeled `extension: <name>` in place of the sync mode (their underlying mode is always `copy`).
 
@@ -443,8 +467,37 @@ those are not portable by copying files between targets.
 
 An extra with `file` syncs one file from its source directory instead of the whole
 directory. Each target receives `<path>/<as>`, where `as` defaults to the `file`
-name. The dashboard's [shared AGENTS.md files](../../how-to/daily-tasks/sharing-instructions.md)
-are single-file extras.
+name. Use it for any tool that reads one file at a fixed path. For example, Pi
+appends `~/.pi/agent/APPEND_SYSTEM.md` to its system prompt; keep that text as
+`system.md` in your dotfiles and link it in:
+
+```yaml
+extras:
+  - name: pi-prompt
+    source: ~/dotfiles/prompts     # global mode only
+    file: system.md                # ~/dotfiles/prompts/system.md
+    targets:
+      - path: ~/.pi/agent
+        as: APPEND_SYSTEM.md       # ~/.pi/agent/APPEND_SYSTEM.md becomes a link
+```
+
+The same extra from the CLI:
+
+```bash
+skillshare extras init pi-prompt --file system.md --as APPEND_SYSTEM.md \
+  --source ~/dotfiles/prompts --target ~/.pi/agent
+skillshare sync extras
+```
+
+`--as` on `extras init` applies to every target. To use a different file name at
+one target, add it separately:
+
+```bash
+skillshare extras pi-prompt --add-target ~/Documents/prompts --as pi-system.md
+```
+
+The dashboard's [shared AGENTS.md files](../../how-to/daily-tasks/sharing-instructions.md)
+are single-file extras too, and can mix plain links, renames and imports:
 
 ```yaml
 extras:
@@ -491,8 +544,46 @@ Rules:
   drift backup first. `--remove-target` without `--prune` leaves the single-file target in place and
   unmanaged, and forgets its restore point. Later syncs do not clean it up; attaching it again
   records a new restore point.
-- `extras collect` is not supported. To keep an edit made in a target, use
-  **Collect into** on the dashboard's **AGENTS.md** tab.
+- `extras collect` is not supported. To keep an edit made in a target, copy it back
+  to the source file. For a shared `AGENTS.md`, **Collect into** on the dashboard's
+  **AGENTS.md** tab does this for you.
+
+In the dashboard, single-file extras whose `file` is `AGENTS.md` appear on the
+**AGENTS.md** tab; all other single-file extras appear on **Folders & files**. There,
+**Add extra** offers **Folder** or **Single file**, each target has a **File name**,
+and a single file can use `merge`, `copy` or `import`. The dashboard does not edit
+the file's content; edit the source file directly.
+
+### One folder, several files
+
+In global mode, several single-file extras can share one `source` directory. Create
+one extra per file; files in the folder that no extra names are not synced:
+
+```yaml
+extras:
+  - name: pi-system
+    source: ~/dotfiles/pi
+    file: system.md
+    targets:
+      - path: ~/.pi/agent
+        as: APPEND_SYSTEM.md
+  - name: pi-agents
+    source: ~/dotfiles/pi
+    file: agents.md
+    targets:
+      - path: ~/.pi/agent
+        as: AGENTS.md
+```
+
+```bash
+skillshare extras init pi-system --source ~/dotfiles/pi --file system.md \
+  --as APPEND_SYSTEM.md --target ~/.pi/agent
+skillshare extras init pi-agents --source ~/dotfiles/pi --file agents.md \
+  --as AGENTS.md --target ~/.pi/agent
+```
+
+This does not apply in project mode, where each extra's source is always
+`.skillshare/extras/<name>/`.
 
 Backups are kept in skillshare's state directory
 (`~/.local/state/skillshare/extras/backups/` on macOS and Linux), the last 10 per

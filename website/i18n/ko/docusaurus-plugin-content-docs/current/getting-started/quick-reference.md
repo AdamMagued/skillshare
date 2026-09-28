@@ -47,6 +47,7 @@ skillshare 명령 치트시트입니다.
 | 명령 | 설명 |
 |---------|-------------|
 | `extras init <name> --target <path>` | 설정에 extras 항목 추가 |
+| `extras init <name> --file <file> --target <path>` | 파일 하나를 동기화하는 extra 추가 (`--as`로 target에서의 이름 변경) |
 | `extras list` | 설정된 extras를 Sync 상태와 함께 목록 표시 |
 | `extras remove <name>` | 설정에서 extras 항목 제거 |
 | `extras <name> --add-target <path>` | 기존 extras 항목에 Target 추가 |

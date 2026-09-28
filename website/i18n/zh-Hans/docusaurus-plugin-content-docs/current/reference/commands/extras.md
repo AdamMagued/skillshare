@@ -15,9 +15,9 @@ Extras 是 skillshare 管理的额外资源类型 —— 可以把它们理解�
 - 一个**source 目录** —— 可通过 `extras_source` 或每个 extra 各自的 `source` 配置，默认为 `~/.config/skillshare/extras/<name>/`（global）或 `.skillshare/extras/<name>/`（project）
 - 一个或多个用于同步文件的 **target**
 
-在仪表板中，**Extras → Folders** 会列出每个 extra 及其 targets 和模式：
+在仪表板中，**Extras → Folders & files** 会列出每个 extra 及其 targets 和模式：
 
-![Extras › Folders：rules 和 commands 同步到各自的 targets](/img/extras-folders.png)
+![Extras › Folders & files：rules 和 commands 同步到各自的 targets](/img/extras-folders.png)
 
 ## 命令
 
@@ -31,15 +31,22 @@ skillshare extras init
 
 # CLI flags
 skillshare extras init <name> --target <path> [--target <path2>] [--mode <mode>]
+
+# 单文件 extra
+skillshare extras init <name> --file <filename> [--as <filename>] --target <path> [--source <dir>] [--mode <mode>]
 ```
+
+向导会在输入名称后询问 **What do you want to sync?**：**Folder** 或 **Single file**。
 
 **Options:**
 
 | Flag | Description |
 |------|-------------|
 | `--target <path>` | Target 目录路径（可重复） |
-| `--mode <mode>` | Sync mode：`merge`（默认）、`copy` 或 `symlink` |
-| `--flatten` | 将子目录中的文件直接同步到 target 根目录（不能与 `symlink` mode 一起使用） |
+| `--file <filename>` | 只同步 source 目录中的这个文件，创建一个[单文件 extra](#single-file-extras)。必须是单纯的文件名，不能包含 `/` 或 `\` |
+| `--as <filename>` | 写入每个 target 的文件名（默认为 `--file` 的名称）。需要搭配 `--file` |
+| `--mode <mode>` | Sync mode：`merge`（默认）、`copy` 或 `symlink`；`import` 仅可搭配 `--file` |
+| `--flatten` | 将子目录中的文件直接同步到 target 根目录（不能与 `symlink` mode 或 `--file` 一起使用） |
 | `--source <path>` | 该 extra 的自定义 source 目录（覆盖 `extras_source` 和默认值；**仅 global mode**） |
 | `--force` | 如果 extra 已存在则覆盖 |
 | `--no-tui` | 跳过交互式向导，仅使用 CLI flags |
@@ -67,7 +74,22 @@ skillshare extras init prompts --target .claude/prompts --mode copy -p
 
 # 以扁平方式同步 agents（像 Claude Code 这样的工具只能发现扁平文件）
 skillshare extras init agents --target ~/.claude/agents --flatten
+
+# 同步一个文件，并在 target 中重命名
+skillshare extras init pi-prompt --file system.md --as APPEND_SYSTEM.md \
+  --source ~/dotfiles/prompts --target ~/.pi/agent
 ```
+
+`extras init` 只写入配置，不会创建 source 文件，也不会执行同步。对于单文件 extra，它会打印完整的 source 与 target 文件路径：
+
+```
+✓ Created extra pi-prompt (single file)
+Source: ~/dotfiles/prompts/system.md
+Target: ~/.pi/agent/APPEND_SYSTEM.md [merge]
+Run 'skillshare sync extras' to sync.
+```
+
+如果 source 文件尚不存在，source 行末尾会显示 `(not found)`，最后一行则为 `Create the source file, then run 'skillshare sync extras'.`
 
 ### `extras list`
 
@@ -126,6 +148,8 @@ Extras
 → codex-agents  ~/.config/skillshare/agents · 3 files
   ✓ ~/.codex/agents  extension: codex-agents
 ```
+
+对于[单文件 extra](#single-file-extras)，source 和每个 target 显示的是完整文件路径，而不是目录。
 
 已同步的行只显示图标、路径和 mode；未同步的行会附加一个状态词（`drift`、`modified`、`not synced`、`no source`）。带有 transform extension 的 target 会显示为 `extension: <name>`，取代 sync mode 的位置（其底层 mode 始终是 `copy`）。
 
@@ -425,8 +449,37 @@ Claude Code 读取的是 `CLAUDE.md` 而不是 `AGENTS.md`，而 import 正是�
 ## 单文件 extras {#single-file-extras}
 
 设置了 `file` 的 extra 只同步其 source 目录中的一个文件，而不是整个目录。每个
-target 会得到 `<path>/<as>`，其中 `as` 默认为 `file` 的名称。控制台中的
-[共享 AGENTS.md](../../how-to/daily-tasks/sharing-instructions.md) 就是单文件 extras。
+target 会得到 `<path>/<as>`，其中 `as` 默认为 `file` 的名称。任何从固定路径读取单个文件的工具都可以使用它。例如，Pi
+会把 `~/.pi/agent/APPEND_SYSTEM.md` 附加到它的 system prompt；你可以把这段文字以
+`system.md` 保存在 dotfiles 中，再链接过去：
+
+```yaml
+extras:
+  - name: pi-prompt
+    source: ~/dotfiles/prompts     # 仅限 global mode
+    file: system.md                # ~/dotfiles/prompts/system.md
+    targets:
+      - path: ~/.pi/agent
+        as: APPEND_SYSTEM.md       # ~/.pi/agent/APPEND_SYSTEM.md 变成链接
+```
+
+用 CLI 创建同一个 extra：
+
+```bash
+skillshare extras init pi-prompt --file system.md --as APPEND_SYSTEM.md \
+  --source ~/dotfiles/prompts --target ~/.pi/agent
+skillshare sync extras
+```
+
+`extras init` 的 `--as` 会作用于每个 target。要在某一个 target 使用不同的文件名，
+请单独添加该 target：
+
+```bash
+skillshare extras pi-prompt --add-target ~/Documents/prompts --as pi-system.md
+```
+
+控制台中的[共享 AGENTS.md](../../how-to/daily-tasks/sharing-instructions.md)
+也是单文件 extras，并且可以混用普通链接、重命名和 import：
 
 ```yaml
 extras:
@@ -466,8 +519,44 @@ extras:
 - `extras remove` 和 `--remove-target --prune` 会还原每个 target 文件：移除链接、副本或
   import 行，并放回第一次 sync 之前的文件或 symlink（原本没有文件则不留文件）。
   `modified` 的 target 会先作为 drift 备份保留。不带 `--prune` 的 `--remove-target` 会保留单文件 target，停止管理并忘记还原点。之后的 sync 不会清理它；重新连接才会记录新的还原点。
-- 不支持 `extras collect`。要保留在 target 中做的修改，请在控制台的
-  **AGENTS.md** 标签页中使用 **收进**。
+- 不支持 `extras collect`。要保留在 target 中做的修改，请把它复制回 source 文件。
+  对于共享的 `AGENTS.md`，控制台 **AGENTS.md** 标签页中的 **收进** 会替你完成这一步。
+
+在控制台中，`file` 为 `AGENTS.md` 的单文件 extras 会显示在 **AGENTS.md** 标签页；其他单文件
+extras 则显示在 **Folders & files**。在那里，**添加 Extra** 提供 **Folder** 或 **Single file** 两种选择，
+每个 target 都有 **文件名**，单个文件可以使用 `merge`、`copy` 或 `import`。控制台不会编辑
+文件内容；请直接编辑 source 文件。
+
+### 一个文件夹，多个文件
+
+在 global mode 中，多个单文件 extras 可以共用同一个 `source` 目录。每个文件创建
+一个 extra；文件夹中没有被任何 extra 指定的文件不会被同步：
+
+```yaml
+extras:
+  - name: pi-system
+    source: ~/dotfiles/pi
+    file: system.md
+    targets:
+      - path: ~/.pi/agent
+        as: APPEND_SYSTEM.md
+  - name: pi-agents
+    source: ~/dotfiles/pi
+    file: agents.md
+    targets:
+      - path: ~/.pi/agent
+        as: AGENTS.md
+```
+
+```bash
+skillshare extras init pi-system --source ~/dotfiles/pi --file system.md \
+  --as APPEND_SYSTEM.md --target ~/.pi/agent
+skillshare extras init pi-agents --source ~/dotfiles/pi --file agents.md \
+  --as AGENTS.md --target ~/.pi/agent
+```
+
+这不适用于 project mode，因为在 project mode 中每个 extra 的 source 始终是
+`.skillshare/extras/<name>/`。
 
 备份保存在 skillshare 的 state 目录中（macOS 和 Linux 上为
 `~/.local/state/skillshare/extras/backups/`），每个文件保留最近 10 份。drift 备份位于该处的

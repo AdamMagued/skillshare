@@ -537,7 +537,7 @@ extras:
 |-------|----------|-------------|
 | `name` | Yes | Extra identifier |
 | `source` | No | Custom source directory for this extra (overrides `extras_source` and default) |
-| `file` | No | Sync only this file from the source directory: a plain file name such as `AGENTS.md`. See [single-file extras](../commands/extras.md#single-file-extras) |
+| `file` | No | Sync only this file from the source directory: a plain file name such as `system.md` or `AGENTS.md`. See [single-file extras](../commands/extras.md#single-file-extras) |
 | `targets` | Yes | List of target paths |
 | `targets[].path` | Yes | Destination directory |
 | `targets[].mode` | No | `merge` (default), `copy`, or `symlink`; `import` for single-file extras only |

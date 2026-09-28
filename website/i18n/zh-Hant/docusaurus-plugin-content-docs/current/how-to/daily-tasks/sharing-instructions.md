@@ -364,7 +364,7 @@ project mode 的 import 使用相對於 target 檔案的路徑，因此移動 re
 - 可以使用工具自己的檔案，例如以 `import` 方式使用 `./CLAUDE.md`。
 - 連結和 import 使用相對路徑，因此 clone 下來的 repository 仍可正常使用。
 
-單一檔案 extras 只會出現在這裡，不會出現在 **目錄** 分頁。卡片選單中的 **刪除** 會先還原所有位置，
+共用檔只會出現在這裡，不會出現在 **資料夾與檔案** 分頁；該分頁列出的是其他單一檔案 extra。卡片選單中的 **刪除** 會先還原所有位置，
 再把這個 extra 從設定中移除；`.skillshare/extras/` 中的檔案會保留。
 
 ## 備份 {#backups}

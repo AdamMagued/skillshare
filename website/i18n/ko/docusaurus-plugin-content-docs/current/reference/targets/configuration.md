@@ -534,7 +534,7 @@ extras:
 |-------|----------|-------------|
 | `name` | Yes | Extra 식별자 |
 | `source` | No | 이 extra를 위한 Custom source 디렉터리 (`extras_source`와 기본값을 재정의) |
-| `file` | No | source 디렉터리에서 이 파일만 동기화: `AGENTS.md` 같은 단순한 파일 이름. [single-file extras](../commands/extras.md#single-file-extras) 참고 |
+| `file` | No | source 디렉터리에서 이 파일만 동기화: `system.md`나 `AGENTS.md` 같은 단순한 파일 이름. [single-file extras](../commands/extras.md#single-file-extras) 참고 |
 | `targets` | Yes | Target 경로 목록 |
 | `targets[].path` | Yes | 대상 디렉터리 |
 | `targets[].mode` | No | `merge` (기본값), `copy`, 또는 `symlink`. `import`는 single-file extra 전용 |

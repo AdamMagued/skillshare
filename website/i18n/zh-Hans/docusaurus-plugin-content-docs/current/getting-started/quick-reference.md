@@ -47,6 +47,7 @@ skillshare 命令速查。
 | 命令 | 说明 |
 |---------|-------------|
 | `extras init <name> --target <path>` | 在配置中添加一条 extras 记录 |
+| `extras init <name> --file <file> --target <path>` | 添加一个只同步单个文件的 extra（`--as` 可在 targets 中重命名该文件） |
 | `extras list` | 列出已配置的 extras 及其同步状态 |
 | `extras remove <name>` | 从配置中移除一条 extras 记录 |
 | `extras <name> --add-target <path>` | 为已有 extras 记录添加一个 Target |

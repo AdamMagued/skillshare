@@ -427,7 +427,8 @@ project:
 - A tool's own file is allowed, for example `./CLAUDE.md` with `import`.
 - Links and imports use relative paths, so a clone of the repository keeps them working.
 
-Single-file extras appear only here, not in the **Folders** tab. **Delete** in the
+Shared files appear only here, not in the **Folders & files** tab, which lists the
+other single-file extras. **Delete** in the
 card's menu first restores every location, then removes the extra from the config;
 the file in `.skillshare/extras/` is kept.
 

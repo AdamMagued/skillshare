@@ -47,6 +47,7 @@ Command cheat sheet for skillshare.
 | Command | Description |
 |---------|-------------|
 | `extras init <name> --target <path>` | Add an extras entry to config |
+| `extras init <name> --file <file> --target <path>` | Add an extra that syncs one file (`--as` renames it at targets) |
 | `extras list` | List configured extras with sync status |
 | `extras remove <name>` | Remove an extras entry from config |
 | `extras <name> --add-target <path>` | Add a target to an existing extras entry |
