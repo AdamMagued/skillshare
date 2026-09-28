@@ -129,6 +129,8 @@ Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name
 
 **Solution:** 따로 할 일은 없으며 복사본은 계속 정상적으로 동작합니다. 링크를 쓰려면 Developer Mode를 켜고(Windows 11: **Settings → System → For developers → Developer Mode**, Windows 10: **Settings → Update & Security → For developers**) `skillshare sync --all`을 다시 실행하세요. `skillshare ui`가 실행 중이면 재시작하세요.
 
+내용이 같은 로컬 파일은 `local preserved`로 표시되며, `sync extras`는 해당 파일에 `--force`를 권하지 않습니다. 관리되는 링크가 아닌 로컬 파일로 유지됩니다.
+
 ### Agent files or AGENTS.md show a folder icon and can't be read
 
 **Cause:** 이전 버전은 단일 파일을 디렉터리 junction으로 링크했습니다. 그래서 탐색기에는 파일이 폴더로 보이고, 도구가 읽을 수 없습니다.

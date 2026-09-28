@@ -135,6 +135,8 @@ which is on by default:
 With sharing off, the content goes to `~/.claude/AGENTS.md` and `CLAUDE.md` gets an
 `@AGENTS.md` line.
 
+When no other shared file is available, **Convert…** asks only for the new name; the shared-file picker appears only when there is another file to choose.
+
 ## Share one AGENTS.md in global mode
 
 Go to **Extras** and open the **AGENTS.md** tab. **New shared AGENTS.md** asks for a
@@ -205,7 +207,9 @@ the target gets the shared file:
 |------|-------------|-----------|
 | `import` | Your own file, with one `@import` line in the managed block. Changes to the shared file apply right away | Targets that follow `@` imports |
 | `symlink` | A link to the shared file. Changes apply right away | Not on Windows without Developer Mode |
-| `copy` | A copy of the shared file. Saving the shared file in the dashboard updates the copy; after editing it elsewhere, sync again | Always |
+| `copy` | A copy of the shared file. Saving the shared file in the dashboard updates the copy; after editing the shared file elsewhere, sync again with **Sync** on this page | Always |
+
+When file links are unavailable, an info tooltip beside **Targets** explains Windows Developer Mode. Instruction warnings and errors use the dashboard language, with the original English message as a fallback for unknown codes.
 
 The picker marks the default: `import` for targets that follow `@` imports, otherwise
 `symlink`, or `copy` on Windows without Developer Mode. A target that uses more than
@@ -228,9 +232,10 @@ If a mode change replaces an edit, the dashboard reports the backup. Switching b
 | `not synced` | The target file doesn't exist yet |
 | `no source` | The shared file itself is missing |
 
+If a folder occupies the target file path, remove or rename the folder, then sync; sync does not replace it.
+
 When a connected target is `drift` or `not synced`, the heading shows how many need a
-sync and a **Sync** button that puts the links and import lines of this file back in
-place.
+sync and a **Sync** button that restores this file’s links, copies, and import lines.
 
 **Edit** opens the file in a large editor with **Edit** and **Preview** tabs. The side
 panel lists the targets that read the saved file right away, and warns about targets
@@ -262,6 +267,8 @@ Deleting a shared file removes it from the config and restores every target that
 it. The file stays in the extras folder.
 
 On Windows, an original junction is recreated as a junction, without requiring Developer Mode or administrator privileges.
+
+When a junction you made is replaced, the warning shows where it pointed.
 
 ## When a linked file is edited
 

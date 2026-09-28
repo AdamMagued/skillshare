@@ -99,6 +99,8 @@ skillshare ui start --clear-cache
 | **Audit** | Skill と Agent のセキュリティスキャン。重大度別の検出結果を表示。**Rules** タブでは、カテゴリごとにすべてのルールを閲覧できる: ルールをオフにする、重大度を変更する、カテゴリ全体に重大度を適用する、スキャンプロファイル（`default`、`strict`、`permissive`）を選ぶ、カスタム `audit-rules.yaml` のエディタを開く、のいずれかができる |
 | **Settings** | タブ分け: **General**（Source パス、sync モード、外観）、**Backup**（スナップショットと復元）、**Log**（操作履歴）、**Health**（[`doctor`](/docs/reference/commands/doctor) と同じチェック）、**Extensions**（sync 時のファイル変換）、**Files**（`config.yaml`、`.skillignore`、`.agentignore` の直接編集） |
 
+**Updates** タブでは、プログレスバーに更新の進行状況が表示され、更新中の行が示されます。ブロックされた更新や失敗した更新は別のセクションに表示されます。
+
 `/collect`、`/install`、`/search`、`/trash`、`/analyze`、`/backup`、`/log`、`/doctor` などの古いリンクは、新しい場所にリダイレクトされます。
 
 **Files** タブでは、エディタの横にパネルが表示されます。`config.yaml` の場合、カーソル位置のフィールドが何をするか、ファイルの構造、未保存の変更が表示されます。ignore ファイルの場合、現在のパターンが何を隠しているかが一覧表示されます。`Cmd+S` / `Ctrl+S` で保存します。**Audit -> Rules -> Edit YAML** のルールエディタには同じパネルに加え、貼り付けた行に対してルールの正規表現を実行する **Test** タブがあります。

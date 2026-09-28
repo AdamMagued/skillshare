@@ -89,7 +89,7 @@ claude
 **agents 하위 항목**은 다음을 표시합니다.
 - **Sync mode**: agents가 실제로 sync되는 mode. Developer Mode가 없는 Windows에서는 agent 파일을 링크하지 않고 복사하므로 `merge`가 `[copy]`로 표시됩니다
 - **Status**: `merged`, `copied`, `linked`, 또는 `drift`
-- **Linked 개수**: 예) `8/8 linked` (최신 상태의 복사본도 linked로 집계)
+- **Linked 개수**: 예) `8/8 linked` (최신 상태의 복사본도 linked로 집계). copy fallback에서는 skillshare가 소유하지 않는 내용이 같은 로컬 파일을 유지하고 따로 표시합니다(예: `0/1 linked, 1 local preserved`)
 
 agent source가 존재하지 않거나 target에 agent path가 구성되어 있지 않으면 agents 하위 항목은 생략됩니다.
 

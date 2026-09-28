@@ -648,6 +648,8 @@ Source 文件存放在 `extras/` 子目录下：
 
 在未开启 Developer Mode 的 Windows 上，merge 模式（以及 symlink 模式下的[单文件 extra](./extras.md#single-file-extras)）会改为复制文件，把该 target 报告为 `(copy)`，并在其下打印 `file links need Windows Developer Mode; copying instead`。这些副本会像链接一样被更新和清理，并在文件链接可用后替换为链接。
 
+内容相同的本地文件会显示为 `local preserved`；`sync extras` 不会为它们建议使用 `--force`。它们仍是本地文件，不是受管理的链接。
+
 ### 执行流程
 
 ```mermaid

@@ -89,7 +89,7 @@ claude
 **agents 子项** 显示：
 - **Sync mode**：agents 实际使用的同步模式。在未开启 Developer Mode 的 Windows 上，`merge` 会显示为 `[copy]`，因为 agent 文件是被复制而不是被链接
 - **Status**：`merged`、`copied`、`linked` 或 `drift`
-- **Linked 计数**：例如 `8/8 linked`（已是最新的副本也计为 linked）
+- **Linked 计数**：例如 `8/8 linked`（已是最新的副本也计为 linked）。在 copy fallback 中，skillshare 不拥有但内容相同的本地文件会被保留并单独显示，例如 `0/1 linked, 1 local preserved`
 
 如果 agents source 不存在，或该 target 没有配置 agent path，则 agents 子项会被省略。
 

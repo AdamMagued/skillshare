@@ -99,6 +99,8 @@ skillshare ui start --clear-cache
 | **Audit** | 對 skills 與 agents 進行安全掃描，依嚴重程度列出發現項目。**Rules** 分頁可依分類瀏覽每一項規則：關閉某項、變更其嚴重程度、對整個分類套用嚴重程度、選擇掃描設定檔（`default`、`strict`、`permissive`），或開啟編輯器自訂 `audit-rules.yaml` |
 | **Settings** | 分頁式：**General**（source 路徑、同步模式、外觀）、**Backup**（快照與還原）、**Log**（操作歷史）、**Health**（與 [`doctor`](/docs/reference/commands/doctor) 相同的檢查）、**Extensions**（同步時的檔案轉換）、**Files**（直接編輯 `config.yaml`、`.skillignore` 與 `.agentignore`） |
 
+在 **Updates** 分頁中，進度列會顯示更新進度，正在更新的列也會標示出來。被阻擋或失敗的更新會顯示在獨立區塊。
+
 舊連結如 `/collect`、`/install`、`/search`、`/trash`、`/analyze`、`/backup`、`/log` 與 `/doctor` 會重新導向至新的位置。
 
 **Files** 分頁會在編輯器旁顯示一個面板。對於 `config.yaml`，它會顯示游標所在欄位的作用、檔案結構與尚未儲存的變更；對於 ignore 檔案，它會列出目前 patterns 隱藏了哪些內容。`Cmd+S` / `Ctrl+S` 可儲存。**Audit -> Rules -> Edit YAML** 下的 rules 編輯器有相同的面板，外加一個 **Test** 分頁，可用你貼上的行來測試規則的正規表示式。

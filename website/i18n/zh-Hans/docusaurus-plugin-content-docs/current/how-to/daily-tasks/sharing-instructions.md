@@ -119,6 +119,8 @@ skills 文件夹，Gemini CLI、Pi、OpenCode 等工具则是除了自己的文�
 
 关闭共享时，内容会移到 `~/.claude/AGENTS.md`，`CLAUDE.md` 则得到一行 `@AGENTS.md`。
 
+没有其他可选的共享文件时，**Convert…** 只要求输入新名称；有其他文件可选时才会显示共享文件选择器。
+
 ## 在 global mode 下共享一份 AGENTS.md {#share-one-agentsmd-in-global-mode}
 
 前往 **Extras** 并打开 **AGENTS.md** 标签页。**新建共享 AGENTS.md** 会要求输入名称
@@ -181,7 +183,9 @@ target 如何使用共享文件，取决于它是否会展开 `@` import：
 |------|-------------|-----------|
 | `import` | 你自己的文件，受管区块中有一行 `@import`。对共享文件的修改立即生效 | 会展开 `@` import 的 target |
 | `symlink` | 指向共享文件的链接。修改立即生效 | 未开启 Developer Mode 的 Windows 上不可用 |
-| `copy` | 共享文件的副本。在控制台中保存共享文件会更新副本；在其他地方编辑后，需要再次 sync | 始终可用 |
+| `copy` | 共享文件的副本。在控制台中保存共享文件会更新副本；在其他地方编辑共享文件后，请在这个页面点 **Sync** 再同步一次 | 始终可用 |
+
+无法使用文件链接时，**Targets** 旁的信息提示会说明 Windows Developer Mode。指令文件的警告和错误会使用控制台语言；未知代码则显示原始英文消息。
 
 选择器会标出默认值：会展开 `@` import 的 target 为 `import`，其他为 `symlink`，在未开启
 Developer Mode 的 Windows 上则为 `copy`。使用多份共享文件的 target 只能使用 `import`。
@@ -201,8 +205,10 @@ Developer Mode 的 Windows 上则为 `copy`。使用多份共享文件的 target
 | `not synced` | target 文件还不存在 |
 | `no source` | 共享文件本身不存在 |
 
+如果 target 文件路径被文件夹占用，请先删除或重命名该文件夹，再同步；同步不会替换它。
+
 当有已连接的 target 处于 `drift` 或 `not synced` 时，标题会显示有多少个需要 sync，并提供
-**同步** 按钮，把这份文件的链接和 import 行放回原位。
+**同步** 按钮，把这份文件的链接、副本和 import 行放回原位。
 
 **编辑** 会在大尺寸编辑器中打开文件，带有 **编辑** 和 **预览** 两个标签页。侧边栏列出保存后会立即读到这份文件的 target，并对只
 读取长文件前一部分的 target 给出警告。按 ⌘S（Ctrl+S）保存。上一个版本会被备份，`copy` 模式的 target 也会获得新内容；保存后的提示会列出这些 target。
@@ -229,6 +235,8 @@ Developer Mode 的 Windows 上则为 `copy`。使用多份共享文件的 target
 文件夹中。
 
 在 Windows 上，原本的 junction 会还原为 junction，不需要 Developer Mode 或管理员权限。
+
+替换你自己创建的 junction 时，警告会列出它原本指向的位置。
 
 ## 当链接的文件被编辑时 {#when-a-linked-file-is-edited}
 

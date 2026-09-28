@@ -80,7 +80,7 @@ Summary
 
 每個 target 會顯示 **skills** 與 **agents**（若有設定 agents）的子項目：
 - Skills：路徑、同步模式、同步狀態、共用/本機數量
-- Agents：同步模式、已連結數量、飄移偵測。在沒有開啟開發人員模式的 Windows 上，`merge` 會顯示為 `[copy]`，而最新的副本會算作已連結
+- Agents：同步模式、已連結數量、飄移偵測。在沒有開啟 Developer Mode 的 Windows 上，`merge` 會顯示為 `[copy]`；最新的受管理副本會算作已連結。skillshare 不擁有、但內容相同的本機檔案會被保留。在 copy fallback 中，agent 計數會以 `local preserved` 分開顯示，例如 `0/1 linked, 1 local preserved`。
 - 沒有損壞的 symlinks
 - 針對非預期本機衝突的重複 skill 檢查：
   - `merge` 模式：跳過（本機 skills 屬於預期情況）

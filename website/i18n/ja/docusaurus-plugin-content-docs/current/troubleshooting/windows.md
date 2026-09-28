@@ -141,6 +141,8 @@ Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name
 セキュリティ → 開発者向け**）、もう一度 `skillshare sync --all` を実行してください。`skillshare ui` が
 起動している場合は再起動してください。
 
+内容が同じローカルファイルは `local preserved` と表示され、`sync extras` はそれらに `--force` を提案しません。管理対象のリンクにはならず、ローカルファイルのままです。
+
 ### Agent ファイルや AGENTS.md がフォルダーのアイコンで表示され、読み込めない {#agent-files-or-agentsmd-show-a-folder-icon-and-cant-be-read}
 
 **原因:** 以前のバージョンは、単一のファイルをディレクトリジャンクションでリンクしていました。エクスプローラーは

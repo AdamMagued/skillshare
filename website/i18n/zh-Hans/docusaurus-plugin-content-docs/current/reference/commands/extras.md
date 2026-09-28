@@ -258,6 +258,8 @@ skillshare extras collect rules --force
 
 在未开启 Developer Mode 的 Windows 上，`merge` 会复制每个文件而不是链接它，`sync` 会打印 `file links need Windows Developer Mode; copying instead`。之后 `extras list` 和 `status` 会把该 target 显示为 `copy`。这些副本会被追踪，因此之后的 sync 会更新和清理它们、保留你自己的文件，并在文件链接可用后把它们替换为链接。参见 [Windows 疑难解答](/docs/troubleshooting/windows#file-links-need-windows-developer-mode-copying-instead)。
 
+内容相同的本地文件会显示为 `local preserved`；`sync extras` 不会为它们建议使用 `--force`。它们仍是本地文件，不是受管理的链接。
+
 切换 mode 时（例如从 `merge` 切换到 `copy`），下一次 `sync` 会自动将已有的 symlink 替换为新 mode 的格式。无需 `--force` —— symlink 始终可以安全替换。本地创建的普通文件需要 `--force` 才能被覆盖。
 
 ---

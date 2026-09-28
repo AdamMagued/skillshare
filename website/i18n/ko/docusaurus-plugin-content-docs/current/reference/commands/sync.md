@@ -612,6 +612,8 @@ merge mode에서는 symlink만 pruning되며 — target에 사용자가 만든 l
 
 Developer Mode가 없는 Windows에서는 merge mode(그리고 symlink mode의 [single-file extra](./extras.md#single-file-extras))가 대신 파일을 복사하고, target을 `(copy)`로 표시하며, 그 아래에 `file links need Windows Developer Mode; copying instead`를 출력합니다. 이 복사본은 링크처럼 업데이트되고 pruning되며, 파일 링크를 쓸 수 있게 되면 링크로 교체됩니다.
 
+내용이 같은 로컬 파일은 `local preserved`로 표시되며, `sync extras`는 해당 파일에 `--force`를 권하지 않습니다. 관리되는 링크가 아닌 로컬 파일로 유지됩니다.
+
 ### 동작 방식
 
 ```mermaid

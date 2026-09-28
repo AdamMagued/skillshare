@@ -80,7 +80,7 @@ Summary
 
 각 target은 **skills**와 **agents**(agent가 구성된 경우)에 대한 하위 항목을 보여줍니다:
 - Skills: 경로, sync 모드, sync 상태, shared/local 개수
-- Agents: sync mode, linked 개수, drift 탐지. Developer Mode가 없는 Windows에서는 `merge`가 `[copy]`로 표시되며, 최신 상태의 복사본은 linked로 집계됩니다
+- Agents: sync mode, linked 개수, drift 탐지. Developer Mode가 없는 Windows에서는 `merge`가 `[copy]`로 표시되며, 최신 상태의 관리되는 복사본은 linked로 집계됩니다. skillshare가 소유하지 않는 내용이 같은 로컬 파일은 유지됩니다. copy fallback에서 agent 개수는 이를 `local preserved`로 따로 표시합니다(예: `0/1 linked, 1 local preserved`).
 - 깨진 symlink 없음
 - 의도치 않은 local 충돌에 대한 중복 skill 검사:
   - `merge` 모드: 건너뜀 (local skill은 예상된 것)

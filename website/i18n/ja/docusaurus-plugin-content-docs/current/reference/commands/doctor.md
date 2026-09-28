@@ -80,7 +80,7 @@ Summary
 
 各 Target には **skills** と **agents**（Agent が設定されている場合）のサブ項目が表示されます。
 - Skills: パス、sync モード、sync 状態、共有/ローカルの件数
-- Agents: sync モード、リンク済み件数、drift の検出。Developer Mode がオフの Windows では `merge` が `[copy]` と表示され、最新のコピーはリンク済みとして数えられます
+- Agents: sync モード、リンク済み件数、drift の検出。Developer Mode がオフの Windows では `merge` が `[copy]` と表示され、最新の管理対象コピーはリンク済みとして数えられます。skillshare が所有していない、内容が同じローカルファイルは保持されます。copy fallback では agent の件数に `local preserved` として別に表示されます（例：`0/1 linked, 1 local preserved`）。
 - 壊れたシンボリックリンクがないこと
 - 意図しないローカルの衝突を検出する Skill 重複チェック:
   - `merge` モード: スキップ（ローカルの Skill は想定内のため）

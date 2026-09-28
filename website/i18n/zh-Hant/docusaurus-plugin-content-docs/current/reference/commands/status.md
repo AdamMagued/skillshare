@@ -89,7 +89,7 @@ claude
 **agents 子項目**顯示：
 - **Sync 模式**：agents 實際使用的同步模式。在沒有開啟開發人員模式的 Windows 上，`merge` 會顯示為 `[copy]`，因為 agent 檔案是被複製而不是連結
 - **狀態**：`merged`、`copied`、`linked` 或 `drift`
-- **連結數量**：例如 `8/8 linked`（最新的副本也算作已連結）
+- **連結數量**：例如 `8/8 linked`（最新的副本也算作已連結）。在 copy fallback 中，skillshare 不擁有但內容相同的本機檔案會被保留並分開顯示，例如 `0/1 linked, 1 local preserved`
 
 若 agents source 不存在，或該 target 沒有設定 agent 路徑，則會省略 agents 子項目。
 

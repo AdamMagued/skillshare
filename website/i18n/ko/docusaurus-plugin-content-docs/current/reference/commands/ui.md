@@ -99,6 +99,8 @@ skillshare ui start --clear-cache
 | **Audit** | skill과 agent에 대한 보안 스캔이며, 심각도별로 findings를 표시합니다. **Rules** 탭에서는 카테고리별로 모든 rule을 탐색할 수 있습니다: rule을 끄거나, 심각도를 변경하거나, 카테고리 전체에 심각도를 적용하거나, 스캔 profile(`default`, `strict`, `permissive`)을 선택하거나, 사용자 지정 `audit-rules.yaml` 편집기를 엽니다 |
 | **Settings** | 탭으로 구성: **General**(source 경로, sync mode, 외관), **Backup**(스냅샷과 복원), **Log**(작업 이력), **Health**([`doctor`](/docs/reference/commands/doctor)와 동일한 검사), **Extensions**(sync 시점의 파일 변환), **Files**(`config.yaml`, `.skillignore`, `.agentignore`를 위한 직접 편집기) |
 
+**Updates** 탭의 진행률 표시줄은 업데이트 진행 상황을 보여 주며 업데이트 중인 행도 표시됩니다. 차단되거나 실패한 업데이트는 별도 섹션에 표시됩니다.
+
 `/collect`, `/install`, `/search`, `/trash`, `/analyze`, `/backup`, `/log`, `/doctor`와 같은 이전 링크는 새 위치로 리디렉션됩니다.
 
 **Files** 탭은 편집기 옆에 패널을 배치합니다. `config.yaml`의 경우 커서 아래 필드가 하는 역할, 파일 구조, 저장되지 않은 변경 사항을 보여줍니다. ignore 파일의 경우 패턴이 현재 무엇을 숨기고 있는지 나열합니다. `Cmd+S` / `Ctrl+S`로 저장합니다. **Audit -> Rules -> Edit YAML** 아래의 rules 편집기에는 동일한 패널과 함께, 붙여넣은 줄에 대해 rule의 regex를 실행하는 **Test** 탭이 있습니다.

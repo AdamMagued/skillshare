@@ -129,6 +129,8 @@ Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name
 
 **解決方法：** 不需要做任何事；副本會繼續正常運作。若想改用連結，請開啟開發人員模式（Windows 11：**設定 → 系統 → 開發人員專用 → 開發人員模式**；Windows 10：**設定 → 更新與安全性 → 開發人員專用**），然後再執行一次 `skillshare sync --all`。如果 `skillshare ui` 正在執行，請重新啟動它。
 
+內容相同的本機檔案會顯示為 `local preserved`；`sync extras` 不會為它們建議使用 `--force`。它們仍是本機檔案，不是受管理的連結。
+
 ### Agent 檔案或 AGENTS.md 顯示為資料夾圖示且無法讀取 {#agent-files-or-agentsmd-show-a-folder-icon-and-cant-be-read}
 
 **原因：** 舊版本用目錄 junction 連結單一檔案。檔案總管會把該檔案顯示成資料夾，工具也讀不到它。

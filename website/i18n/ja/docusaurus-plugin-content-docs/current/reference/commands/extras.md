@@ -258,6 +258,8 @@ skillshare extras collect rules --force
 
 Developer Mode がオフの Windows では、`merge` は各ファイルをリンクする代わりにコピーし、`sync` は `file links need Windows Developer Mode; copying instead` と表示します。その場合、`extras list` と `status` では Target が `copy` と表示されます。コピーは追跡されるため、後の sync で更新・削除され、自分のファイルは残り、ファイルのリンクが使えるようになるとリンクに置き換えられます。[Windows のトラブルシューティング](/docs/troubleshooting/windows#file-links-need-windows-developer-mode-copying-instead) を参照してください。
 
+内容が同じローカルファイルは `local preserved` と表示され、`sync extras` はそれらに `--force` を提案しません。管理対象のリンクにはならず、ローカルファイルのままです。
+
 モードを切り替える場合（例: `merge` から `copy` へ）、次の `sync` で既存のシンボリックリンクが自動的に新しいモードの形式に置き換えられます。`--force` は不要です — シンボリックリンクは常に安全に置き換えられます。ローカルで作成された通常のファイルを上書きするには `--force` が必要です。
 
 ---

@@ -260,6 +260,8 @@ skillshare extras collect rules --force
 
 On Windows without Developer Mode, `merge` copies each file instead of linking it, and `sync` prints `file links need Windows Developer Mode; copying instead`. `extras list` and `status` then show the target as `copy`. The copies are tracked, so later syncs update and prune them, keep your own files, and replace them with links once file links work. See [Windows troubleshooting](/docs/troubleshooting/windows#file-links-need-windows-developer-mode-copying-instead).
 
+Identical local files are reported as `local preserved`; `sync extras` does not suggest `--force` for them. They remain local files, not managed links.
+
 When switching modes (e.g., from `merge` to `copy`), the next `sync` automatically replaces existing symlinks with the new mode's format. No `--force` is needed — symlinks are always safe to replace. Regular files created locally require `--force` to overwrite.
 
 ---

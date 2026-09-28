@@ -609,6 +609,8 @@ merge mode では、シンボリックリンクのみが削除されます — t
 
 Developer Mode がオフの Windows では、merge mode（および symlink mode の[単一ファイルの Extras](./extras.md#single-file-extras)）は代わりにファイルをコピーし、target を `(copy)` と報告して、その下に `file links need Windows Developer Mode; copying instead` と表示します。これらのコピーはリンクと同じように更新・削除され、ファイルのリンクが使えるようになるとリンクに置き換えられます。
 
+内容が同じローカルファイルは `local preserved` と表示され、`sync extras` はそれらに `--force` を提案しません。管理対象のリンクにはならず、ローカルファイルのままです。
+
 ### 実行内容
 
 ```mermaid

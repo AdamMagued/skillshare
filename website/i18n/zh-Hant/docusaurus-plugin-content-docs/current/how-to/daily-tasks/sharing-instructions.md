@@ -118,6 +118,8 @@ skills 資料夾，Gemini CLI、Pi、OpenCode 等工具則是除了自己的資�
 
 關閉共用時，內容會放到 `~/.claude/AGENTS.md`，`CLAUDE.md` 則會加上一行 `@AGENTS.md`。
 
+沒有其他可選的共用檔案時，**Convert…** 只要求輸入新名稱；有其他檔案可選時才會顯示共用檔案選單。
+
 ## 在 global mode 共用一份 AGENTS.md {#share-one-agentsmd-in-global-mode}
 
 前往 **Extras**，開啟 **AGENTS.md** 分頁。**新增共用 AGENTS.md** 會詢問名稱（英文字母、數字、
@@ -177,7 +179,9 @@ Target 使用共用檔案的方式，取決於它是否會展開 `@` import：
 |------|-------------|-----------|
 | `import` | 你自己的檔案，受管理區塊中有一行 `@import`。共用檔案的改動會立即生效 | 會展開 `@` import 的 target |
 | `symlink` | 指向共用檔案的連結。改動會立即生效 | 沒有開啟開發人員模式的 Windows 上不可用 |
-| `copy` | 共用檔案的複本。在儀表板儲存共用檔案時會一併更新複本；在其他地方編輯後需要再同步一次 | 一律可用 |
+| `copy` | 共用檔案的複本。在儀表板儲存共用檔案時會一併更新複本；在其他地方編輯共用檔案後，請在這一頁按 **Sync** 再同步一次 | 一律可用 |
+
+無法使用檔案連結時，**Targets** 旁的資訊提示會說明 Windows Developer Mode。指令檔的警告與錯誤會使用儀表板語言；未知代碼則顯示原始英文訊息。
 
 選單會標出預設值：會展開 `@` import 的 target 是 `import`，其他是 `symlink`，在沒有開啟
 開發人員模式的 Windows 上則是 `copy`。使用多份共用檔案的 target 只能用 `import`。變更模式會
@@ -197,8 +201,10 @@ Target 使用共用檔案的方式，取決於它是否會展開 `@` import：
 | `not synced`（尚未同步） | Target 檔案還不存在 |
 | `no source`（來源不存在） | 共用檔案本身不見了 |
 
+若 target 檔案路徑被資料夾占用，請先移除或重新命名該資料夾，再同步；同步不會取代它。
+
 當已接上的 target 是 `drift` 或 `not synced` 時，標題會顯示有幾個需要同步，並出現 **同步** 按鈕，
-把這份檔案的連結與 import 行放回正確位置。
+把這份檔案的連結、複本與 import 行放回正確位置。
 
 **編輯** 會在大型編輯器中開啟檔案，編輯器有 **編輯** 與 **預覽** 兩個分頁。側邊面板會列出存檔後立即讀到新內容的
 target，並警告哪些 target 只會讀取長檔案的一部分。按 ⌘S（Ctrl+S）儲存。前一個版本會先備份，
@@ -224,6 +230,8 @@ target，並警告哪些 target 只會讀取長檔案的一部分。按 ⌘S（C
 刪除共用檔案會把它從設定中移除，並還原所有使用它的 target。檔案本身會留在 extras 資料夾中。
 
 在 Windows 上，原本的 junction 會還原為 junction，不需要 Developer Mode 或管理員權限。
+
+取代你自己建立的 junction 時，警告會列出它原本指向的位置。
 
 ## 已連結的檔案被修改時 {#when-a-linked-file-is-edited}
 

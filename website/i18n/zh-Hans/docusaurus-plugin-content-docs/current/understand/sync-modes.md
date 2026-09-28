@@ -317,6 +317,8 @@ extras:
 
 :::note 未开启 Developer Mode 的 Windows
 merge 模式链接的是单个文件，而 Windows 只有在开启 Developer Mode 时才允许这样做。没有开启时，merge 模式下的 agents 和 extras 会改为复制，这些副本会像链接一样被更新和清理。Skills 是文件夹，所以无论如何都会（用 junction）链接。参见 [Windows 疑难解答](/docs/troubleshooting/windows#file-links-need-windows-developer-mode-copying-instead)。
+
+skillshare 不拥有、但内容相同的本地文件会被保留。在 copy fallback 中，agent 计数会以 `local preserved` 单独显示，例如 `0/1 linked, 1 local preserved`。
 :::
 
 ---

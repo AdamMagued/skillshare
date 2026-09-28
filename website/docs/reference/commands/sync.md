@@ -618,6 +618,8 @@ In merge mode, only symlinks are pruned — user-created local files at the targ
 
 On Windows without Developer Mode, merge mode (and a [single-file extra](./extras.md#single-file-extras) in symlink mode) copies files instead, reports the target as `(copy)`, and prints `file links need Windows Developer Mode; copying instead` under it. These copies are updated and pruned like links, and replaced with links once file links work.
 
+Identical local files are reported as `local preserved`; `sync extras` does not suggest `--force` for them. They remain local files, not managed links.
+
 ### What happens
 
 ```mermaid

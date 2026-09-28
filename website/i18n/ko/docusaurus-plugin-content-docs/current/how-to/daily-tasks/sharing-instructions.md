@@ -130,6 +130,8 @@ global 모드에서는 첫 번째 방법에 **다른 대상도 쓸 수 있는 �
 공유를 끄면 내용은 `~/.claude/AGENTS.md`로 가고 `CLAUDE.md`에 `@AGENTS.md` 줄이
 추가됩니다.
 
+선택할 다른 공유 파일이 없으면 **Convert…**에서 새 이름만 입력합니다. 다른 파일을 선택할 수 있을 때만 공유 파일 선택기가 표시됩니다.
+
 ## global 모드에서 하나의 AGENTS.md 공유하기 {#share-one-agentsmd-in-global-mode}
 
 **Extras**로 가서 **AGENTS.md** 탭을 여세요. **새 공유 AGENTS.md**는 이름(영문자, 숫자,
@@ -196,7 +198,9 @@ target이 공유 파일을 쓰는 방식은 `@` import를 따르는지에 따라
 |------|-------------|-----------|
 | `import` | 사용자 자신의 파일이며, 관리 블록 안에 `@import` 줄이 하나 있음. 공유 파일의 변경이 바로 반영됨 | `@` import를 따르는 target |
 | `symlink` | 공유 파일에 대한 링크. 변경이 바로 반영됨 | Developer Mode가 없는 Windows에서는 불가 |
-| `copy` | 공유 파일의 복사본. 대시보드에서 공유 파일을 저장하면 복사본도 업데이트됨. 다른 곳에서 편집한 뒤에는 다시 sync해야 함 | 항상 |
+| `copy` | 공유 파일의 복사본. 대시보드에서 공유 파일을 저장하면 복사본도 업데이트됨. 다른 곳에서 공유 파일을 편집한 뒤에는 이 페이지의 **Sync**로 다시 sync해야 함 | 항상 |
+
+파일 링크를 사용할 수 없으면 **Targets** 옆의 정보 툴팁에 Windows Developer Mode 설명이 표시됩니다. 지침 파일의 경고와 오류는 대시보드 언어로 표시되며, 알 수 없는 코드는 원래 영어 메시지로 표시됩니다.
 
 선택기는 기본값을 표시합니다. `@` import를 따르는 target은 `import`, 그 밖에는
 `symlink`이며, Developer Mode가 없는 Windows에서는 `copy`입니다. 공유 파일을 둘 이상 쓰는
@@ -217,8 +221,10 @@ mode 변경으로 편집 내용을 교체하면 dashboard가 백업을 알려 �
 | `not synced` (동기화되지 않음) | target 파일이 아직 없음 |
 | `no source` (소스 없음) | 공유 파일 자체가 없음 |
 
+Target 파일 경로를 폴더가 차지하고 있으면 폴더를 삭제하거나 이름을 바꾼 뒤 동기화하세요. 동기화는 폴더를 교체하지 않습니다.
+
 연결된 target이 `drift` 또는 `not synced`이면, 제목에 sync가 필요한 target 수와 이 파일의
-링크와 import 줄을 다시 제자리에 두는 **동기화** 버튼이 표시됩니다.
+링크, 복사본, import 줄을 다시 제자리에 두는 **동기화** 버튼이 표시됩니다.
 
 **편집**은 **편집**과 **미리 보기** 탭이 있는 큰 편집기에서 파일을 엽니다. 옆 패널에는 저장한 파일을 바로 읽는 target이
 나열되고, 긴 파일의 일부만 읽는 target에 대한 경고가 표시됩니다. ⌘S(Ctrl+S)를 눌러
@@ -249,6 +255,8 @@ import 줄만 제거되며, skillshare가 블록만을 위해 만든 `CLAUDE.md`
 extras 폴더에 남습니다.
 
 Windows에서는 원래 junction을 junction으로 복원하며 Developer Mode나 관리자 권한이 필요하지 않습니다.
+
+직접 만든 junction을 교체하면 경고에 원래 가리키던 위치가 표시됩니다.
 
 ## 링크된 파일이 편집되었을 때 {#when-a-linked-file-is-edited}
 

@@ -89,7 +89,7 @@ claude
 **Agents sub-item** shows:
 - **Sync mode**: the mode agents actually sync with. On Windows without Developer Mode, `merge` shows as `[copy]` because agent files are copied instead of linked
 - **Status**: `merged`, `copied`, `linked`, or `drift`
-- **Linked count**: e.g. `8/8 linked` (up-to-date copies count as linked)
+- **Linked count**: e.g. `8/8 linked` (up-to-date copies count as linked). In copy fallback, identical local files that skillshare does not own are kept and shown separately, e.g. `0/1 linked, 1 local preserved`
 
 If agents source does not exist or the target has no agent path configured, the agents sub-item is omitted.
 

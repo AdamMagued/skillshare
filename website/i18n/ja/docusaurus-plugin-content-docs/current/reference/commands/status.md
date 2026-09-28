@@ -89,7 +89,7 @@ claude
 **Agents サブ項目**が表示するもの:
 - **Sync mode**: agents が実際に sync されるモード。Developer Mode がオフの Windows では、agent ファイルはリンクではなくコピーされるため、`merge` が `[copy]` と表示されます
 - **Status**: `merged`、`copied`、`linked`、または `drift`
-- **Linked count**: 例 `8/8 linked`（最新のコピーはリンク済みとして数えられます）
+- **Linked count**: 例 `8/8 linked`（最新のコピーはリンク済みとして数えられます）。copy fallback では、skillshare が所有していない内容が同じローカルファイルは保持され、別に表示されます（例：`0/1 linked, 1 local preserved`）
 
 agents source が存在しない、または target に agent path が設定されていない場合、agents サブ項目は省略されます。
 

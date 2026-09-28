@@ -129,6 +129,8 @@ The copies are tracked, so they still behave like links as far as sync is concer
 
 **Solution:** Nothing is required; the copies keep working. To get links instead, turn on Developer Mode (Windows 11: **Settings → System → For developers → Developer Mode**; Windows 10: **Settings → Update & Security → For developers**), then run `skillshare sync --all` again. Restart `skillshare ui` if it is running.
 
+Identical local files are reported as `local preserved`; `sync extras` does not suggest `--force` for them. They remain local files, not managed links.
+
 ### Agent files or AGENTS.md show a folder icon and can't be read
 
 **Cause:** Older versions linked single files with a directory junction. Explorer shows the file as a folder, and tools can't read it.

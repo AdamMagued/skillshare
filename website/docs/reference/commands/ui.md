@@ -99,6 +99,8 @@ Some pages show a count in the sidebar when they need attention. The counts refr
 | **Audit** | Security scan of skills and agents, with findings by severity. The **Rules** tab browses every rule by category: switch one off, change its severity, apply a severity to a whole category, pick the scan profile (`default`, `strict`, `permissive`), or open the editor for custom `audit-rules.yaml` |
 | **Settings** | Tabbed: **General** (source paths, sync mode, appearance), **Backup** (snapshots and restore), **Log** (operation history), **Health** (the same checks as [`doctor`](/docs/reference/commands/doctor)), **Extensions** (sync-time file transforms), **Files** (direct editors for `config.yaml`, `.skillignore`, and `.agentignore`) |
 
+On the **Updates** tab, a progress bar tracks the update run and the active row is marked while it updates. Blocked or failed updates appear in a separate section.
+
 Old links such as `/collect`, `/install`, `/search`, `/trash`, `/analyze`, `/backup`, `/log`, and `/doctor` redirect to their new place.
 
 The **Files** tab puts a panel beside the editor. For `config.yaml` it shows what the field under the cursor does, the file's structure, and the unsaved changes; for the ignore files it lists what the patterns currently hide. `Cmd+S` / `Ctrl+S` saves. The rules editor under **Audit -> Rules -> Edit YAML** has the same panel plus a **Test** tab that runs a rule's regex against lines you paste.

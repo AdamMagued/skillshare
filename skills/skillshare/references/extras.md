@@ -173,6 +173,8 @@ The first sync records the target's attach-time state as its restore point
 mode they only drop the managed line when the file has other content. Later edits
 that sync, overwrite, or restore replace are kept as drift backups in
 `~/.local/state/skillshare/extras/backups/<id>/drift/` and are never restored.
+When replacing a user junction for a single-file extra, the warning includes its original destination; restore recreates the junction.
+
 `--remove-target` without `--prune` leaves the single-file target in place and unmanaged, and forgets its restore point. Later syncs do not clean it up; attaching it again records a new restore point.
 `flatten` and `extension` are rejected on a single-file extra; `extras collect`
 does not apply. The web dashboard (Extras -> AGENTS.md) manages these as shared
