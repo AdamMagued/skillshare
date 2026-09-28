@@ -272,6 +272,17 @@ export interface SharedInstructionsFile {
   size: number;
   chars: number;
   targets: number;
+  locations?: InstructionLocation[]; // other folders the file is put in; an older server leaves it out
+}
+
+/** A folder, not a tool's instruction file, that a shared file is put in. */
+export interface InstructionLocation {
+  path: string; // the folder as stored in config; names the location in the calls below
+  file: string; // the file written
+  as?: string; // custom file name
+  mode: 'import' | 'symlink' | 'copy';
+  status: string; // same values as InstructionsAssignment.status
+  reason?: 'folder_link' | 'directory';
 }
 
 export interface SharedInstructionsTarget {
@@ -720,7 +731,7 @@ export const api = {
         ...(extension !== undefined && { extension }),
       }),
     }),
-  addExtraTarget: (name: string, target: { path: string; mode?: string; flatten?: boolean }) =>
+  addExtraTarget: (name: string, target: { path: string; mode?: string; flatten?: boolean; as?: string }) =>
     apiFetch<{ success: boolean }>(`/extras/${encodeURIComponent(name)}/targets`, {
       method: 'POST',
       body: JSON.stringify(target),
@@ -784,6 +795,20 @@ export const api = {
     }),
   getSharedRestorePreview: (name: string, target: string) =>
     apiFetch<SharedRestorePreview>(`/instructions/${encodeURIComponent(name)}/restore-preview?target=${encodeURIComponent(target)}`),
+  addInstructionLocation: (name: string, body: { path: string; as?: string; mode?: string }) =>
+    apiFetch<{ success: boolean; warnings?: InstructionsWarning[] }>(`/instructions/${encodeURIComponent(name)}/locations`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  setInstructionLocationMode: (name: string, path: string, mode: string) =>
+    apiFetch<{ success: boolean; warnings?: InstructionsWarning[] }>(`/instructions/${encodeURIComponent(name)}/locations/mode`, {
+      method: 'PUT',
+      body: JSON.stringify({ path, mode }),
+    }),
+  removeInstructionLocation: (name: string, path: string) =>
+    apiFetch<{ success: boolean; warnings?: InstructionsWarning[] }>(`/instructions/${encodeURIComponent(name)}/locations?path=${encodeURIComponent(path)}`, { method: 'DELETE' }),
+  getLocationRestorePreview: (name: string, path: string) =>
+    apiFetch<SharedRestorePreview>(`/instructions/${encodeURIComponent(name)}/locations/restore-preview?path=${encodeURIComponent(path)}`),
   resolveSharedInstructions: (name: string, target: string, action: 'collect' | 'reapply') =>
     apiFetch<{ success: boolean }>(`/instructions/${encodeURIComponent(name)}/resolve`, {
       method: 'POST',

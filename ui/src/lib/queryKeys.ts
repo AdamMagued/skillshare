@@ -53,6 +53,7 @@ export const queryKeys = {
     shared: ['instructions', 'shared'] as const,
     sharedContent: (name: string) => ['instructions', 'shared', name] as const,
     restorePreview: (name: string, target: string) => ['instructions', 'restore-preview', name, target] as const,
+    locationRestorePreview: (name: string, path: string) => ['instructions', 'location-restore-preview', name, path] as const,
     project: ['instructions', 'project'] as const,
   },
   mcp: ['mcp'] as const,

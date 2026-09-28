@@ -10,9 +10,10 @@ import { shortenHome } from '../../lib/paths';
 import { queryKeys } from '../../lib/queryKeys';
 import { instructionsErrorMessage, formatSize, lineCount, lineDiff } from './instructionsView';
 
-/** Restore one target: shows what its file goes back to before taking the shared file off it. */
-export default function RestorePreviewDialog({ name, target, label, mode, busy, onConfirm, onClose }: {
+/** Restore one target, or remove one other location: shows what its file goes back to before taking the shared file off it. */
+export default function RestorePreviewDialog({ name, target, label, mode, busy, onConfirm, onClose, location = false }: {
   name: string;
+  /** A target's name, or with location the location's folder as stored. */
   target: string;
   /** How the target gets the file: an import target only loses the import line. */
   mode: string;
@@ -21,11 +22,17 @@ export default function RestorePreviewDialog({ name, target, label, mode, busy, 
   busy: boolean;
   onConfirm: () => void;
   onClose: () => void;
+  /** target is another location: removing it also takes it out of the list. */
+  location?: boolean;
 }) {
   const t = useT();
   const [tab, setTab] = useState<'content' | 'diff'>('content');
-  const { data, error } = useQuery({ queryKey: queryKeys.instructions.restorePreview(name, target), queryFn: () => api.getSharedRestorePreview(name, target), gcTime: 0 });
-  const title = t('instructions.restorePreview.title', { name, target: label });
+  const { data, error } = useQuery({
+    queryKey: location ? queryKeys.instructions.locationRestorePreview(name, target) : queryKeys.instructions.restorePreview(name, target),
+    queryFn: () => (location ? api.getLocationRestorePreview(name, target) : api.getSharedRestorePreview(name, target)),
+    gcTime: 0,
+  });
+  const title = t(location ? 'instructions.locations.removeTitle' : 'instructions.restorePreview.title', { name, target: label });
   const lines = data ? data.content.replace(/\n$/, '').split('\n') : [];
   // The record behind the preview is kept per target file, not per shared file, so
   // its time can be another shared file's; the line says what happens, without a time.
@@ -89,7 +96,9 @@ export default function RestorePreviewDialog({ name, target, label, mode, busy, 
       </div>
       <div className="df">
         <Button variant="ghost" onClick={onClose} disabled={busy}>{t('common.cancel')}</Button>
-        <Button variant="primary" onClick={onConfirm} loading={busy} disabled={!data}>{t('instructions.detail.restore')}</Button>
+        <Button variant={location ? 'danger' : 'primary'} onClick={onConfirm} loading={busy} disabled={!data}>
+          {t(location ? 'instructions.locations.removeConfirm' : 'instructions.detail.restore')}
+        </Button>
       </div>
     </DialogShell>
   );

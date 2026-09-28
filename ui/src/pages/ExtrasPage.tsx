@@ -54,17 +54,22 @@ interface Draft {
   mode: string;
   flatten: boolean;
   extension: string;
+  as: string; // single-file extra: the file name in the target folder
 }
 
-const newDraft = (): Draft => ({ id: crypto.randomUUID(), path: '', mode: 'merge', flatten: false, extension: '' });
+const newDraft = (): Draft => ({ id: crypto.randomUUID(), path: '', mode: 'merge', flatten: false, extension: '', as: '' });
 
-/** Folder · Extension · Mode · flatten, shared by the Add extra dialog and the inline Add target row. */
-function DraftFields({ draft, onChange, extensions, known, disabled }: {
+/**
+ * Folder · Extension · Mode · flatten, shared by the Add extra dialog and the inline Add target row.
+ * A single-file extra (file set) takes a file name instead of an extension.
+ */
+function DraftFields({ draft, onChange, extensions, known, disabled, file }: {
   draft: Draft;
   onChange: (next: Draft) => void;
   extensions: string[];
   known: AvailableTarget[];
   disabled: boolean;
+  file?: string;
 }) {
   const t = useT();
   const locked = draft.extension !== '';
@@ -80,14 +85,25 @@ function DraftFields({ draft, onChange, extensions, known, disabled }: {
           disabled={disabled}
         />
       </span>
-      <Select
+      {file ? (
+        <span className="ss-inp w-[170px] shrink-0">
+          <input
+            className="font-mono"
+            value={draft.as}
+            onChange={(e) => onChange({ ...draft, as: e.target.value })}
+            placeholder={file}
+            aria-label={t('extras.modal.colFileName')}
+            disabled={disabled}
+          />
+        </span>
+      ) : <Select
         className="w-[170px] shrink-0"
         value={draft.extension}
         // An extension converts each file, so it always writes copies
         onChange={(v) => onChange({ ...draft, extension: v, ...(v ? { mode: 'copy' } : {}) })}
         options={[{ value: '', label: t('extras.noExtension') }, ...extensions.map((e) => ({ value: e, label: e }))]}
         disabled={disabled || extensions.length === 0}
-      />
+      />}
       <Select
         className="w-[104px] shrink-0"
         value={locked ? 'copy' : draft.mode}
@@ -244,11 +260,12 @@ function AddExtraDialog({ onClose, onCreated, extensions, known, sharedDir }: {
   );
 }
 
-function AddTargetRow({ onAdd, onCancel, extensions, known }: {
+function AddTargetRow({ onAdd, onCancel, extensions, known, file }: {
   onAdd: (draft: Draft) => Promise<boolean>;
   onCancel: () => void;
   extensions: string[];
   known: AvailableTarget[];
+  file?: string;
 }) {
   const t = useT();
   const [draft, setDraft] = useState(newDraft);
@@ -260,7 +277,7 @@ function AddTargetRow({ onAdd, onCancel, extensions, known }: {
   };
   return (
     <form className="ss-r !min-h-[52px] !py-1.5" onSubmit={(e) => { e.preventDefault(); void add(); }}>
-      <DraftFields draft={draft} onChange={setDraft} extensions={extensions} known={known} disabled={busy} />
+      <DraftFields draft={draft} onChange={setDraft} extensions={extensions} known={known} disabled={busy} file={file} />
       <Button type="submit" variant="primary" size="sm" loading={busy} disabled={!draft.path.trim()}>{t('extras.addTarget')}</Button>
       <button type="button" className="ss-ib shrink-0" aria-label={t('extras.cancel')} onClick={onCancel} disabled={busy}><X size={16} /></button>
     </form>
@@ -343,7 +360,7 @@ export default function ExtrasPage() {
   const addTarget = async (name: string, d: Draft) => {
     const path = d.path.trim();
     try {
-      await api.addExtraTarget(name, { path, mode: d.extension ? 'copy' : d.mode, flatten: d.flatten });
+      await api.addExtraTarget(name, { path, mode: d.extension ? 'copy' : d.mode, flatten: d.flatten, ...(d.as.trim() && { as: d.as.trim() }) });
       // The add endpoint takes no extension, so set it on the new target afterwards
       if (d.extension) await api.setExtraMode(name, path, 'copy', undefined, d.extension);
       toast(t('extras.toast.targetAdded', { path }), 'success');
@@ -463,7 +480,7 @@ export default function ExtrasPage() {
                   return (
                     <div key={tg.path} className="ss-r !min-h-[46px]">
                       <TargetMark path={tg.path} known={known} />
-                      <span className="min-w-0 flex-1 truncate font-mono text-[13px]" title={tg.path}>{shortenHome(tg.path)}</span>
+                      <span className="min-w-0 flex-1 truncate font-mono text-[13px]" title={tg.path}>{shortenHome(tg.path)}{tg.as && <span className="text-ink-3">/{tg.as}</span>}</span>
                       <TargetTags target={tg} />
                       <span className="w-[120px] shrink-0">
                         <span className={`ss-st ${status?.tone ?? ''}`}>{status ? t(status.labelKey) : tg.status}</span>
@@ -475,7 +492,7 @@ export default function ExtrasPage() {
                   );
                 })}
                 {addingTo === extra.name ? (
-                  <AddTargetRow onAdd={(d) => addTarget(extra.name, d)} onCancel={() => setAddingTo(null)} extensions={extensions} known={known} />
+                  <AddTargetRow onAdd={(d) => addTarget(extra.name, d)} onCancel={() => setAddingTo(null)} extensions={extensions} known={known} file={extra.file} />
                 ) : (
                   <div className="ss-r !min-h-10">
                     <button type="button" className="flex items-center gap-[7px] text-[13px] text-ink-2 hover:text-ink" onClick={() => setAddingTo(extra.name)}>

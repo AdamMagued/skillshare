@@ -3,9 +3,9 @@ import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronDown, ChevronUp, Copy, Ellipsis, FilePlus, Info, Plus, Trash2, TriangleAlert, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Copy, Ellipsis, FilePlus, Folder, Info, Plus, Trash2, TriangleAlert, X } from 'lucide-react';
 import { api, ApiError } from '../../api/client';
-import type { InstructionsWarning, SharedInstructionsFile, SharedInstructionsTarget } from '../../api/client';
+import type { InstructionLocation, InstructionsWarning, SharedInstructionsFile, SharedInstructionsTarget } from '../../api/client';
 import AgentIcon from '../AgentIcon';
 import Button from '../Button';
 import { Checkbox } from '../Checkbox';
@@ -19,13 +19,14 @@ import { useToast } from '../Toast';
 import { useT } from '../../i18n';
 import { queryKeys } from '../../lib/queryKeys';
 import { fileName, shortenHome } from '../../lib/paths';
+import AddLocationDialog from './AddLocationDialog';
 import InstructionsEditorDialog from './InstructionsEditorDialog';
 import NewSharedDialog from './NewSharedDialog';
 import RestorePreviewDialog from './RestorePreviewDialog';
 import { BoxHeader, InstructionsPreview } from './ViewTabs';
-import type { ConnectStep, ModeOption, RestoreStep, RowHint } from './instructionsView';
+import type { ConnectStep, LocationHint, ModeOption, RestoreStep, RowHint } from './instructionsView';
 import {
-  instructionsErrorMessage, instructionsWarningMessage, connectExtras, connectPlan, connectedTo, modeOptions, needsSync, pickedMode, refreshInstructions, restorePlan, rowHint, saveCopiesSummary, statusTone, usesOf,
+  instructionsErrorMessage, instructionsWarningMessage, connectExtras, connectPlan, connectedTo, locationHint, locationModeOptions, modeOptions, needsSync, pickedMode, refreshInstructions, restorePlan, rowHint, saveCopiesSummary, staleLocations, statusTone, usesOf,
 } from './instructionsView';
 
 const PREVIEW_LINES = 8;
@@ -143,6 +144,8 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
   const [restoring, setRestoring] = useState<string | null>(null);
+  const [addingLocation, setAddingLocation] = useState(false);
+  const [removingLocation, setRemovingLocation] = useState<InstructionLocation | null>(null);
   // Refusals the server gave for one target (another shared file holds it), shown in its row.
   const [held, setHeld] = useState<Record<string, string>>({});
 
@@ -154,6 +157,9 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
   const connectAll = connectPlan(targets, file);
   const restoreAll = restorePlan(targets, name);
   const stale = needsSync(targets, name);
+  const locations = file.locations ?? [];
+  const staleLoc = staleLocations(locations);
+  const staleCount = stale.length + staleLoc.length;
   const list = (names: string[]) => names.join(t('instructions.shared.listSep'));
 
   // Runs one change with the page busy, reporting failures and refetching afterwards.
@@ -291,7 +297,16 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
     const res = await api.syncExtras({ name });
     const failed = res.extras.flatMap((e) => e.targets).find((r) => r.error);
     if (failed) throw new Error(failed.error);
-    toast(t('instructions.shared.synced', { name, targets: list(stale.map((tg) => tg.name)) }), 'success');
+    toast(t('instructions.shared.synced', { name, targets: list([...stale.map((tg) => tg.name), ...staleLoc.map((l) => shortenHome(l.file))]) }), 'success');
+  });
+
+  const setLocationMode = (l: InstructionLocation, mode: string) => act(async () => {
+    warn((await api.setInstructionLocationMode(name, l.path, mode)).warnings);
+    toast(t('instructions.mode.changed', { target: shortenHome(l.file), name, mode }), 'success');
+  });
+  const removeLocation = (l: InstructionLocation) => act(async () => {
+    warn((await api.removeInstructionLocation(name, l.path)).warnings);
+    toast(t('instructions.locations.removed', { path: shortenHome(l.file), name }), 'success');
   });
 
   const remove = () => ask({
@@ -334,6 +349,19 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
       case 'tooLong': return t('instructions.shared.tooLong', { name, chars: file.chars.toLocaleString(), max: h.max.toLocaleString() });
       case 'usesOther': return t('instructions.hint.usesOther', { name: h.name });
       case 'alsoUses': return t('instructions.hint.alsoUses', { names: list(h.names) });
+    }
+  };
+
+  const locationHintText = (h: LocationHint) => {
+    switch (h) {
+      case 'folderLink': return t('instructions.hint.folderLink');
+      case 'directory': return t('instructions.hint.directory');
+      case 'noSource': return t('instructions.hint.noSource', { name });
+      case 'modified': return t('instructions.row.modified');
+      case 'notSynced': return t('instructions.locations.hint.notSynced');
+      case 'drift': return t('instructions.locations.hint.drift', { name });
+      case 'driftImport': return t('instructions.locations.hint.driftImport');
+      case 'import': return t('instructions.locations.hint.import');
     }
   };
 
@@ -389,9 +417,9 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
         </Tooltip>}
         <span className="text-[12.5px] text-ink-3">{t('instructions.shared.connectedCount', { count: connected.length })}</span>
         <span className="flex-1" />
-        {stale.length > 0 && (
+        {staleCount > 0 && (
           <>
-            <span className="text-[12.5px] text-warn">{t(stale.length === 1 ? 'instructions.shared.needSync.one' : 'instructions.shared.needSync.other', { count: stale.length })}</span>
+            <span className="text-[12.5px] text-warn">{t(staleCount === 1 ? 'instructions.shared.needSync.one' : 'instructions.shared.needSync.other', { count: staleCount })}</span>
             <Button variant="primary" size="sm" onClick={() => void sync()} loading={busy}>{t('extras.sync')}</Button>
           </>
         )}
@@ -455,6 +483,45 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
         })}
       </div>
 
+      <div className="flex items-center gap-2 pt-2.5 pl-1">
+        <h3 className="text-[15px] font-bold">{t('instructions.locations.title')}</h3>
+        {locations.length > 0 && <span className="text-[12.5px] text-ink-3">{t(locations.length === 1 ? 'instructions.locations.count.one' : 'instructions.locations.count.other', { count: locations.length })}</span>}
+        <span className="flex-1" />
+        <Button variant="secondary" size="sm" disabled={busy} onClick={() => setAddingLocation(true)}><Plus size={14} />{t('instructions.locations.add')}</Button>
+      </div>
+      {locations.length > 0 ? (
+        <div className="ss-list" aria-label={t('instructions.locations.title')}>
+          {locations.map((l) => {
+            const hint = locationHint(l);
+            const path = shortenHome(l.file);
+            return (
+              <div key={l.path} className="ss-r !min-h-[56px] !gap-3 !py-2">
+                <span className="ss-at"><Folder size={15} className="text-ink-3" /></span>
+                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="truncate font-mono text-[13px] font-semibold" title={l.file}>{path}</span>
+                  {hint && <span className={`text-[12px] ${hint === 'import' ? 'text-ink-3' : 'text-warn'}`}>{locationHintText(hint)}</span>}
+                </span>
+                <Select size="sm" align="end" className="w-[104px] shrink-0 font-mono" ariaLabel={t('instructions.mode.label', { target: path, name })} value={pickedMode(l.mode)} disabled={busy}
+                  onChange={(m) => { if (m !== pickedMode(l.mode)) void setLocationMode(l, m); }}
+                  options={locationModeOptions(fileLinks).map((o) => ({
+                    value: o.mode, label: o.mode, note: o.isDefault ? t('instructions.mode.default') : undefined, disabled: Boolean(o.blocked),
+                    description: o.blocked ? t(`instructions.mode.blocked.${o.blocked}`, { target: path }) : t(`instructions.mode.${o.mode}`, { name, file: fileName(l.file) }),
+                  }))} />
+                <span className="w-[90px] shrink-0"><span className={`ss-st ${statusTone(l.status)}`}>{l.status}</span></span>
+                <Button variant="ghost" size="sm" disabled={busy} aria-label={t('instructions.locations.removeLabel', { path })} onClick={() => setRemovingLocation(l)}>
+                  {t('instructions.locations.remove')}
+                </Button>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="ss-empty !gap-1.5 !p-[26px]">
+          <span className="text-[13.5px] font-semibold text-ink">{t('instructions.locations.empty.title')}</span>
+          <span className="max-w-[460px] text-[12.5px] leading-normal text-ink-3">{t('instructions.locations.empty.description', { name })}</span>
+        </div>
+      )}
+
       {chosen.length > 0 && (
         <div className="ss-bulk" role="toolbar" aria-label={t('instructions.shared.selected', { count: chosen.length })}>
           <b>{t('instructions.shared.selectedShort', { count: chosen.length })}</b>
@@ -476,6 +543,20 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
         <RestorePreviewDialog name={name} target={restoring} label={targets.find((tg) => tg.name === restoring)?.rider_of ? targetLabel(restoring) : restoring}
           mode={targets.find((tg) => tg.name === restoring)?.assigned.find((x) => x.name === name)?.mode ?? ''} busy={busy} onClose={() => setRestoring(null)}
           onConfirm={async () => { await act(() => detach([restoring])); setRestoring(null); }} />
+      )}
+      {addingLocation && (
+        <AddLocationDialog name={name} file={file.file} fileLinks={fileLinks} onClose={() => setAddingLocation(false)}
+          onAdded={(path, warnings) => {
+            warn(warnings);
+            toast(t('instructions.locations.added', { path: shortenHome(path), name }), 'success');
+            setAddingLocation(false);
+            refreshInstructions(queryClient);
+          }} />
+      )}
+      {removingLocation && (
+        <RestorePreviewDialog location name={name} target={removingLocation.path} label={shortenHome(removingLocation.file)} mode={removingLocation.mode} busy={busy}
+          onClose={() => setRemovingLocation(null)}
+          onConfirm={async () => { await removeLocation(removingLocation); setRemovingLocation(null); }} />
       )}
       {editing && content.data && (
         <InstructionsEditorDialog

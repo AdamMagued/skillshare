@@ -2,7 +2,7 @@ import { ApiError } from '../../api/client';
 import type { InstructionsWarning } from '../../api/client';
 import type { useT } from '../../i18n';
 import type { QueryClient } from '@tanstack/react-query';
-import type { InstructionsAssignment, InstructionsEntry, SharedCopyResult, SharedInstructionsFile, SharedInstructionsTarget } from '../../api/client';
+import type { InstructionLocation, InstructionsAssignment, InstructionsEntry, SharedCopyResult, SharedInstructionsFile, SharedInstructionsTarget } from '../../api/client';
 import { shortenHome } from '../../lib/paths';
 import type { LineDecor } from '../CodeEditor';
 import { queryKeys } from '../../lib/queryKeys';
@@ -287,6 +287,36 @@ export function rowHint(target: SharedInstructionsTarget, file: SharedInstructio
   const others = usesOf(target).filter((n) => n !== file.name);
   if (!others.length) return null;
   return target.import ? { kind: 'alsoUses', names: others } : { kind: 'usesOther', name: others[0] };
+}
+
+/** Other locations a sync would fix: the file or its link is gone, or points elsewhere. */
+export const staleLocations = (locations: InstructionLocation[]) => locations.filter((l) => ['not synced', 'drift'].includes(l.status));
+
+/** The modes a location can get: a folder has no tool deciding for it, so symlink is the default where file links work. */
+export function locationModeOptions(fileLinks: boolean): ModeOption[] {
+  const def: SharedMode = fileLinks ? 'symlink' : 'copy';
+  return (['symlink', 'copy', 'import'] as const).map((mode) => (mode === 'symlink' && !fileLinks
+    ? { mode, isDefault: false, blocked: 'fileLinks' as const } : { mode, isDefault: mode === def }));
+}
+
+/** The file a location writes: the folder as typed, then the custom name or the shared file's own. */
+export function locationFile(folder: string, as: string, file: string): string {
+  const dir = folder.trim().replace(/[\\/]+$/, '');
+  const sep = dir.includes('\\') && !dir.includes('/') ? '\\' : '/';
+  return `${dir}${sep}${as.trim() || file}`;
+}
+
+export type LocationHint = 'folderLink' | 'directory' | 'noSource' | 'modified' | 'notSynced' | 'drift' | 'driftImport' | 'import';
+
+/** The one line under a location row: a problem first, else what import leaves in the file. */
+export function locationHint(l: InstructionLocation): LocationHint | null {
+  if (l.reason === 'folder_link') return 'folderLink';
+  if (l.reason === 'directory') return 'directory';
+  if (l.status === 'no source') return 'noSource';
+  if (l.status === 'modified') return 'modified';
+  if (l.status === 'not synced') return 'notSynced';
+  if (l.status === 'drift') return l.mode === 'import' ? 'driftImport' : 'drift';
+  return l.mode === 'import' ? 'import' : null;
 }
 
 /** Line count of a file as an editor shows it: a trailing newline does not start a new line. */

@@ -109,6 +109,27 @@ describe('Shared instructions', () => {
   });
 });
 
+describe('Other locations', () => {
+  it('lists each location by its file, with its mode and status', async () => {
+    vi.mocked(api.listSharedInstructions).mockResolvedValue({
+      files: [{ ...shared('personal'), locations: [{ path: '/h/work/notes', file: '/h/work/notes/instructions.md', as: 'instructions.md', mode: 'copy', status: 'drift' }] }],
+      targets: [],
+      file_links: true,
+    });
+    renderAt('/extras?tab=instructions&file=personal');
+
+    expect(await screen.findByRole('combobox', { name: 'How /h/work/notes/instructions.md gets personal' })).toHaveTextContent('copy');
+    expect(screen.getByText('No longer matches personal. Press Sync above to update it.')).toBeInTheDocument();
+  });
+
+  it('says there are none yet when the file has no other locations', async () => {
+    vi.mocked(api.listSharedInstructions).mockResolvedValue({ files: [{ ...shared('personal'), locations: [] }], targets: [], file_links: true });
+    renderAt('/extras?tab=instructions&file=personal');
+
+    expect(await screen.findByText('No other locations yet')).toBeInTheDocument();
+  });
+});
+
  describe('file link availability', () => {
   it.each([false, true])('shows an accessible fallback hint only when file_links is false (%s)', async (fileLinks) => {
    vi.mocked(api.listSharedInstructions).mockResolvedValue({ ...list('personal'), file_links: fileLinks });
