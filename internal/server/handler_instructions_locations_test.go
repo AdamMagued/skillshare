@@ -171,3 +171,34 @@ func TestExtrasAddTarget_RefusesFileHeldByOtherShared(t *testing.T) {
 		t.Errorf("status %d, body %s, other targets = %+v; want 409 and nothing saved", rr.Code, rr.Body.String(), s.cfg.Extras[1].Targets)
 	}
 }
+
+func TestSharedInstructionsLocations_AddRestoresFileWhenSaveFails(t *testing.T) {
+	s, home := newInstructionsServer(t)
+	file := writeHome(t, home, "notes/AGENTS.md", "mine\n")
+	createShared(t, s, "team")
+	// A folder at the config path makes the save fail after the file is written.
+	cfgPath := os.Getenv("SKILLSHARE_CONFIG")
+	os.Remove(cfgPath)
+	os.Mkdir(cfgPath, 0755)
+
+	rr := instructionsRequest(t, s, http.MethodPost, "/api/instructions/team/locations", `{"path":"~/notes"}`)
+	info, err := os.Lstat(file)
+	if rr.Code != http.StatusInternalServerError || err != nil || info.Mode()&os.ModeSymlink != 0 || readFile(t, file) != "mine\n" || len(s.cfg.Extras[0].Targets) != 0 {
+		t.Errorf("status %d %s; want 500 with %s restored and no target", rr.Code, rr.Body.String(), file)
+	}
+}
+
+func TestSharedInstructionsLocations_ResolveCollect(t *testing.T) {
+	s, home := newInstructionsServer(t)
+	createShared(t, s, "team")
+	addLocation(t, s, "team", `{"path":"~/notes"}`)
+	// A tool replaced the link with its own edited copy.
+	file := filepath.Join(home, "notes", "AGENTS.md")
+	os.Remove(file)
+	writeHome(t, home, "notes/AGENTS.md", "edited\n")
+
+	rr := instructionsRequest(t, s, http.MethodPost, "/api/instructions/team/resolve", `{"path":"~/notes","action":"collect"}`)
+	if rr.Code != http.StatusOK || readFile(t, listShared(t, s)[0].Path) != "edited\n" {
+		t.Errorf("resolve: %d %s; want the edit collected into the shared file", rr.Code, rr.Body.String())
+	}
+}

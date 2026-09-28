@@ -477,9 +477,10 @@ func (s *Server) handleResolveSharedInstructions(w http.ResponseWriter, r *http.
 	name := r.PathValue("name")
 	var body struct {
 		Target string `json:"target"`
+		Path   string `json:"path"` // a location (see sharedLocations) instead of a target
 		Action string `json:"action"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Target == "" {
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || (body.Target == "" && body.Path == "") {
 		writeCodedError(w, http.StatusBadRequest, "instructions_target_required", "target is required", map[string]string{})
 		return
 	}
@@ -489,16 +490,24 @@ func (s *Server) handleResolveSharedInstructions(w http.ResponseWriter, r *http.
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	it, _, ok := s.targetInstructions(body.Target)
-	if !ok {
-		writeCodedError(w, http.StatusBadRequest, "instructions_no_file", body.Target+" has no instruction file", map[string]string{"target": body.Target})
-		return
-	}
 	res := s.instructionsResolver()
-	i, j := instructions.Find(s.cfg.Extras, name, it.Path, res)
-	if j == -1 {
-		writeCodedError(w, http.StatusNotFound, "instructions_not_attached", name+" is not attached to "+body.Target, map[string]string{"name": name, "target": body.Target})
-		return
+	var i, j int
+	if body.Path != "" {
+		var ok bool
+		if i, j, ok = s.lookupLocation(w, name, body.Path); !ok {
+			return
+		}
+	} else {
+		it, _, ok := s.targetInstructions(body.Target)
+		if !ok {
+			writeCodedError(w, http.StatusBadRequest, "instructions_no_file", body.Target+" has no instruction file", map[string]string{"target": body.Target})
+			return
+		}
+		i, j = instructions.Find(s.cfg.Extras, name, it.Path, res)
+		if j == -1 {
+			writeCodedError(w, http.StatusNotFound, "instructions_not_attached", name+" is not attached to "+body.Target, map[string]string{"name": name, "target": body.Target})
+			return
+		}
 	}
 	f := instructions.ExtraFile(s.cfg.Extras[i], j, res)
 	var err error
@@ -507,7 +516,7 @@ func (s *Server) handleResolveSharedInstructions(w http.ResponseWriter, r *http.
 	} else {
 		err = syncpkg.ReapplyExtraFile(f, "")
 	}
-	args := map[string]any{"name": name, "target": body.Target, "action": body.Action, "scope": "ui"}
+	args := map[string]any{"name": name, "target": body.Target, "path": body.Path, "action": body.Action, "scope": "ui"}
 	if err != nil {
 		s.writeOpsLog("instructions-resolve", "error", start, args, err.Error())
 		writeCodedError(w, http.StatusInternalServerError, "instructions_resolve_failed", err.Error(), map[string]string{"detail": err.Error()})

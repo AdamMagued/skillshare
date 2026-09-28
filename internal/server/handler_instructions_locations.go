@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -148,7 +149,8 @@ func (s *Server) handleAddSharedInstructionsLocation(w http.ResponseWriter, r *h
 		s.writeOpsLog("instructions-location", "error", start, args, err)
 		writeCodedError(w, status, code, err, params)
 	}
-	result, err := syncpkg.SyncExtraFile(instructions.ExtraFile(s.cfg.Extras[i], len(prev), s.instructionsResolver()), false, "")
+	f := instructions.ExtraFile(s.cfg.Extras[i], len(prev), s.instructionsResolver())
+	result, err := syncpkg.SyncExtraFile(f, false, "")
 	if err != nil {
 		fail(http.StatusInternalServerError, "instructions_location_failed", err.Error(), map[string]string{"detail": err.Error()})
 		return
@@ -157,8 +159,20 @@ func (s *Server) handleAddSharedInstructionsLocation(w http.ResponseWriter, r *h
 		fail(http.StatusConflict, "instructions_location_directory", file+" is a directory", map[string]string{"path": file})
 		return
 	}
-	if err := s.saveAndReloadConfig(); err != nil {
+	if err := s.saveConfig(); err != nil {
+		// The file is already written: put back what it held, so no location is left
+		// on disk that the config does not know about.
+		err = fmt.Errorf("failed to save config: %w", err)
+		if _, rerr := syncpkg.RestoreExtraTarget(f); rerr != nil {
+			err = fmt.Errorf("%w; restoring %s also failed: %v", err, file, rerr)
+		}
 		fail(http.StatusInternalServerError, "instructions_location_failed", err.Error(), map[string]string{"detail": err.Error()})
+		return
+	}
+	if err := s.reloadConfig(); err != nil {
+		// Saved: the location exists, so it stays; only the answer reports the error.
+		s.writeOpsLog("instructions-location", "error", start, args, err.Error())
+		writeCodedError(w, http.StatusInternalServerError, "instructions_location_failed", "failed to reload config: "+err.Error(), map[string]string{"detail": err.Error()})
 		return
 	}
 	s.writeOpsLog("instructions-location", "ok", start, args, "")
