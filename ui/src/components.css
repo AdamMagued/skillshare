@@ -201,6 +201,7 @@ svg.lucide { flex: none; stroke-width: var(--isw); }
 .ss-r.sel .ss-stack .ss-at { box-shadow: 0 0 0 2px var(--accent-bg); }
 :root[data-theme="playful"] .ss-r.sel .ss-stack .ss-at { box-shadow: 0 0 0 2px var(--pe); }
 :root[data-theme="playful"].dark .ss-r.sel .ss-stack .ss-at { box-shadow: 0 0 0 2px #332B17; }
+.ss-note .ss-stack .ss-at { box-shadow: 0 0 0 2px var(--sunken); }
 .ss-note.warn .ss-stack .ss-at { box-shadow: 0 0 0 2px var(--warn-bg); }
 .ss-pj { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border-radius: 99px; background: var(--sunken); border: 1px solid var(--line); font: 600 12px/1 var(--f); color: var(--ink-2); }
 :root[data-theme="playful"] .ss-stack .ss-at { border-radius: 99px; }

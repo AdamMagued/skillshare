@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Link, useBeforeUnload, useBlocker, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, Check, ChevronDown, ChevronUp, FileText, FileX, FolderInput, Info, Link2, Lock, TriangleAlert, X } from 'lucide-react';
+import { ArrowRight, Check, ChevronDown, ChevronUp, FileText, FileX, Info, Link2, Lock, TriangleAlert, X } from 'lucide-react';
 import { api } from '../../api/client';
 import type { TargetInstructions as Data } from '../../api/client';
 import AgentIcon from '../AgentIcon';
@@ -20,7 +20,6 @@ import { queryKeys } from '../../lib/queryKeys';
 import { fileName, shortenHome } from '../../lib/paths';
 import ConvertDialog from './ConvertDialog';
 import InstructionFileList from './InstructionFileList';
-import MoreMenu from '../hub/MoreMenu';
 import { useFillHeight } from './useFillHeight';
 import { BoxHeader, InstructionsPreview } from './ViewTabs';
 import { useSaveShortcut } from './useSaveShortcut';
@@ -289,11 +288,12 @@ function Editor({ data }: { data: Data }) {
       <div className="ss-code flex min-h-[360px] flex-1 flex-col !bg-surface !overflow-hidden !p-0 !whitespace-normal">
         {/* A linked file is read only here: its second tab shows the text, it does not edit it. */}
         <BoxHeader content={draft} view={view} onChange={setView} views={linked ? [{ value: 'preview', label: t('instructions.target.view.preview') }, { value: 'edit', label: t('instructions.target.view.source') }] : undefined}>
-          {!linked && <Button variant="primary" size="sm" onClick={save} loading={saving} disabled={draft === data.content}>{t('common.save')}</Button>}
           <Button variant="ghost" size="sm" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
             {t(expanded ? 'instructions.preview.collapse' : 'instructions.preview.expand')}
             {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </Button>
+          {/* Only once there is something to save; Cmd+S works either way. */}
+          {!linked && draft !== data.content && <Button variant="primary" size="sm" onClick={save} loading={saving}>{t('common.save')}</Button>}
         </BoxHeader>
         {view === 'edit' ? (
           <CodeEditor value={draft} onChange={setDraft} ariaLabel={file} lineDecor={lineDecor} disabled={saving || linked} wrap fill={!expanded} minHeight="360px" maxHeight="none"
@@ -376,7 +376,8 @@ function SourceCard({ data, onChangeLocation, onConvert, convertable, dirty }: {
           </>
         )}
         <span className="flex-1" />
-        {convertable && <Button variant="ghost" size="sm" onClick={onConvert} disabled={dirty}>{t('instructions.convert.open')}</Button>}
+        {convertable && <button type="button" className="ss-btn ghost sm" onClick={onConvert} disabled={dirty}>{t('instructions.convert.open')}</button>}
+        {canMove && <button type="button" className="ss-btn ghost sm" onClick={onChangeLocation}>{t('instructions.setup.changeLocation')}</button>}
         {!data.project && !data.rider_of && (source
           ? (
             <>
@@ -387,7 +388,6 @@ function SourceCard({ data, onChangeLocation, onConvert, convertable, dirty }: {
             </>
           )
           : <Link to="/extras?tab=instructions" className="ss-btn sm"><Link2 size={13} />{t('instructions.card.connect')}</Link>)}
-        {canMove && <MoreMenu label={t('instructions.shared.more')} items={[{ label: t('instructions.setup.changeLocation'), icon: FolderInput, onClick: onChangeLocation }]} />}
       </div>
       <p className="flex items-start gap-1.5 pl-[25px] text-[12.5px] text-ink-3">
         {linked && <Lock size={12} className="mt-[3px] shrink-0" />}

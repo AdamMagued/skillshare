@@ -50,6 +50,8 @@ interface Health {
 function useTargetHealth() {
   const t = useT();
   return (tgt: Target, sourceSkillCount: number): Health => {
+    // Skills off: nothing is synced into the folder, so there is nothing to count or fall behind.
+    if (tgt.skillsEnabled === false) return { kind: 'ok', label: t('dashboard.targets.inSync'), detail: '', pending: 0 };
     if (tgt.status === 'not exist') return { kind: 'bad', label: t('dashboard.targets.problem'), detail: t('dashboard.targets.folderMissing'), pending: 0 };
     if (tgt.status === 'conflict' || tgt.status === 'broken') return { kind: 'bad', label: t('dashboard.targets.problem'), detail: tgt.status, pending: 0 };
     // Only a symlink target has to give its folder up; merge and copy keep local files, so they are counted below.
@@ -179,7 +181,7 @@ export default function DashboardPage() {
                   <span className="font-semibold">{tgt.name}</span>
                   <span className="font-mono text-xs text-ink-3 truncate">{tgt.path}</span>
                 </span>
-                <span className="w-[70px]"><span className="ss-tag">{tgt.mode}</span></span>
+                <span className="w-[100px]">{tgt.skillsEnabled === false ? <span className="ss-tag !text-ink-3 whitespace-nowrap">{t('targets.skillsOff')}</span> : <span className="ss-tag">{tgt.mode}</span>}</span>
                 <span className="w-[190px] text-[13px] text-ink-2 truncate">{healths[i].detail}</span>
                 <span className="w-[96px]"><span className={`ss-st ${healths[i].kind}`}>{healths[i].label}</span></span>
                 <ChevronRight size={15} className="text-ink-3" />

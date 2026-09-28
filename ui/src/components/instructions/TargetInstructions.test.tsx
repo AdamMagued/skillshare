@@ -85,8 +85,7 @@ describe('Target instructions tab', () => {
     renderTarget('codex');
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole('button', { name: 'More actions' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Change location' }));
+    await user.click(await screen.findByRole('button', { name: 'Change location' }));
 
     expect(screen.getByRole('textbox', { name: 'File location' })).toHaveValue('~/.codex/AGENTS.md');
   });
@@ -98,8 +97,7 @@ describe('Target instructions tab', () => {
     renderTarget('codex');
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole('button', { name: 'More actions' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Change location' }));
+    await user.click(await screen.findByRole('button', { name: 'Change location' }));
 
     expect(screen.getByRole('button', { name: 'Reset to default' })).toBeInTheDocument();
   });
@@ -109,8 +107,7 @@ describe('Target instructions tab', () => {
     renderTarget('codex');
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole('button', { name: 'More actions' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Change location' }));
+    await user.click(await screen.findByRole('button', { name: 'Change location' }));
 
     expect(screen.getByRole('dialog', { name: 'Which file codex reads' })).toBeInTheDocument();
   });
@@ -157,8 +154,7 @@ describe('Target instructions tab', () => {
     await user.click(await screen.findByRole('tab', { name: 'Edit' }));
 
     await user.type(await screen.findByRole('textbox', { name: 'AGENTS.md' }), 'draft');
-    await user.click(screen.getByRole('button', { name: 'More actions' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Change location' }));
+    await user.click(screen.getByRole('button', { name: 'Change location' }));
     fireEvent.keyDown(document.body, { key: 's', metaKey: true });
 
     expect(api.putTargetInstructions).not.toHaveBeenCalled();
@@ -219,7 +215,7 @@ describe('Target instructions tab', () => {
 
     // The file takes the shared AGENTS.md's lines, so there is no location to move it to until it is off.
     expect(await screen.findByRole('link', { name: 'personal' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'More actions' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Change location' })).not.toBeInTheDocument();
   });
 
   it('saves with Cmd+S from the Preview tab', async () => {

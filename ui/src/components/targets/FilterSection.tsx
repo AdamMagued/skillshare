@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { SyncMatrixEntry } from '../../api/client';
@@ -55,27 +55,10 @@ export default function FilterSection({ kind, mode, name, include, exclude, onCh
     ? baseHint + (CJK_STOP.test(baseHint) ? '' : ' ') + t('targetDetail.alsoReadBy.filterHint', { names: joinList(alsoReadBy, locale) })
     : baseHint;
   const readers = alsoReadBy.length > 0 && (
-    <div className="flex flex-wrap items-center gap-2 text-[13px]">
-      <span className="font-semibold">{t('targetDetail.alsoReadBy.label')}</span>
-      {alsoReadBy.map((reader) => (
-        <Link key={reader} to={`/targets/${encodeURIComponent(reader)}`} className="ss-tag !h-6 gap-1.5 hover:text-ink">
-          <AgentIcon target={reader} size={13} />{reader}
-        </Link>
-      ))}
-      <span className="text-ink-3">{t('targetDetail.alsoReadBy.note')}</span>
-    </div>
+    <TargetRow sentence={t('targetDetail.alsoReadBy.sentence', { names: NAMES })} names={alsoReadBy} />
   );
-
   const sources = readsFrom.length > 0 && (
-    <div className="flex flex-wrap items-center gap-2 text-[13px]">
-      <span className="font-semibold">{t('targetDetail.readsFrom.label')}</span>
-      {readsFrom.map((source) => (
-        <Link key={source} to={`/targets/${encodeURIComponent(source)}`} className="ss-tag !h-6 gap-1.5 hover:text-ink">
-          <AgentIcon target={source} size={13} />{source}
-        </Link>
-      ))}
-      <span className="text-ink-3">{t('targetDetail.readsFrom.note')}</span>
-    </div>
+    <TargetRow sentence={t('targetDetail.readsFrom.sentence', { names: NAMES })} names={readsFrom} />
   );
 
   return mode === 'symlink' ? (
@@ -121,10 +104,15 @@ export default function FilterSection({ kind, mode, name, include, exclude, onCh
       ) : error ? (
         <div className="ss-note bad"><span className="flex-1">{error.message}</span></div>
       ) : entries.length > 0 && (
-        <div className="flex flex-col gap-2">
+        // The result of the filters, set apart from the fields that shape it.
+        <div className="mt-2 flex flex-col gap-3 border-t border-line pt-5">
+          <div className="flex flex-col gap-0.5">
+            <h3 className="text-[14px] font-semibold">{t('targetDetail.previewCount', { count: entries.length })}</h3>
+            <p className="text-[13px] text-ink-3">{t('targetDetail.clickHint')}</p>
+          </div>
           <div className="ss-list !shadow-none">
             <div className="ss-lh">
-              <span className="flex-1">{t('targetDetail.previewCount', { count: entries.length })}</span>
+              <span className="flex-1">{t('resources.col.name')}</span>
               <span className="w-[170px]">{t('targetDetail.becauseOf')}</span>
               <span className="w-[96px]">{t('targetDetail.result')}</span>
             </div>
@@ -149,7 +137,6 @@ export default function FilterSection({ kind, mode, name, include, exclude, onCh
               })}
             </div>
           </div>
-          <p className="text-[13px] text-ink-3">{t('targetDetail.clickHint')}</p>
         </div>
       )}
     </>
@@ -173,6 +160,32 @@ export function ModePicker({ kind, mode, onChange, disabled }: { kind: Kind; mod
           </button>
         );
       })}
+    </div>
+  );
+}
+
+// Stands in for the names in a sentence, which are then put back as links.
+const NAMES = '\u0000';
+
+/** Other targets tied to this folder, as a note so it does not read as a filter pattern. */
+function TargetRow({ sentence, names }: { sentence: string; names: string[] }) {
+  const t = useT();
+  const [before, after = ''] = sentence.split(NAMES);
+  return (
+    <div className="ss-note items-center">
+      <span className="ss-stack shrink-0" aria-hidden="true">
+        {names.slice(0, 5).map((n) => <span key={n} className="ss-at !h-6 !w-6"><AgentIcon target={n} size={13} /></span>)}
+      </span>
+      <p className="min-w-0">
+        {before}
+        {names.map((n, i) => (
+          <Fragment key={n}>
+            {i > 0 && t('instructions.shared.listSep')}
+            <Link to={`/targets/${encodeURIComponent(n)}`} className="font-semibold underline-offset-2 hover:underline">{n}</Link>
+          </Fragment>
+        ))}
+        {after}
+      </p>
     </div>
   );
 }

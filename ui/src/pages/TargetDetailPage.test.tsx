@@ -74,7 +74,7 @@ describe('Target detail skills switch', () => {
       target({ name: 'pi', path: '/home/me/.pi/agent/skills' }),
       target({ name: 'universal', path: '/home/me/.agents/skills', linkedCount: 9 }),
     ]);
-    expect(await screen.findByText('Also reads')).toBeInTheDocument();
+    expect(await screen.findByText(/This target also reads the skills of/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'universal' })).toHaveAttribute('href', '/targets/universal');
   });
 
