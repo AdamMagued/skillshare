@@ -200,7 +200,7 @@ export interface InstructionsAssignment {
   name: string; // shared instruction file (a single-file extra)
   mode: string; // import | symlink | copy
   status: string; // synced | drift | modified | not synced | no source
-  reason?: 'folder_link'; // why it is not synced: a folder link (Windows junction) the tool cannot read
+  reason?: 'folder_link' | 'directory'; // why it is not synced: a folder link (Windows junction) the tool cannot read, or a real folder in the way
 }
 
 export interface InstructionsEntry {

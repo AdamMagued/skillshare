@@ -111,13 +111,18 @@ type Assignment struct {
 	Name   string `json:"name"`
 	Mode   string `json:"mode"`
 	Status string `json:"status"`
-	// Reason explains a status that is not synced: ReasonFolderLink.
+	// Reason explains a status that is not synced: ReasonFolderLink or
+	// ReasonDirectory.
 	Reason string `json:"reason,omitempty"`
 }
 
 // ReasonFolderLink: the target is a Windows directory junction to the file,
 // which tools cannot read.
 const ReasonFolderLink = "folder_link"
+
+// ReasonDirectory: a real directory sits at the target path, so sync will not
+// replace it.
+const ReasonDirectory = "directory"
 
 // Assignments returns the single-file extras whose targets write file, in
 // config order.
@@ -131,8 +136,8 @@ func Assignments(extras []config.ExtraConfig, file string, r Resolver) []Assignm
 			f := ExtraFile(extra, j, r)
 			if samePath(f.Target, file) {
 				a := Assignment{Name: extra.Name, Mode: f.Mode, Status: syncpkg.ExtraFileStatus(f)}
-				if a.Status != "synced" && folderLink(f.Target) {
-					a.Reason = ReasonFolderLink
+				if a.Status != "synced" {
+					a.Reason = notSyncedReason(f.Target)
 				}
 				out = append(out, a)
 			}
@@ -143,9 +148,17 @@ func Assignments(extras []config.ExtraConfig, file string, r Resolver) []Assignm
 
 // folderLink reports whether path is a directory junction rather than a
 // symlink. Only Windows has them.
-func folderLink(path string) bool {
+func notSyncedReason(path string) string {
 	info, err := os.Lstat(path)
-	return err == nil && info.Mode()&os.ModeSymlink == 0 && utils.IsSymlinkOrJunction(path)
+	switch {
+	case err != nil || info.Mode()&os.ModeSymlink != 0:
+		return ""
+	case utils.IsSymlinkOrJunction(path):
+		return ReasonFolderLink
+	case info.IsDir():
+		return ReasonDirectory
+	}
+	return ""
 }
 
 func samePath(a, b string) bool { return filepath.Clean(a) == filepath.Clean(b) }

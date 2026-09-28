@@ -177,6 +177,7 @@ describe('modeOptions', () => {
   it('warns about a folder link the tool cannot read', () => {
     const file: SharedInstructionsFile = { name: 'team', file: 'AGENTS.md', path: '/x/team/AGENTS.md', exists: true, size: 1, chars: 1, targets: 1 };
     expect(rowHint(tg({ assigned: [{ name: 'team', mode: 'symlink', status: 'drift', reason: 'folder_link' }] }), file)).toEqual({ kind: 'folderLink' });
+    expect(rowHint(tg({ assigned: [{ name: 'team', mode: 'symlink', status: 'drift', reason: 'directory' }] }), file)).toEqual({ kind: 'directory' });
   });
 });
 

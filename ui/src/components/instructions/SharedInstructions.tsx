@@ -243,7 +243,7 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
   const connectNote = (s: ConnectStep) => (s.note === 'held' ? t('instructions.plan.held', { other: s.other ?? '' })
     : s.note === 'tooLong' ? t('instructions.plan.tooLong', { max: (s.max ?? 0).toLocaleString() })
       : t(`instructions.plan.${s.note}`));
-  const restoreNote = (s: RestoreStep) => (s.note === 'importKeep' ? t('instructions.plan.importKeep', { name, others: list(s.others ?? []) })
+  const restoreNote = (s: RestoreStep) => (s.note === 'importKeep' ? t((s.others ?? []).length === 1 ? 'instructions.plan.importKeep.one' : 'instructions.plan.importKeep.other', { name, others: list(s.others ?? []) })
     : s.note === 'import' ? t('instructions.plan.dropImport', { name })
       : s.note === 'modified' ? t('instructions.plan.modified') : t('instructions.plan.restoreLink'));
   const planList = (rows: { target: string; note: string; warn: boolean }[], footer: string) => (
@@ -327,6 +327,7 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
     switch (h.kind) {
       case 'sameAs': return t('instructions.hint.sameAs', { name: h.name });
       case 'folderLink': return t('instructions.hint.folderLink');
+      case 'directory': return t('instructions.hint.directory');
       case 'notSynced': return t(h.mode === 'symlink' ? 'instructions.hint.missingLink' : 'instructions.hint.missingFile');
       case 'drift': return h.mode === 'import' ? t('instructions.hint.driftImport') : t('instructions.hint.drift', { name });
       case 'noSource': return t('instructions.hint.noSource', { name });
@@ -411,7 +412,7 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
                 <Link to={tg.rider_of ? `/targets/${encodeURIComponent(tg.rider_of)}?tab=instructions&tool=${encodeURIComponent(tg.name)}` : `/targets/${encodeURIComponent(tg.name)}?tab=instructions`} className="w-[110px] shrink-0 truncate font-mono text-[13px] font-semibold hover:underline">{tg.rider_of ? targetLabel(tg.name) : tg.name}</Link>
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span className="truncate font-mono text-[12.5px] text-ink-2" title={tg.path}>{shortenHome(tg.path)}</span>
-                  {hint && <span className={`text-[12px] ${hint.kind === 'tooLong' || hint.kind === 'noSource' || hint.kind === 'folderLink' ? 'text-warn' : 'text-ink-3'}`}>{hintText(hint)}</span>}
+                  {hint && <span className={`text-[12px] ${hint.kind === 'tooLong' || hint.kind === 'noSource' || hint.kind === 'folderLink' || hint.kind === 'directory' ? 'text-warn' : 'text-ink-3'}`}>{hintText(hint)}</span>}
                 </span>
                 {on && a && (
                   <Select size="sm" align="end" className="w-[104px] shrink-0 font-mono" ariaLabel={t('instructions.mode.label', { target: tg.name, name })} value={pickedMode(a.mode)} disabled={busy}

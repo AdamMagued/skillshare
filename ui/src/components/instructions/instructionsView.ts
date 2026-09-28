@@ -261,6 +261,7 @@ export function modeOptions(target: SharedInstructionsTarget, fileLinks: boolean
 export type RowHint =
   | { kind: 'sameAs'; name: string }
   | { kind: 'folderLink' }
+  | { kind: 'directory' }
   | { kind: 'notSynced' | 'drift'; mode: string }
   | { kind: 'noSource' }
   | { kind: 'tooLong'; max: number }
@@ -273,6 +274,7 @@ export function rowHint(target: SharedInstructionsTarget, file: SharedInstructio
   if (target.same_as) return { kind: 'sameAs', name: target.same_as };
   const a = target.assigned.find((x) => x.name === file.name);
   if (a?.reason === 'folder_link') return { kind: 'folderLink' };
+  if (a?.reason === 'directory') return { kind: 'directory' };
   if (a?.status === 'not synced' || a?.status === 'drift') return { kind: a.status === 'drift' ? 'drift' : 'notSynced', mode: a.mode };
   if (a?.status === 'no source') return { kind: 'noSource' };
   if (target.max_chars && file.chars > target.max_chars) return { kind: 'tooLong', max: target.max_chars };
