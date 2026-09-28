@@ -335,7 +335,7 @@ func unlinkTarget(targetName string, target config.TargetConfig, sourcePath stri
 		return nil // Target doesn't exist, OK to remove from config
 	}
 
-	if info.Mode()&os.ModeSymlink != 0 {
+	if utils.IsLinkMode(sc.Path, info.Mode()) {
 		if err := unlinkSymlinkMode(sc.Path, sourcePath); err != nil {
 			return err
 		}
@@ -438,7 +438,7 @@ func targetRemoveDryRun(cfg *config.Config, toRemove []string) error {
 			continue
 		}
 
-		if info.Mode()&os.ModeSymlink != 0 {
+		if utils.IsLinkMode(target.SkillsConfig().Path, info.Mode()) {
 			ui.Info("%s: would unlink symlink and restore contents", targetName)
 		} else if info.IsDir() {
 			ui.Info("%s: would remove skill symlinks", targetName)

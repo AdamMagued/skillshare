@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"skillshare/internal/backup"
+	"skillshare/internal/utils"
 )
 
 type backupInfoJSON struct {
@@ -228,7 +229,7 @@ func (s *Server) handleValidateRestore(w http.ResponseWriter, r *http.Request) {
 	var conflicts []string
 	info, err := os.Lstat(tPath)
 	if err == nil {
-		if info.Mode()&os.ModeSymlink != 0 {
+		if utils.IsLinkMode(tPath, info.Mode()) {
 			isSymlink = true
 		} else if info.IsDir() {
 			entries, _ := os.ReadDir(tPath)

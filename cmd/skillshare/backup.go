@@ -15,6 +15,7 @@ import (
 	"skillshare/internal/oplog"
 	"skillshare/internal/trash"
 	"skillshare/internal/ui"
+	"skillshare/internal/utils"
 )
 
 func cmdBackup(args []string) error {
@@ -195,7 +196,7 @@ func previewBackup(targetName, targetPath string) error {
 		return err
 	}
 
-	if info.Mode()&os.ModeSymlink != 0 {
+	if utils.IsLinkMode(targetPath, info.Mode()) {
 		ui.StepSkip(targetName, "nothing to backup (symlink)")
 		return nil
 	}

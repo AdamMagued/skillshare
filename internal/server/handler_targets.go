@@ -554,7 +554,7 @@ func (s *Server) detachSkillsTarget(path string) (int, error) {
 	if err != nil {
 		return http.StatusInternalServerError, fmt.Errorf("failed to inspect target: %w", err)
 	}
-	if info.Mode()&os.ModeSymlink != 0 {
+	if utils.IsLinkMode(path, info.Mode()) {
 		// Symlink mode: entire directory is a symlink
 		if err := removeTargetPath(path); err != nil {
 			return http.StatusInternalServerError, fmt.Errorf("failed to remove target symlink: %w", err)
