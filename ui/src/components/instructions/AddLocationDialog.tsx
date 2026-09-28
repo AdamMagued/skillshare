@@ -8,16 +8,18 @@ import DialogShell from '../DialogShell';
 import { useT } from '../../i18n';
 import { shortenHome } from '../../lib/paths';
 import type { SharedMode } from './instructionsView';
-import { instructionsErrorMessage, locationFile, locationModeOptions } from './instructionsView';
+import { instructionsErrorMessage, locationFile, locationModeOptions, projectLocationFile } from './instructionsView';
 
-type Problem = { text: string; field?: boolean; tone: 'bad' | 'warn' };
+type Problem = { text: string; field?: 'folder' | 'file'; tone: 'bad' | 'warn' };
 
 /** Puts a shared file in any folder, under its own name or another, and syncs it there. */
-export default function AddLocationDialog({ name, file, fileLinks, onClose, onAdded }: {
+export default function AddLocationDialog({ name, file, fileLinks, project = false, onClose, onAdded }: {
   name: string;
   /** The shared file's own name, e.g. AGENTS.md. */
   file: string;
   fileLinks: boolean;
+  /** The folder is relative to the project root, and so is the file shown. */
+  project?: boolean;
   onClose: () => void;
   onAdded: (path: string, warnings?: InstructionsWarning[]) => void;
 }) {
@@ -30,7 +32,7 @@ export default function AddLocationDialog({ name, file, fileLinks, onClose, onAd
   const [saving, setSaving] = useState(false);
   const [problem, setProblem] = useState<Problem | null>(null);
   const title = t('instructions.locations.dialog.title');
-  const target = locationFile(folder, as, file);
+  const target = project ? projectLocationFile(folder, as, file) : locationFile(folder, as, file);
   const targetName = as.trim() || file;
 
   const add = async () => {
@@ -46,7 +48,8 @@ export default function AddLocationDialog({ name, file, fileLinks, onClose, onAd
         ? t('instructions.locations.held', { name: String(err.params?.name ?? ''), target: shortenHome(String(err.params?.target ?? '')) }) : null;
       setProblem({
         text: held ?? instructionsErrorMessage(err, t),
-        field: code === 'instructions_location_directory' || code === 'instructions_invalid_file_name',
+        field: code === 'instructions_location_directory' || code === 'instructions_invalid_file_name' ? 'file'
+          : code === 'instructions_location_outside_project' ? 'folder' : undefined,
         tone: code === 'instructions_location_is_target' || code === 'instructions_location_exists' ? 'warn' : 'bad',
       });
       setSaving(false);
@@ -63,7 +66,7 @@ export default function AddLocationDialog({ name, file, fileLinks, onClose, onAd
       <div className="dh">
         <div className="flex flex-col gap-1">
           <h2 className="ss-h2">{title}</h2>
-          <p className="text-[13px] text-ink-2">{t('instructions.locations.dialog.subtitle', { name, file })}</p>
+          <p className="text-[13px] text-ink-2">{t(project ? 'instructions.locations.dialog.projectSubtitle' : 'instructions.locations.dialog.subtitle', { name, file })}</p>
         </div>
         <button type="button" className="ss-ib" aria-label={t('common.close')} onClick={onClose} disabled={saving}><X size={16} /></button>
       </div>
@@ -71,20 +74,22 @@ export default function AddLocationDialog({ name, file, fileLinks, onClose, onAd
         <div className="grid grid-cols-2 gap-3.5">
           <div className="ss-fld">
             <label htmlFor="location-folder">{t('instructions.locations.dialog.folder')}</label>
-            <span className="ss-inp">
+            <span className={`ss-inp ${problem?.field === 'folder' ? 'err' : ''}`}>
               <input id="location-folder" className="font-mono" autoFocus value={folder} onChange={(e) => { setFolder(e.target.value); setProblem(null); }}
-                placeholder="~/work/notes" disabled={saving} spellCheck={false} autoComplete="off" />
+                placeholder={project ? 'docs/ai' : '~/work/notes'} disabled={saving} spellCheck={false} autoComplete="off" aria-invalid={problem?.field === 'folder' || undefined} />
             </span>
-            <span className="hp">{t('instructions.locations.dialog.folderHint')}</span>
+            <span className={`hp ${problem?.field === 'folder' ? 'text-bad' : ''}`}>
+              {problem?.field === 'folder' ? problem.text : t(project ? 'instructions.locations.dialog.projectFolderHint' : 'instructions.locations.dialog.folderHint')}
+            </span>
           </div>
           <div className="ss-fld">
             <label htmlFor="location-as">{t('instructions.locations.dialog.fileName')}</label>
-            <span className={`ss-inp ${problem?.field ? 'err' : ''}`}>
+            <span className={`ss-inp ${problem?.field === 'file' ? 'err' : ''}`}>
               <input id="location-as" className="font-mono" value={as} onChange={(e) => { setAs(e.target.value); setProblem(null); }}
-                placeholder={file} disabled={saving} spellCheck={false} autoComplete="off" aria-invalid={problem?.field || undefined} />
+                placeholder={file} disabled={saving} spellCheck={false} autoComplete="off" aria-invalid={problem?.field === 'file' || undefined} />
             </span>
-            <span className={`hp ${problem?.field ? 'text-bad' : ''}`}>
-              {problem?.field ? problem.text : t('instructions.locations.dialog.fileNameHint', { file })}
+            <span className={`hp ${problem?.field === 'file' ? 'text-bad' : ''}`}>
+              {problem?.field === 'file' ? problem.text : t('instructions.locations.dialog.fileNameHint', { file })}
             </span>
           </div>
         </div>
@@ -133,7 +138,7 @@ export default function AddLocationDialog({ name, file, fileLinks, onClose, onAd
         )}
       </div>
       <div className="df">
-        <span className="flex-1 text-[12.5px] text-ink-3">{t('instructions.locations.dialog.footer')}</span>
+        <span className="flex-1 text-[12.5px] text-ink-3">{t(project ? 'instructions.locations.dialog.projectFooter' : 'instructions.locations.dialog.footer')}</span>
         <Button variant="ghost" onClick={onClose} disabled={saving}>{t('common.cancel')}</Button>
         <Button variant="primary" onClick={add} loading={saving} disabled={!folder.trim()}>{t('instructions.locations.dialog.submit')}</Button>
       </div>

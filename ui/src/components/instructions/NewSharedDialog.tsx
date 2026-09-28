@@ -16,8 +16,10 @@ import { BoxHeader, InstructionsPreview } from './ViewTabs';
 import { instructionsErrorMessage, isFolderExtra, isImportLine, sharedNameProblem, takenName } from './instructionsView';
 
 /** Creates a shared instruction file, from content or by moving a target's current file into it. */
-export default function NewSharedDialog({ targets, onClose, onCreated }: {
+export default function NewSharedDialog({ targets, project = false, onClose, onCreated }: {
   targets: SharedInstructionsTarget[];
+  /** A project's shared file starts empty: there is no target file to move in. */
+  project?: boolean;
   onClose: () => void;
   /** Resolves once the new file can be shown. */
   onCreated: (name: string) => Promise<void>;
@@ -29,7 +31,7 @@ export default function NewSharedDialog({ targets, onClose, onCreated }: {
   const [content, setContent] = useState('');
   const [saving, setSaving] = useState(false);
   const [view, setView] = useState<'edit' | 'preview'>('edit');
-  const title = t('instructions.shared.newTitle');
+  const title = t(project ? 'instructions.projectShared.new' : 'instructions.shared.newTitle');
   // Extra names are one namespace: a folder extra takes the name too.
   const extras = useQuery({ queryKey: queryKeys.extras, queryFn: () => api.listExtras() });
   const names = (extras.data?.extras ?? []).map((e) => e.name);
@@ -55,7 +57,7 @@ export default function NewSharedDialog({ targets, onClose, onCreated }: {
       <div className="dh">
         <div className="flex flex-col gap-1">
           <h2 className="ss-h2">{title}</h2>
-          <p className="text-[13px] text-ink-2">{t('instructions.shared.newSubtitle')}</p>
+          <p className="text-[13px] text-ink-2">{t(project ? 'instructions.projectShared.newSubtitle' : 'instructions.shared.newSubtitle')}</p>
         </div>
         <button type="button" className="ss-ib" aria-label={t('common.close')} onClick={onClose} disabled={saving}><X size={16} /></button>
       </div>
@@ -68,7 +70,7 @@ export default function NewSharedDialog({ targets, onClose, onCreated }: {
             </span>
             <span className={`hp ${problem ? 'text-bad' : ''}`}>{problem === 'invalid' ? t('instructions.shared.nameInvalid') : problem === 'taken' ? t(isFolderExtra(taken, extras.data?.extras ?? []) ? 'instructions.shared.nameTakenFolder' : 'instructions.convert.nameTaken', { name: taken }) : t('instructions.shared.nameHint')}</span>
           </div>
-          <div className="ss-fld">
+          {!project && <div className="ss-fld">
             <span className="text-[13px] font-semibold">{t('instructions.shared.startFrom')}</span>
             <Select
               value={from}
@@ -80,7 +82,7 @@ export default function NewSharedDialog({ targets, onClose, onCreated }: {
               disabled={saving}
             />
             <span className="hp">{t(from ? 'instructions.shared.startCopyHint' : 'instructions.shared.startEmptyHint', { name: from })}</span>
-          </div>
+          </div>}
         </div>
         {!from && (
           <div className="ss-code flex h-[300px] flex-col !overflow-hidden !p-0 !whitespace-normal focus-within:!border-[var(--accent)]">

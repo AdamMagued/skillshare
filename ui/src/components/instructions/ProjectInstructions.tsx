@@ -10,10 +10,11 @@ import { useToast } from '../Toast';
 import { useT } from '../../i18n';
 import { queryKeys } from '../../lib/queryKeys';
 import InstructionsEditorDialog from './InstructionsEditorDialog';
+import ProjectSharedFiles from './ProjectSharedFiles';
 import { instructionsErrorMessage, formatSize, refreshInstructions } from './instructionsView';
 
-/** ⑤ Extras › Instructions (project): one ./AGENTS.md, and whether each target reads it. */
-export default function ProjectInstructions() {
+/** ⑤ Extras › Instructions (project): one ./AGENTS.md, whether each target reads it, and the project's shared files. */
+export default function ProjectInstructions({ creating, setCreating }: { creating: boolean; setCreating: (open: boolean) => void }) {
   const t = useT();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -86,6 +87,8 @@ export default function ProjectInstructions() {
           ))}
         </div>
       </section>
+
+      <ProjectSharedFiles creating={creating} setCreating={setCreating} />
 
       <div className="ss-note inf">
         <Info size={16} />

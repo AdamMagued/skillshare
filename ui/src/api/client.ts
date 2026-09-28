@@ -731,7 +731,7 @@ export const api = {
         ...(extension !== undefined && { extension }),
       }),
     }),
-  addExtraTarget: (name: string, target: { path: string; mode?: string; flatten?: boolean; as?: string }) =>
+  addExtraTarget: (name: string, target: { path: string; mode?: string; flatten?: boolean }) =>
     apiFetch<{ success: boolean }>(`/extras/${encodeURIComponent(name)}/targets`, {
       method: 'POST',
       body: JSON.stringify(target),

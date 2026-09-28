@@ -3,7 +3,7 @@ import type { InstructionsWarning } from '../../api/client';
 import type { useT } from '../../i18n';
 import type { QueryClient } from '@tanstack/react-query';
 import type { InstructionLocation, InstructionsAssignment, InstructionsEntry, SharedCopyResult, SharedInstructionsFile, SharedInstructionsTarget } from '../../api/client';
-import { shortenHome } from '../../lib/paths';
+import { fileName, shortenHome } from '../../lib/paths';
 import type { LineDecor } from '../CodeEditor';
 import { queryKeys } from '../../lib/queryKeys';
 
@@ -304,6 +304,25 @@ export function locationFile(folder: string, as: string, file: string): string {
   const dir = folder.trim().replace(/[\\/]+$/, '');
   const sep = dir.includes('\\') && !dir.includes('/') ? '\\' : '/';
   return `${dir}${sep}${as.trim() || file}`;
+}
+
+/** The file a project location writes, relative to the project root: ./docs/ai/AGENTS.md, or ./AGENTS.md for the root. */
+export function projectLocationFile(folder: string, as: string, file: string): string {
+  const dir = folder.trim().replace(/\\/g, '/').replace(/^(\.\/)+/, '').replace(/\/+$/, '');
+  const name = as.trim() || file;
+  if (dir === '' || dir === '.') return `./${name}`;
+  // A path the server will refuse (../x, /x, ~/x) is shown as typed, not as ./../x.
+  return /^(\.\.|\/|~)/.test(dir) ? `${dir}/${name}` : `./${dir}/${name}`;
+}
+
+/** How a location row names its file: relative to the project root in a project, else by its full path. */
+export const locationLabel = (l: InstructionLocation, project: boolean) =>
+  (project ? projectLocationFile(l.path, '', fileName(l.file)) : shortenHome(l.file));
+
+/** A project's shared file named from the project root (.skillshare/extras/…), else by its full path. */
+export function projectSourcePath(path: string): string {
+  const i = path.search(/[\\/]\.skillshare[\\/]/);
+  return i >= 0 ? path.slice(i + 1).replace(/\\/g, '/') : shortenHome(path);
 }
 
 export type LocationHint = 'folderLink' | 'directory' | 'noSource' | 'notSynced' | 'drift' | 'driftImport' | 'import';

@@ -10,8 +10,8 @@ vi.mock('../../api/client', async (load) => {
   return { ...actual, api: { ...actual.api, addInstructionLocation: vi.fn() } };
 });
 
-const renderDialog = (fileLinks = true, onAdded = vi.fn()) => {
-  render(<I18nProvider><AddLocationDialog name="personal" file="AGENTS.md" fileLinks={fileLinks} onClose={() => {}} onAdded={onAdded} /></I18nProvider>);
+const renderDialog = (fileLinks = true, onAdded = vi.fn(), project = false) => {
+  render(<I18nProvider><AddLocationDialog name="personal" file="AGENTS.md" fileLinks={fileLinks} project={project} onClose={() => {}} onAdded={onAdded} /></I18nProvider>);
   return onAdded;
 };
 
@@ -73,5 +73,20 @@ describe('Add location dialog', () => {
     await user.click(screen.getByRole('button', { name: 'Add and sync' }));
 
     expect(await screen.findByRole('textbox', { name: 'File name' })).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('takes a folder relative to the project root in a project', async () => {
+    vi.mocked(api.addInstructionLocation).mockResolvedValue({ success: true });
+    const onAdded = renderDialog(true, vi.fn(), true);
+    const user = userEvent.setup();
+
+    expect(screen.getByText('Relative to the project root (. for the root); created if missing.')).toBeInTheDocument();
+    await user.type(screen.getByRole('textbox', { name: 'Folder' }), 'docs/ai');
+    await user.type(screen.getByRole('textbox', { name: 'File name' }), 'instructions.md');
+    expect(screen.getByText('./docs/ai/instructions.md')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Add and sync' }));
+
+    expect(api.addInstructionLocation).toHaveBeenCalledWith('personal', { path: 'docs/ai', as: 'instructions.md', mode: 'symlink' });
+    expect(onAdded).toHaveBeenCalledWith('./docs/ai/instructions.md', undefined);
   });
 });
