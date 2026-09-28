@@ -96,7 +96,7 @@ func TestDetachSkills_CopyKeepsCopiesAndManifest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(res.Removed) != 0 || !slices.Equal(res.Kept, []string{"alpha"}) {
+	if len(res.Removed) != 0 || len(res.Kept) != 0 || !slices.Equal(res.Copies, []string{"alpha"}) {
 		t.Errorf("res = %+v", res)
 	}
 	m, _ := ReadManifest(f.target)

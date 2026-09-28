@@ -1482,6 +1482,8 @@
   "targetDetail.skillsOff.hide": "Ocultar",
   "targetDetail.skillsOff.keep.one": "Manter {count} item seu: {names}",
   "targetDetail.skillsOff.keep.other": "Manter {count} itens seus: {names}",
+  "targetDetail.skillsOff.copies.one": "Mantém {count} cópia feita pelo skillshare: {names}. A ferramenta continua carregando; se ler a mesma skill em outro lugar, ela aparece duas vezes. Apague de {path} se não precisar.",
+  "targetDetail.skillsOff.copies.other": "Mantém {count} cópias feitas pelo skillshare: {names}. A ferramenta continua carregando; se ler as mesmas skills em outro lugar, elas aparecem duas vezes. Apague de {path} se não precisar.",
   "targetDetail.skillsOff.managed": "{items} continuam sendo gerenciados",
   "targetDetail.skillsOff.stillSees.one": "{name} também lê {path} de {from}, então continua vendo o {count} skill de lá.",
   "targetDetail.skillsOff.stillSees.other": "{name} também lê {path} de {from}, então continua vendo os {count} skills de lá.",

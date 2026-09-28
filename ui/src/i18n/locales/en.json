@@ -1482,6 +1482,8 @@
   "targetDetail.skillsOff.hide": "Hide",
   "targetDetail.skillsOff.keep.one": "Keep {count} item of your own: {names}",
   "targetDetail.skillsOff.keep.other": "Keep {count} items of your own: {names}",
+  "targetDetail.skillsOff.copies.one": "Keeps {count} copy skillshare made: {names}. The tool still loads it, so if it reads the same skill elsewhere it shows up twice; delete it from {path} if you do not need it.",
+  "targetDetail.skillsOff.copies.other": "Keeps {count} copies skillshare made: {names}. The tool still loads them, so if it reads the same skills elsewhere they show up twice; delete them from {path} if you do not need them.",
   "targetDetail.skillsOff.managed": "{items} stay managed as usual",
   "targetDetail.skillsOff.stillSees.one": "{name} also reads {from}’s {path}, so it still sees the {count} skill there.",
   "targetDetail.skillsOff.stillSees.other": "{name} also reads {from}’s {path}, so it still sees the {count} skills there.",

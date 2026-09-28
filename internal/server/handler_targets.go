@@ -590,12 +590,13 @@ func (s *Server) handleUpdateTarget(w http.ResponseWriter, r *http.Request) {
 	if detach != nil {
 		logArgs["removed"] = len(detach.Removed)
 		logArgs["kept"] = len(detach.Kept)
+		logArgs["copies"] = len(detach.Copies)
 	}
 	s.writeOpsLog("target", "ok", start, logArgs, "")
 
 	resp := map[string]any{"success": true}
 	if detach != nil {
-		resp["detach"] = map[string]any{"removed": detach.Removed, "kept": detach.Kept}
+		resp["detach"] = map[string]any{"removed": detach.Removed, "kept": detach.Kept, "copies": detach.Copies}
 	}
 	writeJSON(w, resp)
 }
@@ -623,7 +624,7 @@ func (s *Server) handleSkillsOffPreview(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	resp := map[string]any{"remove": res.Removed, "keep": res.Kept}
+	resp := map[string]any{"remove": res.Removed, "keep": res.Kept, "copies": res.Copies}
 	if res.SharedWith != "" {
 		resp["sharedWith"] = res.SharedWith
 	}

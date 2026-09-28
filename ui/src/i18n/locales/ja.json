@@ -1482,6 +1482,8 @@
   "targetDetail.skillsOff.hide": "閉じる",
   "targetDetail.skillsOff.keep.one": "自分で置いた {count} 個の項目は残します：{names}",
   "targetDetail.skillsOff.keep.other": "自分で置いた {count} 個の項目は残します：{names}",
+  "targetDetail.skillsOff.copies.one": "skillshare がコピーした {count} 個を残します：{names}。ツールは引き続き読み込むため、同じ Skill を別の場所からも読むと 2 回表示されます。不要なら {path} から削除してください。",
+  "targetDetail.skillsOff.copies.other": "skillshare がコピーした {count} 個を残します：{names}。ツールは引き続き読み込むため、同じ Skill を別の場所からも読むと 2 回表示されます。不要なら {path} から削除してください。",
   "targetDetail.skillsOff.managed": "{items} はこれまでどおり管理します",
   "targetDetail.skillsOff.stillSees.one": "{name} は {from} の {path} も読むため、そこにある {count} 個の Skills は引き続き見えます。",
   "targetDetail.skillsOff.stillSees.other": "{name} は {from} の {path} も読むため、そこにある {count} 個の Skills は引き続き見えます。",

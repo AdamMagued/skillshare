@@ -1482,6 +1482,8 @@
   "targetDetail.skillsOff.hide": "收起",
   "targetDetail.skillsOff.keep.one": "保留 {count} 个你自己的项目：{names}",
   "targetDetail.skillsOff.keep.other": "保留 {count} 个你自己的项目：{names}",
+  "targetDetail.skillsOff.copies.one": "保留 {count} 个 skillshare 复制的副本：{names}。工具还是会读到，如果它也从别处读同样的 Skill，就会出现两次；不需要的话请自行从 {path} 删除。",
+  "targetDetail.skillsOff.copies.other": "保留 {count} 个 skillshare 复制的副本：{names}。工具还是会读到，如果它也从别处读同样的 Skill，就会出现两次；不需要的话请自行从 {path} 删除。",
   "targetDetail.skillsOff.managed": "{items} 照常管理",
   "targetDetail.skillsOff.stillSees.one": "{name} 也会读取 {from} 的 {path}，那里的 {count} 个 Skills 它仍然能看到。",
   "targetDetail.skillsOff.stillSees.other": "{name} 也会读取 {from} 的 {path}，那里的 {count} 个 Skills 它仍然能看到。",

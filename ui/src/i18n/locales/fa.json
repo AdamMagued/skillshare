@@ -1482,6 +1482,8 @@
   "targetDetail.skillsOff.hide": "پنهان کردن",
   "targetDetail.skillsOff.keep.one": "نگه داشتن {count} مورد متعلق به شما: {names}",
   "targetDetail.skillsOff.keep.other": "نگه داشتن {count} مورد متعلق به شما: {names}",
+  "targetDetail.skillsOff.copies.one": "{count} نسخه‌ای که skillshare کپی کرده نگه داشته می‌شود: {names}. ابزار همچنان آن‌ها را می‌خواند؛ اگر همان Skill را جای دیگری هم بخواند، دو بار دیده می‌شود. اگر لازم نیست، از {path} پاکش کنید.",
+  "targetDetail.skillsOff.copies.other": "{count} نسخه‌ای که skillshare کپی کرده نگه داشته می‌شود: {names}. ابزار همچنان آن‌ها را می‌خواند؛ اگر همان Skill را جای دیگری هم بخواند، دو بار دیده می‌شود. اگر لازم نیست، از {path} پاکش کنید.",
   "targetDetail.skillsOff.managed": "{items} مثل قبل مدیریت می‌شوند",
   "targetDetail.skillsOff.stillSees.one": "{name} پوشهٔ {path} از {from} را هم می‌خواند، پس هنوز {count} Skill آنجا را می‌بیند.",
   "targetDetail.skillsOff.stillSees.other": "{name} پوشهٔ {path} از {from} را هم می‌خواند، پس هنوز {count} Skill آنجا را می‌بیند.",

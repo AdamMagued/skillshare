@@ -1482,6 +1482,8 @@
   "targetDetail.skillsOff.hide": "Sembunyikan",
   "targetDetail.skillsOff.keep.one": "Pertahankan {count} item milik Anda: {names}",
   "targetDetail.skillsOff.keep.other": "Pertahankan {count} item milik Anda: {names}",
+  "targetDetail.skillsOff.copies.one": "Menyimpan {count} salinan buatan skillshare: {names}. Alat tetap memuatnya, jadi jika membaca skill yang sama di tempat lain, skill muncul dua kali; hapus dari {path} jika tidak perlu.",
+  "targetDetail.skillsOff.copies.other": "Menyimpan {count} salinan buatan skillshare: {names}. Alat tetap memuatnya, jadi jika membaca skill yang sama di tempat lain, skill muncul dua kali; hapus dari {path} jika tidak perlu.",
   "targetDetail.skillsOff.managed": "{items} tetap dikelola seperti biasa",
   "targetDetail.skillsOff.stillSees.one": "{name} juga membaca {path} milik {from}, jadi tetap melihat {count} skill di sana.",
   "targetDetail.skillsOff.stillSees.other": "{name} juga membaca {path} milik {from}, jadi tetap melihat {count} skill di sana.",

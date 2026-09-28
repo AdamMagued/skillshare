@@ -38,6 +38,13 @@ describe('Skills off dialog', () => {
     expect(api.updateTarget).toHaveBeenCalledWith('gemini', { skills_enabled: false });
   });
 
+  it('lists copies apart from the user’s own items, since they show up twice', async () => {
+    vi.mocked(api.skillsOffPreview).mockResolvedValue({ remove: [], keep: ['my-notes'], copies: ['archify'] });
+    view();
+    expect(await screen.findByText('Keep 1 item of your own: my-notes')).toBeInTheDocument();
+    expect(screen.getByText(/Keeps 1 copy skillshare made: archify\. .*shows up twice/)).toBeInTheDocument();
+  });
+
   it('says nothing is removed when an enabled target shares the folder', async () => {
     vi.mocked(api.skillsOffPreview).mockResolvedValue({ remove: [], keep: [], sharedWith: 'universal' });
     view();

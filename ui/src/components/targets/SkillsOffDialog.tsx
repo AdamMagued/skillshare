@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Check, Folder, TriangleAlert, Unlink } from 'lucide-react';
+import { Check, Copy, Folder, TriangleAlert, Unlink } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { api } from '../../api/client';
 import type { Target } from '../../api/client';
@@ -61,6 +61,8 @@ export default function SkillsOffDialog({ target, readFrom, readers, managed, on
   const remove = preview.data?.remove ?? [];
   const affected = Boolean(readers && (readers.off.length > 0 || readers.local.length > 0));
   const keep = preview.data?.keep ?? [];
+  const copies = preview.data?.copies ?? [];
+  const names = (list: string[]) => list.slice(0, KEEP_NAMES).join(', ') + (list.length > KEEP_NAMES ? ', …' : '');
   // A few overlapping logos per line with every name on hover, the rest counted, so a long list stays short.
   const readerLine = (text: string, names: string[], muted = false) => (
     <span className={`flex flex-wrap items-center gap-2 ${muted ? 'text-ink-2' : ''}`}>
@@ -112,10 +114,8 @@ export default function SkillsOffDialog({ target, readFrom, readers, managed, on
                     )}
                   </>
                 ))}
-            {keep.length > 0 && row(Folder, t(keep.length === 1 ? 'targetDetail.skillsOff.keep.one' : 'targetDetail.skillsOff.keep.other', {
-              count: keep.length,
-              names: keep.slice(0, KEEP_NAMES).join(', ') + (keep.length > KEEP_NAMES ? ', …' : ''),
-            }))}
+            {keep.length > 0 && row(Folder, t(keep.length === 1 ? 'targetDetail.skillsOff.keep.one' : 'targetDetail.skillsOff.keep.other', { count: keep.length, names: names(keep) }))}
+            {copies.length > 0 && row(Copy, t(copies.length === 1 ? 'targetDetail.skillsOff.copies.one' : 'targetDetail.skillsOff.copies.other', { count: copies.length, names: names(copies), path }))}
             {managed.length > 0 && row(Check, t('targetDetail.skillsOff.managed', { items: joinList(managed, locale) }))}
           </ul>
         )}

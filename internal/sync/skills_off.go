@@ -12,11 +12,14 @@ import (
 
 // SkillsOffResult is what switching skills off for a target does to its skills
 // folder. Removed and Kept are entry names in the folder, or the folder path
-// itself when the whole folder is a link. SharedWith names an enabled target
-// writing to the same folder; the folder is then left alone.
+// itself when the whole folder is a link. Copies are the entries copy mode
+// made: kept like the user's own, but the tool loads them next to wherever it
+// now reads skills from, so they show up twice until deleted. SharedWith names
+// an enabled target writing to the same folder; the folder is then left alone.
 type SkillsOffResult struct {
 	Removed    []string `json:"removed"`
 	Kept       []string `json:"kept"`
+	Copies     []string `json:"copies"`
 	SharedWith string   `json:"sharedWith,omitempty"`
 }
 
@@ -26,7 +29,7 @@ type SkillsOffResult struct {
 // and links elsewhere are kept and reported. Content is never copied back. The
 // manifest loses only the removed entries. dryRun reports without writing.
 func DetachSkills(targets map[string]config.TargetConfig, name, sourcePath string, dryRun bool) (*SkillsOffResult, error) {
-	res := &SkillsOffResult{Removed: []string{}, Kept: []string{}}
+	res := &SkillsOffResult{Removed: []string{}, Kept: []string{}, Copies: []string{}}
 	tc, ok := targets[name]
 	if !ok {
 		return nil, fmt.Errorf("target %q not found", name)
@@ -87,7 +90,11 @@ func DetachSkills(targets map[string]config.TargetConfig, name, sourcePath strin
 		}
 		entryPath := filepath.Join(folder, entryName)
 		if !utils.IsSymlinkOrJunction(entryPath) || !linksIntoSource(entryPath, absSource) {
-			res.Kept = append(res.Kept, entryName)
+			if _, copied := manifest.Managed[entryName]; copied && !utils.IsSymlinkOrJunction(entryPath) {
+				res.Copies = append(res.Copies, entryName)
+			} else {
+				res.Kept = append(res.Kept, entryName)
+			}
 			continue
 		}
 		if !dryRun {
@@ -104,6 +111,7 @@ func DetachSkills(targets map[string]config.TargetConfig, name, sourcePath strin
 	}
 	sort.Strings(res.Removed)
 	sort.Strings(res.Kept)
+	sort.Strings(res.Copies)
 
 	if manifestChanged && !dryRun {
 		if len(manifest.Managed) == 0 {

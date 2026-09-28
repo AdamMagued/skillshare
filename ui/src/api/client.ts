@@ -1140,11 +1140,14 @@ export interface Target {
 export interface SkillsDetach {
   removed: string[];
   kept: string[];
+  copies?: string[];
 }
 
 export interface SkillsOffPreview {
   remove: string[];
   keep: string[];
+  /** Copies copy mode made: kept, but loaded twice if the tool reads the skills elsewhere too. */
+  copies?: string[];
   /** The enabled target that uses the same folder; nothing is removed then. */
   sharedWith?: string;
 }

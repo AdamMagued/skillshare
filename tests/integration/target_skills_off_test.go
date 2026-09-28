@@ -64,6 +64,29 @@ func TestTargetSkillsOff_RemovesLinksKeepsLocal(t *testing.T) {
 	}
 }
 
+func TestTargetSkillsOff_CopyModeListsCopiesApart(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.CreateSkill("alpha", map[string]string{"SKILL.md": "---\nname: alpha\n---\n# Alpha"})
+	gemini := sb.CreateTarget("gemini")
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+mode: copy
+targets:
+  gemini:
+    skills:
+      path: ` + gemini + `
+`)
+	sb.RunCLI("sync").AssertSuccess(t)
+
+	result := sb.RunCLI("target", "gemini", "--skills=false")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "kept 1 copied skill(s): alpha")
+	result.AssertAnyOutputContains(t, "The tool still loads these copies")
+	if !sb.FileExists(filepath.Join(gemini, "alpha", "SKILL.md")) {
+		t.Error("the copy must be kept")
+	}
+}
+
 func TestTargetSkillsOff_RefusesFilterFlags(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

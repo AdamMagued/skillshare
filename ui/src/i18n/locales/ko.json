@@ -1482,6 +1482,8 @@
   "targetDetail.skillsOff.hide": "접기",
   "targetDetail.skillsOff.keep.one": "직접 만든 항목 {count}개는 유지: {names}",
   "targetDetail.skillsOff.keep.other": "직접 만든 항목 {count}개는 유지: {names}",
+  "targetDetail.skillsOff.copies.one": "skillshare가 복사한 {count}개를 남깁니다: {names}. 도구는 계속 읽으므로 같은 Skill을 다른 곳에서도 읽으면 두 번 나타납니다. 필요 없으면 {path}에서 직접 삭제하세요.",
+  "targetDetail.skillsOff.copies.other": "skillshare가 복사한 {count}개를 남깁니다: {names}. 도구는 계속 읽으므로 같은 Skill을 다른 곳에서도 읽으면 두 번 나타납니다. 필요 없으면 {path}에서 직접 삭제하세요.",
   "targetDetail.skillsOff.managed": "{items}은(는) 계속 관리합니다",
   "targetDetail.skillsOff.stillSees.one": "{name}은(는) {from}의 {path}도 읽으므로 그곳의 Skills {count}개는 계속 보입니다.",
   "targetDetail.skillsOff.stillSees.other": "{name}은(는) {from}의 {path}도 읽으므로 그곳의 Skills {count}개는 계속 보입니다.",

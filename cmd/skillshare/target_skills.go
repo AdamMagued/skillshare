@@ -100,6 +100,10 @@ func renderSkillsOff(name string, dryRun bool, res *sync.SkillsOffResult) {
 	if len(res.Kept) > 0 {
 		ui.Info("  %s %d: %s", keepVerb, len(res.Kept), strings.Join(res.Kept, ", "))
 	}
+	if len(res.Copies) > 0 {
+		ui.Warning("  %s %d copied skill(s): %s", keepVerb, len(res.Copies), strings.Join(res.Copies, ", "))
+		ui.Info("  The tool still loads these copies; delete them if it reads the same skills elsewhere")
+	}
 	ui.Info("  Agents, MCP servers and instructions are still managed")
 }
 
@@ -114,6 +118,7 @@ func logTargetSkillsOp(cfgPath, name string, enabled, dryRun bool, res *sync.Ski
 	if res != nil {
 		e.Args["removed"] = len(res.Removed)
 		e.Args["kept"] = len(res.Kept)
+		e.Args["copies"] = len(res.Copies)
 	}
 	if err != nil {
 		e.Message = err.Error()
