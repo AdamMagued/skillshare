@@ -2,7 +2,9 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -84,6 +86,10 @@ func (s *Server) handlePutTargetInstructionsSetup(w http.ResponseWriter, r *http
 	shared := s.attachedShared(name)
 	tc.Instructions = ic
 	next, _ := config.TargetInstructions(name, tc, s.IsProjectMode())
+	if info, err := os.Stat(instructions.Resolve(next, s.projectRoot).Path); err == nil && info.IsDir() {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("instructions.path %q must name a file, not a directory", ic.Path))
+		return
+	}
 	if hadFile && len(shared) > 0 && filepath.Clean(old.Path) != filepath.Clean(instructions.Resolve(next, s.projectRoot).Path) {
 		writeInstructionsInUse(w, name)
 		return

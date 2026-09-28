@@ -291,3 +291,36 @@ func TestCopyTracker_PruneOrphansPreservesOwnershipOnRemoveFailure(t *testing.T)
 		t.Fatalf("failed removal lost ownership or reported success: removed=%v changed=%v", removed, tracker.changed)
 	}
 }
+
+func TestCopyFallbackMissingManifestIsSyncedButUnowned(t *testing.T) {
+	withoutFileLinks(t)
+	src, tgt, agents := agentFixture(t)
+	SyncAgents(agents, src, tgt, "merge", false, false)
+	os.Remove(filepath.Join(tgt, ".skillshare-manifest.json"))
+	res, err := SyncAgents(agents, src, tgt, "merge", false, false)
+	if err != nil || len(res.Linked) != 0 || len(res.Skipped) != 1 {
+		t.Errorf("result=%+v err=%v", res, err)
+	}
+	if n := SyncedAgentCopies(tgt, agents); n != 1 {
+		t.Errorf("synced=%d", n)
+	}
+	PruneOrphanAgentLinks(tgt, nil, false)
+	if got := readFile(t, filepath.Join(tgt, "tutor.md")); got != "v1" {
+		t.Fatal(got)
+	}
+	src, tgt = setupExtrasTest(t, map[string]string{"a.md": "a"})
+	SyncExtra(src, tgt, "merge", false, false, false, "", nil)
+	os.Remove(filepath.Join(tgt, ".skillshare-manifest.json"))
+	extra, err := SyncExtra(src, tgt, "merge", false, false, false, "", nil)
+	if err != nil || extra.Synced != 0 || extra.Skipped != 1 {
+		t.Errorf("result=%+v err=%v", extra, err)
+	}
+	if status := CheckSyncStatus([]string{"a.md"}, src, tgt, "merge", false, ""); status != "synced" {
+		t.Errorf("status=%q", status)
+	}
+	os.Remove(filepath.Join(src, "a.md"))
+	SyncExtra(src, tgt, "merge", false, false, false, "", nil)
+	if got := readFile(t, filepath.Join(tgt, "a.md")); got != "a" {
+		t.Fatal(got)
+	}
+}

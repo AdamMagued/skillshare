@@ -237,8 +237,8 @@ func TestSharedInstructions_AssignAndRestore(t *testing.T) {
 	}
 
 	rr := instructionsRequest(t, s, http.MethodPost, "/api/instructions/assign", `{"targets":["codex"],"extras":["personal","work"]}`)
-	if res := decodeBody[map[string]any](t, rr); res["success"] != false {
-		t.Errorf("codex with two files: %v, want failure", res)
+	if res := decodeBody[map[string]any](t, rr); rr.Code != http.StatusConflict || res["error_code"] != "instructions_target_held" {
+		t.Errorf("codex with two files: %v, want conflict", res)
 	}
 	rr = instructionsRequest(t, s, http.MethodPost, "/api/instructions/assign", `{"targets":["claude","codex"],"extras":["personal"]}`)
 	if res := decodeBody[map[string]any](t, rr); res["success"] != true {

@@ -37,7 +37,7 @@ func PreviewRestoreExtraTarget(f ExtraFile) ExtraRestorePreview {
 	if f.Mode == "import" {
 		// Only the import line goes, unless nothing else is left in the file.
 		data, _ := os.ReadFile(f.Target)
-		stripped, _ := removeImportLine(string(data), f.importLine())
+		stripped, _ := f.removeImport(string(data))
 		if strings.TrimSpace(stripped) != "" || record == "" {
 			p.Kind, p.Content = RestoreKindContent, stripped
 			return p
@@ -61,7 +61,7 @@ func PreviewRestoreExtraTarget(f ExtraFile) ExtraRestorePreview {
 	switch record {
 	case attachCreated:
 		p.Kind = RestoreKindDelete
-	case attachRestoreLink:
+	case attachRestoreLink, attachRestoreJunction:
 		dest, _ := os.ReadFile(filepath.Join(dir, record))
 		p.Kind, p.LinkTo = RestoreKindLink, string(dest)
 	case attachRestore:
@@ -82,7 +82,7 @@ func PreviewRestoreExtraTarget(f ExtraFile) ExtraRestorePreview {
 // written, or "" when there is none.
 func extraAttachRecord(path string) (string, time.Time) {
 	dir := extraBackupDir(path)
-	for _, name := range []string{attachCreated, attachRestore, attachRestoreLink} {
+	for _, name := range []string{attachCreated, attachRestore, attachRestoreLink, attachRestoreJunction} {
 		if info, err := os.Stat(filepath.Join(dir, name)); err == nil {
 			return name, info.ModTime()
 		}

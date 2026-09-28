@@ -23,6 +23,9 @@ that skills stay junctions recognised as links.
   `C:\Users\Public\sstest\`. The script overrides `USERPROFILE`, `HOME`, `APPDATA`,
   `LOCALAPPDATA` and `TEMP`, and aborts unless `doctor` reports the config under the
   test root.
+- The desktop user must be logged in: the `-LogonType Interactive` task in step 3
+  only runs in an interactive session, and restarting the VM logs the user out. Do
+  not substitute `S4U`; its token can differ from what a real user gets.
 - `utmctl exec` is asynchronous and returns no output. The script writes a report
   and ends it with `DONE`; poll it with `utmctl file pull`.
 - SYSTEM and administrators (including an admin with UAC off, where

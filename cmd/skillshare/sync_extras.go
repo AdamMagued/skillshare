@@ -70,6 +70,9 @@ func cmdSyncExtrasGlobal(dryRun, force, jsonOutput bool, start time.Time) error 
 		return err
 	}
 
+	if _, err := config.ValidateConfig(cfg); err != nil {
+		return err
+	}
 	if len(cfg.Extras) == 0 {
 		// Clean up empty extras directory
 		removeEmptyDir(config.ExtrasParentDir(cfg.EffectiveSkillsSource()))
@@ -269,7 +272,13 @@ func cmdSyncExtrasGlobal(dryRun, force, jsonOutput bool, start time.Time) error 
 			Extras:   jsonEntries,
 			Duration: formatDuration(start),
 		}
-		return writeJSON(&output)
+		if err := writeJSON(&output); err != nil {
+			return err
+		}
+		if totalErrors > 0 {
+			return &jsonSilentError{cause: fmt.Errorf("%d extras sync error(s)", totalErrors)}
+		}
+		return nil
 	}
 
 	ui.ExtrasSyncSummary(ui.ExtrasSyncStats{
@@ -292,6 +301,9 @@ func cmdSyncExtrasProject(cwd string, dryRun, force, jsonOutput bool, start time
 		return err
 	}
 
+	if _, err := config.ValidateProjectConfig(projCfg, cwd); err != nil {
+		return err
+	}
 	if len(projCfg.Extras) == 0 {
 		// Clean up empty extras directory
 		removeEmptyDir(config.ExtrasParentDirProject(projCfg.EffectiveExtrasSource(cwd)))
@@ -470,7 +482,13 @@ func cmdSyncExtrasProject(cwd string, dryRun, force, jsonOutput bool, start time
 			Extras:   jsonEntries,
 			Duration: formatDuration(start),
 		}
-		return writeJSON(&output)
+		if err := writeJSON(&output); err != nil {
+			return err
+		}
+		if totalErrors > 0 {
+			return &jsonSilentError{cause: fmt.Errorf("%d extras sync error(s)", totalErrors)}
+		}
+		return nil
 	}
 
 	ui.ExtrasSyncSummary(ui.ExtrasSyncStats{

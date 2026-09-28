@@ -3,6 +3,7 @@
 package sync
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 )
@@ -41,4 +42,9 @@ func isJunctionOrSymlink(path string) bool {
 		return false
 	}
 	return info.Mode()&os.ModeSymlink != 0
+}
+
+// createJunction cannot recreate a Windows junction on another platform.
+func createJunction(linkPath, sourcePath string) error {
+	return fmt.Errorf("cannot restore Windows junction %s to %s on this platform", linkPath, sourcePath)
 }

@@ -64,30 +64,33 @@ func createLink(linkPath, sourcePath string, relative bool) error {
 	}
 
 	// Try junction (no admin required, but requires absolute paths)
-	var stderr bytes.Buffer
-	cmd := exec.Command("cmd", "/c", "mklink", "/J", absTarget, absSource)
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err == nil {
+	junctionErr := createJunction(absTarget, absSource)
+	if junctionErr == nil {
 		return nil
 	}
-
-	junctionErr := strings.TrimSpace(stderr.String())
 
 	// Fallback to symlink with absolute path
 	if symlinkErr := os.Symlink(absSource, absTarget); symlinkErr == nil {
 		return nil
 	}
 
-	errMsg := "failed to create link"
-	if junctionErr != "" {
-		errMsg = fmt.Sprintf("%s\n  junction error: %s", errMsg, junctionErr)
-	} else {
-		errMsg = fmt.Sprintf("%s\n  junction: mklink /J command failed", errMsg)
-	}
+	errMsg := fmt.Sprintf("failed to create link\n  junction error: %s", junctionErr)
 	errMsg = fmt.Sprintf("%s\n  symlink: requires Administrator or Developer Mode", errMsg)
 	errMsg = fmt.Sprintf("%s\n  target: %s\n  source: %s", errMsg, absTarget, absSource)
 
 	return errors.New(errMsg)
+}
+
+// createJunction is also used to restore an original junction exactly, without
+// requiring symlink privileges or falling back to a different link kind.
+func createJunction(linkPath, sourcePath string) error {
+	var stderr bytes.Buffer
+	cmd := exec.Command("cmd", "/c", "mklink", "/J", linkPath, sourcePath)
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("mklink /J: %w: %s", err, strings.TrimSpace(stderr.String()))
+	}
+	return nil
 }
 
 // canCreateRelativeLink probes whether the OS can create relative symlinks.

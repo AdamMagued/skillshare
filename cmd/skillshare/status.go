@@ -210,6 +210,10 @@ func printExtrasStatus(extras []config.ExtraConfig, sourceDirFn func(config.Extr
 			continue
 		}
 		for _, t := range extra.Targets {
+			if err := config.ValidateExtraMode(t.Mode); err != nil {
+				ui.Warning("  %s: %s (%s)", extra.Name, err, t.Path)
+				continue
+			}
 			detail := fmt.Sprintf("[%s] %s (%d files)", sync.ExtraTargetMode(t.Mode, extra.File != ""), t.Path, len(files))
 			ui.Status(extra.Name, "has files", detail)
 		}

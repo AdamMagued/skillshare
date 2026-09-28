@@ -551,6 +551,19 @@ func (s *Server) handleExtrasSync(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.mu.RLock()
+	var validationErr error
+	if s.IsProjectMode() {
+		validationErr = s.projectCfg.ValidateExtras(s.projectRoot)
+	} else {
+		validationErr = s.cfg.ValidateExtras()
+	}
+	if validationErr != nil {
+		s.mu.RUnlock()
+		if !writeExtraTargetConflict(w, validationErr, body.Name) {
+			writeError(w, http.StatusBadRequest, validationErr.Error())
+		}
+		return
+	}
 	results := s.syncExtras(body.Name, body.DryRun, body.Force)
 	s.mu.RUnlock()
 
@@ -809,23 +822,26 @@ func (s *Server) handleExtrasDelete(w http.ResponseWriter, r *http.Request) {
 	removed := extras[idx]
 	sourceDir := s.extrasSourceDir(removed)
 
-	// Remove from config
-	if s.IsProjectMode() {
-		s.projectCfg.Extras = append(s.projectCfg.Extras[:idx], s.projectCfg.Extras[idx+1:]...)
-	} else {
-		s.cfg.Extras = append(s.cfg.Extras[:idx], s.cfg.Extras[idx+1:]...)
-	}
-
-	if err := s.saveAndReloadConfig(); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
 	// A single-file extra's targets go back to how they were (as the CLI does).
 	projectRoot := s.projectRoot
 	restored, restoreErr := syncpkg.RestoreExtraFileTargets(removed, sourceDir, func(p string) string {
 		return resolveExtrasTargetPath(projectRoot, p)
 	})
+	if restoreErr == nil {
+		// Remove from config
+		if s.IsProjectMode() {
+			s.projectCfg.Extras = append(s.projectCfg.Extras[:idx], s.projectCfg.Extras[idx+1:]...)
+		} else {
+			s.cfg.Extras = append(s.cfg.Extras[:idx], s.cfg.Extras[idx+1:]...)
+		}
+
+		if err := s.saveAndReloadConfig(); err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+	}
+
 	status, msg := "ok", ""
 	if restoreErr != nil {
 		status, msg = "partial", restoreErr.Error()

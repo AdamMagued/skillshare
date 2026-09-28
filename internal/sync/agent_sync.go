@@ -199,6 +199,10 @@ func syncAgentsMergeCopy(agents []resource.DiscoveredResource, targetDir string,
 			result.Skipped = append(result.Skipped, name)
 			continue
 		case contentEqual(agent.AbsPath, targetPath):
+			if !copies.owns(name) {
+				result.Skipped = append(result.Skipped, name)
+				continue
+			}
 			result.Linked = append(result.Linked, name)
 			continue
 		case !force && !copies.owns(name):
@@ -232,15 +236,16 @@ func syncAgentsMergeCopy(agents []resource.DiscoveredResource, targetDir string,
 	return result, nil
 }
 
-// SyncedAgentCopies counts the agents whose target file is a copy made in
-// place of a link that still matches its source. Status and doctor count them
-// as in sync alongside healthy links; a stale copy is drift.
+// SyncedAgentCopies counts regular files matching their source, independently
+// of ownership. Status equality does not authorize overwriting or pruning.
 func SyncedAgentCopies(targetDir string, agents []resource.DiscoveredResource) int {
 	copies := loadCopyTracker(targetDir)
 	n := 0
 	for _, a := range agents {
-		if _, tracked := copies.m.Managed[a.FlatName]; !tracked {
-			continue
+		if canCreateFileLink() {
+			if _, tracked := copies.m.Managed[a.FlatName]; !tracked {
+				continue
+			}
 		}
 		target := filepath.Join(targetDir, a.FlatName)
 		if info, err := os.Lstat(target); err == nil && info.Mode().IsRegular() && contentEqual(a.AbsPath, target) {

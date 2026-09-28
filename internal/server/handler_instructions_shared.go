@@ -41,14 +41,15 @@ type sharedInstructionsFile struct {
 }
 
 type sharedInstructionsTarget struct {
-	Name     string                    `json:"name"`
-	Path     string                    `json:"path"`
-	Import   bool                      `json:"import"`
-	Exists   bool                      `json:"exists"`
-	SameAs   string                    `json:"same_as,omitempty"`  // locked to this target: both read the same file
-	RiderOf  string                    `json:"rider_of,omitempty"` // not configured; reads this configured target's skills
-	MaxChars int                       `json:"max_chars,omitempty"`
-	Assigned []instructions.Assignment `json:"assigned"`
+	LinkedShared string                    `json:"linked_shared,omitempty"` // shared source reached by the target, including untracked links
+	Name         string                    `json:"name"`
+	Path         string                    `json:"path"`
+	Import       bool                      `json:"import"`
+	Exists       bool                      `json:"exists"`
+	SameAs       string                    `json:"same_as,omitempty"`  // locked to this target: both read the same file
+	RiderOf      string                    `json:"rider_of,omitempty"` // not configured; reads this configured target's skills
+	MaxChars     int                       `json:"max_chars,omitempty"`
+	Assigned     []instructions.Assignment `json:"assigned"`
 }
 
 // instructionTargets returns the configured targets with a global instruction
@@ -74,6 +75,7 @@ func (s *Server) instructionTargets() []sharedInstructionsTarget {
 		_, err := os.Stat(it.Path)
 		t.Exists = err == nil
 		t.Assigned = instructions.Assignments(s.cfg.Extras, it.Path, res)
+		t.LinkedShared = s.sharedLinkName(it.Path)
 		out = append(out, t)
 	}
 	for _, r := range s.instructionRiders() {
@@ -81,6 +83,7 @@ func (s *Server) instructionTargets() []sharedInstructionsTarget {
 		_, err := os.Stat(r.Path)
 		t.Exists = err == nil
 		t.Assigned = instructions.Assignments(s.cfg.Extras, r.Path, res)
+		t.LinkedShared = s.sharedLinkName(r.Path)
 		out = append(out, t)
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].Name < out[j].Name })
@@ -318,7 +321,7 @@ func (s *Server) syncSharedCopies(extra config.ExtraConfig) []sharedCopyResult {
 
 // assignTarget attaches exactly want to the named target. Callers must hold
 // s.mu and save the config afterwards.
-func (s *Server) assignTarget(name string, want []string) error {
+func (s *Server) assignTarget(name string, want []string, warnings ...*[]string) error {
 	it, found, ok := s.targetInstructions(name)
 	if !found {
 		return fmt.Errorf("target not found: %s", name)
@@ -329,7 +332,7 @@ func (s *Server) assignTarget(name string, want []string) error {
 	if _, linked := s.cfg.Targets[it.SameAs]; linked {
 		return fmt.Errorf("%s reads the same file as %s; change %s instead", name, it.SameAs, it.SameAs)
 	}
-	extras, err := instructions.Assign(s.cfg.Extras, instructions.Target{Name: name, File: it.Path, Import: it.Import}, want, s.instructionsResolver())
+	extras, err := instructions.Assign(s.cfg.Extras, instructions.Target{Name: name, File: it.Path, Import: it.Import}, want, s.instructionsResolver(), warnings...)
 	s.cfg.Extras = extras
 	return err
 }
@@ -357,18 +360,36 @@ func (s *Server) handleAssignSharedInstructions(w http.ResponseWriter, r *http.R
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	// Validate every target before attaching any of them, including connect-all.
+	planned := s.cfg.Extras
+	for _, name := range body.Targets {
+		it, found, ok := s.targetInstructions(name)
+		if !found || !ok {
+			writeError(w, http.StatusBadRequest, "target has no instruction file: "+name)
+			return
+		}
+		var err error
+		planned, err = instructions.PlanAssign(planned, instructions.Target{Name: name, File: it.Path, Import: it.Import}, body.Extras, s.instructionsResolver())
+		if err != nil {
+			if !writeExtraTargetConflict(w, err, name) {
+				writeError(w, http.StatusBadRequest, err.Error())
+			}
+			return
+		}
+	}
+	warnings := []string{}
 	errs := []string{}
 	for _, name := range body.Targets {
-		if err := s.assignTarget(name, body.Extras); err != nil {
+		if err := s.assignTarget(name, body.Extras, &warnings); err != nil {
 			errs = append(errs, err.Error())
 		}
 	}
-	s.saveSharedAfterChange(w, start, "instructions-assign", map[string]any{"targets": body.Targets, "extras": body.Extras, "scope": "ui"}, errs)
+	s.saveSharedAfterChange(w, start, "instructions-assign", map[string]any{"targets": body.Targets, "extras": body.Extras, "scope": "ui"}, errs, warnings)
 }
 
 // saveSharedAfterChange saves the config (files on disk already changed),
 // logs, and answers with the per-target errors.
-func (s *Server) saveSharedAfterChange(w http.ResponseWriter, start time.Time, cmd string, args map[string]any, errs []string) {
+func (s *Server) saveSharedAfterChange(w http.ResponseWriter, start time.Time, cmd string, args map[string]any, errs []string, warnings ...[]string) {
 	if err := s.saveAndReloadConfig(); err != nil {
 		errs = append(errs, err.Error())
 	}
@@ -377,7 +398,11 @@ func (s *Server) saveSharedAfterChange(w http.ResponseWriter, start time.Time, c
 		status, msg = "partial", fmt.Sprint(errs)
 	}
 	s.writeOpsLog(cmd, status, start, args, msg)
-	writeJSON(w, map[string]any{"success": len(errs) == 0, "errors": errs})
+	outWarnings := []string{}
+	for _, ws := range warnings {
+		outWarnings = append(outWarnings, ws...)
+	}
+	writeJSON(w, map[string]any{"success": len(errs) == 0, "errors": errs, "warnings": outWarnings})
 }
 
 // handleRestoreSharedInstructions — POST /api/instructions/{name}/restore

@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"slices"
 	"strings"
@@ -19,6 +20,7 @@ var sharedInstructionsModes = []string{"import", "symlink", "copy"}
 // handlePutSharedInstructionsMode — PUT /api/instructions/{name}/targets/{target}/mode
 // Changes how one attached target gets the shared file and syncs it again. The
 // restore point recorded when the target was first attached stays.
+// The success response always includes warnings: []string from SyncExtraFile.
 func (s *Server) handlePutSharedInstructionsMode(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	name, target := r.PathValue("name"), r.PathValue("target")
@@ -49,8 +51,8 @@ func (s *Server) handlePutSharedInstructionsMode(w http.ResponseWriter, r *http.
 		writeError(w, http.StatusBadRequest, target+" has no instruction file")
 		return
 	}
-	if body.Mode == "import" && !it.Import {
-		writeError(w, http.StatusBadRequest, target+" does not read @import lines")
+	if err := config.ValidateImportMode(body.Mode, target, it.Import); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	res := s.instructionsResolver()
@@ -63,15 +65,20 @@ func (s *Server) handlePutSharedInstructionsMode(w http.ResponseWriter, r *http.
 		writeError(w, http.StatusNotFound, name+" is not attached to "+target)
 		return
 	}
-	// A link or copy replaces the whole file, so it holds one shared file only.
-	if body.Mode != "import" && len(instructions.Assignments(s.cfg.Extras, it.Path, res)) > 1 {
-		writeError(w, http.StatusConflict, target+" uses several shared files; only import can hold more than one")
-		return
-	}
 
 	tc := &s.cfg.Extras[i].Targets[j]
+	prev := tc.Mode
+	tc.Mode = body.Mode
+	validationErr := config.ValidateExtraConnections(s.cfg.Extras, res.SourceDir, res.TargetDir, name)
+	tc.Mode = prev
+	if validationErr != nil {
+		if !writeExtraTargetConflict(w, validationErr, target) {
+			writeError(w, http.StatusBadRequest, validationErr.Error())
+		}
+		return
+	}
 	if tc.Mode == body.Mode {
-		writeJSON(w, map[string]any{"success": true})
+		writeJSON(w, map[string]any{"success": true, "warnings": []string{}})
 		return
 	}
 	args := map[string]any{"name": name, "target": target, "mode": body.Mode, "from": tc.Mode, "scope": "ui"}
@@ -79,7 +86,6 @@ func (s *Server) handlePutSharedInstructionsMode(w http.ResponseWriter, r *http.
 		s.writeOpsLog("instructions-mode", "error", start, args, err.Error())
 		writeError(w, http.StatusInternalServerError, err.Error())
 	}
-	prev := tc.Mode
 	tc.Mode = body.Mode
 	if err := config.ValidateExtraConfig(s.cfg.Extras[i]); err != nil {
 		tc.Mode = prev
@@ -104,7 +110,18 @@ func (s *Server) handlePutSharedInstructionsMode(w http.ResponseWriter, r *http.
 		return
 	}
 	s.writeOpsLog("instructions-mode", "ok", start, args, "")
-	writeJSON(w, map[string]any{"success": true})
+	warnings := append([]string{}, result.Warnings...)
+	writeJSON(w, map[string]any{"success": true, "warnings": warnings})
+}
+
+// writeExtraTargetConflict preserves a structured conflict for UI callers.
+func writeExtraTargetConflict(w http.ResponseWriter, err error, target string) bool {
+	var conflict *config.ExtraTargetConflict
+	if !errors.As(err, &conflict) {
+		return false
+	}
+	writeCodedError(w, http.StatusConflict, "instructions_target_held", err.Error(), map[string]string{"name": conflict.Name, "target": target})
+	return true
 }
 
 type sharedRestorePreview struct {

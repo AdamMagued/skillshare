@@ -177,20 +177,7 @@ func (s *Server) handleGetTargetInstructions(w http.ResponseWriter, r *http.Requ
 // the symlink at path points to, or "" when it is not one, such as a link the
 // user made to their own dotfiles. Callers must hold s.mu.
 func (s *Server) sharedLinkName(path string) string {
-	dest, err := filepath.EvalSymlinks(path)
-	if err != nil {
-		return ""
-	}
-	for _, extra := range s.extrasConfig() {
-		if extra.File == "" {
-			continue
-		}
-		src, err := filepath.EvalSymlinks(filepath.Join(s.extrasSourceDir(extra), extra.File))
-		if err == nil && src == dest {
-			return extra.Name
-		}
-	}
-	return ""
+	return config.ExtraSourceAt(s.extrasConfig(), path, s.extrasSourceDir)
 }
 
 // usesShared reports whether a shared instruction file is attached to path,

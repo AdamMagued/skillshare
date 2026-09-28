@@ -57,6 +57,15 @@ func backupExtraFile(path string) error {
 // It lives apart from the regular backups so restore never picks it.
 func backupExtraDrift(path string) error {
 	data, err := os.ReadFile(path)
+	// Preserve link identity even for a dangling link; never read its destination
+	// as if it were an edited regular file.
+	if dest, linkErr := os.Readlink(path); linkErr == nil {
+		kind := "symlink"
+		if info, statErr := os.Lstat(path); statErr == nil && info.Mode()&os.ModeSymlink == 0 && utils.IsLinkMode(path, info.Mode()) {
+			kind = "junction"
+		}
+		data, err = []byte(kind+": "+dest+"\n"), nil
+	}
 	if err != nil {
 		return fmt.Errorf("back up %s: %w", path, err)
 	}
@@ -110,9 +119,10 @@ func pruneExtraBackups(dir string) {
 
 // Attach-time records, one per target path. Exactly one is kept at a time.
 const (
-	attachCreated     = "created"      // no file existed
-	attachRestore     = "restore"      // copy of the file that was replaced
-	attachRestoreLink = "restore-link" // link target of a symlink that was replaced
+	attachCreated         = "created"          // no file existed
+	attachRestore         = "restore"          // copy of the file that was replaced
+	attachRestoreJunction = "restore-junction" // original Windows junction
+	attachRestoreLink     = "restore-link"     // link target of a symlink that was replaced
 )
 
 func markExtraCreated(path string) error {
@@ -159,7 +169,11 @@ func recordExtraRestorePoint(path, importLine string) error {
 func recordExtraRestoreLink(path string) error {
 	dest, err := os.Readlink(path)
 	if err == nil {
-		err = recordExtraAttach(path, attachRestoreLink, []byte(dest), 0644)
+		kind := attachRestoreLink
+		if info, statErr := os.Lstat(path); statErr == nil && info.Mode()&os.ModeSymlink == 0 && utils.IsLinkMode(path, info.Mode()) {
+			kind = attachRestoreJunction
+		}
+		err = recordExtraAttach(path, kind, []byte(dest), 0644)
 	}
 	if err != nil {
 		return fmt.Errorf("back up %s: %w", path, err)
@@ -170,7 +184,7 @@ func recordExtraRestoreLink(path string) error {
 // extraAttached reports whether an attach-time state is recorded for path.
 func extraAttached(path string) bool {
 	dir := extraBackupDir(path)
-	for _, name := range []string{attachCreated, attachRestore, attachRestoreLink} {
+	for _, name := range []string{attachCreated, attachRestore, attachRestoreLink, attachRestoreJunction} {
 		if _, err := os.Stat(filepath.Join(dir, name)); err == nil {
 			return true
 		}
@@ -186,6 +200,14 @@ func putBackExtraRestorePoint(path string) error {
 	dir := extraBackupDir(path)
 	switch {
 	case extraCreated(path):
+	case fileExists(filepath.Join(dir, attachRestoreJunction)):
+		dest, err := os.ReadFile(filepath.Join(dir, attachRestoreJunction))
+		if err == nil {
+			err = createJunction(path, string(dest))
+		}
+		if err != nil {
+			return fmt.Errorf("failed to restore %s: %w", path, err)
+		}
 	case fileExists(filepath.Join(dir, attachRestoreLink)):
 		dest, err := os.ReadFile(filepath.Join(dir, attachRestoreLink))
 		if err == nil {
@@ -221,7 +243,7 @@ func fileExists(path string) bool {
 // clearExtraAttach drops the attach-time record of path.
 func clearExtraAttach(path string) {
 	dir := extraBackupDir(path)
-	for _, name := range []string{attachCreated, attachRestore, attachRestoreLink, extraWritten, extraImportBase} {
+	for _, name := range []string{attachCreated, attachRestore, attachRestoreLink, attachRestoreJunction, extraWritten, extraImportBase} {
 		_ = os.Remove(filepath.Join(dir, name))
 	}
 }

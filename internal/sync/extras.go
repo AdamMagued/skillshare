@@ -429,6 +429,9 @@ func syncOneExtraFile(srcFile, tgtFile, mode string, dryRun, force, relative boo
 		if mode == "copy" && !isSymlink && !info.IsDir() {
 			srcInfo, srcErr := os.Stat(srcFile)
 			if srcErr == nil && srcInfo.Size() == info.Size() && contentEqual(srcFile, tgtFile) {
+				if copies != nil && !copies.owns(tgtRel) {
+					return 0, 1, nil
+				}
 				return 1, 0, nil
 			}
 		}
@@ -700,6 +703,9 @@ func FlattenRel(rel string, flatten bool, seen map[string]bool) (tgtRel string, 
 // transform extension is in effect, so the expected target file carries the
 // transformed extension (e.g. foo.md → foo.toml) instead of the source name.
 func CheckSyncStatus(sourceFiles []string, sourceDir, targetDir, mode string, flatten bool, outputExt string) string {
+	if mode == "merge" && !canCreateFileLink() {
+		mode = "copy"
+	}
 	seen := make(map[string]bool)
 	for _, rel := range sourceFiles {
 		tgtRel, ok := FlattenRel(rel, flatten, seen)
