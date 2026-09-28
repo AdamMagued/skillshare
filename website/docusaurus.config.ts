@@ -241,6 +241,10 @@ const config: Config = {
             {label: 'Targets', to: '/docs/reference/targets'},
             {label: 'Environment Variables', to: '/docs/reference/appendix/environment-variables'},
             {label: 'Troubleshooting', to: '/docs/troubleshooting'},
+            // Emitted by plugins/llms-txt.ts at the site root only; a full URL keeps
+            // translated pages from prefixing their locale.
+            {label: 'llms.txt', href: 'https://skillshare.runkids.cc/llms.txt'},
+            {label: 'llms-full.txt', href: 'https://skillshare.runkids.cc/llms-full.txt'},
           ],
         },
         {
