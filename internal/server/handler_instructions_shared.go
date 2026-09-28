@@ -266,8 +266,54 @@ func (s *Server) handlePutSharedInstructionsContent(w http.ResponseWriter, r *ht
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	s.writeOpsLog("instructions-edit", "ok", start, map[string]any{"name": name, "path": path, "scope": "ui"}, "")
-	writeJSON(w, map[string]any{"success": true, "path": path})
+	// Links and import lines read the new content already; copies are rewritten.
+	copies := s.syncSharedCopies(extra)
+	status, msg := "ok", ""
+	for _, c := range copies {
+		if c.Error != "" {
+			status, msg = "partial", c.Target+": "+c.Error
+		}
+	}
+	s.writeOpsLog("instructions-edit", status, start, map[string]any{"name": name, "path": path, "copies": len(copies), "scope": "ui"}, msg)
+	writeJSON(w, map[string]any{"success": true, "path": path, "copies": copies})
+}
+
+type sharedCopyResult struct {
+	Target   string   `json:"target"`
+	Warnings []string `json:"warnings,omitempty"`
+	Error    string   `json:"error,omitempty"`
+}
+
+// syncSharedCopies rewrites the targets of a shared file that get it as a
+// copy (copy mode, or a link mode copying because file links are
+// unavailable), as a sync of that file would. A copy the user edited is kept
+// as a drift backup first. Callers must hold s.mu.
+func (s *Server) syncSharedCopies(extra config.ExtraConfig) []sharedCopyResult {
+	names := map[string]string{}
+	for _, t := range s.instructionTargets() {
+		names[filepath.Clean(t.Path)] = t.Name
+	}
+	res := s.instructionsResolver()
+	out := []sharedCopyResult{}
+	for j := range extra.Targets {
+		f := instructions.ExtraFile(extra, j, res)
+		if f.Mode != "copy" {
+			continue
+		}
+		r := sharedCopyResult{Target: names[filepath.Clean(f.Target)]}
+		if r.Target == "" {
+			r.Target = f.Target
+		}
+		result, err := syncpkg.SyncExtraFile(f, false, "")
+		if err != nil {
+			r.Error = err.Error()
+		} else {
+			// The copy fallback is how the target is set up, not news about this save.
+			r.Warnings = slices.DeleteFunc(result.Warnings, func(w string) bool { return w == syncpkg.FileLinkFallbackWarning })
+		}
+		out = append(out, r)
+	}
+	return out
 }
 
 // assignTarget attaches exactly want to the named target. Callers must hold

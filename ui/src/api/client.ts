@@ -279,6 +279,13 @@ export interface SharedInstructionsTarget {
   assigned: InstructionsAssignment[];
 }
 
+/** A copy target rewritten when its shared file was saved. */
+export interface SharedCopyResult {
+  target: string;
+  warnings?: string[];
+  error?: string;
+}
+
 /** What restoring one target puts back, from the record made when it was attached. */
 export interface SharedRestorePreview {
   kind: 'content' | 'delete' | 'link';
@@ -746,8 +753,9 @@ export const api = {
     }),
   getSharedInstructionsContent: (name: string) =>
     apiFetch<{ name: string; path: string; exists: boolean; content: string }>(`/instructions/${encodeURIComponent(name)}/content`),
+  /** Saves the shared file; its copy targets are rewritten too (copies). */
   putSharedInstructionsContent: (name: string, content: string) =>
-    apiFetch<{ success: boolean }>(`/instructions/${encodeURIComponent(name)}/content`, {
+    apiFetch<{ success: boolean; copies?: SharedCopyResult[] }>(`/instructions/${encodeURIComponent(name)}/content`, {
       method: 'PUT',
       body: JSON.stringify({ content }),
     }),

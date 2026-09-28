@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SharedInstructionsFile, SharedInstructionsTarget } from '../../api/client';
-import { connectPlan, defaultShareName, importDecor, importLines, previewParts, lineCount, lineDiff, lineRanges, modeOptions, needsSync, overLimit, restorePlan, rowHint, setupPathOf, setupPathProblem, sharedNameProblem, sharedOfImport, worstStatus } from './instructionsView';
+import { connectPlan, defaultShareName, saveCopiesSummary, importDecor, importLines, previewParts, lineCount, lineDiff, lineRanges, modeOptions, needsSync, overLimit, restorePlan, rowHint, setupPathOf, setupPathProblem, sharedNameProblem, sharedOfImport, worstStatus } from './instructionsView';
 
 describe('importLines', () => {
   it('finds @path lines outside code fences', () => {
@@ -215,5 +215,18 @@ describe('defaultShareName', () => {
 
   it('turns a target name the server would refuse into a valid one', () => {
     expect(defaultShareName('.my tool', [])).toBe('my-tool');
+  });
+});
+
+describe('saveCopiesSummary', () => {
+  it('lists updated copies and names the target of each problem', () => {
+    expect(saveCopiesSummary([
+      { target: 'pi', warnings: ['backed up ~/.pi/agent/AGENTS.md before replacing it'] },
+      { target: 'grok', error: 'permission denied' },
+    ])).toEqual({
+      updated: ['pi'],
+      warnings: ['pi: backed up ~/.pi/agent/AGENTS.md before replacing it'],
+      errors: ['grok: permission denied'],
+    });
   });
 });

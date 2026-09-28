@@ -22,7 +22,7 @@ import InstructionsEditorDialog from './InstructionsEditorDialog';
 import NewSharedDialog from './NewSharedDialog';
 import RestorePreviewDialog from './RestorePreviewDialog';
 import {
-  connectExtras, connectPlan, connectedTo, formatSize, lineCount, modeOptions, needsSync, pickedMode, refreshInstructions, restorePlan, rowHint, statusTone, usesOf,
+  connectExtras, connectPlan, connectedTo, formatSize, lineCount, modeOptions, needsSync, pickedMode, refreshInstructions, restorePlan, rowHint, saveCopiesSummary, statusTone, usesOf,
 } from './instructionsView';
 import type { ConnectStep, ModeOption, RestoreStep, RowHint } from './instructionsView';
 
@@ -413,8 +413,13 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
           warnings={connected.filter((tg) => tg.max_chars && file.chars > tg.max_chars).map((tg) =>
             t('instructions.editor.tooLong', { target: tg.name, chars: file.chars.toLocaleString(), max: tg.max_chars!.toLocaleString() }))}
           onSave={async (next) => {
-            await api.putSharedInstructionsContent(name, next);
+            const res = await api.putSharedInstructionsContent(name, next);
             refreshInstructions(queryClient);
+            // Copy targets were rewritten; say which, and any problem, like the sync button.
+            const copies = saveCopiesSummary(res.copies ?? []);
+            copies.warnings.forEach((w) => toast(w, 'warning'));
+            if (copies.errors.length) toast(copies.errors.join('; '), 'error');
+            return copies.updated.length ? t('instructions.savedCopies', { path: shortenHome(file.path), targets: list(copies.updated) }) : undefined;
           }}
           onClose={() => setEditing(false)}
         />

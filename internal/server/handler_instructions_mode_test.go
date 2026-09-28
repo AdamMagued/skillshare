@@ -118,3 +118,36 @@ func TestTargetInstructions_DefaultPathWithCustomLocation(t *testing.T) {
 		t.Errorf("default_path = %q, path = %q", got.DefaultPath, got.Path)
 	}
 }
+
+func TestSharedInstructionsSave_UpdatesCopies(t *testing.T) {
+	s, home := newInstructionsServer(t, "codex")
+	attachShared(t, s, "codex")
+	if rr := instructionsRequest(t, s, http.MethodPut, "/api/instructions/team/targets/codex/mode", `{"mode":"copy"}`); rr.Code != http.StatusOK {
+		t.Fatalf("mode: %d %s", rr.Code, rr.Body.String())
+	}
+
+	res := decodeBody[struct {
+		Copies []sharedCopyResult `json:"copies"`
+	}](t, instructionsRequest(t, s, http.MethodPut, "/api/instructions/team/content", `{"content":"new\n"}`))
+	if got := readFile(t, filepath.Join(home, ".codex", "AGENTS.md")); got != "new\n" || len(res.Copies) != 1 || res.Copies[0].Target != "codex" {
+		t.Errorf("codex copy = %q, copies = %+v", got, res.Copies)
+	}
+}
+
+func TestSharedInstructionsSave_BacksUpEditedCopy(t *testing.T) {
+	s, home := newInstructionsServer(t, "codex")
+	attachShared(t, s, "codex")
+	if rr := instructionsRequest(t, s, http.MethodPut, "/api/instructions/team/targets/codex/mode", `{"mode":"copy"}`); rr.Code != http.StatusOK {
+		t.Fatalf("mode: %d %s", rr.Code, rr.Body.String())
+	}
+	writeHome(t, home, ".codex/AGENTS.md", "edited in codex\n")
+
+	res := decodeBody[struct {
+		Copies []sharedCopyResult `json:"copies"`
+	}](t, instructionsRequest(t, s, http.MethodPut, "/api/instructions/team/content", `{"content":"new\n"}`))
+
+	got := readFile(t, filepath.Join(home, ".codex", "AGENTS.md"))
+	if got != "new\n" || len(res.Copies) != 1 || len(res.Copies[0].Warnings) != 1 || !strings.Contains(res.Copies[0].Warnings[0], "backed up") {
+		t.Errorf("codex copy = %q, copies = %+v; want the edit backed up, then replaced", got, res.Copies)
+	}
+}

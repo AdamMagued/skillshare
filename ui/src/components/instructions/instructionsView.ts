@@ -1,5 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
-import type { InstructionsAssignment, SharedInstructionsFile, SharedInstructionsTarget } from '../../api/client';
+import type { InstructionsAssignment, SharedCopyResult, SharedInstructionsFile, SharedInstructionsTarget } from '../../api/client';
 import { shortenHome } from '../../lib/paths';
 import type { LineDecor } from '../CodeEditor';
 import { queryKeys } from '../../lib/queryKeys';
@@ -42,6 +42,15 @@ export function setupPathOf(path: string, project: boolean, projectRoot = ''): s
   if (project) return projectRoot && path.startsWith(`${projectRoot}/`) ? path.slice(projectRoot.length + 1) : path;
   const short = shortenHome(path);
   return short.startsWith('~\\') ? `~/${short.slice(2).replace(/\\/g, '/')}` : short;
+}
+
+/** What saving a shared file did to its copies: targets updated, and problems to show, each named by target. */
+export function saveCopiesSummary(copies: SharedCopyResult[]): { updated: string[]; warnings: string[]; errors: string[] } {
+  return {
+    updated: copies.filter((c) => !c.error).map((c) => c.target),
+    warnings: copies.flatMap((c) => (c.warnings ?? []).map((w) => `${c.target}: ${w}`)),
+    errors: copies.filter((c) => c.error).map((c) => `${c.target}: ${c.error}`),
+  };
 }
 
 /** Refetch everything a change to instruction files can touch. */

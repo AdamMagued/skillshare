@@ -21,7 +21,8 @@ export default function InstructionsEditorDialog({ title, path, content, note, r
   readers?: string[];
   /** Problems the side panel should point out, e.g. targets that read only part of the file. */
   warnings?: string[];
-  onSave: (content: string) => Promise<void>;
+  /** Resolves to the toast text when the save did more than write the file. */
+  onSave: (content: string) => Promise<string | void>;
   onClose: () => void;
 }) {
   const t = useT();
@@ -36,9 +37,9 @@ export default function InstructionsEditorDialog({ title, path, content, note, r
     if (!dirty || saving) return;
     setSaving(true);
     try {
-      await onSave(draft);
+      const message = await onSave(draft);
       setBase(draft);
-      toast(t('instructions.saved', { path: shortenHome(path) }), 'success');
+      toast(message || t('instructions.saved', { path: shortenHome(path) }), 'success');
     } catch (err) {
       toast((err as Error).message, 'error');
     } finally {
