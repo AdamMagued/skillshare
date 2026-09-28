@@ -9,7 +9,7 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
-## [0.21.14] - 2026-09-28
+## [0.21.14] - 2026-09-29
 
 ### New Features
 
@@ -39,6 +39,10 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 - **One Hubs page for browsing and building** — browsing a hub and building your own are now the same page: your hub is shown the way others will see it and edited in place. Entries can be added from any repository URL, with a branch or tag picked from the remote, and skills added from installed ones keep the version they were installed from.
 - **Backups grouped by day** — **Settings → Backup** groups folder backups by day with one compact row per backup. Opening a row lists each folder with its file count and size, and its own **Restore** button. The page says what it is doing while backups load and while **Back up now** runs.
+
+#### Docs site
+
+- **llms.txt for AI tools** — the docs site now serves [`llms.txt`](https://skillshare.runkids.cc/llms.txt), an index of every page, and [`llms-full.txt`](https://skillshare.runkids.cc/llms-full.txt), the full English docs in one file, so you can point an AI assistant at the docs. Both are linked from the site footer.
 
 ### Bug Fixes
 
