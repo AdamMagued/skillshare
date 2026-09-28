@@ -394,6 +394,9 @@ func createProjectTargetDirs(root string, targets []config.ProjectTargetEntry) e
 
 	for _, target := range targets {
 		name := target.Name
+		if !target.SkillsConfig().IsEnabled() {
+			continue
+		}
 		path := target.SkillsConfig().Path
 		if path == "" {
 			if known, ok := config.LookupProjectTarget(name); ok {

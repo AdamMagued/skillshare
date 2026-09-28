@@ -15,8 +15,9 @@ func DetectPathOverlap(targets map[string]TargetConfig, isProject bool) []string
 
 	primaryByName := make(map[string]string, len(targets))
 	for name, target := range targets {
+		// A target with skills off neither writes nor counts as a scanner.
 		raw := target.SkillsConfig().Path
-		if raw == "" {
+		if raw == "" || !target.SkillsConfig().IsEnabled() {
 			continue
 		}
 		primaryByName[name] = filepath.Clean(ExpandPath(raw))
@@ -70,8 +71,8 @@ func DetectPathOverlap(targets map[string]TargetConfig, isProject bool) []string
 	return out
 }
 
-// SkillsPathKeptBy returns a target, other than name and those in leaving, that
-// writes to the same skills folder as name, or "" when none does. Removing name
+// SkillsPathKeptBy returns a target, other than name, those in leaving and those
+// with skills off, that writes to the same skills folder as name, or "" when none does. Removing name
 // must then leave the folder alone: its links are that target's too.
 func SkillsPathKeptBy(targets map[string]TargetConfig, name string, leaving map[string]bool) string {
 	self := targets[name]
@@ -81,7 +82,7 @@ func SkillsPathKeptBy(targets map[string]TargetConfig, name string, leaving map[
 	}
 	path := filepath.Clean(ExpandPath(raw))
 	for other, target := range targets {
-		if other == name || leaving[other] || target.SkillsConfig().Path == "" {
+		if other == name || leaving[other] || target.SkillsConfig().Path == "" || !target.SkillsConfig().IsEnabled() {
 			continue
 		}
 		if filepath.Clean(ExpandPath(target.SkillsConfig().Path)) == path {

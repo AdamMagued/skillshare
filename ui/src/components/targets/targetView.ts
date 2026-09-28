@@ -6,8 +6,10 @@ export type TargetState = 'synced' | 'pending' | 'missing' | 'migrate' | 'proble
 
 /** Where a target stands, and how many skills and agents the next sync would add. */
 export function targetHealth(target: Target): { state: TargetState; pending: number } {
-  const pending = Math.max(0, target.expectedSkillCount - target.linkedCount)
-    + Math.max(0, (target.agentExpectedCount ?? 0) - (target.agentLinkedCount ?? 0));
+  const agentPending = Math.max(0, (target.agentExpectedCount ?? 0) - (target.agentLinkedCount ?? 0));
+  // With skills off the skills folder is not skillshare's, so its status says nothing about this target.
+  if (target.skillsEnabled === false) return { state: agentPending > 0 ? 'pending' : 'synced', pending: agentPending };
+  const pending = Math.max(0, target.expectedSkillCount - target.linkedCount) + agentPending;
   switch (target.status) {
     case 'merged':
     case 'copied':
@@ -50,6 +52,20 @@ export function togglePatterns(entry: SyncMatrixEntry, include: string[], exclud
     default:
       return null;
   }
+}
+
+/** "a, b and c" in the reader's language. */
+export function joinList(items: string[], locale: string) {
+  const parts = new Intl.ListFormat(locale, { type: 'conjunction' }).formatToParts(items);
+  if (!locale.startsWith('zh')) return parts.map((p) => p.value).join('');
+  // Chinese joins with a bare 和, which runs into Latin names such as MCP; Taiwan UI copy says 與.
+  const latin = /[\x21-\x7e]/;
+  return parts.map((p, i) => {
+    if (p.type !== 'literal' || p.value !== '和') return p.value;
+    const before = latin.test(parts[i - 1]?.value.slice(-1) ?? '') ? ' ' : '';
+    const after = latin.test(parts[i + 1]?.value[0] ?? '') ? ' ' : '';
+    return before + (locale === 'zh-TW' ? '與' : '和') + after;
+  }).join('');
 }
 
 /** Everything that shows a target's config or its effect. */

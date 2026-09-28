@@ -20,6 +20,10 @@ import (
 // source (Local), which the tool loads just the same.
 func TargetSkills(name string, target config.TargetConfig, defaultMode, sourcePath string, discovered []DiscoveredSkill) ([]DiscoveredSkill, error) {
 	sc := target.SkillsConfig()
+	if !sc.IsEnabled() {
+		// Nothing is synced; the tool loads only what already sits in its folder.
+		return localTargetSkills(sc.Path, sourcePath), nil
+	}
 	mode := sc.Mode
 	if mode == "" {
 		mode = defaultMode

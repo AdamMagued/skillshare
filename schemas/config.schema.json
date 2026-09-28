@@ -259,10 +259,16 @@
               "description": "Glob patterns — matching skills are excluded from sync (merge and copy modes).",
               "items": { "type": "string" },
               "examples": [["draft-*", "*-experimental"]]
+            },
+            "enabled": {
+              "type": "boolean",
+              "default": true,
+              "description": "Set to false to stop syncing skills to this target while it keeps managing agents, MCP servers and instructions. Turning it off removes only links into the skills source; path, mode and filters are kept for turning it back on."
             }
           },
           "examples": [
             { "mode": "merge" },
+            { "enabled": false },
             { "path": "~/.custom-ide/skills", "mode": "symlink" },
             { "mode": "merge", "include": ["team-*"], "exclude": ["wip-*"] }
           ]

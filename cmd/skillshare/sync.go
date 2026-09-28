@@ -52,6 +52,8 @@ type syncJSONTargetDetail struct {
 	Updated int    `json:"updated"`
 	Pruned  int    `json:"pruned"`
 	Error   string `json:"error,omitempty"`
+	// SkillsOff is true for a target with skills switched off (nothing synced).
+	SkillsOff bool `json:"skills_off,omitempty"`
 }
 
 // syncModeStats aggregates per-target sync results for UI summary.
@@ -517,6 +519,8 @@ func syncOutputJSON(results []syncTargetResult, dryRun bool, start time.Time, iS
 			Updated: r.stats.updated,
 			Pruned:  r.stats.pruned,
 			Error:   r.errMsg,
+
+			SkillsOff: r.skillsOff,
 		})
 	}
 	output := syncJSONOutput{
@@ -554,6 +558,9 @@ func backupTargetsBeforeSync(cfg *config.Config) {
 
 	backedUp := false
 	for name, target := range cfg.Targets {
+		if !target.SkillsConfig().IsEnabled() {
+			continue
+		}
 		backupPath, err := backup.Create(name, target.SkillsConfig().Path)
 		if err != nil {
 			ui.Warning("Failed to backup %s: %v", name, err)
@@ -592,6 +599,9 @@ func backupTargetsBeforeSync(cfg *config.Config) {
 
 func syncTarget(name string, target config.TargetConfig, cfg *config.Config, dryRun, force bool) error {
 	sc := target.SkillsConfig()
+	if !sc.IsEnabled() {
+		return nil
+	}
 	// Determine mode: target-specific > global > default
 	mode := sc.Mode
 	if mode == "" {
@@ -618,6 +628,9 @@ func syncTargetWithSkills(name string, target config.TargetConfig, cfg *config.C
 
 func syncTargetWithSkillsStats(name string, target config.TargetConfig, cfg *config.Config, skills []sync.DiscoveredSkill, dryRun, force bool) (syncModeStats, error) {
 	sc := target.SkillsConfig()
+	if !sc.IsEnabled() {
+		return syncModeStats{}, nil
+	}
 	mode := sc.Mode
 	if mode == "" {
 		mode = cfg.Mode

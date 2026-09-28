@@ -94,9 +94,35 @@ func TestInstructionRiders_OneEntryPerFile(t *testing.T) {
 	}
 }
 
+// With gemini configured, GEMINI.md is managed on gemini's page, so
+// Antigravity, which reads that same file, is not listed under universal.
+func TestInstructionRiders_FileOfConfiguredTarget(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	os.MkdirAll(filepath.Join(home, ".gemini", "config"), 0755)
+
+	targets := map[string]TargetConfig{"universal": {Path: "~/.agents/skills"}, "gemini": {Path: "~/.gemini/skills"}}
+	if riders := InstructionRiders("universal", targets); len(riders) != 0 {
+		t.Errorf("riders = %s, want none", riderNames(riders))
+	}
+}
+
+// codex writes to ~/.agents/skills too, but riders belong on universal's page:
+// with universal not configured, codex's page lists none.
+func TestInstructionRiders_OnlyUniversal(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	os.MkdirAll(filepath.Join(home, ".agents", "skills"), 0755)
+	os.MkdirAll(filepath.Join(home, ".config", "zed"), 0755)
+	targets := map[string]TargetConfig{"codex": {Path: "~/.agents/skills"}}
+	if riders := InstructionRiders("codex", targets); len(riders) != 0 {
+		t.Errorf("riders = %s, want none", riderNames(riders))
+	}
+}
+
 func TestInstructionReaders_Universal(t *testing.T) {
 	home, _ := os.UserHomeDir()
-	if got := strings.Join(InstructionReaders("universal", filepath.Join(home, ".agents", "AGENTS.md")), ","); got != "cline,warp" {
-		t.Errorf("readers = %s, want cline,warp", got)
+	if got := strings.Join(InstructionReaders("universal", filepath.Join(home, ".agents", "AGENTS.md")), ","); got != "cline,jazz,warp" {
+		t.Errorf("readers = %s, want cline,jazz,warp", got)
 	}
 }

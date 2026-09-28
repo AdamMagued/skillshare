@@ -60,6 +60,8 @@ type statusJSONTarget struct {
 	SyncedCount int      `json:"synced_count"`
 	Include     []string `json:"include"`
 	Exclude     []string `json:"exclude"`
+	// SkillsEnabled is false for a target with skills switched off.
+	SkillsEnabled bool `json:"skills_enabled"`
 }
 
 type statusJSONAudit struct {
@@ -171,6 +173,8 @@ func cmdStatus(args []string) error {
 			SyncedCount: res.syncedCount,
 			Include:     sc.Include,
 			Exclude:     sc.Exclude,
+
+			SkillsEnabled: sc.IsEnabled(),
 		})
 	}
 
@@ -401,7 +405,8 @@ func printTargetsStatus(cfg *config.Config, discovered []sync.DiscoveredSkill) e
 		res := getTargetStatusDetail(target, cfg.EffectiveSkillsSource(), mode)
 		printTargetSubItem("skills", res.statusStr, res.detail)
 
-		if mode == "merge" || mode == "copy" {
+		// A target with skills off expects nothing, so it has no drift.
+		if sc.IsEnabled() && (mode == "merge" || mode == "copy") {
 			filtered, err := sync.FilterSkills(discovered, sc.Include, sc.Exclude)
 			if err != nil {
 				return fmt.Errorf("target %s has invalid include/exclude config: %w", name, err)
@@ -415,7 +420,7 @@ func printTargetsStatus(cfg *config.Config, discovered []sync.DiscoveredSkill) e
 					driftTotal = drift
 				}
 			}
-		} else if len(sc.Include) > 0 || len(sc.Exclude) > 0 {
+		} else if sc.IsEnabled() && (len(sc.Include) > 0 || len(sc.Exclude) > 0) {
 			ui.Warning("%s: include/exclude ignored in symlink mode", name)
 		}
 
@@ -466,6 +471,9 @@ func getTargetMode(targetMode, globalMode string) string {
 }
 
 func getTargetStatusDetail(target config.TargetConfig, source, mode string) targetStatusResult {
+	if !target.SkillsConfig().IsEnabled() {
+		return targetStatusResult{"skills off", "not synced", 0}
+	}
 	switch mode {
 	case "merge":
 		return getMergeStatusDetail(target, source, mode)

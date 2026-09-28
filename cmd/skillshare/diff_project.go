@@ -71,6 +71,10 @@ func cmdDiffProject(root, targetName string, kind resourceKindFilter, opts diffR
 			return fmt.Errorf("target '%s' not resolved", entry.Name)
 		}
 		sc := target.SkillsConfig()
+		// Skills off: nothing is synced, so there is nothing to compare.
+		if !sc.IsEnabled() {
+			continue
+		}
 		filtered, err := sync.FilterSkills(discovered, sc.Include, sc.Exclude)
 		if err != nil {
 			return fmt.Errorf("target %s has invalid include/exclude config: %w", entry.Name, err)

@@ -104,6 +104,8 @@ Subcommands:
   add <name> [path]      Add a target (path optional for known project targets)
   add <name> --agent <agent> --config-dir <dir>
                          Add another account of an Agent: its second config directory
+  add <name> ... --no-skills
+                         Add a target without syncing skills to it
   remove <name>          Remove a target
   remove --all           Remove all targets
   list                   List configured targets
@@ -119,6 +121,8 @@ Target Settings:
   <name> --mode <mode>              Set sync mode (merge, symlink, or copy)
   <name> --agent-mode <mode>        Set agents sync mode (merge, symlink, or copy)
   <name> --target-naming <naming>   Set target naming (flat or standard)
+  <name> --skills=false [--dry-run] Stop syncing skills; removes only links into the source
+  <name> --skills=true              Sync skills again (on the next 'skillshare sync')
   <name> --add-include <pattern>    Add an include filter pattern
   <name> --add-exclude <pattern>    Add an exclude filter pattern
   <name> --remove-include <pattern> Remove an include filter pattern
@@ -140,14 +144,17 @@ Examples:
   skillshare target claude --add-agent-include "team-*"
   skillshare target claude --remove-include "team-*"
   skillshare target claude --add-exclude "_legacy*"
+  skillshare target gemini --skills=false
 
 Project mode:
   skillshare target add claude -p
+  skillshare target add gemini --no-skills -p
   skillshare target claude --add-include "team-*" -p
   skillshare target list -p`)
 }
 
 func targetAdd(args []string) error {
+	args, noSkills := stripNoSkillsFlag(args)
 	if len(args) < 2 {
 		return fmt.Errorf("usage: skillshare target add <name> <path>\n       skillshare target add <name> --agent <agent> --config-dir <dir>")
 	}
@@ -160,7 +167,7 @@ func targetAdd(args []string) error {
 		return fmt.Errorf("invalid target name: %w", err)
 	}
 	if strings.HasPrefix(path, "--") {
-		return targetAddAgentConfigDir(name, args[1:])
+		return targetAddAgentConfigDir(name, args[1:], noSkills)
 	}
 
 	// Expand ~
@@ -172,8 +179,15 @@ func targetAdd(args []string) error {
 		path = filepath.Join(home, path[1:])
 	}
 
-	// Validate target path and get warnings
-	warnings, err := validate.TargetPath(path)
+	// Validate target path and get warnings. With skills off nothing is
+	// written there, so the folder need not exist yet.
+	var warnings []string
+	var err error
+	if noSkills {
+		err = validate.Path(path)
+	} else {
+		warnings, err = validate.TargetPath(path)
+	}
 	if err != nil {
 		return fmt.Errorf("invalid path: %w", err)
 	}
@@ -205,19 +219,30 @@ func targetAdd(args []string) error {
 		return fmt.Errorf("target '%s' already exists", name)
 	}
 
-	cfg.Targets[name] = config.TargetConfig{Skills: &config.ResourceTargetConfig{Path: path}}
+	skills := &config.ResourceTargetConfig{Path: path}
+	skills.SetEnabled(!noSkills)
+	cfg.Targets[name] = config.TargetConfig{Skills: skills}
 	if err := cfg.Save(); err != nil {
 		return err
 	}
 
+	reportTargetAdded(name, path, noSkills)
+	return nil
+}
+
+func reportTargetAdded(name, path string, noSkills bool) {
+	if noSkills {
+		ui.Success("Added target: %s -> %s (skills off)", name, path)
+		ui.Info("Skills are not synced to this target; turn them on with 'skillshare target %s --skills=true'", name)
+		return
+	}
 	ui.Success("Added target: %s -> %s", name, path)
 	ui.Info("Run 'skillshare sync' to sync skills to this target")
-	return nil
 }
 
 // targetAddAgentConfigDir adds another config directory of a built-in Agent, such as a
 // second account. Its skills and agents paths follow the directory.
-func targetAddAgentConfigDir(name string, args []string) error {
+func targetAddAgentConfigDir(name string, args []string, noSkills bool) error {
 	var agent, dir string
 	for i := 0; i < len(args); i++ {
 		if i+1 == len(args) || (args[i] != "--agent" && args[i] != "--config-dir") {
@@ -238,11 +263,15 @@ func targetAddAgentConfigDir(name string, args []string) error {
 	if err != nil {
 		return err
 	}
+	if noSkills {
+		tc := cfg.Targets[name]
+		tc.EnsureSkills().SetEnabled(false)
+		cfg.Targets[name] = tc
+	}
 	if err := cfg.Save(); err != nil {
 		return err
 	}
-	ui.Success("Added target: %s -> %s", name, path)
-	ui.Info("Run 'skillshare sync' to sync skills to this target")
+	reportTargetAdded(name, path, noSkills)
 	return nil
 }
 
@@ -296,6 +325,9 @@ func backupTargets(cfg *config.Config, toRemove []string) {
 	ui.Header("Backing up before unlink")
 	for _, targetName := range toRemove {
 		target := cfg.Targets[targetName]
+		if !target.SkillsConfig().IsEnabled() {
+			continue
+		}
 		backupPath, err := backup.Create(targetName, target.SkillsConfig().Path)
 		if err != nil {
 			ui.Warning("Failed to backup %s: %v", targetName, err)
@@ -383,7 +415,9 @@ func targetRemove(args []string) error {
 	for _, targetName := range toRemove {
 		target := cfg.Targets[targetName]
 		// Another target writing the same folder (codex and universal) still owns its links.
-		if keeper := config.SkillsPathKeptBy(cfg.Targets, targetName, leaving); keeper != "" {
+		if !target.SkillsConfig().IsEnabled() {
+			ui.Info("%s: skills off, folder left as is", targetName)
+		} else if keeper := config.SkillsPathKeptBy(cfg.Targets, targetName, leaving); keeper != "" {
 			ui.Info("%s: skills kept, %s uses the same folder", targetName, keeper)
 		} else if err := unlinkTarget(targetName, target, cfg.EffectiveSkillsSource()); err != nil {
 			ui.Error("%s: %v", targetName, err)
@@ -423,6 +457,11 @@ func targetRemoveDryRun(cfg *config.Config, toRemove []string) error {
 	}
 	for _, targetName := range toRemove {
 		target := cfg.Targets[targetName]
+		if !target.SkillsConfig().IsEnabled() {
+			ui.Info("%s: skills off, would leave folder as is", targetName)
+			ui.Info("%s: would remove from config", targetName)
+			continue
+		}
 		if keeper := config.SkillsPathKeptBy(cfg.Targets, targetName, leaving); keeper != "" {
 			ui.Info("%s: would keep skills, %s uses the same folder", targetName, keeper)
 			ui.Info("%s: would remove from config", targetName)
@@ -525,6 +564,7 @@ type targetListJSONItem struct {
 	AgentLinkedCount   *int     `json:"agentLinkedCount,omitempty"`
 	AgentLocalCount    *int     `json:"agentLocalCount,omitempty"`
 	AgentExpectedCount *int     `json:"agentExpectedCount,omitempty"`
+	SkillsEnabled      bool     `json:"skillsEnabled"`
 }
 
 func targetList(jsonOutput bool) error {
@@ -656,6 +696,10 @@ func targetInfo(name string, args []string) error {
 		return nil
 	}
 
+	if settings.Skills != nil {
+		return setTargetSkillsGlobal(cfg, name, target, *settings.Skills, settings.DryRun)
+	}
+
 	// If --mode is provided, update the mode
 	if settings.SkillMode != "" {
 		return updateTargetMode(cfg, name, target, settings.SkillMode)
@@ -765,11 +809,13 @@ func showTargetInfo(cfg *config.Config, name string, target config.TargetConfig)
 	}
 
 	var statusLine string
-	switch effectiveMode {
-	case "copy":
+	switch {
+	case !sc.IsEnabled():
+		statusLine = skillsOffSummary
+	case effectiveMode == "copy":
 		status, managed, local := sync.CheckStatusCopy(sc.Path)
 		statusLine = fmt.Sprintf("%s (managed: %d, local: %d)", status, managed, local)
-	case "merge":
+	case effectiveMode == "merge":
 		status, linked, local := sync.CheckStatusMerge(sc.Path, cfg.EffectiveSkillsSource())
 		statusLine = fmt.Sprintf("%s (linked: %d, local: %d)", status, linked, local)
 	default:

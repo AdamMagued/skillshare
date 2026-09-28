@@ -427,7 +427,7 @@ func TestTargetInstructions_UniversalListsRidersAndReaders(t *testing.T) {
 	if len(got.Riders) != 1 || got.Riders[0].Name != "codex" || got.Riders[0].Path != filepath.Join(home, ".codex", "AGENTS.md") || got.Riders[0].Exists {
 		t.Errorf("riders = %+v", got.Riders)
 	}
-	if strings.Join(got.ReadBy, ",") != "cline,warp" {
+	if strings.Join(got.ReadBy, ",") != "cline,jazz,warp" {
 		t.Errorf("read_by = %v", got.ReadBy)
 	}
 }

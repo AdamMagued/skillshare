@@ -4,21 +4,21 @@ import { useT } from '../../i18n';
 import { formatSize, lineCount, previewParts } from './instructionsView';
 
 /**
- * Underline tabs that switch how a box shows an instruction file (Edit /
- * Preview, or Source / Preview when it is read-only). className replaces the
+ * Underline tabs that switch how a box shows an instruction file (Preview /
+ * Edit, or Source / Preview when it is read-only). className replaces the
  * strip's own divider and padding, for a header that already has them.
  */
 export function ViewTabs<V extends string>({ view, views: given, onChange, className = 'border-b border-line-soft px-4' }: {
   view: V;
-  /** Defaults to Edit / Preview (values edit and preview). */
+  /** Defaults to Preview / Edit (values preview and edit). */
   views?: { value: V; label: string }[];
   onChange: (view: V) => void;
   className?: string;
 }) {
   const t = useT();
   const views = given ?? ([
-    { value: 'edit', label: t('instructions.target.view.edit') },
     { value: 'preview', label: t('instructions.target.view.preview') },
+    { value: 'edit', label: t('instructions.target.view.edit') },
   ] as { value: V; label: string }[]);
   return (
     <div role="tablist" aria-label={t('instructions.target.view.label')} className={`flex gap-5 ${className}`}

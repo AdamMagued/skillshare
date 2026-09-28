@@ -191,6 +191,17 @@ func (s *Server) handleAvailableTargets(w http.ResponseWriter, r *http.Request) 
 		ConfigDir string `json:"configDir,omitempty"`
 		Installed bool   `json:"installed"`
 		Detected  bool   `json:"detected"`
+		// ReadsFrom names the configured targets with skills on whose skills
+		// folder this tool already reads.
+		ReadsFrom []string `json:"readsFrom,omitempty"`
+		// InstructionsFile is the file name of the tool's instructions file
+		// (AGENTS.md, GEMINI.md, ...), empty when it has none.
+		InstructionsFile string `json:"instructionsFile,omitempty"`
+		// InstructionsPath is that file's default path, for the add dialog's list of writes.
+		InstructionsPath string `json:"instructionsPath,omitempty"`
+		// ReadBy names the other tools, on this machine or configured, whose
+		// default scan paths include this tool's skills folder.
+		ReadBy []string `json:"readBy,omitempty"`
 	}
 
 	var agentDefaults map[string]config.TargetConfig
@@ -220,14 +231,37 @@ func (s *Server) handleAvailableTargets(w http.ResponseWriter, r *http.Request) 
 			Path:      tc.Path,
 			Installed: installed,
 			Detected:  detected,
+			ReadsFrom: config.SkillsReadFrom(targets, name, projectRoot),
 		}
 		if agentTC, ok := agentDefaults[name]; ok {
 			item.AgentPath = agentTC.Path
+		}
+		if it, ok := config.LookupInstructions(name, isProjectMode); ok {
+			item.InstructionsFile = filepath.Base(it.Path)
+			item.InstructionsPath = it.Path
 		}
 		if !isProjectMode {
 			item.ConfigDir = config.AgentConfigDir(name)
 		}
 		items = append(items, item)
+	}
+
+	// Who reads each folder, so a shared folder (universal) can show the tools it serves.
+	present := func(it availTarget) bool { return it.Installed || it.Detected }
+	for i := range items {
+		folder := filepath.Clean(config.ExpandPath(items[i].Path))
+		for _, other := range items {
+			if other.Name == items[i].Name || !present(other) {
+				continue
+			}
+			for _, p := range config.RuntimeScanPaths(other.Name, isProjectMode) {
+				if filepath.Clean(config.ExpandPath(p)) == folder {
+					items[i].ReadBy = append(items[i].ReadBy, other.Name)
+					break
+				}
+			}
+		}
+		slices.Sort(items[i].ReadBy)
 	}
 
 	writeJSON(w, map[string]any{"targets": items})

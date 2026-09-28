@@ -57,6 +57,9 @@ func SyncTargetCopyWithSkills(name string, target config.TargetConfig, allSkills
 func SyncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, allSkills []DiscoveredSkill, sourcePath string, dryRun, force bool, onProgress func(current, total int, skill string), opts CopyOptions) (*CopyResult, error) {
 	sc := target.SkillsConfig()
 	result := &CopyResult{}
+	if !sc.IsEnabled() {
+		return result, nil
+	}
 	ignorePatterns := opts.IgnorePatterns
 	if ignorePatterns == nil {
 		ignorePatterns = DefaultFileIgnorePatterns()

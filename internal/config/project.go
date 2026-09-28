@@ -526,6 +526,7 @@ func ResolveProjectTargets(projectRoot string, cfg *ProjectConfig) (map[string]T
 				TargetNaming: sc.TargetNaming,
 				Include:      append([]string(nil), sc.Include...),
 				Exclude:      append([]string(nil), sc.Exclude...),
+				Enabled:      sc.Enabled,
 			},
 		}
 		if entry.Instructions != nil {

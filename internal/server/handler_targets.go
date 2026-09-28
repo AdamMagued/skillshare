@@ -41,6 +41,12 @@ type targetItem struct {
 	AgentLinkedCount   *int     `json:"agentLinkedCount,omitempty"`
 	AgentLocalCount    *int     `json:"agentLocalCount,omitempty"`
 	AgentExpectedCount *int     `json:"agentExpectedCount,omitempty"`
+	SkillsEnabled      bool     `json:"skillsEnabled"`
+	// SkillsReadFrom (skills off) names the enabled targets whose skills folder
+	// this tool still reads; SkillsAlsoReadBy (skills on) names the targets with
+	// skills off whose tool reads this target's folder.
+	SkillsReadFrom   []string `json:"skillsReadFrom,omitempty"`
+	SkillsAlsoReadBy []string `json:"skillsAlsoReadBy,omitempty"`
 }
 
 var removeTargetPath = os.Remove
@@ -121,10 +127,14 @@ func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 				}
 				return append([]string(nil), sc.Exclude...)
 			}(),
+			SkillsEnabled: sc.IsEnabled(),
 		}
 
-		switch mode {
-		case "merge", "copy":
+		switch {
+		case !sc.IsEnabled():
+			item.Status = "skills off"
+			item.SkillsReadFrom = config.SkillsReadFrom(targets, name, projectRoot)
+		case mode == "merge" || mode == "copy":
 			if discoveredErr == nil {
 				filtered, err := ssync.FilterSkills(discovered, sc.Include, sc.Exclude)
 				if err != nil {
@@ -159,6 +169,7 @@ func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 			status := ssync.CheckStatus(sc.Path, source)
 			item.Status = status.String()
 		}
+		item.SkillsAlsoReadBy = config.SkillsAlsoReadBy(targets, name, projectRoot)
 
 		var agentSummary *targetsummary.AgentSummary
 		if isProjectMode {
@@ -213,6 +224,8 @@ func (s *Server) handleAddTarget(w http.ResponseWriter, r *http.Request) {
 		ConfigDir string `json:"configDir"`
 		// Instructions optionally names the instruction file of a custom target.
 		Instructions *config.TargetInstructionsConfig `json:"instructions"`
+		// SkillsEnabled false adds the target with skills off (default true).
+		SkillsEnabled *bool `json:"skills_enabled"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
@@ -237,6 +250,11 @@ func (s *Server) handleAddTarget(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
+		}
+		if body.SkillsEnabled != nil && !*body.SkillsEnabled {
+			tc := s.cfg.Targets[body.Name]
+			tc.EnsureSkills().SetEnabled(false)
+			s.cfg.Targets[body.Name] = tc
 		}
 		if err := s.saveAndReloadConfig(); err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
@@ -274,7 +292,9 @@ func (s *Server) handleAddTarget(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	skillsOff := body.SkillsEnabled != nil && !*body.SkillsEnabled
 	tc := config.TargetConfig{Skills: &config.ResourceTargetConfig{Path: body.Path}, Instructions: body.Instructions}
+	tc.Skills.SetEnabled(!skillsOff)
 	if body.AgentPath != "" {
 		tc.Agents = &config.ResourceTargetConfig{Path: body.AgentPath}
 	}
@@ -282,7 +302,11 @@ func (s *Server) handleAddTarget(w http.ResponseWriter, r *http.Request) {
 
 	// In project mode, also update the project config
 	if s.IsProjectMode() {
-		s.projectCfg.Targets = append(s.projectCfg.Targets, config.ProjectTargetEntry{Name: body.Name, Instructions: body.Instructions})
+		entry := config.ProjectTargetEntry{Name: body.Name, Instructions: body.Instructions}
+		if skillsOff {
+			entry.EnsureSkills().SetEnabled(false)
+		}
+		s.projectCfg.Targets = append(s.projectCfg.Targets, entry)
 	}
 
 	if err := s.saveAndReloadConfig(); err != nil {
@@ -319,8 +343,9 @@ func (s *Server) handleRemoveTarget(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, name+" belongs to a project; remove the project instead")
 		return
 	}
-	// Another target writing the same folder (codex and universal) still owns its links.
-	if config.SkillsPathKeptBy(s.cfg.Targets, name, nil) == "" {
+	// Another target writing the same folder (codex and universal) still owns its
+	// links; a target with skills off no longer manages its folder.
+	if sc.IsEnabled() && config.SkillsPathKeptBy(s.cfg.Targets, name, nil) == "" {
 		if status, err := s.detachSkillsTarget(sc.Path); err != nil {
 			writeError(w, status, err.Error())
 			return
@@ -400,6 +425,7 @@ func (s *Server) handleUpdateTarget(w http.ResponseWriter, r *http.Request) {
 		AgentInclude   *[]string `json:"agent_include"`
 		AgentExclude   *[]string `json:"agent_exclude"`
 		AgentExtension *string   `json:"agent_extension"` // "" = clear
+		SkillsEnabled  *bool     `json:"skills_enabled"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
@@ -481,6 +507,10 @@ func (s *Server) handleUpdateTarget(w http.ResponseWriter, r *http.Request) {
 		target.EnsureAgents().Exclude = *body.AgentExclude
 	}
 
+	if body.SkillsEnabled != nil {
+		target.Skills.SetEnabled(*body.SkillsEnabled)
+	}
+
 	s.cfg.Targets[name] = target
 
 	// In project mode, also update the project config
@@ -488,6 +518,9 @@ func (s *Server) handleUpdateTarget(w http.ResponseWriter, r *http.Request) {
 		for i := range s.projectCfg.Targets {
 			if s.projectCfg.Targets[i].Name == name {
 				sk := s.projectCfg.Targets[i].EnsureSkills()
+				if body.SkillsEnabled != nil {
+					sk.SetEnabled(*body.SkillsEnabled)
+				}
 				if body.Include != nil {
 					sk.Include = *body.Include
 				}
@@ -526,21 +559,75 @@ func (s *Server) handleUpdateTarget(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Skills off applies at once: the folder keeps only what skillshare did not link.
+	var detach *ssync.SkillsOffResult
+	if body.SkillsEnabled != nil && !*body.SkillsEnabled {
+		res, err := ssync.DetachSkills(s.cfg.Targets, name, s.cfg.EffectiveSkillsSource(), false)
+		if err != nil {
+			s.writeOpsLog("target", "error", start, map[string]any{"action": "skills", "name": name, "enabled": false, "scope": "ui"}, err.Error())
+			writeError(w, http.StatusInternalServerError, "skills off saved, but removing links failed: "+err.Error())
+			return
+		}
+		detach = res
+	}
+
 	hasFilter := body.Include != nil || body.Exclude != nil || body.AgentInclude != nil || body.AgentExclude != nil
-	hasSetting := body.Mode != nil || body.TargetNaming != nil || body.AgentMode != nil || body.AgentExtension != nil
+	hasSetting := body.Mode != nil || body.TargetNaming != nil || body.AgentMode != nil || body.AgentExtension != nil || body.SkillsEnabled != nil
 	action := "filter"
 	if hasSetting && hasFilter {
 		action = "settings+filter"
 	} else if hasSetting {
 		action = "settings"
 	}
-	s.writeOpsLog("target", "ok", start, map[string]any{
+	logArgs := map[string]any{
 		"action": action,
 		"name":   name,
 		"scope":  "ui",
-	}, "")
+	}
+	if body.SkillsEnabled != nil {
+		logArgs["skills_enabled"] = *body.SkillsEnabled
+	}
+	if detach != nil {
+		logArgs["removed"] = len(detach.Removed)
+		logArgs["kept"] = len(detach.Kept)
+	}
+	s.writeOpsLog("target", "ok", start, logArgs, "")
 
-	writeJSON(w, map[string]any{"success": true})
+	resp := map[string]any{"success": true}
+	if detach != nil {
+		resp["detach"] = map[string]any{"removed": detach.Removed, "kept": detach.Kept}
+	}
+	writeJSON(w, resp)
+}
+
+// handleSkillsOffPreview reports what turning skills off for a target would
+// remove and keep, without writing anything.
+func (s *Server) handleSkillsOffPreview(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	targets := s.cloneTargets()
+	source := s.cfg.EffectiveSkillsSource()
+	s.mu.RUnlock()
+
+	name := r.PathValue("name")
+	target, ok := targets[name]
+	if !ok {
+		writeError(w, http.StatusNotFound, "target not found: "+name)
+		return
+	}
+	if target.ProjectRoot() != "" {
+		writeError(w, http.StatusBadRequest, name+" belongs to a project; edit the project instead")
+		return
+	}
+	res, err := ssync.DetachSkills(targets, name, source, true)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	resp := map[string]any{"remove": res.Removed, "keep": res.Kept}
+	if res.SharedWith != "" {
+		resp["sharedWith"] = res.SharedWith
+	}
+	writeJSON(w, resp)
 }
 
 // detachSkillsTarget removes what sync owns in a skills folder before its target leaves

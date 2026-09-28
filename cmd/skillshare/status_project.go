@@ -96,6 +96,8 @@ func cmdStatusProjectJSON(root string) error {
 			SyncedCount: res.syncedCount,
 			Include:     sc.Include,
 			Exclude:     sc.Exclude,
+
+			SkillsEnabled: sc.IsEnabled(),
 		})
 	}
 
@@ -248,7 +250,8 @@ func printProjectTargetsStatus(runtime *projectRuntime, discovered []sync.Discov
 		res := getTargetStatusDetail(target, runtime.sourcePath, mode)
 		printTargetSubItem("skills", res.statusStr, res.detail)
 
-		if mode == "merge" || mode == "copy" {
+		// A target with skills off expects nothing, so it has no drift.
+		if sc.IsEnabled() && (mode == "merge" || mode == "copy") {
 			filtered, err := sync.FilterSkills(discovered, sc.Include, sc.Exclude)
 			if err != nil {
 				return fmt.Errorf("target %s has invalid include/exclude config: %w", entry.Name, err)
@@ -262,7 +265,7 @@ func printProjectTargetsStatus(runtime *projectRuntime, discovered []sync.Discov
 					driftTotal = drift
 				}
 			}
-		} else if len(sc.Include) > 0 || len(sc.Exclude) > 0 {
+		} else if sc.IsEnabled() && (len(sc.Include) > 0 || len(sc.Exclude) > 0) {
 			ui.Warning("%s: include/exclude ignored in symlink mode", entry.Name)
 		}
 

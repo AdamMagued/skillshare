@@ -197,6 +197,11 @@ svg.lucide { flex: none; stroke-width: var(--isw); }
 .ss-stack { display: inline-flex; align-items: center; }
 .ss-stack .ss-at { border-width: 1px; width: 24px; height: 24px; border-radius: 99px; margin-left: -6px; box-shadow: 0 0 0 2px var(--surface); }
 .ss-stack .ss-at:first-child { margin-left: 0; }
+/* The ring that separates stacked logos takes the color of what it sits on. */
+.ss-r.sel .ss-stack .ss-at { box-shadow: 0 0 0 2px var(--accent-bg); }
+:root[data-theme="playful"] .ss-r.sel .ss-stack .ss-at { box-shadow: 0 0 0 2px var(--pe); }
+:root[data-theme="playful"].dark .ss-r.sel .ss-stack .ss-at { box-shadow: 0 0 0 2px #332B17; }
+.ss-note.warn .ss-stack .ss-at { box-shadow: 0 0 0 2px var(--warn-bg); }
 .ss-pj { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border-radius: 99px; background: var(--sunken); border: 1px solid var(--line); font: 600 12px/1 var(--f); color: var(--ink-2); }
 :root[data-theme="playful"] .ss-stack .ss-at { border-radius: 99px; }
 .ss-list { background: var(--surface); border: var(--frame); border-radius: var(--r-box); box-shadow: var(--sh-box); overflow: hidden; }

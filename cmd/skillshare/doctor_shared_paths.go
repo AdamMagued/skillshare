@@ -41,7 +41,8 @@ func checkSharedTargetPaths(cfg *config.Config, result *doctorResult, isProject 
 	pathTargets := make(map[string][]string)
 	for name, target := range cfg.Targets {
 		raw := target.SkillsConfig().Path
-		if raw == "" {
+		// A target with skills off neither writes nor counts as a scanner.
+		if raw == "" || !target.SkillsConfig().IsEnabled() {
 			continue
 		}
 		resolved := filepath.Clean(config.ExpandPath(raw))
@@ -95,7 +96,8 @@ func checkCrossTargetDiscovery(cfg *config.Config, result *doctorResult, isProje
 	primaryByName := make(map[string]string, len(cfg.Targets))
 	for name, target := range cfg.Targets {
 		raw := target.SkillsConfig().Path
-		if raw == "" {
+		// A target with skills off neither writes nor counts as a scanner.
+		if raw == "" || !target.SkillsConfig().IsEnabled() {
 			continue
 		}
 		primaryByName[name] = filepath.Clean(config.ExpandPath(raw))

@@ -69,7 +69,7 @@ export default function InstructionsEditorDialog({ title, path, content, note, r
       </div>
       <div className="db">
         <div className="grid grid-cols-[minmax(0,1fr)_300px] items-start gap-6">
-          <div className="ss-code flex h-[calc(100vh-16rem)] min-w-0 flex-col !overflow-hidden !p-0 !whitespace-normal focus-within:!border-[var(--accent)]">
+          <div className="ss-code flex h-[calc(100vh-16rem)] min-w-0 flex-col !overflow-hidden !p-0 !whitespace-normal">
             <BoxHeader content={draft} view={view} onChange={setView} />
             {view === 'edit' ? (
               <CodeEditor value={draft} onChange={setDraft} ariaLabel={title} markLine={isImportLine} disabled={saving} wrap fill className="min-h-0 flex-1 !rounded-none !border-0" />

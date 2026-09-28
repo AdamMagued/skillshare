@@ -196,6 +196,9 @@ complete -c skillshare -n '__fish_skillshare_using_command target' -l no-tui -d 
 complete -c skillshare -n '__fish_skillshare_using_command target' -l mode -r -a 'merge copy symlink' -d 'Set sync mode'
 complete -c skillshare -n '__fish_skillshare_using_command target' -l agent-mode -r -a 'merge copy symlink' -d 'Set agents sync mode'
 complete -c skillshare -n '__fish_skillshare_using_command target' -l target-naming -r -a 'flat standard' -d 'Set naming'
+complete -c skillshare -n '__fish_skillshare_using_command target' -l skills -r -a 'true false' -d 'Sync skills to this target'
+complete -c skillshare -n '__fish_skillshare_using_command target' -l no-skills -d 'With add: do not sync skills'
+complete -c skillshare -n '__fish_skillshare_using_command target' -l dry-run -s n -d 'Preview changes'
 complete -c skillshare -n '__fish_skillshare_using_command target' -l help -s h -d 'Show help'
 
 # target remove

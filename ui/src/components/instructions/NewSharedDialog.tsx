@@ -85,7 +85,7 @@ export default function NewSharedDialog({ targets, project = false, onClose, onC
           </div>}
         </div>
         {!from && (
-          <div className="ss-code flex h-[300px] flex-col !overflow-hidden !p-0 !whitespace-normal focus-within:!border-[var(--accent)]">
+          <div className="ss-code flex h-[300px] flex-col !overflow-hidden !p-0 !whitespace-normal">
             <BoxHeader content={content} view={view} onChange={setView} />
             {view === 'edit' ? (
               <CodeEditor value={content} onChange={setContent} ariaLabel={t('instructions.shared.content')} markLine={isImportLine} disabled={saving} wrap fill

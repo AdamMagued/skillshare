@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"skillshare/internal/config"
@@ -45,6 +46,9 @@ type parsedTargetSettingFlags struct {
 	SkillMode string
 	AgentMode string
 	Naming    string
+	// Skills is set by --skills=true|false; nil leaves skills sync unchanged.
+	Skills *bool
+	DryRun bool
 }
 
 // parseFilterFlags extracts --add-include, --add-exclude, --remove-include,
@@ -135,10 +139,35 @@ func parseTargetSettingFlags(args []string) (parsedTargetSettingFlags, error) {
 			}
 			settings.Naming = args[i+1]
 			i++
+		case "--skills":
+			if i+1 >= len(args) {
+				return settings, fmt.Errorf("--skills requires a value (true or false)")
+			}
+			i++
+			if err := setSkillsFlag(&settings, args[i]); err != nil {
+				return settings, err
+			}
+		case "--dry-run", "-n":
+			settings.DryRun = true
+		default:
+			if value, ok := strings.CutPrefix(args[i], "--skills="); ok {
+				if err := setSkillsFlag(&settings, value); err != nil {
+					return settings, err
+				}
+			}
 		}
 	}
 
 	return settings, nil
+}
+
+func setSkillsFlag(settings *parsedTargetSettingFlags, value string) error {
+	enabled, err := strconv.ParseBool(value)
+	if err != nil {
+		return fmt.Errorf("--skills must be true or false, got %q", value)
+	}
+	settings.Skills = &enabled
+	return nil
 }
 
 // applyFilterUpdates modifies include/exclude slices according to opts.

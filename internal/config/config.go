@@ -57,11 +57,29 @@ type ResourceTargetConfig struct {
 	Exclude      []string `yaml:"exclude,omitempty"`
 	// Extension transforms each agent file during sync (agents only; implies copy).
 	Extension string `yaml:"extension,omitempty"`
+	// Enabled set to false stops syncing skills to the target (skills only).
+	// The other fields are kept so switching it back restores them.
+	Enabled *bool `yaml:"enabled,omitempty"`
 }
 
 // IsEmpty reports whether all fields are zero-valued.
 func (r ResourceTargetConfig) IsEmpty() bool {
-	return r.Path == "" && r.Mode == "" && r.TargetNaming == "" && len(r.Include) == 0 && len(r.Exclude) == 0 && r.Extension == ""
+	return r.Path == "" && r.Mode == "" && r.TargetNaming == "" && len(r.Include) == 0 && len(r.Exclude) == 0 && r.Extension == "" && r.Enabled == nil
+}
+
+// IsEnabled reports whether the resource is synced; an unset Enabled means true.
+func (r ResourceTargetConfig) IsEnabled() bool {
+	return r.Enabled == nil || *r.Enabled
+}
+
+// SetEnabled records enabled, leaving the field unset for the default (true).
+func (r *ResourceTargetConfig) SetEnabled(enabled bool) {
+	if enabled {
+		r.Enabled = nil
+		return
+	}
+	off := false
+	r.Enabled = &off
 }
 
 // withExtensionMode defaults an unset mode to copy when an extension is set,

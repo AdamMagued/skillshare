@@ -25,7 +25,7 @@ interface Props {
 export default function HubList({ items, selected, onPick, locked, onAdd, onCreate, onImport }: Props) {
   const t = useT();
   return (
-    <div className="sticky top-6 flex flex-col gap-3">
+    <div className="sticky top-6 z-20 flex flex-col gap-3">
       <div className="ss-sec !mb-0">
         <h2>{t('hubs.browse.sources')}</h2>
         <span className="ss-cnt">{items.length}</span>

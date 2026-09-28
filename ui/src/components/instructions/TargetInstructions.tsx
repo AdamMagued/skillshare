@@ -1,9 +1,10 @@
-import { Fragment, useId, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Link, useBeforeUnload, useBlocker, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { FileX, Info, TriangleAlert, X } from 'lucide-react';
+import { ArrowRight, Check, ChevronDown, ChevronUp, FileText, FileX, FolderInput, Info, Link2, Lock, TriangleAlert, X } from 'lucide-react';
 import { api } from '../../api/client';
-import type { InstructionsEntry, TargetInstructions as Data } from '../../api/client';
+import type { TargetInstructions as Data } from '../../api/client';
+import AgentIcon from '../AgentIcon';
 import Button from '../Button';
 import CodeEditor from '../CodeEditor';
 import ConfirmDialog from '../ConfirmDialog';
@@ -19,15 +20,19 @@ import { queryKeys } from '../../lib/queryKeys';
 import { fileName, shortenHome } from '../../lib/paths';
 import ConvertDialog from './ConvertDialog';
 import InstructionFileList from './InstructionFileList';
+import MoreMenu from '../hub/MoreMenu';
 import { useFillHeight } from './useFillHeight';
 import { BoxHeader, InstructionsPreview } from './ViewTabs';
 import { useSaveShortcut } from './useSaveShortcut';
-import { instructionsErrorMessage, importDecor, readChain, refreshInstructions, setupPathOf, setupPathProblem, sharedOfImport } from './instructionsView';
+import { connectedTo, instructionsErrorMessage, importDecor, refreshInstructions, setupPathOf, setupPathProblem, sharedOfImport } from './instructionsView';
 
 
 // The page's bottom padding, and the least height the tab keeps on a short window.
 const PAGE_BOTTOM = 40;
 const MIN_TAB = 480;
+
+// The preview can show the whole file; the tab then drops its fixed height and the page grows.
+const Expanded = createContext<{ expanded: boolean; setExpanded: (on: boolean) => void }>({ expanded: false, setExpanded: () => {} });
 
 /**
  * ① A target's Instructions tab, filling the window down to the page bottom so
@@ -40,9 +45,11 @@ export default function TargetInstructions({ name }: { name: string }) {
   const [params, setParams] = useSearchParams();
   const { data } = useQuery({ queryKey: queryKeys.instructions.target(name), queryFn: () => api.getTargetInstructions(name) });
   const [fillRef, height] = useFillHeight<HTMLDivElement>(PAGE_BOTTOM, MIN_TAB);
+  const [expanded, setExpanded] = useState(false);
+  const fixed = expanded ? undefined : height;
   const riders = data?.riders ?? [];
   if (!data?.supported || riders.length === 0) {
-    return <div ref={fillRef} style={{ height }} className="flex flex-col"><Panel name={name} /></div>;
+    return <Expanded.Provider value={{ expanded, setExpanded }}><div ref={fillRef} style={{ height: fixed }} className="flex flex-col"><Panel name={name} /></div></Expanded.Provider>;
   }
 
   const tool = riders.find((r) => r.name === params.get('tool'))?.name ?? name;
@@ -60,12 +67,14 @@ export default function TargetInstructions({ name }: { name: string }) {
   ];
 
   return (
-    <div ref={fillRef} style={{ height }} className="grid grid-cols-[220px_minmax(0,1fr)] gap-7">
+    <Expanded.Provider value={{ expanded, setExpanded }}>
+    <div ref={fillRef} style={{ height: fixed }} className="grid grid-cols-[220px_minmax(0,1fr)] gap-7">
       <InstructionFileList items={items} selected={tool} onSelect={pick} divider={1} caption={t('instructions.files.caption', { name })} />
       <div className="flex min-h-0 min-w-0 flex-col">
         <Panel key={tool} name={tool} />
       </div>
     </div>
+    </Expanded.Provider>
   );
 }
 
@@ -216,15 +225,15 @@ function Editor({ data }: { data: Data }) {
   const [converting, setConverting] = useState(false);
   const [changingPath, setChangingPath] = useState(false);
   // Preview renders the draft, so switching keeps unsaved edits.
-  const [view, setView] = useState<'edit' | 'preview'>('edit');
+  // A file with content opens as it reads; an empty or missing one opens ready to write.
+  const [view, setView] = useState<'edit' | 'preview'>(data.exists && data.content.trim() ? 'preview' : 'edit');
+  const { expanded, setExpanded } = useContext(Expanded);
   const path = data.path ?? '';
   const file = fileName(path);
   const linked = Boolean(data.link_shared);
   const shared = data.shared;
   const tooLong = Boolean(data.max_chars) && [...draft].length > (data.max_chars ?? 0);
   const importNote = !data.project && data.convert.includes('import') && shared.length === 0;
-  // The server refuses to move a file a shared AGENTS.md is written into.
-  const inUse = linked || shared.length > 0;
 
   // Says at the end of each @import line who expands it; the import-target
   // wording is about converting, so it drops that part once nothing is left to convert.
@@ -262,9 +271,6 @@ function Editor({ data }: { data: Data }) {
     if (!saving && draft !== data.content) void save();
   }, !linked);
 
-  const order = readChain(data.read_order);
-  const readBy = data.read_by.map(targetLabel).join(t('instructions.shared.listSep'));
-  const unread = data.read_order.some((e) => e.kind === 'unread');
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
@@ -276,76 +282,24 @@ function Editor({ data }: { data: Data }) {
         </div>
       )}
 
-      <div className="flex min-h-8 items-center gap-3.5">
-        <span className="min-w-0 truncate font-mono text-[14px] font-semibold" title={path}>{shortenHome(path)}</span>
-        {/* Lines and size are in the box header below; this says only what they cannot. */}
-        {(!data.exists || linked) && (
-          <span className="shrink-0 text-[12px] text-ink-3">
-            {[!data.exists && t('instructions.target.notCreated'), linked && t('instructions.target.linked')].filter(Boolean).join(' · ')}
-          </span>
-        )}
-        <span className="flex-1" />
-        {/* A rider is not a target, so there is no setting to change for it; one on a shared file moves only after it is off. */}
-        {/* A disabled button gets no hover, so the reason sits on a wrapper. */}
-        {!data.rider_of && (
-          <span title={inUse ? t('instructions.setup.locationLocked') : undefined}>
-            <Button variant="ghost" size="sm" onClick={() => setChangingPath(true)} disabled={inUse}>{t('instructions.setup.changeLocation')}</Button>
-          </span>
-        )}
-        {data.convert.length > 0 && !linked && !importNote && (
-          <Button variant="ghost" size="sm" onClick={() => setConverting(true)} disabled={draft !== data.content}>{t('instructions.convert.open')}</Button>
-        )}
-        {!linked && <Button variant="primary" size="sm" onClick={save} loading={saving} disabled={draft === data.content}>{t('common.save')}</Button>}
-      </div>
+      {/* The page header shows the target's own file; another tool's file (picked on universal's page) names itself here. */}
+      {data.rider_of && <span className="min-w-0 truncate font-mono text-[14px] font-semibold" title={path}>{shortenHome(path)}</span>}
+      <SourceCard data={data} onChangeLocation={() => setChangingPath(true)} onConvert={() => setConverting(true)} convertable={data.convert.length > 0 && !linked && !importNote} dirty={draft !== data.content} />
 
-      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[12px] text-ink-2">
-        <span className="text-ink-3">{t('instructions.target.readOrder')}</span>
-        {order.map((e, i) => (
-          <Fragment key={e.path}>
-            {i > 0 && <span className="text-ink-3" aria-hidden="true">→</span>}
-            <ReadOrderItem entry={e} target={data.target} />
-          </Fragment>
-        ))}
-        {unread && (
-          <>
-            <span className="text-ink-3" aria-hidden="true">·</span>
-            <span className="text-ink-3">{t('instructions.target.unreadShort')}</span>
-          </>
-        )}
-        {readBy && (
-          <>
-            <span className="text-ink-3" aria-hidden="true">·</span>
-            <span className="text-ink-3">{t('instructions.target.readBy', { names: readBy })}</span>
-          </>
-        )}
-        <span className="flex-1" />
-        {!data.project && (
-          <span className="inline-flex items-center gap-2.5 whitespace-nowrap">
-            <span className="text-ink-3">{t('instructions.target.sharedTitle')}</span>
-            {shared.map((s) => (
-              <Link key={s.name} to={`/extras?tab=instructions&file=${encodeURIComponent(s.name)}`} className="font-mono font-semibold text-ink hover:underline">{s.name}</Link>
-            ))}
-            <Link to="/extras?tab=instructions" className="font-semibold text-ink hover:underline">
-              {t(shared.length > 0 ? 'instructions.target.sharedChange' : 'instructions.target.sharedPick')}
-            </Link>
-          </span>
-        )}
-      </div>
-
-      {linked && (
-        <p className="text-[13px] text-ink-2">
-          {t('instructions.target.linkedHint')}{' '}
-          <Link to={`/extras?tab=instructions&file=${encodeURIComponent(data.link_shared ?? '')}`} className="font-mono font-semibold text-ink hover:underline">{data.link_shared}</Link>
-        </p>
-      )}
-
-      <div className="ss-code flex min-h-[360px] flex-1 flex-col !bg-surface !overflow-hidden !p-0 !whitespace-normal focus-within:!border-[var(--accent)]">
-        <BoxHeader content={draft} view={view} onChange={setView} />
+      <div className="ss-code flex min-h-[360px] flex-1 flex-col !bg-surface !overflow-hidden !p-0 !whitespace-normal">
+        {/* A linked file is read only here: its second tab shows the text, it does not edit it. */}
+        <BoxHeader content={draft} view={view} onChange={setView} views={linked ? [{ value: 'preview', label: t('instructions.target.view.preview') }, { value: 'edit', label: t('instructions.target.view.source') }] : undefined}>
+          {!linked && <Button variant="primary" size="sm" onClick={save} loading={saving} disabled={draft === data.content}>{t('common.save')}</Button>}
+          <Button variant="ghost" size="sm" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
+            {t(expanded ? 'instructions.preview.collapse' : 'instructions.preview.expand')}
+            {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </Button>
+        </BoxHeader>
         {view === 'edit' ? (
-          <CodeEditor value={draft} onChange={setDraft} ariaLabel={file} lineDecor={lineDecor} disabled={saving || linked} wrap fill
+          <CodeEditor value={draft} onChange={setDraft} ariaLabel={file} lineDecor={lineDecor} disabled={saving || linked} wrap fill={!expanded} minHeight="360px" maxHeight="none"
             className="min-h-0 flex-1 !rounded-none !border-0 !bg-surface" placeholder={t('instructions.target.placeholder', { file })} />
         ) : (
-          <InstructionsPreview content={draft} names={shared.map((s) => s.name)} />
+          <InstructionsPreview content={draft} names={shared.map((s) => s.name)} className={expanded ? '' : undefined} />
         )}
       </div>
       {tooLong && (
@@ -370,19 +324,155 @@ function Editor({ data }: { data: Data }) {
   );
 }
 
-/** One file in the read-order line: a dot for whether the target loads it now. */
-function ReadOrderItem({ entry, target }: { entry: InstructionsEntry; target: string }) {
+/**
+ * Where the target's file comes from, as one card: a shared AGENTS.md it follows
+ * (linked, read only) or imports, with who else uses it, or the target's own file.
+ */
+function SourceCard({ data, onChangeLocation, onConvert, convertable, dirty }: {
+  data: Data;
+  onChangeLocation: () => void;
+  onConvert: () => void;
+  convertable: boolean;
+  dirty: boolean;
+}) {
   const t = useT();
-  const name = entry.kind === 'rules' ? `${fileName(entry.path)}/*.md` : fileName(entry.path);
-  const detail = entry.kind === 'rules' ? t(entry.count === 1 ? 'instructions.target.rules.one' : 'instructions.target.rules.other', { count: entry.count ?? 0 })
-    : entry.kind === 'fallback' && !entry.read && entry.exists ? t('instructions.target.fallbackSkipped', { name: target })
-      : '';
-  const state = entry.read ? 'loaded' : entry.exists ? 'skipped' : 'missing';
+  const list = useQuery({ queryKey: queryKeys.instructions.shared, queryFn: () => api.listSharedInstructions(), enabled: !data.project });
+  const linked = data.link_shared;
+  const names = linked ? [linked] : data.shared.map((s) => s.name);
+  const source = names[0];
+  // Everyone on the source except this target; one name for a link, the first import otherwise.
+  const users = source ? connectedTo(list.data?.targets ?? [], source).map((tg) => tg.name) : [];
+  const others = users.filter((n) => n !== data.target);
+  const extras = `/extras?tab=instructions${source ? `&file=${encodeURIComponent(source)}` : ''}`;
+  const readBy = data.read_by.map(targetLabel).join(t('instructions.shared.listSep'));
+  const unread = data.read_order.some((e) => e.kind === 'unread');
+  // The server refuses to move a file a shared AGENTS.md is written into.
+  const canMove = !data.rider_of && names.length === 0;
+  const notes = [
+    linked ? t('instructions.card.linkedNote', { name: linked, count: Math.max(users.length, 1) })
+      : source ? t('instructions.card.importNote', { names: names.join(t('instructions.shared.listSep')), count: Math.max(users.length, 1) })
+        : t('instructions.card.ownNote', { name: data.target }),
+    !data.exists && t('instructions.card.notCreated'),
+    readBy && t('instructions.target.readBy', { names: readBy }),
+    unread && t('instructions.target.unreadShort'),
+  ].filter(Boolean).reduce<string>((all, next) => (all ? all + (/[。！？]$/.test(all) ? '' : ' ') + next : next as string), '');
   return (
-    <span className="inline-flex items-center gap-1.5" title={`${shortenHome(entry.path)} · ${state}`}>
-      <span className={`ss-st ${entry.read ? 'ok' : 'off'} !gap-1.5 font-mono !text-[12px] !font-normal ${entry.read ? 'text-ink' : ''}`}>{name}</span>
-      {detail && <span className="text-ink-3">{detail}</span>}
-    </span>
+    <div className="flex flex-col gap-1.5 rounded-xl border border-line bg-surface px-4 py-3">
+      <div className="flex min-h-8 flex-wrap items-center gap-2.5">
+        {source ? <Link2 size={15} className="shrink-0 text-ink-3" /> : <FileText size={15} className="shrink-0 text-ink-3" />}
+        {source && names.map((n) => (
+          <Link key={n} to={`/extras?tab=instructions&file=${encodeURIComponent(n)}`} className="font-mono font-semibold hover:underline">{n}</Link>
+        ))}
+        {source && <ArrowRight size={14} className="shrink-0 text-ink-3" />}
+        <span className="inline-flex items-center gap-1.5 font-semibold"><AgentIcon target={data.target} size={15} />{data.target}</span>
+        {!source && <span className="ss-tag">{t('instructions.card.own')}</span>}
+        {others.length > 0 && (
+          <>
+            <span className="mx-1 h-4 w-px bg-line" aria-hidden="true" />
+            <span className="ss-stack" role="img" aria-label={others.join(', ')} title={others.join(', ')}>
+              {others.slice(0, 5).map((n) => <span key={n} className="ss-at !h-5 !w-5"><AgentIcon target={n} size={11} /></span>)}
+            </span>
+            <span className="text-[12.5px] text-ink-3">{t(others.length === 1 ? 'instructions.card.alsoUsed.one' : 'instructions.card.alsoUsed.other', { count: others.length })}</span>
+          </>
+        )}
+        <span className="flex-1" />
+        {convertable && <Button variant="ghost" size="sm" onClick={onConvert} disabled={dirty}>{t('instructions.convert.open')}</Button>}
+        {!data.project && !data.rider_of && (source
+          ? (
+            <>
+              {names.length === 1
+                ? <ChangeMenu target={data.target} current={source} linked={!!linked} files={list.data?.files.map((f) => f.name) ?? []} />
+                : <Link to="/extras?tab=instructions" className="ss-btn ghost sm">{t('instructions.card.change')}</Link>}
+              {names.length === 1 && <Link to={extras} className="ss-btn sm">{t('instructions.card.edit', { name: source })}<ArrowRight size={13} /></Link>}
+            </>
+          )
+          : <Link to="/extras?tab=instructions" className="ss-btn sm"><Link2 size={13} />{t('instructions.card.connect')}</Link>)}
+        {canMove && <MoreMenu label={t('instructions.shared.more')} items={[{ label: t('instructions.setup.changeLocation'), icon: FolderInput, onClick: onChangeLocation }]} />}
+      </div>
+      <p className="flex items-start gap-1.5 pl-[25px] text-[12.5px] text-ink-3">
+        {linked && <Lock size={12} className="mt-[3px] shrink-0" />}
+        <span>{notes}</span>
+      </p>
+    </div>
   );
 }
 
+/**
+ * Switches the target to another shared AGENTS.md in place. A link can hold only
+ * one file, so leaving the current one asks first; an import just swaps the line.
+ */
+function ChangeMenu({ target, current, linked, files }: { target: string; current: string; linked: boolean; files: string[] }) {
+  const t = useT();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [picked, setPicked] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  const switchTo = async (name: string) => {
+    setBusy(true);
+    try {
+      const res = await api.assignSharedInstructions([target], [name]);
+      if (!res.success) throw new Error(res.errors.join('; '));
+      toast(t('instructions.shared.assigned', { targets: target, files: name }), 'success');
+    } catch (err) {
+      toast(instructionsErrorMessage(err, t), 'error');
+    } finally {
+      setBusy(false);
+      setPicked(null);
+      refreshInstructions(queryClient);
+    }
+  };
+  const pick = (name: string) => {
+    setOpen(false);
+    if (name === current) return;
+    if (linked) setPicked(name);
+    else void switchTo(name);
+  };
+
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button type="button" className="ss-btn ghost sm" aria-haspopup="menu" aria-expanded={open} disabled={busy} onClick={() => setOpen(!open)}>
+        {t('instructions.card.change')}<ChevronDown size={13} />
+      </button>
+      {open && (
+        <div role="menu" aria-label={t('instructions.card.change')} className="ss-menu absolute right-0 top-full z-50 mt-1 !w-60 animate-dropdown-in">
+          {files.map((n) => (
+            <button key={n} type="button" role="menuitemradio" aria-checked={n === current} onClick={() => pick(n)}>
+              <span className="min-w-0 flex-1 truncate font-mono">{n}</span>
+              {n === current && <Check size={14} />}
+            </button>
+          ))}
+          <hr />
+          <Link to="/extras?tab=instructions" role="menuitem">{t('instructions.card.manage')}</Link>
+        </div>
+      )}
+      <ConfirmDialog
+        open={picked !== null}
+        title={t('instructions.switchFrom.title', { target, name: picked ?? '' })}
+        message={t('instructions.switchFrom.message', { target, other: current })}
+        confirmText={t('instructions.switchFrom.confirm', { name: picked ?? '' })}
+        loading={busy}
+        onConfirm={() => picked && void switchTo(picked)}
+        onCancel={() => setPicked(null)}
+      />
+    </div>
+  );
+}

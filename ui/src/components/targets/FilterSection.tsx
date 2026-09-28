@@ -1,13 +1,17 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { SyncMatrixEntry } from '../../api/client';
+import AgentIcon from '../AgentIcon';
 import Spinner from '../Spinner';
-import { useT } from '../../i18n';
+import { useI18n, useT } from '../../i18n';
 import PatternInput from './PatternInput';
-import { patternName, togglePatterns } from './targetView';
+import { joinList, patternName, togglePatterns } from './targetView';
 
 type Kind = 'skill' | 'agent';
 const MODES = ['merge', 'copy', 'symlink'] as const;
+// Sentences that end in a full-width stop run on without a space.
+const CJK_STOP = /[。！？]$/;
 
 interface Props {
   kind: Kind;
@@ -23,11 +27,15 @@ interface Props {
   loading: boolean;
   error: Error | null;
   disabled: boolean;
+  /** Targets with skills off that read this folder, so the filters shape what they see too */
+  alsoReadBy?: string[];
+  /** Targets with skills on whose folder this tool also reads, so it sees their skills twice */
+  readsFrom?: string[];
 }
 
 /** Include and exclude patterns with a live preview; a click on a preview row edits them. */
-export default function FilterSection({ kind, mode, name, include, exclude, onChange, entries, loaded, loading, error, disabled }: Props) {
-  const t = useT();
+export default function FilterSection({ kind, mode, name, include, exclude, onChange, entries, loaded, loading, error, disabled, alsoReadBy = [], readsFrom = [] }: Props) {
+  const { t, locale } = useI18n();
   const [help, setHelp] = useState(false);
   const agent = kind === 'agent';
   const synced = entries.filter((e) => e.status === 'synced').length;
@@ -42,8 +50,40 @@ export default function FilterSection({ kind, mode, name, include, exclude, onCh
     }
   };
 
+  const baseHint = t(agent ? 'targetDetail.includeHint.agents' : 'targetDetail.includeHint.skills');
+  const includeHint = alsoReadBy.length > 0
+    ? baseHint + (CJK_STOP.test(baseHint) ? '' : ' ') + t('targetDetail.alsoReadBy.filterHint', { names: joinList(alsoReadBy, locale) })
+    : baseHint;
+  const readers = alsoReadBy.length > 0 && (
+    <div className="flex flex-wrap items-center gap-2 text-[13px]">
+      <span className="font-semibold">{t('targetDetail.alsoReadBy.label')}</span>
+      {alsoReadBy.map((reader) => (
+        <Link key={reader} to={`/targets/${encodeURIComponent(reader)}`} className="ss-tag !h-6 gap-1.5 hover:text-ink">
+          <AgentIcon target={reader} size={13} />{reader}
+        </Link>
+      ))}
+      <span className="text-ink-3">{t('targetDetail.alsoReadBy.note')}</span>
+    </div>
+  );
+
+  const sources = readsFrom.length > 0 && (
+    <div className="flex flex-wrap items-center gap-2 text-[13px]">
+      <span className="font-semibold">{t('targetDetail.readsFrom.label')}</span>
+      {readsFrom.map((source) => (
+        <Link key={source} to={`/targets/${encodeURIComponent(source)}`} className="ss-tag !h-6 gap-1.5 hover:text-ink">
+          <AgentIcon target={source} size={13} />{source}
+        </Link>
+      ))}
+      <span className="text-ink-3">{t('targetDetail.readsFrom.note')}</span>
+    </div>
+  );
+
   return mode === 'symlink' ? (
-    <div className="ss-note inf"><span className="flex-1">{t('targetDetail.symlinkNoFilters')}</span></div>
+    <>
+      <div className="ss-note inf"><span className="flex-1">{t('targetDetail.symlinkNoFilters')}</span></div>
+      {readers}
+      {sources}
+    </>
   ) : (
     <>
       {loaded && (
@@ -51,10 +91,12 @@ export default function FilterSection({ kind, mode, name, include, exclude, onCh
           {t(`targetDetail.summary.${agent ? 'agents' : 'skills'}.${entries.length === 1 ? 'one' : 'other'}`, { synced, total: entries.length, name })}
         </p>
       )}
+      {readers}
+      {sources}
       <div className="ss-fld">
         <label htmlFor="filter-include">{t('targetDetail.include')}</label>
         <PatternInput id="filter-include" patterns={include} onChange={(next) => onChange({ include: next, exclude })} disabled={disabled} />
-        <span className="hp">{t(agent ? 'targetDetail.includeHint.agents' : 'targetDetail.includeHint.skills')}</span>
+        <span className="hp">{includeHint}</span>
       </div>
       <div className="ss-fld">
         <label htmlFor="filter-exclude">{t('targetDetail.exclude')}</label>

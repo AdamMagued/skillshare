@@ -169,6 +169,9 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 
 		for name, target := range targets {
 			sc := target.SkillsConfig()
+			if !sc.IsEnabled() {
+				continue // skills off: agents, extras and MCP below still run
+			}
 			mode := sc.Mode
 			if mode == "" {
 				mode = globalMode
@@ -373,7 +376,7 @@ func (s *Server) backupBeforeSync(targets map[string]config.TargetConfig, skills
 	}
 	builtinAgents := s.builtinAgentTargets()
 	for name, target := range targets {
-		if skills {
+		if skills && target.SkillsConfig().IsEnabled() {
 			snapshot(name, target.SkillsConfig().Path)
 		}
 		if p := resolveAgentPath(target, builtinAgents, name, s.IsProjectMode()); agents && p != "" {

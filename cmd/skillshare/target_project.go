@@ -17,6 +17,7 @@ import (
 )
 
 func targetAddProject(args []string, root string) error {
+	args, noSkills := stripNoSkillsFlag(args)
 	if len(args) < 1 || len(args) > 2 {
 		return fmt.Errorf("usage: skillshare target add <name> [path]")
 	}
@@ -93,18 +94,22 @@ func targetAddProject(args []string, root string) error {
 	if pathProvidedRequiresStorage(path, knownPath) {
 		entry.Skills = &config.ResourceTargetConfig{Path: path}
 	}
+	if noSkills {
+		entry.EnsureSkills().SetEnabled(false)
+	}
 
 	cfg.Targets = append(cfg.Targets, entry)
 	if err := cfg.Save(root); err != nil {
 		return err
 	}
 
-	if err := os.MkdirAll(absPath, 0755); err != nil {
-		return fmt.Errorf("failed to create target directory: %w", err)
+	if !noSkills {
+		if err := os.MkdirAll(absPath, 0755); err != nil {
+			return fmt.Errorf("failed to create target directory: %w", err)
+		}
 	}
 
-	ui.Success("Added target: %s -> %s", name, path)
-	ui.Info("Run 'skillshare sync' to sync skills to this target")
+	reportTargetAdded(name, path, noSkills)
 	return nil
 }
 
@@ -152,7 +157,7 @@ func targetRemoveProject(args []string, root string) error {
 	}
 
 	for _, name := range toRemove {
-		if target, ok := targets[name]; ok {
+		if target, ok := targets[name]; ok && target.SkillsConfig().IsEnabled() {
 			sc := target.SkillsConfig()
 			mode := sc.Mode
 			if mode == "" {
@@ -195,6 +200,11 @@ func targetRemoveProjectDryRun(toRemove []string, targets map[string]config.Targ
 		}
 
 		sc := target.SkillsConfig()
+		if !sc.IsEnabled() {
+			ui.Info("%s: skills off, would leave folder as is", name)
+			ui.Info("%s: would remove from config", name)
+			continue
+		}
 		info, err := os.Lstat(sc.Path)
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -389,6 +399,10 @@ func targetInfoProject(name string, args []string, root string) error {
 		return nil
 	}
 
+	if settings.Skills != nil {
+		return setTargetSkillsProject(cfg, targetIdx, *settings.Skills, settings.DryRun, root)
+	}
+
 	if settings.SkillMode != "" {
 		return updateTargetModeProject(cfg, targetIdx, settings.SkillMode, root)
 	}
@@ -441,11 +455,13 @@ func targetInfoProject(name string, args []string, root string) error {
 	fmt.Printf("  Naming:  %s\n", namingDisplay)
 
 	resolvedSC := target.SkillsConfig()
-	switch mode {
-	case "symlink":
+	switch {
+	case !resolvedSC.IsEnabled():
+		fmt.Printf("  Status:  %s\n", skillsOffSummary)
+	case mode == "symlink":
 		status := sync.CheckStatus(resolvedSC.Path, sourcePath)
 		fmt.Printf("  Status:  %s\n", status)
-	case "copy":
+	case mode == "copy":
 		status, managed, local := sync.CheckStatusCopy(resolvedSC.Path)
 		fmt.Printf("  Status:  %s (%d managed, %d local)\n", status, managed, local)
 	default:

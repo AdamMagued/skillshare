@@ -35,6 +35,8 @@ func newTargetListJSONItem(item targetTUIItem) targetListJSONItem {
 		Sync:         item.skillSync,
 		Include:      append([]string(nil), sc.Include...),
 		Exclude:      append([]string(nil), sc.Exclude...),
+
+		SkillsEnabled: sc.IsEnabled(),
 	}
 	applyTargetListAgentSummary(&jsonItem, item.agentSummary)
 	return jsonItem
@@ -77,14 +79,18 @@ func printTargetListPlain(items []targetTUIItem) {
 		fmt.Printf("  %s\n", item.name)
 		fmt.Println("    Skills:")
 		fmt.Printf("      Path:    %s\n", displayPath)
-		fmt.Printf("      Mode:    %s\n", sync.EffectiveMode(sc.Mode))
-		fmt.Printf("      Naming:  %s\n", config.EffectiveTargetNaming(sc.TargetNaming))
-		fmt.Printf("      Sync:    %s\n", item.skillSync)
-		if len(sc.Include) == 0 && len(sc.Exclude) == 0 {
-			fmt.Println("      No include/exclude filters")
+		if !sc.IsEnabled() {
+			fmt.Printf("      Sync:    %s\n", item.skillSync)
 		} else {
-			fmt.Printf("      Include: %s\n", formatFilterList(sc.Include))
-			fmt.Printf("      Exclude: %s\n", formatFilterList(sc.Exclude))
+			fmt.Printf("      Mode:    %s\n", sync.EffectiveMode(sc.Mode))
+			fmt.Printf("      Naming:  %s\n", config.EffectiveTargetNaming(sc.TargetNaming))
+			fmt.Printf("      Sync:    %s\n", item.skillSync)
+			if len(sc.Include) == 0 && len(sc.Exclude) == 0 {
+				fmt.Println("      No include/exclude filters")
+			} else {
+				fmt.Printf("      Include: %s\n", formatFilterList(sc.Include))
+				fmt.Printf("      Exclude: %s\n", formatFilterList(sc.Exclude))
+			}
 		}
 
 		if item.agentSummary == nil {

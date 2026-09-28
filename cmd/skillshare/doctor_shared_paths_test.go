@@ -253,3 +253,21 @@ func TestCheckSharedTargetPaths_EmptyPathSkipped(t *testing.T) {
 		t.Errorf("empty paths must not collide; got %d warnings", r.warnings)
 	}
 }
+
+func TestDoctorPathChecks_IgnoreSkillsOffTargets(t *testing.T) {
+	off := false
+	cfg := &config.Config{
+		Targets: map[string]config.TargetConfig{
+			"codex":     {Skills: &config.ResourceTargetConfig{Path: "~/.agents/skills", Enabled: &off}},
+			"gemini":    {Skills: &config.ResourceTargetConfig{Path: "~/.gemini/skills", Enabled: &off}},
+			"universal": {Skills: &config.ResourceTargetConfig{Path: "~/.agents/skills"}},
+		},
+	}
+	r := &doctorResult{}
+	checkSharedTargetPaths(cfg, r, false)
+	checkCrossTargetDiscovery(cfg, r, false)
+
+	if r.warnings != 0 {
+		t.Errorf("targets with skills off should not overlap, got %d warning(s): %+v", r.warnings, r.checks)
+	}
+}

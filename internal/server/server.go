@@ -423,6 +423,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("POST /api/targets", s.handleAddTarget)
 	s.mux.HandleFunc("PATCH /api/targets/{name}", s.handleUpdateTarget)
 	s.mux.HandleFunc("DELETE /api/targets/{name}", s.handleRemoveTarget)
+	s.mux.HandleFunc("GET /api/targets/{name}/skills-off-preview", s.handleSkillsOffPreview)
 	s.mux.HandleFunc("GET /api/targets/{name}/instructions", s.handleGetTargetInstructions)
 	s.mux.HandleFunc("PUT /api/targets/{name}/instructions", s.handlePutTargetInstructions)
 	s.mux.HandleFunc("POST /api/targets/{name}/instructions/convert", s.handleConvertTargetInstructions)

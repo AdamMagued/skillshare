@@ -8,6 +8,9 @@ import (
 	"strings"
 )
 
+// errAgentsEnabled rejects enabled under agents: only skills can be switched off.
+const errAgentsEnabled = "agents.enabled is not supported (only skills.enabled)"
+
 // ValidateConfig validates a global config semantically (after YAML parsing).
 // Returns warnings (non-fatal) and error (fatal, should return 400).
 func ValidateConfig(cfg *Config) (warnings []string, err error) {
@@ -51,6 +54,9 @@ func ValidateConfig(cfg *Config) (warnings []string, err error) {
 	for name, target := range cfg.Targets {
 		if err := ValidateTargetInstructions(target.Instructions, false); err != nil {
 			errs = append(errs, fmt.Sprintf("target %q: %v", name, err))
+		}
+		if target.Agents != nil && target.Agents.Enabled != nil {
+			errs = append(errs, fmt.Sprintf("target %q: %s", name, errAgentsEnabled))
 		}
 		sc := target.SkillsConfig()
 		if !IsValidSyncMode(sc.Mode) {
@@ -109,6 +115,9 @@ func ValidateProjectConfig(cfg *ProjectConfig, projectRoot string) (warnings []s
 	for _, entry := range cfg.Targets {
 		if err := ValidateTargetInstructions(entry.Instructions, true); err != nil {
 			errs = append(errs, fmt.Sprintf("target %q: %v", entry.Name, err))
+		}
+		if entry.Agents != nil && entry.Agents.Enabled != nil {
+			errs = append(errs, fmt.Sprintf("target %q: %s", entry.Name, errAgentsEnabled))
 		}
 		sc := entry.SkillsConfig()
 		if !IsValidSyncMode(sc.Mode) {

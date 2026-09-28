@@ -252,6 +252,9 @@ func CreateSymlink(targetPath, sourcePath, projectRoot string) error {
 // projectRoot enables relative symlinks when non-empty.
 func SyncTarget(name string, target config.TargetConfig, sourcePath string, dryRun bool, projectRoot string) error {
 	sc := target.SkillsConfig()
+	if !sc.IsEnabled() {
+		return nil
+	}
 
 	// Remove manifest if present (merge/copy → symlink conversion)
 	if !dryRun {
@@ -537,10 +540,13 @@ func SyncTargetMerge(name string, target config.TargetConfig, sourcePath string,
 // sourcePath is the skills source directory, used to detect symlink-mode targets.
 func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkills []DiscoveredSkill, sourcePath string, dryRun, force bool, projectRoot string) (*MergeResult, error) {
 	sc := target.SkillsConfig()
+	result := &MergeResult{}
+	if !sc.IsEnabled() {
+		return result, nil
+	}
 	// Checked against sourcePath (root dir), not per-skill paths — all skills
 	// are children of sourcePath so the result is the same for every skill.
 	relative := shouldUseRelative(projectRoot, sourcePath, sc.Path)
-	result := &MergeResult{}
 
 	// Convert from symlink mode if needed, auto-create if missing.
 	dirCreated, err := ensureRealTargetDir(sc.Path, sourcePath, "merge", dryRun)
@@ -917,7 +923,7 @@ func CheckNameCollisionsForTargets(
 
 	for name, target := range targets {
 		sc := target.SkillsConfig()
-		if sc.Mode == "symlink" {
+		if sc.Mode == "symlink" || !sc.IsEnabled() {
 			continue
 		}
 		// In flat naming mode without filters, per-target collisions are

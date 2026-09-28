@@ -86,6 +86,9 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 	}
 
 	dt := diffTarget{Target: name, Items: make([]diffItem, 0)}
+	if !sc.IsEnabled() {
+		return dt // skills off: nothing is synced, so nothing differs
+	}
 
 	if mode == "symlink" {
 		status := ssync.CheckStatus(sc.Path, source)

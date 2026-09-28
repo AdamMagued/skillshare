@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowDownToLine, Folder, Target as TargetIcon } from 'lucide-react';
+import { ArrowDownToLine, CirclePause, Folder, Target as TargetIcon } from 'lucide-react';
 import { api, type Target } from '../api/client';
 import { mcpApi } from '../api/mcp';
 import Button from '../components/Button';
@@ -14,6 +14,7 @@ import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import FilterSection, { ModePicker } from '../components/targets/FilterSection';
 import RemoveTargetDialog from '../components/targets/RemoveTargetDialog';
+import SkillsOffDialog from '../components/targets/SkillsOffDialog';
 import TargetMCP from '../components/targets/TargetMCP';
 import TargetInstructions from '../components/instructions/TargetInstructions';
 import { mcpClient, serverCount } from '../components/mcp/mcpView';
@@ -48,10 +49,10 @@ export default function TargetDetailPage() {
       />
     );
   }
-  return <TargetEditor key={name} target={target} />;
+  return <TargetEditor key={name} target={target} targets={data.targets} />;
 }
 
-function TargetEditor({ target }: { target: Target }) {
+function TargetEditor({ target, targets }: { target: Target; targets: Target[] }) {
   const t = useT();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -73,6 +74,22 @@ function TargetEditor({ target }: { target: Target }) {
   const [saving, setSaving] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [collecting, setCollecting] = useState(false);
+  const [stoppingSkills, setStoppingSkills] = useState(false);
+  const [resuming, setResuming] = useState(false);
+  const skillsOn = target.skillsEnabled !== false;
+  const available = useQuery({ queryKey: queryKeys.targets.available, queryFn: () => api.availableTargets(), staleTime: staleTimes.targets, enabled: tab === 'skill' });
+  // While skills are on the target list leaves skillsReadFrom out, so the confirm dialog asks available-targets.
+  const readsFrom = (target.skillsReadFrom ?? available.data?.targets.find((a) => a.name === target.name)?.readsFrom ?? []).filter((n) => n !== target.name);
+  const readFromName = readsFrom[0];
+  const readFrom = targets.find((x) => x.name === readFromName);
+  // Everyone else reading this folder, so turning it off shows who loses the skills with it.
+  const readerEntries = available.data?.targets.filter((a) => a.name !== target.name && a.readsFrom?.includes(target.name)) ?? [];
+  const readerOff = (name: string) => targets.find((x) => x.name === name)?.skillsEnabled === false;
+  const readers = {
+    off: readerEntries.filter((a) => a.installed && readerOff(a.name)).map((a) => a.name),
+    local: readerEntries.filter((a) => !a.installed && a.detected).map((a) => a.name),
+    on: readerEntries.filter((a) => a.installed && !readerOff(a.name)).map((a) => a.name),
+  };
   const { data: extData } = useQuery({ queryKey: ['extras', 'extensions'], queryFn: () => api.listExtraExtensions(), staleTime: staleTimes.extras, enabled: syncTab });
   const extensions = extData?.extensions ?? [];
 
@@ -123,13 +140,25 @@ function TargetEditor({ target }: { target: Target }) {
   const local = agent ? target.agentLocalCount ?? 0 : target.localCount;
 
   const tabCount = (k: (typeof tabs)[number]) =>
-    (k === 'mcp' ? mcp.data && serverCount(mcp.data, client)
+    k === 'skill' && !skillsOn ? null : (k === 'mcp' ? mcp.data && serverCount(mcp.data, client)
       : k === 'instructions' ? instructions.data?.read_order.filter((e) => e.read).length
         : entriesOf(k).length) || null;
   // Name the tab after the file this target actually reads (CLAUDE.md, GEMINI.md, …).
   const instructionsTab = instructions.data?.supported && instructions.data.path ? fileName(instructions.data.path) : 'AGENTS.md';
-  // The instructions tab shows its file path in the panel, for whichever tool is picked.
-  const subtitle = tab === 'mcp' ? mcpPath ?? '' : tab === 'instructions' ? '' : agent ? target.agentPath ?? '' : target.path;
+  const tabLabel = (k: (typeof tabs)[number]) => (k === 'agent' ? 'Agents' : k === 'mcp' ? 'MCP' : k === 'instructions' ? instructionsTab : 'Skills');
+  const resume = async () => {
+    setResuming(true);
+    try {
+      await api.updateTarget(target.name, { skills_enabled: true });
+      refreshTargets(queryClient);
+      toast(t('targetDetail.skillsOff.resumed', { name: target.name }), 'success');
+    } catch (err) {
+      toast((err as Error).message, 'error');
+    } finally {
+      setResuming(false);
+    }
+  };
+  const subtitle = tab === 'mcp' ? mcpPath ?? '' : tab === 'instructions' ? (instructions.data?.supported ? instructions.data.path ?? '' : '') : agent ? target.agentPath ?? '' : target.path;
   return (
     <div className="animate-fade-in">
       <PageHeader
@@ -141,7 +170,7 @@ function TargetEditor({ target }: { target: Target }) {
             {tab === 'skill' && <Link to={`/skills?tab=analyze&target=${encodeURIComponent(target.name)}`} className="ss-btn ghost">{t('analyze.open')}</Link>}
             <Button variant="ghost" onClick={() => setRemoving(true)}>{t('targetDetail.remove')}</Button>
             {/* A switch on the MCP tab saves as it flips; the instructions tab saves its own file. */}
-            {syncTab && <Button variant="primary" onClick={save} loading={saving} disabled={!dirty}>{t('common.save')}</Button>}
+            {syncTab && (skillsOn || agent) && <Button variant="primary" onClick={save} loading={saving} disabled={!dirty}>{t('common.save')}</Button>}
           </>
         }
       />
@@ -150,7 +179,7 @@ function TargetEditor({ target }: { target: Target }) {
         <nav className="ss-tabs mb-7" aria-label={t('targetDetail.tabs')}>
           {tabs.map((k) => (
             <Link key={k} to={k === 'agent' ? '?tab=agents' : k === 'mcp' ? '?tab=mcp' : k === 'instructions' ? '?tab=instructions' : '?'} replace className={tab === k ? 'on' : ''}>
-              {k === 'agent' ? 'Agents' : k === 'mcp' ? 'MCP' : k === 'instructions' ? instructionsTab : 'Skills'}
+              {tabLabel(k)}
               {tabCount(k) !== null && <span className="ss-cnt">{tabCount(k)}</span>}
             </Link>
           ))}
@@ -161,11 +190,31 @@ function TargetEditor({ target }: { target: Target }) {
         <TargetInstructions name={target.name} />
       ) : tab === 'mcp' ? (
         mcp.data ? <TargetMCP name={client} data={mcp.data} /> : mcp.error ? <div className="ss-note bad"><span className="flex-1">{mcp.error.message}</span></div> : <PageSkeleton />
+      ) : !agent && !skillsOn ? (
+        <div className="ss-empty !py-16">
+          <CirclePause size={24} className="text-ink-3" />
+          <h3 className="font-semibold text-ink">{t('targetDetail.skillsOff.title', { name: target.name })}</h3>
+          <p className="max-w-md text-[13px]">
+            {t('targetDetail.skillsOff.noWrites', { path: shortenHome(target.path) })}
+            <br />
+            {readFrom
+              ? t(readFrom.linkedCount === 1 ? 'targetDetail.skillsOff.readsFrom.one' : 'targetDetail.skillsOff.readsFrom.other', { name: target.name, from: readFrom.name, path: shortenHome(readFrom.path), count: readFrom.linkedCount })
+              : t('targetDetail.skillsOff.generic')}
+          </p>
+          <div className="mt-2"><Button variant="secondary" onClick={resume} loading={resuming}>{t('targetDetail.skillsOff.resume')}</Button></div>
+        </div>
       ) : (
         <div className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] items-start gap-12">
           <section className="flex flex-col gap-5">
-            <h2 className="ss-h2">{t('targetDetail.whatSyncs')}</h2>
-            <FilterSection kind={kind} mode={mode} name={target.name} include={include} exclude={exclude} onChange={setFiltersFor} entries={entries} loaded={Boolean(preview.data)} loading={preview.isPending} error={preview.error} disabled={saving} />
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="ss-h2">{t('targetDetail.whatSyncs')}</h2>
+              {!agent && (
+                <Button variant="ghost" size="sm" onClick={() => setStoppingSkills(true)} disabled={saving}>
+                  <CirclePause size={15} />{t('targetDetail.skillsOff.stop')}
+                </Button>
+              )}
+            </div>
+            <FilterSection kind={kind} mode={mode} name={target.name} include={include} exclude={exclude} onChange={setFiltersFor} entries={entries} loaded={Boolean(preview.data)} loading={preview.isPending} error={preview.error} disabled={saving} alsoReadBy={agent ? undefined : target.skillsAlsoReadBy} readsFrom={agent ? undefined : readsFrom} />
           </section>
 
           <aside className="flex flex-col gap-7">
@@ -237,6 +286,20 @@ function TargetEditor({ target }: { target: Target }) {
             toast(t('targets.targetRemoved', { name: target.name }), 'success');
             warnings.forEach((warning) => toast(warning, 'warning'));
             navigate('/targets');
+          }}
+        />
+      )}
+      {stoppingSkills && (
+        <SkillsOffDialog
+          target={target}
+          readFrom={readFrom}
+          readers={readers}
+          managed={tabs.filter((k) => k !== 'skill').map(tabLabel)}
+          onClose={() => setStoppingSkills(false)}
+          onStopped={(removed) => {
+            setStoppingSkills(false);
+            refreshTargets(queryClient);
+            toast(t(removed === 1 ? 'targetDetail.skillsOff.stopped.one' : 'targetDetail.skillsOff.stopped.other', { name: target.name, count: removed }), 'success');
           }}
         />
       )}

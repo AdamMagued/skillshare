@@ -307,6 +307,9 @@ _skillshare() {
                         '--remove-agent-exclude[Remove agent exclude filter]:pattern:' \
                         '--agent[With add: the Agent this is another account of]:agent:(claude codex pi)' \
                         '--config-dir[With add: the config directory of that account]:dir:_files -/' \
+                        '--skills=[Sync skills to this target]:enabled:(true false)' \
+                        '--no-skills[With add: do not sync skills]' \
+                        '--dry-run[Preview changes]' \
                         $global_flags \
                         '--help[Show help]' \
                         '-h[Show help]'

@@ -28,6 +28,8 @@ type syncTargetResult struct {
 	warnings []string // prune warnings etc.
 	infos    []string // extra info lines (symlink mode hints)
 	errMsg   string   // non-empty if target failed
+	// skillsOff marks a target with skills switched off: nothing was synced.
+	skillsOff bool
 }
 
 const syncMaxWorkers = 8
@@ -186,6 +188,12 @@ func collectSyncResult(name string, target config.TargetConfig, source, mode str
 		mode:    mode,
 		include: sc.Include,
 		exclude: sc.Exclude,
+	}
+	if !sc.IsEnabled() {
+		r.skillsOff = true
+		r.message = "skills off (not synced)"
+		r.include, r.exclude = nil, nil
+		return r
 	}
 
 	switch mode {
@@ -351,6 +359,10 @@ func renderSyncResults(results []syncTargetResult) {
 			continue
 		}
 
+		if r.skillsOff {
+			ui.Info("%s: %s", r.name, r.message)
+			continue
+		}
 		ui.Success("%s: %s", r.name, r.message)
 
 		if len(r.include) > 0 {

@@ -14,7 +14,7 @@ vi.mock('../CodeEditor', () => ({
 }));
 vi.mock('../../api/client', async (load) => {
   const actual = await load<typeof import('../../api/client')>();
-  return { ...actual, api: { ...actual.api, getTargetInstructions: vi.fn(), putTargetInstructions: vi.fn().mockResolvedValue({ success: true }) } };
+  return { ...actual, api: { ...actual.api, getTargetInstructions: vi.fn(), putTargetInstructions: vi.fn().mockResolvedValue({ success: true }), listSharedInstructions: vi.fn().mockResolvedValue({ files: [], targets: [], file_links: true }), assignSharedInstructions: vi.fn().mockResolvedValue({ success: true, errors: [] }) } };
 });
 
 const file = (target: string, path: string, extra: Partial<Data> = {}): Data => ({
@@ -70,6 +70,8 @@ describe('Target instructions tab', () => {
     renderUniversal();
     const user = userEvent.setup();
 
+    await user.click(await screen.findByRole('tab', { name: 'Edit' }));
+
     await user.type(await screen.findByRole('textbox', { name: 'AGENTS.md' }), 'draft');
     await pickTool(user, /Codex/);
     await user.click(await screen.findByRole('button', { name: 'Cancel' }));
@@ -83,7 +85,8 @@ describe('Target instructions tab', () => {
     renderTarget('codex');
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole('button', { name: 'Change location' }));
+    await user.click(await screen.findByRole('button', { name: 'More actions' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Change location' }));
 
     expect(screen.getByRole('textbox', { name: 'File location' })).toHaveValue('~/.codex/AGENTS.md');
   });
@@ -95,7 +98,8 @@ describe('Target instructions tab', () => {
     renderTarget('codex');
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole('button', { name: 'Change location' }));
+    await user.click(await screen.findByRole('button', { name: 'More actions' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Change location' }));
 
     expect(screen.getByRole('button', { name: 'Reset to default' })).toBeInTheDocument();
   });
@@ -105,7 +109,8 @@ describe('Target instructions tab', () => {
     renderTarget('codex');
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole('button', { name: 'Change location' }));
+    await user.click(await screen.findByRole('button', { name: 'More actions' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Change location' }));
 
     expect(screen.getByRole('dialog', { name: 'Which file codex reads' })).toBeInTheDocument();
   });
@@ -119,7 +124,7 @@ describe('Target instructions tab', () => {
     }));
     renderTarget('claude');
 
-    expect(await screen.findByText("Doesn't read a user-level AGENTS.md")).toBeInTheDocument();
+    expect(await screen.findByText(/Doesn't read a user-level AGENTS\.md/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'personal' })).toHaveAttribute('href', '/extras?tab=instructions&file=personal');
   });
 
@@ -127,6 +132,8 @@ describe('Target instructions tab', () => {
     vi.mocked(api.getTargetInstructions).mockResolvedValue(file('codex', '~/.codex/AGENTS.md'));
     renderTarget('codex');
     const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('tab', { name: 'Edit' }));
 
     await user.type(await screen.findByRole('textbox', { name: 'AGENTS.md' }), 'draft');
     await user.click(screen.getByRole('tab', { name: 'Preview' }));
@@ -139,7 +146,7 @@ describe('Target instructions tab', () => {
   it('says which other tools read the same file', async () => {
     renderUniversal();
 
-    expect(await screen.findByText('Cline, Warp also read this file')).toBeInTheDocument();
+    expect(await screen.findByText(/Cline, Warp also read this file/)).toBeInTheDocument();
   });
 
   it('does not save the page editor with Cmd+S while a dialog is open over it', async () => {
@@ -147,8 +154,11 @@ describe('Target instructions tab', () => {
     renderTarget('codex');
     const user = userEvent.setup();
 
+    await user.click(await screen.findByRole('tab', { name: 'Edit' }));
+
     await user.type(await screen.findByRole('textbox', { name: 'AGENTS.md' }), 'draft');
-    await user.click(screen.getByRole('button', { name: 'Change location' }));
+    await user.click(screen.getByRole('button', { name: 'More actions' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Change location' }));
     fireEvent.keyDown(document.body, { key: 's', metaKey: true });
 
     expect(api.putTargetInstructions).not.toHaveBeenCalled();
@@ -158,6 +168,8 @@ describe('Target instructions tab', () => {
     vi.mocked(api.getTargetInstructions).mockResolvedValue(file('codex', '~/.codex/AGENTS.md'));
     const router = renderTarget('codex');
     const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('tab', { name: 'Edit' }));
 
     await user.type(await screen.findByRole('textbox', { name: 'AGENTS.md' }), 'draft');
     act(() => { void router.navigate('/skills'); });
@@ -169,10 +181,34 @@ describe('Target instructions tab', () => {
     vi.mocked(api.getTargetInstructions).mockResolvedValue(file('codex', '~/.codex/AGENTS.md'));
     const router = renderTarget('codex');
 
-    await screen.findByRole('textbox', { name: 'AGENTS.md' });
+    await screen.findByRole('tab', { name: 'Preview' });
     act(() => { void router.navigate('/skills'); });
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/skills'));
+  });
+
+  it('shows a linked file as coming from its shared AGENTS.md, with who else uses it', async () => {
+    const tg = (name: string, linked: string) => ({ name, path: '', import: false, exists: true, linked_shared: linked, assigned: [{ name: linked, mode: 'symlink', status: 'synced' }] });
+    vi.mocked(api.listSharedInstructions).mockResolvedValue({ files: [], targets: [tg('codex', 'personal'), tg('claude', 'personal'), tg('pi', 'personal')], file_links: true });
+    vi.mocked(api.getTargetInstructions).mockResolvedValue(file('codex', '~/.codex/AGENTS.md', { link_to: '/x/personal/AGENTS.md', link_shared: 'personal' }));
+    renderTarget('codex');
+
+    expect(await screen.findByRole('link', { name: /Edit personal/ })).toHaveAttribute('href', '/extras?tab=instructions&file=personal');
+    expect(await screen.findByText('2 other targets use it')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+  });
+
+  it('switches a linked target to another shared AGENTS.md after asking', async () => {
+    const user = userEvent.setup();
+    const sf = (name: string) => ({ name, file: 'AGENTS.md', path: `/x/${name}/AGENTS.md`, exists: true, size: 1, chars: 1, targets: 1 });
+    vi.mocked(api.listSharedInstructions).mockResolvedValue({ files: [sf('personal'), sf('work')], targets: [], file_links: true });
+    vi.mocked(api.getTargetInstructions).mockResolvedValue(file('codex', '~/.codex/AGENTS.md', { link_to: '/x/personal/AGENTS.md', link_shared: 'personal' }));
+    renderTarget('codex');
+
+    await user.click(await screen.findByRole('button', { name: 'Change' }));
+    await user.click(await screen.findByRole('menuitemradio', { name: 'work' }));
+    await user.click(await screen.findByRole('button', { name: 'Switch to work' }));
+    await waitFor(() => expect(api.assignSharedInstructions).toHaveBeenCalledWith(['codex'], ['work']));
   });
 
   it('cannot change the location while a shared file is connected', async () => {
@@ -181,13 +217,17 @@ describe('Target instructions tab', () => {
     }));
     renderTarget('claude');
 
-    expect(await screen.findByRole('button', { name: 'Change location' })).toBeDisabled();
+    // The file takes the shared AGENTS.md's lines, so there is no location to move it to until it is off.
+    expect(await screen.findByRole('link', { name: 'personal' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'More actions' })).not.toBeInTheDocument();
   });
 
   it('saves with Cmd+S from the Preview tab', async () => {
     vi.mocked(api.getTargetInstructions).mockResolvedValue(file('codex', '~/.codex/AGENTS.md'));
     renderTarget('codex');
     const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('tab', { name: 'Edit' }));
 
     await user.type(await screen.findByRole('textbox', { name: 'AGENTS.md' }), 'draft');
     await user.click(screen.getByRole('tab', { name: 'Preview' }));
@@ -197,8 +237,18 @@ describe('Target instructions tab', () => {
   });
 });
 
+it('opens a file with content in Preview, and expands it to its full length', async () => {
+  const user = userEvent.setup();
+  vi.mocked(api.getTargetInstructions).mockResolvedValue(file('codex', '~/.codex/AGENTS.md'));
+  renderTarget('codex');
+  expect(await screen.findByRole('tab', { name: 'Preview' })).toHaveAttribute('aria-selected', 'true');
+  await user.click(screen.getByRole('button', { name: /Show all/ }));
+  expect(screen.getByRole('button', { name: /Collapse/ })).toHaveAttribute('aria-expanded', 'true');
+});
+
 it('shows the file name for a Windows instruction path', async () => {
   vi.mocked(api.getTargetInstructions).mockResolvedValue(file('claude', String.raw`C:\Users\Public\sstest\manual\.claude\CLAUDE.md`));
   renderTarget('claude');
+  await userEvent.setup().click(await screen.findByRole('tab', { name: 'Edit' }));
   expect(await screen.findByRole('textbox', { name: 'CLAUDE.md' })).toBeInTheDocument();
 });

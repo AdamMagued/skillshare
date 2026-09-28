@@ -475,6 +475,15 @@ func checkTargets(cfg *config.Config, result *doctorResult, isProject bool) map[
 		if mode == "" {
 			mode = "merge"
 		}
+		// Skills off: the folder is not managed, so it has nothing to check.
+		if !sc.IsEnabled() {
+			fmt.Printf("%s%s%s\n", ui.Bold, name, ui.Reset)
+			fmt.Printf("  skills   %s%s%s\n", ui.Dim, skillsOffSummary, ui.Reset)
+			if agentsExist {
+				checkAgentTargetInline(name, target, builtinAgents, discoveredAgents, result)
+			}
+			continue
+		}
 		if _, err := sync.FilterSkills(nil, sc.Include, sc.Exclude); err != nil {
 			ui.Error("%s [%s]: invalid include/exclude config: %v", name, mode, err)
 			result.addError()
@@ -945,6 +954,9 @@ func checkSkillTargetsField(result *doctorResult, discovered []sync.DiscoveredSk
 func checkBrokenSymlinks(cfg *config.Config, result *doctorResult) {
 	var allBroken []string
 	for name, target := range cfg.Targets {
+		if !target.SkillsConfig().IsEnabled() {
+			continue
+		}
 		broken := findBrokenSymlinks(target.SkillsConfig().Path)
 		if len(broken) > 0 {
 			ui.Error("%s: %d broken symlink(s): %s", name, len(broken), strings.Join(broken, ", "))
@@ -1010,8 +1022,8 @@ func checkDuplicateSkills(cfg *config.Config, result *doctorResult, discovered [
 			mode = "merge"
 		}
 
-		// Skip merge mode - local skills are intentional
-		if mode == "merge" {
+		// Skip merge mode - local skills are intentional; skip targets with skills off.
+		if mode == "merge" || !sc.IsEnabled() {
 			continue
 		}
 

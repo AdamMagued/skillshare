@@ -21,10 +21,14 @@ type InstructionsRider struct {
 // sorted by name. A rider uses the target's folder as its own skills folder
 // (Codex) or also scans it (Gemini, Pi). Only tools found on this machine
 // count (see specInstalled). A tool whose file is the target's own is a
-// reader (InstructionReaders), not a rider.
+// reader (InstructionReaders), not a rider; one whose file belongs to another
+// configured target (Antigravity's GEMINI.md, with gemini configured) is
+// managed on that target's page. Riders are listed on universal's page only:
+// another target whose folder happens to be ~/.agents/skills (codex, with
+// universal not configured) does not collect every tool reading it.
 func InstructionRiders(target string, targets map[string]TargetConfig) []InstructionsRider {
 	tc, ok := targets[target]
-	if !ok || tc.ProjectRoot() != "" {
+	if !ok || tc.ProjectRoot() != "" || target != "universal" {
 		return nil
 	}
 	skills := tc.SkillsConfig().Path
@@ -32,7 +36,12 @@ func InstructionRiders(target string, targets map[string]TargetConfig) []Instruc
 		return nil
 	}
 	skills = filepath.Clean(expandPath(skills))
-	own, _ := TargetInstructions(target, tc, false)
+	owned := map[string]bool{}
+	for name, other := range targets {
+		if it, ok := TargetInstructions(name, other, false); ok {
+			owned[filepath.Clean(it.Path)] = true
+		}
+	}
 
 	specs, err := loadTargetSpecs()
 	if err != nil {
@@ -44,7 +53,7 @@ func InstructionRiders(target string, targets map[string]TargetConfig) []Instruc
 			continue
 		}
 		it, ok := specInstructions(spec, false)
-		if !ok || filepath.Clean(it.Path) == filepath.Clean(own.Path) || !specInstalled(spec, skills, it.Path) {
+		if !ok || owned[filepath.Clean(it.Path)] || !specInstalled(spec, skills, it.Path) {
 			continue
 		}
 		riders = append(riders, InstructionsRider{Name: spec.Name, Via: target, InstructionsTarget: it})

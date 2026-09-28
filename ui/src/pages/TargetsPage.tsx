@@ -48,7 +48,8 @@ export default function TargetsPage() {
   // Beside the skills, never in the status: MCP files have their own sync, on the MCP page.
   const content = (tg: Target, state: TargetState, pending: number) => {
     const servers = mcp.data ? serverCount(mcp.data, mcpClient(tg.name)) : 0;
-    return [syncing(tg, state, pending), servers > 0 && t('projects.content.mcp', { count: servers })].filter(Boolean).join(' · ');
+    // With skills off only the rest of what the target gets is worth a word.
+    return [tg.skillsEnabled !== false && syncing(tg, state, pending), servers > 0 && t('projects.content.mcp', { count: servers })].filter(Boolean).join(' · ');
   };
   const addButton = <Button variant="primary" onClick={() => setAdding({})}><Plus size={15} />{t('targets.addTarget')}</Button>;
 
@@ -85,7 +86,9 @@ export default function TargetsPage() {
                   </span>
                   <span className="truncate font-mono text-[12px] text-ink-3" title={tg.path}>{shortenHome(tg.path)}</span>
                 </span>
-                <span className="w-[92px] shrink-0"><span className="ss-tag">{tg.mode}</span></span>
+                <span className="w-[92px] shrink-0">
+                  {tg.skillsEnabled === false ? <span className="ss-tag !text-ink-3">{t('targets.skillsOff')}</span> : <span className="ss-tag">{tg.mode}</span>}
+                </span>
                 <span className="w-[250px] shrink-0 truncate text-[13px] text-ink-2">{content(tg, state, pending)}</span>
                 <span className="w-[130px] shrink-0">
                   <span className={`ss-st ${TONE[state]}`}>
@@ -128,6 +131,7 @@ export default function TargetsPage() {
           available={known}
           initial={adding.initial}
           existing={targets.map((tg) => tg.name)}
+          targets={targets}
           onClose={() => setAdding(null)}
           onAdded={(name) => {
             setAdding(null);

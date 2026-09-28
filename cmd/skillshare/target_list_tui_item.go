@@ -43,6 +43,9 @@ func (targetListDelegate) Render(w io.Writer, m list.Model, index int, item list
 		width = 40
 	}
 	mode := sync.EffectiveMode(ti.target.SkillsConfig().Mode)
+	if !ti.target.SkillsConfig().IsEnabled() {
+		mode = "skills off"
+	}
 	line := fmt.Sprintf("%s  (%s)", ti.name, mode)
 	selected := index == m.Index()
 	renderPrefixRow(w, line, width, selected)

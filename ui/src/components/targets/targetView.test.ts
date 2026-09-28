@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { SyncMatrixEntry, Target } from '../../api/client';
-import { targetHealth, togglePatterns } from './targetView';
+import { joinList, targetHealth, togglePatterns } from './targetView';
 
 const target = (over: Partial<Target>): Target => ({
   name: 'claude', path: '~/.claude/skills', mode: 'merge', targetNaming: 'flat', status: 'merged',
-  linkedCount: 0, localCount: 0, include: [], exclude: [], expectedSkillCount: 0, ...over,
+  linkedCount: 0, localCount: 0, include: [], exclude: [], expectedSkillCount: 0, skillsEnabled: true, ...over,
 });
 const row = (skill: string, status: SyncMatrixEntry['status'], kind?: 'agent'): SyncMatrixEntry => ({ skill, target: 'claude', status, reason: '', kind });
 
@@ -21,6 +21,10 @@ describe('targetHealth', () => {
     const states = [{}, { expectedSkillCount: 2 }, { mode: 'symlink' }].map((over) => targetHealth(target({ status: 'has files', ...over })).state);
     expect(states).toEqual(['synced', 'pending', 'migrate']);
   });
+
+  it('ignores the skills folder of a target with skills off, counting only its agents', () => {
+    expect(targetHealth(target({ skillsEnabled: false, status: 'not exist', expectedSkillCount: 9, agentExpectedCount: 1 }))).toEqual({ state: 'pending', pending: 1 });
+  });
 });
 
 describe('togglePatterns', () => {
@@ -36,5 +40,12 @@ describe('togglePatterns', () => {
 
   it('cannot re-include a row a wildcard excludes', () => {
     expect(togglePatterns(row('core-deprecated', 'excluded'), [], ['*-deprecated'])).toBeNull();
+  });
+});
+
+describe('joinList', () => {
+  it('spaces the Chinese conjunction so it does not run into Latin names', () => {
+    expect([joinList(['MCP', 'GEMINI.md'], 'zh-TW'), joinList(['MCP', '指令檔'], 'zh-TW'), joinList(['MCP', 'GEMINI.md'], 'en')])
+      .toEqual(['MCP 與 GEMINI.md', 'MCP 與指令檔', 'MCP and GEMINI.md']);
   });
 });

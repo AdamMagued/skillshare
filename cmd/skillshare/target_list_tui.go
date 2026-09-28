@@ -189,7 +189,7 @@ func buildTargetTUIItems(isProject bool, cwd string) ([]targetTUIItem, error) {
 				name:         entry.Name,
 				target:       resolved,
 				displayPath:  projectTargetDisplayPath(entry),
-				skillSync:    buildTargetSkillSyncSummary(resolved.SkillsConfig().Path, projCfg.EffectiveSkillsSource(cwd), resolved.SkillsConfig().Mode),
+				skillSync:    targetSkillSyncSummary(resolved, projCfg.EffectiveSkillsSource(cwd)),
 				agentConfig:  config.ResourceTargetConfig{Mode: agentSummaryMode(agentSummary), Include: agentSummaryInclude(agentSummary), Exclude: agentSummaryExclude(agentSummary)},
 				agentSummary: agentSummary,
 			})
@@ -212,7 +212,7 @@ func buildTargetTUIItems(isProject bool, cwd string) ([]targetTUIItem, error) {
 				name:         name,
 				target:       t,
 				displayPath:  t.SkillsConfig().Path,
-				skillSync:    buildTargetSkillSyncSummary(t.SkillsConfig().Path, cfg.EffectiveSkillsSource(), t.SkillsConfig().Mode),
+				skillSync:    targetSkillSyncSummary(t, cfg.EffectiveSkillsSource()),
 				agentConfig:  config.ResourceTargetConfig{Mode: agentSummaryMode(agentSummary), Include: agentSummaryInclude(agentSummary), Exclude: agentSummaryExclude(agentSummary)},
 				agentSummary: agentSummary,
 			})
@@ -964,24 +964,29 @@ func (m targetListTUIModel) renderTargetDetail(item targetTUIItem) string {
 	}
 	fmt.Fprintf(&b, "%s\n", theme.Dim().Render("Skills:"))
 	fmt.Fprintf(&b, "%s  %s\n", theme.Dim().Render("Path:"), shortenPath(displayPath))
-	fmt.Fprintf(&b, "%s  %s\n", theme.Dim().Render("Mode:"), sync.EffectiveMode(sc.Mode))
-	fmt.Fprintf(&b, "%s  %s\n", theme.Dim().Render("Naming:"), config.EffectiveTargetNaming(sc.TargetNaming))
-	fmt.Fprintf(&b, "%s  %s\n", theme.Dim().Render("Sync:"), item.skillSync)
+	if !sc.IsEnabled() {
+		fmt.Fprintf(&b, "%s  %s\n", theme.Dim().Render("Sync:"), item.skillSync)
+	} else {
+		fmt.Fprintf(&b, "%s  %s\n", theme.Dim().Render("Mode:"), sync.EffectiveMode(sc.Mode))
+		fmt.Fprintf(&b, "%s  %s\n", theme.Dim().Render("Naming:"), config.EffectiveTargetNaming(sc.TargetNaming))
+		fmt.Fprintf(&b, "%s  %s\n", theme.Dim().Render("Sync:"), item.skillSync)
+	}
 
-	if len(sc.Include) > 0 {
+	// Filters are kept for turning skills back on but do nothing while off.
+	if sc.IsEnabled() && len(sc.Include) > 0 {
 		fmt.Fprintf(&b, "\n%s\n", theme.Dim().Render("Include:"))
 		for _, p := range sc.Include {
 			fmt.Fprintf(&b, "  %s\n", p)
 		}
 	}
-	if len(sc.Exclude) > 0 {
+	if sc.IsEnabled() && len(sc.Exclude) > 0 {
 		fmt.Fprintf(&b, "\n%s\n", theme.Dim().Render("Exclude:"))
 		for _, p := range sc.Exclude {
 			fmt.Fprintf(&b, "  %s\n", p)
 		}
 	}
 
-	if len(sc.Include) == 0 && len(sc.Exclude) == 0 {
+	if sc.IsEnabled() && len(sc.Include) == 0 && len(sc.Exclude) == 0 {
 		fmt.Fprintf(&b, "\n%s\n", theme.Dim().Render("No include/exclude filters"))
 	}
 
@@ -1016,6 +1021,17 @@ func (m targetListTUIModel) renderTargetDetail(item targetTUIItem) string {
 	}
 
 	return b.String()
+}
+
+// skillsOffSummary is the skills sync summary of a target with skills off.
+const skillsOffSummary = "skills off (not synced)"
+
+func targetSkillSyncSummary(target config.TargetConfig, sourcePath string) string {
+	sc := target.SkillsConfig()
+	if !sc.IsEnabled() {
+		return skillsOffSummary
+	}
+	return buildTargetSkillSyncSummary(sc.Path, sourcePath, sc.Mode)
 }
 
 func buildTargetSkillSyncSummary(targetPath, sourcePath, mode string) string {

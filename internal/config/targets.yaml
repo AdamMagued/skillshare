@@ -57,6 +57,15 @@ targets:
     agents:
       global: "~/.augment/agents"
       project: ".augment/agents"
+  - name: autohand-code
+    skills:
+      global: "~/.autohand/skills"
+      project: ".autohand/skills"
+    also_scans:
+      global: ["~/.agents/skills", "~/.codex/skills", "~/.claude/skills", "~/.agent/skills"]
+      project: [".agents/skills", ".claude/skills", ".agent/skills", "skills"]
+    instructions:
+      project: "AGENTS.md"
   - name: bob
     skills:
       global: "~/.bob/skills"
@@ -235,10 +244,22 @@ targets:
     skills:
       global: "~/forge/skills"
       project: ".forge/skills"
+    also_scans:
+      global: ["~/.agents/skills"]
     instructions:
       global: "~/forge/AGENTS.md"
       project: "AGENTS.md"
     aliases: [forge-code]
+  - name: fx
+    skills:
+      global: "~/.fx/skills"
+      project: ".fx/skills"
+    also_scans:
+      global: ["~/.agents/skills", "~/.claude/skills", "~/.codex/skills", "~/.config/opencode/skills", "~/.claw/skills"]
+      project: [".agents/skills", ".claude/skills", ".codex/skills", ".opencode/skills", ".claw/skills", "skills"]
+    instructions:
+      global: "~/.fx/AGENTS.md"
+      project: "AGENTS.md"
   - name: gemini
     skills:
       global: "~/.gemini/skills"
@@ -289,6 +310,16 @@ targets:
       project: "IFLOW.md"
       import: true
     aliases: [iflow-cli]
+  - name: jazz
+    skills:
+      global: "~/.jazz/skills"
+      project: "skills"
+    also_scans:
+      global: ["~/.agents/skills"]
+    instructions:
+      global: "~/.agents/AGENTS.md"
+      project: "AGENTS.md"
+      same_as: universal
   - name: junie
     skills:
       global: "~/.junie/skills"
@@ -304,6 +335,16 @@ targets:
       global: ["~/.agents/skills"]
       project: [".agents/skills"]
     aliases: [kilo]
+  - name: kimchi
+    skills:
+      global: "~/.config/kimchi/harness/skills"
+      project: ".kimchi/skills"
+    also_scans:
+      project: [".agents/skills", ".claude/skills", ".pi/agent/skills"]
+    instructions:
+      global: "~/.config/kimchi/harness/AGENTS.md"
+      project: "AGENTS.md"
+      project_fallback: "CLAUDE.md"
   - name: kimi
     skills:
       global: "~/.config/agents/skills"
@@ -311,7 +352,19 @@ targets:
     also_scans:
       global: ["~/.kimi/skills", "~/.claude/skills", "~/.codex/skills"]
       project: [".kimi/skills", ".claude/skills", ".codex/skills"]
+    instructions:
+      project: "AGENTS.md"
     aliases: [kimi-cli]
+  - name: kimi-code
+    skills:
+      global: "~/.kimi-code/skills"
+      project: ".kimi-code/skills"
+    also_scans:
+      global: ["~/.agents/skills"]
+      project: [".agents/skills"]
+    instructions:
+      global: "~/.kimi-code/AGENTS.md"
+      project: "AGENTS.md"
   - name: kiro
     skills:
       global: "~/.kiro/skills"
@@ -355,6 +408,13 @@ targets:
       project: "AGENTS.md"
       import: true
     aliases: [oh-my-pi]
+  - name: ona
+    skills:
+      project: ".ona/skills"
+    also_scans:
+      project: [".claude/skills", ".agents/skills"]
+    instructions:
+      project: "AGENTS.md"
   - name: openclaw
     skills:
       global: "~/.openclaw/skills"
@@ -401,6 +461,16 @@ targets:
     instructions:
       global: "~/.pochi/README.pochi.md"
       project: "AGENTS.md"
+  - name: posit-assistant
+    skills:
+      global: "~/.posit/assistant/skills"
+      project: ".posit/assistant/skills"
+    also_scans:
+      global: ["~/.agents/skills"]
+      project: [".agents/skills"]
+    instructions:
+      global: "~/.posit/assistant/AGENTS.md"
+      project: "AGENTS.md"
   - name: purecode
     skills:
       global: "~/.purecode/skills"
@@ -417,6 +487,13 @@ targets:
       rules:
         global: "~/.qoder/rules"
         project: ".qoder/rules"
+  - name: qoder-cn
+    skills:
+      global: "~/.qoder-cn/skills"
+      project: ".qoder/skills"
+    instructions:
+      global: "~/.qoder-cn/AGENTS.md"
+      project: "AGENTS.md"
   - name: qwen
     skills:
       global: "~/.qwen/skills"
@@ -426,6 +503,15 @@ targets:
       project: "QWEN.md"
       import: true
     aliases: [qwen-code]
+  - name: reasonix
+    skills:
+      global: "~/.reasonix/skills"
+      project: ".reasonix/skills"
+    also_scans:
+      global: ["~/.agents/skills"]
+      project: [".agents/skills", ".agent/skills", ".claude/skills"]
+    instructions:
+      project: "AGENTS.md"
   - name: roo
     skills:
       global: "~/.roo/skills"
@@ -501,6 +587,16 @@ targets:
     skills:
       global: "~/Library/Developer/Xcode/CodingAssistant/codex/skills"
       project: ".codex/skills"
+  - name: zcode
+    skills:
+      global: "~/.zcode/skills"
+      project: ".zcode/skills"
+    also_scans:
+      global: ["~/.agents/skills"]
+      project: [".agents/skills"]
+    instructions:
+      global: "~/.zcode/AGENTS.md"
+      project: "AGENTS.md"
   - name: zed
     skills:
       global: "~/.agents/skills"
@@ -509,10 +605,14 @@ targets:
       global: "~/.config/zed/AGENTS.md"
       project: "AGENTS.md"
   - name: zencoder
+    detect: "~/.zencoder"
     skills:
-      global: "~/.zencoder/skills"
-      project: ".zencoder/skills"
+      global: "~/.agents/skills"
+      project: ".agents/skills"
+    also_scans:
+      global: ["~/.zencoder/skills"]
+      project: [".zencoder/skills"]
+    aliases: [zenflow]
   - name: replit
     skills:
-      global: "~/.config/agents/skills"
       project: ".agents/skills"

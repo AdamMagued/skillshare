@@ -13,6 +13,7 @@ export const queryKeys = {
     /** Own and project targets together */
     synced: ['targets', 'all'] as const,
     projects: ['targets', 'projects'] as const,
+    skillsOffPreview: (name: string) => ['targets', 'skills-off-preview', name] as const,
   },
   projects: ['projects'] as const,
 

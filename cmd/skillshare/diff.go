@@ -405,6 +405,10 @@ func cmdDiffGlobal(targetName string, kind resourceKindFilter, opts diffRenderOp
 	}
 	var entries []targetEntry
 	for name, target := range targets {
+		// Skills off: nothing is synced, so there is nothing to compare.
+		if !target.SkillsConfig().IsEnabled() {
+			continue
+		}
 		mode := target.SkillsConfig().Mode
 		if mode == "" {
 			mode = cfg.Mode

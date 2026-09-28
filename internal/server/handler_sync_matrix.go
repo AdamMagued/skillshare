@@ -91,7 +91,11 @@ func (s *Server) handleSyncMatrix(w http.ResponseWriter, r *http.Request) {
 		}
 		// Skills
 		sc := target.SkillsConfig()
-		if sc.Mode == "symlink" {
+		if !sc.IsEnabled() {
+			for _, skill := range skills {
+				entries = append(entries, newSyncMatrixEntry(skill.FlatName, name, "na", "skills off for this target", ""))
+			}
+		} else if sc.Mode == "symlink" {
 			for _, skill := range skills {
 				entries = append(entries, newSyncMatrixEntry(skill.FlatName, name, "na", "symlink mode — filters not applicable", ""))
 			}

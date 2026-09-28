@@ -16,6 +16,9 @@ type MovedTarget struct {
 	Path         string // resolved skills path this target writes to
 	Pinned       bool   // the project config pinned an explicit path
 	TargetNaming string
+	// Disabled marks a target with skills off: its path stays protected from
+	// other targets' sweeps, but it starts none of its own.
+	Disabled bool
 }
 
 // MovedProjectTargets pairs each project config entry with its resolved target,
@@ -37,6 +40,7 @@ func MovedProjectTargets(cfg *config.ProjectConfig, resolved map[string]config.T
 			Path:         sc.Path,
 			Pinned:       strings.TrimSpace(entry.SkillsConfig().Path) != "",
 			TargetNaming: sc.TargetNaming,
+			Disabled:     !sc.IsEnabled(),
 		})
 	}
 	return targets
@@ -67,7 +71,7 @@ func CleanMovedProjectDirs(root, sourcePath string, targets []MovedTarget, dryRu
 	cleaned := make(map[string]bool)
 
 	for _, t := range targets {
-		if t.Pinned {
+		if t.Pinned || t.Disabled {
 			continue
 		}
 		for _, rel := range config.AlsoScansProject(t.Name) {

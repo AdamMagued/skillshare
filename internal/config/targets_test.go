@@ -316,6 +316,32 @@ func TestDetectDir_GooseAndOpenHands(t *testing.T) {
 	}
 }
 
+// Zencoder documents ~/.agents/skills as primary and ~/.zencoder/skills as
+// deprecated but still read, so it follows the shared directory like codex.
+func TestDefaultTargets_ZencoderSharesUniversalPath(t *testing.T) {
+	targets := DefaultTargets()
+	if got, want := targets["zencoder"].Path, targets["universal"].Path; got != want {
+		t.Errorf("zencoder default global path = %q, want universal's %q", got, want)
+	}
+	if got := alsoScansSpec(t, "zencoder"); !slices.Contains(got.Global, "~/.zencoder/skills") || !slices.Contains(got.Project, ".zencoder/skills") {
+		t.Errorf("zencoder also_scans = %+v, missing the deprecated .zencoder/skills paths", got)
+	}
+	if got, want := DetectDir("zencoder"), normalizeTargetPath("~/.zencoder"); got != want {
+		t.Errorf("DetectDir(zencoder) = %q, want %q", got, want)
+	}
+}
+
+// Replit documents only the project directory. A global config that already
+// pins replit to an absolute path is a custom-path target and keeps working.
+func TestReplitIsProjectOnly(t *testing.T) {
+	if _, ok := DefaultTargets()["replit"]; ok {
+		t.Error("replit has no documented global skills path, want no default")
+	}
+	if got := ProjectTargets()["replit"].Path; got != ".agents/skills" {
+		t.Errorf("replit project path = %q, want .agents/skills", got)
+	}
+}
+
 func TestProjectTargetDotDirs_IncludesAlsoScans(t *testing.T) {
 	dirs := ProjectTargetDotDirs()
 

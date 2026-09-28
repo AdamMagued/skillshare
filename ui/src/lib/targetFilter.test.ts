@@ -5,7 +5,7 @@ import { targetFilterPatch } from './targetFilter';
 const entry = (status: SyncMatrixEntry['status']): SyncMatrixEntry => ({ skill: 'pdf', target: 'claude', status, reason: '' });
 const target = (filters: Partial<Target>): Target => ({
   name: 'claude', path: '', mode: 'merge', targetNaming: 'flat', status: '', linkedCount: 0, localCount: 0,
-  include: [], exclude: [], expectedSkillCount: 0, ...filters,
+  include: [], exclude: [], expectedSkillCount: 0, skillsEnabled: true, ...filters,
 });
 
 describe('targetFilterPatch', () => {

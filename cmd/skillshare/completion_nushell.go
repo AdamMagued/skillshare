@@ -367,6 +367,9 @@ export extern "skillshare target" [
     --remove-agent-exclude: string # Remove agent exclude filter
     --agent: string          # With add: the Agent this is another account of
     --config-dir: string     # With add: that account's config directory
+    --skills: string         # Sync skills to this target (true or false)
+    --no-skills              # With add: do not sync skills to the new target
+    --dry-run(-n)            # With --skills=false: preview removed links
     --project(-p)            # Use project-level config
     --global(-g)             # Use global config
     --help(-h)               # Show help

@@ -421,21 +421,26 @@ export const api = {
   saveProject: (project: ProjectInput) => apiFetch<{ success: boolean; root: string }>('/projects', { method: 'PUT', body: JSON.stringify(project) }),
   removeProject: (root: string) => apiFetch<{ success: boolean }>(`/projects?root=${encodeURIComponent(root)}`, { method: 'DELETE' }),
   convertProject: (root: string) => apiFetch<{ success: boolean; root: string }>('/projects/convert', { method: 'POST', body: JSON.stringify({ root }) }),
-  addTarget: (name: string, path: string, agentPath?: string, instructions?: TargetInstructionsSetup) =>
+  /** skillsEnabled false adds a target that skillshare writes no skills to, and creates no skills folder. */
+  addTarget: (name: string, path: string, agentPath?: string, instructions?: TargetInstructionsSetup, skillsEnabled = true) =>
     apiFetch<{ success: boolean }>('/targets', {
       method: 'POST',
-      body: JSON.stringify({ name, path, ...(agentPath && { agentPath }), ...(instructions && { instructions }) }),
+      body: JSON.stringify({ name, path, ...(agentPath && { agentPath }), ...(instructions && { instructions }), ...(!skillsEnabled && { skills_enabled: false }) }),
     }),
   /** Adds another config folder of a built-in Agent, such as a second account. */
   addAgentConfigDir: (name: string, agent: string, configDir: string) =>
     apiFetch<{ success: boolean }>('/targets', { method: 'POST', body: JSON.stringify({ name, agent, configDir }) }),
   removeTarget: (name: string) =>
     apiFetch<{ success: boolean; warnings?: string[] }>(`/targets/${encodeURIComponent(name)}`, { method: 'DELETE' }),
-  updateTarget: (name: string, opts: { include?: string[]; exclude?: string[]; mode?: string; target_naming?: string; agent_mode?: string; agent_include?: string[]; agent_exclude?: string[]; agent_extension?: string }) =>
-    apiFetch<{ success: boolean }>(`/targets/${encodeURIComponent(name)}`, {
+  /** skills_enabled false also removes the links skillshare made in the skills folder; detach says what went and what stayed. */
+  updateTarget: (name: string, opts: { include?: string[]; exclude?: string[]; mode?: string; target_naming?: string; agent_mode?: string; agent_include?: string[]; agent_exclude?: string[]; agent_extension?: string; skills_enabled?: boolean }) =>
+    apiFetch<{ success: boolean; detach?: SkillsDetach }>(`/targets/${encodeURIComponent(name)}`, {
       method: 'PATCH',
       body: JSON.stringify(opts),
     }),
+  /** What turning skills off would remove and keep, without writing anything. */
+  skillsOffPreview: (name: string) =>
+    apiFetch<SkillsOffPreview>(`/targets/${encodeURIComponent(name)}/skills-off-preview`),
 
   // Sync Matrix
   getSyncMatrix: (target?: string) =>
@@ -1124,6 +1129,24 @@ export interface Target {
   agentLinkedCount?: number;
   agentLocalCount?: number;
   agentExpectedCount?: number;
+  /** False when skillshare writes no skills to this target; its other content still syncs. */
+  skillsEnabled: boolean;
+  /** With skills off: enabled targets whose skills folder this tool reads. */
+  skillsReadFrom?: string[];
+  /** Targets with skills off that read this target's skills folder. */
+  skillsAlsoReadBy?: string[];
+}
+
+export interface SkillsDetach {
+  removed: string[];
+  kept: string[];
+}
+
+export interface SkillsOffPreview {
+  remove: string[];
+  keep: string[];
+  /** The enabled target that uses the same folder; nothing is removed then. */
+  sharedWith?: string;
 }
 
 export interface SyncResult {
@@ -1272,6 +1295,14 @@ export interface AvailableTarget {
   configDir?: string;
   installed: boolean;
   detected: boolean;
+  /** Enabled targets whose skills folder this tool already reads. */
+  readsFrom?: string[];
+  /** File name of the tool's instructions file (AGENTS.md, GEMINI.md, ...). */
+  instructionsFile?: string;
+  /** That file's default path. */
+  instructionsPath?: string;
+  /** Other tools, on this machine or configured, that read this tool's skills folder. */
+  readBy?: string[];
 }
 
 export interface SkillFileContent {

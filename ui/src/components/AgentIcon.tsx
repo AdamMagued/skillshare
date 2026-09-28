@@ -1,5 +1,7 @@
 import { useContext } from 'react';
 import { TargetAgents } from './targetAgents';
+import alibabaColor from '@lobehub/icons-static-svg/icons/alibaba-color.svg?url';
+import alibabacloudColor from '@lobehub/icons-static-svg/icons/alibabacloud-color.svg?url';
 import ampColor from '@lobehub/icons-static-svg/icons/amp-color.svg?url';
 import antigravityColor from '@lobehub/icons-static-svg/icons/antigravity-color.svg?url';
 import baiduColor from '@lobehub/icons-static-svg/icons/baidu-color.svg?url';
@@ -15,12 +17,14 @@ import kiroColor from '@lobehub/icons-static-svg/icons/kiro-color.svg?url';
 import langchainColor from '@lobehub/icons-static-svg/icons/langchain-color.svg?url';
 import mistralColor from '@lobehub/icons-static-svg/icons/mistral-color.svg?url';
 import openclawColor from '@lobehub/icons-static-svg/icons/openclaw-color.svg?url';
+import qoderColor from '@lobehub/icons-static-svg/icons/qoder-color.svg?url';
 import qwenColor from '@lobehub/icons-static-svg/icons/qwen-color.svg?url';
 import replitColor from '@lobehub/icons-static-svg/icons/replit-color.svg?url';
 import snowflakeColor from '@lobehub/icons-static-svg/icons/snowflake-color.svg?url';
 import traeColor from '@lobehub/icons-static-svg/icons/trae-color.svg?url';
 import zencoderColor from '@lobehub/icons-static-svg/icons/zencoder-color.svg?url';
 import clineMono from '@lobehub/icons-static-svg/icons/cline.svg?url';
+import commandcodeMono from '@lobehub/icons-static-svg/icons/commandcode.svg?url';
 import cursorMono from '@lobehub/icons-static-svg/icons/cursor.svg?url';
 import githubcopilotMono from '@lobehub/icons-static-svg/icons/githubcopilot.svg?url';
 import gooseMono from '@lobehub/icons-static-svg/icons/goose.svg?url';
@@ -34,10 +38,23 @@ import piMono from '@lobehub/icons-static-svg/icons/pi.svg?url';
 import qoderMono from '@lobehub/icons-static-svg/icons/qoder.svg?url';
 import roocodeMono from '@lobehub/icons-static-svg/icons/roocode.svg?url';
 import windsurfMono from '@lobehub/icons-static-svg/icons/windsurf.svg?url';
+import zaiMono from '@lobehub/icons-static-svg/icons/zai.svg?url';
 // Not in lobehub; from simple-icons (CC0).
+import atlassianColor from '../assets/agents/atlassian-color.svg?url';
 import kilocodeColor from '../assets/agents/kilocode-color.svg?url';
 import lmstudioColor from '../assets/agents/lmstudio-color.svg?url';
 import ompColor from '../assets/agents/omp-color.svg?url';
+import positColor from '../assets/agents/posit-color.svg?url';
+// Vendor logo (MIT repo): https://raw.githubusercontent.com/esengine/DeepSeek-Reasonix/studio/desktop/electron/assets/icon.svg
+import reasonixColor from '../assets/agents/reasonix-color.svg?url';
+// Vendor logos, used to identify the product. Each has an open-source license covering the file in the vendor's own repo:
+// jazz: MIT, https://github.com/lvndry/jazz/blob/HEAD/packages/website/public/favicon.svg
+import jazzColor from '../assets/agents/jazz-color.svg?url';
+// mcpjam: Apache-2.0 (LICENSE excludes only /server/services), https://github.com/MCPJam/inspector/blob/main/mcpjam-inspector/client/public/mcp_jam.svg
+import mcpjamColor from '../assets/agents/mcpjam-color.svg?url';
+// pochi: Apache-2.0, https://github.com/TabbyML/pochi/blob/main/packages/vscode/assets/icons/pochi-logo.svg
+import pochiMono from '../assets/agents/pochi.svg?url';
+import coderMono from '../assets/agents/coder.svg?url';
 import factoryMono from '../assets/agents/factory.svg?url';
 import warpMono from '../assets/agents/warp.svg?url';
 import zedMono from '../assets/agents/zed.svg?url';
@@ -58,14 +75,22 @@ const colored: Record<string, string> = {
   deepagents: langchainColor,
   devin: devinColor,
   gemini: geminiColor,
+  iflow: alibabaColor,
+  jazz: jazzColor,
   junie: junieColor,
   kilocode: kilocodeColor,
   kiro: kiroColor,
+  lingma: alibabacloudColor,
   lmstudio: lmstudioColor,
+  mcpjam: mcpjamColor,
   omp: ompColor,
   openclaw: openclawColor,
+  'posit-assistant': positColor,
+  'qoder-cn': qoderColor,
   qwen: qwenColor,
+  reasonix: reasonixColor,
   replit: replitColor,
+  rovodev: atlassianColor,
   trae: traeColor,
   'trae-cn': traeColor,
   vibe: mistralColor,
@@ -78,21 +103,28 @@ const colored: Record<string, string> = {
 const mono: Record<string, string> = {
   bob: ibmMono,
   cline: clineMono,
+  commandcode: commandcodeMono,
   copilot: githubcopilotMono,
   cursor: cursorMono,
+  droid: factoryMono,
   factory: factoryMono,
   goose: gooseMono,
   grok: grokMono,
   hermes: nousresearchMono,
   kimi: kimiMono,
+  'kimi-code': kimiMono,
+  // Mux is made by Coder; the parent-company mark stands in.
+  mux: coderMono,
   opencode: opencodeMono,
   openhands: openhandsMono,
   pi: piMono,
+  pochi: pochiMono,
   qoder: qoderMono,
   roo: roocodeMono,
   vscode: githubcopilotMono,
   warp: warpMono,
   windsurf: windsurfMono,
+  zcode: zaiMono,
   zed: zedMono,
 };
 
