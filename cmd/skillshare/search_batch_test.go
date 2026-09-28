@@ -1,10 +1,13 @@
 package main
 
 import (
+	"errors"
+	"slices"
 	"strings"
 	"testing"
 
 	"skillshare/internal/install"
+	"skillshare/internal/search"
 )
 
 func TestClassifyFailureDetail(t *testing.T) {
@@ -168,5 +171,53 @@ func TestRepoSourceForGroupedClone(t *testing.T) {
 				t.Errorf("parsed root CloneURL = %q, want %q", parsedRoot.CloneURL, src.CloneURL)
 			}
 		})
+	}
+}
+
+func TestGroupByRepo_PinnedWebURLs(t *testing.T) {
+	// Stands in for the remote: "feature/x" is a branch, "nope" is unknown,
+	// and any other first segment is a branch or tag.
+	resolve := func(s *install.Source) error {
+		switch {
+		case strings.Contains(s.Raw, "/tree/feature/x/"):
+			s.ApplyRecordedBranch("feature/x")
+		case strings.Contains(s.Raw, "/tree/nope/"):
+			return errors.New("ref not found")
+		default:
+			s.ApplyRecordedBranch(s.Branch)
+		}
+		return nil
+	}
+	selected := []search.SearchResult{
+		{Name: "a", Source: "github.com/org/skills/tree/v1/skills/a"},
+		{Name: "b", Source: "github.com/org/skills/tree/v1/skills/b"},
+		{Name: "c", Source: "github.com/org/skills/tree/v2/skills/c"},
+		{Name: "d", Source: "github.com/org/skills/tree/feature/x/skills/d"},
+		{Name: "e", Source: "github.com/org/skills/tree/feature/x/skills/e"},
+		{Name: "f", Source: "github.com/org/skills/tree/nope/skills/f"},
+		{Name: "g", Source: "github.com/org/skills/skills/g"},
+		{Name: "h", Source: "github.com/org/skills/skills/h"},
+	}
+
+	groups, singles := groupByRepo(selected, resolve)
+
+	var got []string
+	for _, g := range groups {
+		var names []string
+		for _, r := range g.results {
+			names = append(names, r.Name)
+		}
+		got = append(got, g.source.Branch+":"+strings.Join(names, ","))
+	}
+	if want := []string{"v1:a,b", ":g,h"}; !slices.Equal(got, want) {
+		t.Errorf("groups = %v, want %v", got, want)
+	}
+	var single []string
+	for _, sr := range singles {
+		single = append(single, sr.Name)
+	}
+	// c is alone on v2; d and e have a ref containing "/"; f did not resolve.
+	if want := []string{"d", "e", "f", "c"}; !slices.Equal(single, want) {
+		t.Errorf("singles = %v, want %v", single, want)
 	}
 }
