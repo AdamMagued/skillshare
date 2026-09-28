@@ -72,6 +72,8 @@ extras:
 
 Source: `~/.config/skillshare/extras/<name>/` (global) or `.skillshare/extras/<name>/` (project). Modes: `merge` (default, per-file symlinks), `copy`, `symlink`.
 
+`--json` returns a non-zero exit status when extras sync has errors. For single-file extras, `--dry-run` also reports edits that would be backed up before replacement.
+
 For full extras management (`init`, `list`, `remove`, `collect`), see [extras.md](extras.md).
 
 ## collect

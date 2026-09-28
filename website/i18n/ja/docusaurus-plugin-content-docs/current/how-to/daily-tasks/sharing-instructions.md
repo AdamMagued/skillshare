@@ -179,6 +179,8 @@ URL の一部になる（`/extras?tab=instructions&file=<name>`）ため、リ�
   これらの行は universal に従います。
 - cursor は表示されません。ユーザールールはファイルではなく Cursor の設定に保存されます。
 
+リンクまたは `copy` モードの Target ファイルが使える共有ファイルは 1 つだけで、別の共有ファイルを同時に import することはできません。**すべて接続** は、自分で作ったリンクも含め、別の共有ファイルが使用中の Target をスキップします。別のファイルにつなぐ前に、元の接続を復元してください。
+
 ## 1 つの共有ファイルを管理する {#manage-one-shared-file}
 
 接続している各 Target にはモードの選択肢があり、ステータスが表示されます。モードは、Target が共有
@@ -192,18 +194,19 @@ URL の一部になる（`/extras?tab=instructions&file=<name>`）ため、リ�
 
 選択肢にはデフォルトが示されます。`@` import に従う Target では `import`、それ以外では `symlink`、
 Developer Mode がオフの Windows では `copy` です。複数の共有ファイルを使う Target は `import` しか
-使えません。モードを変更すると、その Target はすぐに sync されます。`import` に戻すと、共有ファイルを
-つなぐ前の自分の内容が import ブロックとともに戻ります。
+使えません。モードを変更すると、その Target はすぐに sync されます。`import` に戻すと、前回の `import` モードの自分の内容（未使用なら接続前の内容）が import ブロックとともに戻ります。
 
 Windows では、ファイルがフォルダーとして作成されたリンクになっている Target に警告が表示されます。
 ツールはこのファイルを読めません。`copy` に切り替える（または `skillshare sync extras` を実行する）と
 直ります。[Windows のトラブルシューティング](../../troubleshooting/windows.md#agent-files-or-agentsmd-show-a-folder-icon-and-cant-be-read)
 を参照してください。
 
+モード変更で編集内容を置き換える場合、ダッシュボードはバックアップを通知します。`import` に戻すと、意図的に空にした場合も含め、最後に保存された自身の内容が保たれます。
+
 | ステータス | 意味 |
 |--------|---------|
 | `synced` | リンク、コピー、または import 行が配置されている |
-| `modified` | リンクが内容の異なる通常のファイルに置き換えられている（[後述](#when-a-linked-file-is-edited)） |
+| `modified` | リンクが内容の異なる通常ファイルに置き換えられた、または管理対象のコピーが編集された ([後述](#when-a-linked-file-is-edited)) |
 | `drift` | Target のファイルは存在するが、共有ファイルにリンクされていないか、import 行がなくなっている |
 | `not synced` | Target のファイルがまだ存在しない |
 | `no source` | 共有ファイル自体が見つからない |
@@ -238,6 +241,8 @@ Target のスイッチをオフにすると、復元で何が起こるかが先�
 共有ファイルを削除すると、Config からそれが削除され、それを使っていたすべての Target が復元されます。
 ファイル自体は extras フォルダーに残ります。
 
+Windows では、元の junction は junction として復元され、Developer Mode や管理者権限は不要です。
+
 ## リンクされたファイルが編集された場合 {#when-a-linked-file-is-edited}
 
 あなたやツールが Target のファイルを直接編集し、リンクが内容の異なる通常のファイルに置き換えられると、
@@ -250,9 +255,11 @@ Target のスイッチをオフにすると、復元で何が起こるかが先�
 
 どちらの場合も、後で復元すると、Target は編集後の状態ではなく、共有ファイルを使う前の状態に戻ります。
 
-`skillshare sync extras` と **同期** も、確認なしで `modified` のファイルをリンクに置き換えます。編集内容は
+`skillshare sync extras` と **同期** も、確認なしで `modified` のファイルに選択中のモードを再適用します。編集内容は
 先に drift バックアップとして保存されるので、共有ファイルに反映させたい場合は sync の前に共有ファイル**に取り込む**を
 選んでください。
+
+管理対象の `copy` を編集した場合も `modified` となり、同じ **に取り込む** と **で上書き** を選べます。上書きや同期は選択中のモードを適用するため、`copy` の Target はコピーのままです。
 
 ## Target が読むファイルを変更する {#change-which-file-a-target-reads}
 
@@ -264,6 +271,8 @@ Target のタブで **場所を変更** をクリックすると、Target が読
 
 Target が共有ファイルを使っている間、skillshare は場所の変更を拒否します。先に自身のファイルに戻して
 ください。universal のタブに表示されるツールには Target の設定がないため、場所は変更できません。
+
+パスにはファイルを指定してください。既存のディレクトリは指定できません。共有ファイルの接続中は **場所を変更** が無効になります。
 
 ## skillshare が把握していないツール {#tools-skillshare-doesnt-know}
 
@@ -305,6 +314,8 @@ global モードで共有ファイルを使ってください。
 
 Target のタブはプロジェクトでも使えます。その場合、読み込み順にはプロジェクトのファイルが表示され、
 **変換…** では claude 向けに **名前変更** も選べます。
+
+project モードの import は Target ファイルからの相対パスを使うため、リポジトリを移動しても機能します。
 
 ## バックアップ {#backups}
 

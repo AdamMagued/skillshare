@@ -152,13 +152,14 @@ skillshare extras source ~/company-shared/extras
 
 ### Operating on an existing extra
 
-透過 `extras <name>` 上的旗標，變更某個 target 的 sync 模式或 flatten 設定，或新增/移除 target。這些操作只會變更設定；之後請執行 `skillshare sync extras` 才會套用到磁碟上。
+透過 `extras <name>` 變更 target 的 sync 模式、flatten 設定，或新增／移除 target。變更模式、flatten 或新增 target 後，請執行 `skillshare sync extras` 套用。`--remove-target --prune` 也會立即還原或移除受管理的檔案。
 
 ```bash
 skillshare extras <name> --mode <mode> [--target <path>] [-p|-g]
 skillshare extras <name> --flatten | --no-flatten [--target <path>]
-skillshare extras <name> --add-target <path> [--mode <mode>] [--flatten] [-p|-g]
+skillshare extras <name> --add-target <path> [--as <filename>] [--mode <mode>] [--flatten] [-p|-g]
 skillshare extras <name> --remove-target <path> [--prune] [-p|-g]
+skillshare extras <name> --help
 ```
 
 **Options:**
@@ -169,6 +170,7 @@ skillshare extras <name> --remove-target <path> [--prune] [-p|-g]
 | `--flatten` | 啟用 flatten（將子目錄檔案同步到 target 根目錄） |
 | `--no-flatten` | 停用 flatten |
 | `--add-target <path>` | 為此 extra 新增一個 target |
+| `--as <filename>` | `--add-target` 的 target 檔名（僅限單一檔案 extra；預設為 `file`） |
 | `--remove-target <path>` | 從此 extra 移除一個 target（預設僅變更設定） |
 | `--prune` | 搭配 `--remove-target` 使用：同時刪除該 target 底下由 skillshare 管理的檔案。若是單一檔案 extra，則會改為還原 target 檔案 |
 | `--target <path>` | Target 目錄路徑（多 target 的 extra 使用 `--mode` 時為必填；省略時 `--flatten`/`--no-flatten` 會套用到所有 target） |
@@ -191,6 +193,7 @@ skillshare extras agents --no-flatten
 # 為既有的 extra 新增一個 target（之後再 sync）
 skillshare extras rules --add-target ~/.cursor/rules
 skillshare extras commands --add-target ~/.config/opencode/commands --mode copy
+skillshare extras personal --add-target ~/.claude --as CLAUDE.md --mode import
 
 # 移除一個 target（保留已同步的檔案）
 skillshare extras rules --remove-target ~/.cursor/rules
@@ -209,7 +212,7 @@ skillshare extras rules --remove-target ~/.cursor/rules --prune
 skillshare extras remove <name> [--force] [-p|-g]
 ```
 
-source 檔案與已同步的 target 都不會被刪除——只會移除設定項目。若是[單一檔案 extra](#single-file-extras)，每個 target 檔案都會回到 skillshare 取代它之前的樣子。
+source 檔案會保留。目錄 extra 會保留已同步的 target。[單一檔案 extra](#single-file-extras) 會先還原 target，再移除設定項目；還原失敗時會保留設定，讓你重試。
 
 ### `extras collect`
 
@@ -443,18 +446,18 @@ extras:
 
 規則：
 
+- 使用連結或 `copy` 的 target 檔案只能屬於一份共用檔案，不能同時 import 另一份。
 - `file` 與 `as` 必須是單純的檔名，不能含有 `/` 或 `\`。
 - `as` 與 `import` 都需要搭配 `file`。單一檔案 extra 不能使用 `flatten` 與 `extension`。
 - 當 target 已經有另一個不同的一般檔案或 symlink 時，sync 會先保存它再取代，不需要 `--force`。
   若擋在路上的是目錄，則會略過。
 - 連結之後被改成 `modified` 的 target 也會被取代；修改過的檔案會保存為 drift backup，而不是還原點。
-- 當已連結的 target 被換成內容不同的一般檔案時，`extras list` 會顯示 `modified`。
-- 把 target 從 `merge`、`symlink` 或 `copy` 切換成 `import` 時，會放回第一次 sync 前檔案的內容
-  （若原本是連結或不存在，就沒有內容），並加上 import 區塊。修改過的複本會先保存為 drift backup。
+- 當連結被換成內容不同的一般檔案，或受管理的複本被修改時，`extras list` 會顯示 `modified`。
+- 把 target 從 `merge`、`symlink` 或 `copy` 切換為 `import` 時，會放回上次在 `import` mode
+  的自有內容（包括空內容）；若未用過則使用連接前的內容，再加上 import 區塊。修改過的複本會先保存為 drift backup。
 - `extras remove` 與 `--remove-target --prune` 會還原每個 target 檔案：移除連結、複本或 import 那一行，
   並放回第一次 sync 前原本的檔案或 symlink（若原本沒有，就不留檔案）。`modified` 的 target
-  會先保存為 drift backup。不加 `--prune` 的 `--remove-target` 會保留檔案並忘掉那個還原點，
-  因此之後的 sync 會備份當時存在的內容。
+  會先保存為 drift backup。不加 `--prune` 的 `--remove-target` 會保留單一檔案 target，停止管理並忘掉還原點。之後的 sync 不會清理它；重新連接才會記錄新的還原點。
 - 不支援 `extras collect`。若要保留在 target 中做的修改，請在 dashboard 的 **AGENTS.md** 分頁使用 **收進**。
 
 備份保存在 skillshare 的 state 目錄中（macOS 與 Linux 上為 `~/.local/state/skillshare/extras/backups/`），

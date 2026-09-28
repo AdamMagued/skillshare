@@ -192,6 +192,10 @@ Some targets are special:
   is a target too, their rows follow universal.
 - cursor isn't listed: its user rules live in Cursor's settings, not in a file.
 
+A target file in link or `copy` mode can belong to only one shared file. It cannot also import
+another shared file. **Connect all** skips targets held by another shared file, including links you
+created yourself; restore that connection before attaching a different file.
+
 ## Manage one shared file
 
 Each connected target has a mode picker and shows its status. The mode decides how
@@ -206,18 +210,20 @@ the target gets the shared file:
 The picker marks the default: `import` for targets that follow `@` imports, otherwise
 `symlink`, or `copy` on Windows without Developer Mode. A target that uses more than
 one shared file can only use `import`. Changing the mode syncs the target right away.
-Switching back to `import` puts back your own content from before the shared file was
-attached, plus the import block.
+Switching back to `import` restores your last content from `import` mode (or the
+pre-attach content if you have not used `import`), plus the import block.
 
 On Windows, a target whose file is a link that was created as a folder shows a
 warning: tools can't read it. Switching it to `copy` (or running
 `skillshare sync extras`) fixes it; see
 [Windows troubleshooting](../../troubleshooting/windows.md#agent-files-or-agentsmd-show-a-folder-icon-and-cant-be-read).
 
+If a mode change replaces an edit, the dashboard reports the backup. Switching back to `import` keeps the last saved own content, including an intentionally empty file.
+
 | Status | Meaning |
 |--------|---------|
 | `synced` | The link, copy, or import line is in place |
-| `modified` | The link was replaced by a regular file with different content ([see below](#when-a-linked-file-is-edited)) |
+| `modified` | The link was replaced by a different regular file, or a managed copy was edited ([see below](#when-a-linked-file-is-edited)) |
 | `drift` | The target file exists but isn't linked to the shared file, or no longer has the import line |
 | `not synced` | The target file doesn't exist yet |
 | `no source` | The shared file itself is missing |
@@ -255,6 +261,8 @@ itself is kept. If the target is still `modified`, the edited file is first kept
 Deleting a shared file removes it from the config and restores every target that used
 it. The file stays in the extras folder.
 
+On Windows, an original junction is recreated as a junction, without requiring Developer Mode or administrator privileges.
+
 ## When a linked file is edited
 
 If you or a tool edit a target's file directly and the link is replaced by a regular
@@ -269,9 +277,11 @@ with two choices:
 Either way, a later restore still returns the target to how it was before it used the
 shared file, not to the edited version.
 
-`skillshare sync extras` and **Sync** also replace a `modified` file with the link
+`skillshare sync extras` and **Sync** also reapply the selected mode to a `modified` file
 without asking. The edit is kept as a drift backup first, so choose **Collect into**
 before syncing if the shared file should get it.
+
+A managed `copy` with edited content also shows `modified` and offers the same **Collect into** and **Overwrite with** choices. Overwrite or Sync reapplies the selected mode, so a target in `copy` mode remains a copy.
 
 ## Change which file a target reads
 
@@ -285,6 +295,8 @@ lines. The setting is saved on the target as
 skillshare refuses to change the location while the target uses shared files; switch
 it back to its own file first. Tools listed on universal's tab have no
 target entry, so their location can't be changed.
+
+The path must name a file; an existing directory is refused. **Change location** is disabled while a shared file is attached.
 
 ## Tools skillshare doesn't know
 
@@ -330,6 +342,8 @@ work instructions apart, use shared files in global mode.
 
 The target tabs work in projects too. There the read order shows the project files,
 and **Convert…** also offers **Rename** for claude.
+
+Project-mode imports use paths relative to the target file, so moving the repository keeps the imports working.
 
 ## Backups
 

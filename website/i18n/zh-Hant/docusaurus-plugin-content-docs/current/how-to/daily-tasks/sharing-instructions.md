@@ -167,6 +167,8 @@ Target 使用共用檔案的方式，取決於它是否會展開 `@` import：
   它們那一列會跟著 universal。
 - cursor 不會列出：它的 User Rules 存在 Cursor 的設定裡，不是檔案。
 
+使用連結或 `copy` 的 target 檔案只能屬於一份共用檔案，不能同時 import 另一份。**全部接上** 會跳過已由其他共用檔案占用的 target，包括自行建立的連結；請先還原原有連接，再接上另一份檔案。
+
 ## 管理單一共用檔案 {#manage-one-shared-file}
 
 每個已接上的 target 都有一個模式選單，並會顯示狀態。模式決定 target 如何取得共用檔案：
@@ -179,16 +181,18 @@ Target 使用共用檔案的方式，取決於它是否會展開 `@` import：
 
 選單會標出預設值：會展開 `@` import 的 target 是 `import`，其他是 `symlink`，在沒有開啟
 開發人員模式的 Windows 上則是 `copy`。使用多份共用檔案的 target 只能用 `import`。變更模式會
-立即同步該 target。切回 `import` 時，會放回接上共用檔案之前你自己的內容，再加上 import 區塊。
+立即同步該 target。切回 `import` 時，會放回上次在 `import` mode 的自有內容（若未用過則使用連接前的內容），再加上 import 區塊。
 
 在 Windows 上，如果 target 的檔案是一個被建成資料夾的連結，會顯示警告：工具讀不到它。把它切換成
 `copy`（或執行 `skillshare sync extras`）就能修正；請參閱
 [Windows 疑難排解](../../troubleshooting/windows.md#agent-files-or-agentsmd-show-a-folder-icon-and-cant-be-read)。
 
+切換 mode 若取代了修改內容，dashboard 會顯示備份提示。切回 `import` 時會保留最後儲存的自有內容，包括刻意清空的檔案。
+
 | 狀態 | 意義 |
 |--------|---------|
 | `synced`（已同步） | 連結、複本或 import 那一行都在正確位置 |
-| `modified`（已修改） | 連結被換成內容不同的一般檔案（[見下方](#when-a-linked-file-is-edited)） |
+| `modified` | 連結被換成內容不同的一般檔案，或受管理的複本被修改 ([見下方](#when-a-linked-file-is-edited)) |
 | `drift`（有差異） | Target 檔案存在，但沒有連結到共用檔案，或已經沒有 import 那一行 |
 | `not synced`（尚未同步） | Target 檔案還不存在 |
 | `no source`（來源不存在） | 共用檔案本身不見了 |
@@ -219,6 +223,8 @@ target，並警告哪些 target 只會讀取長檔案的一部分。按 ⌘S（C
 
 刪除共用檔案會把它從設定中移除，並還原所有使用它的 target。檔案本身會留在 extras 資料夾中。
 
+在 Windows 上，原本的 junction 會還原為 junction，不需要 Developer Mode 或管理員權限。
+
 ## 已連結的檔案被修改時 {#when-a-linked-file-is-edited}
 
 如果你或某個工具直接編輯了 target 的檔案，讓連結被換成內容不同的一般檔案，它的狀態就會變成
@@ -230,8 +236,10 @@ target，並警告哪些 target 只會讀取長檔案的一部分。按 ⌘S（C
 
 無論選哪一種，之後的還原仍會讓 target 回到使用共用檔案之前的樣子，而不是修改過的版本。
 
-`skillshare sync extras` 與 **同步** 也會不經詢問，直接把 `modified` 的檔案換回連結。改動會先保存為
+`skillshare sync extras` 與 **同步** 也會不經詢問，直接對 `modified` 的檔案重新套用所選 mode。改動會先保存為
 drift backup，所以如果共用檔案應該拿到這些改動，請在同步之前選擇 **收進**。
+
+受管理的 `copy` 被修改後也會顯示 `modified`，並提供相同的 **收進** 與 **覆蓋** 選項。覆蓋或同步會重新套用所選 mode，因此 `copy` target 仍維持複本。
 
 ## 變更 target 讀取的檔案 {#change-which-file-a-target-reads}
 
@@ -243,6 +251,8 @@ drift backup，所以如果共用檔案應該拿到這些改動，請在同步�
 
 當 target 正在使用共用檔案時，skillshare 會拒絕變更位置；請先把它切回自己的檔案。列在 universal
 分頁上的工具沒有 target 設定，所以無法變更它們的位置。
+
+路徑必須指向檔案；既有目錄會被拒絕。接上共用檔案時，**變更位置** 會停用。
 
 ## skillshare 不認得的工具 {#tools-skillshare-doesnt-know}
 
@@ -282,6 +292,8 @@ drift backup，所以如果共用檔案應該拿到這些改動，請在同步�
 
 Target 分頁在專案中同樣可用。在那裡，讀取順序會顯示專案檔案，而 claude 的 **轉換…** 還會提供
 **改名** 的做法。
+
+project mode 的 import 使用相對於 target 檔案的路徑，因此移動 repository 後仍可使用。
 
 ## 備份 {#backups}
 

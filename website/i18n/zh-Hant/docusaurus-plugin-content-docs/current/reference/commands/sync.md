@@ -557,6 +557,8 @@ skillshare sync --all             # 同步 skills + agents + extras + MCP
 | `--dry-run` | `-n` | 預覽變更而不實際寫入 |
 | `--force` | `-f` | 覆蓋 target 上衝突的檔案 |
 
+extras sync 發生錯誤時，`--json` 會以非零狀態結束。對單一檔案 extra，`--dry-run` 也會指出哪些修改將在取代前備份。
+
 :::info 兩種 mode 都支援
 `sync extras` 在 global 與 project mode 中都能運作。用 `sync --all` 一起同步 skills、agents、extras 與 MCP，或用 `sync extras` 只同步 extras。在 project mode 中，extras source 為 `.skillshare/extras/<name>/`。
 :::

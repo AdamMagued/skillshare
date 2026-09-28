@@ -185,6 +185,8 @@ target이 공유 파일을 쓰는 방식은 `@` import를 따르는지에 따라
   이들의 행은 universal을 따릅니다.
 - cursor는 표시되지 않습니다. 사용자 rules가 파일이 아닌 Cursor 설정에 있기 때문입니다.
 
+링크 또는 `copy` mode의 target 파일은 공유 파일 하나만 사용할 수 있으며 다른 공유 파일을 동시에 import할 수 없습니다. **모두 연결**은 직접 만든 링크를 포함해 다른 공유 파일이 사용 중인 target을 건너뜁니다. 다른 파일을 연결하려면 먼저 기존 연결을 복원하세요.
+
 ## 공유 파일 하나 관리하기 {#manage-one-shared-file}
 
 연결된 각 target에는 mode 선택기와 상태가 표시됩니다. mode는 target이 공유 파일을
@@ -198,18 +200,19 @@ target이 공유 파일을 쓰는 방식은 `@` import를 따르는지에 따라
 
 선택기는 기본값을 표시합니다. `@` import를 따르는 target은 `import`, 그 밖에는
 `symlink`이며, Developer Mode가 없는 Windows에서는 `copy`입니다. 공유 파일을 둘 이상 쓰는
-target은 `import`만 쓸 수 있습니다. mode를 바꾸면 target이 바로 sync됩니다. `import`로
-되돌리면 공유 파일을 연결하기 전의 사용자 내용과 import 블록이 함께 돌아옵니다.
+target은 `import`만 쓸 수 있습니다. mode를 바꾸면 target이 바로 sync됩니다. `import`로 되돌리면 마지막 `import` mode의 자체 내용(사용한 적이 없다면 연결 전 내용)과 import 블록이 함께 돌아옵니다.
 
 Windows에서 파일이 폴더로 만들어진 링크인 target에는 도구가 읽을 수 없다는 경고가
 표시됩니다. `copy`로 전환하거나 `skillshare sync extras`를 실행하면 해결됩니다.
 [Windows 문제 해결](../../troubleshooting/windows.md#agent-files-or-agentsmd-show-a-folder-icon-and-cant-be-read)을
 참고하세요.
 
+mode 변경으로 편집 내용을 교체하면 dashboard가 백업을 알려 줍니다. `import`로 돌아가면 의도적으로 비운 파일을 포함해 마지막으로 저장한 자체 내용을 유지합니다.
+
 | 상태 | 의미 |
 |--------|---------|
 | `synced` (동기화됨) | 링크, 복사본 또는 import 줄이 제자리에 있음 |
-| `modified` (수정됨) | 링크가 내용이 다른 일반 파일로 바뀜([아래 참고](#when-a-linked-file-is-edited)) |
+| `modified` | 링크가 내용이 다른 일반 파일로 바뀌었거나 관리 중인 복사본이 편집됨 ([아래 참고](#when-a-linked-file-is-edited)) |
 | `drift` (차이 있음) | target 파일은 있지만 공유 파일에 연결되어 있지 않거나, import 줄이 더 이상 없음 |
 | `not synced` (동기화되지 않음) | target 파일이 아직 없음 |
 | `no source` (소스 없음) | 공유 파일 자체가 없음 |
@@ -245,6 +248,8 @@ import 줄만 제거되며, skillshare가 블록만을 위해 만든 `CLAUDE.md`
 공유 파일을 삭제하면 config에서 제거되고 그것을 쓰던 모든 target이 복원됩니다. 파일은
 extras 폴더에 남습니다.
 
+Windows에서는 원래 junction을 junction으로 복원하며 Developer Mode나 관리자 권한이 필요하지 않습니다.
+
 ## 링크된 파일이 편집되었을 때 {#when-a-linked-file-is-edited}
 
 사용자나 도구가 target 파일을 직접 편집해 링크가 내용이 다른 일반 파일로 바뀌면, 상태가
@@ -258,9 +263,11 @@ extras 폴더에 남습니다.
 어느 쪽이든, 나중에 복원하면 target은 편집된 버전이 아니라 공유 파일을 쓰기 전 상태로
 돌아갑니다.
 
-`skillshare sync extras`와 **동기화**도 묻지 않고 `modified` 파일을 링크로 교체합니다.
+`skillshare sync extras`와 **동기화**도 묻지 않고 `modified` 파일에 선택한 mode를 다시 적용합니다.
 편집 내용은 먼저 drift 백업으로 보관되므로, 공유 파일에 반영하려면 sync 전에
 **공유 파일에 반영**을 선택하세요.
+
+관리 중인 `copy`를 편집해도 `modified`로 표시되며 동일한 **공유 파일에 반영**과 **공유 파일로 덮어쓰기**를 선택할 수 있습니다. 덮어쓰기나 동기화는 선택한 mode를 다시 적용하므로 `copy` target은 복사본으로 유지됩니다.
 
 ## target이 읽는 파일 바꾸기 {#change-which-file-a-target-reads}
 
@@ -274,6 +281,8 @@ target 탭의 **위치 변경**을 누르면 target이 읽는 경로와 파일 �
 
 target이 공유 파일을 쓰는 동안에는 위치를 변경할 수 없으니, 먼저 자체 파일로 되돌리세요.
 universal의 탭에 나열되는 도구는 target 항목이 없으므로 위치를 바꿀 수 없습니다.
+
+경로는 파일을 가리켜야 하며 기존 디렉터리는 거부됩니다. 공유 파일이 연결되어 있으면 **위치 변경**이 비활성화됩니다.
 
 ## skillshare가 모르는 도구 {#tools-skillshare-doesnt-know}
 
@@ -318,6 +327,8 @@ claude처럼 여러 공유 파일을 동시에 쓸 수 있습니다. 이 설정�
 
 target 탭은 프로젝트에서도 동작합니다. 이때 읽는 순서에는 프로젝트 파일이 표시되고,
 **변환…** 은 claude에 대해 **CLAUDE.md 이름을 AGENTS.md로 변경**도 제공합니다.
+
+project mode의 import는 target 파일 기준 상대 경로를 사용하므로 repository를 이동해도 유지됩니다.
 
 ## 백업 {#backups}
 

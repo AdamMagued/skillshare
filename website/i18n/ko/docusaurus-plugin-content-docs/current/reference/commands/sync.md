@@ -560,6 +560,8 @@ skillshare sync --all             # skill + agent + extras + MCP를 sync
 | `--dry-run` | `-n` | 실제로 쓰지 않고 변경 사항 미리보기 |
 | `--force` | `-f` | target에서 충돌하는 파일을 덮어쓰기 |
 
+extras sync에 오류가 있으면 `--json`은 0이 아닌 종료 코드를 반환합니다. single-file extra에서는 `--dry-run`이 교체 전에 백업할 편집 내용도 알려 줍니다.
+
 :::info 두 mode 모두 지원
 `sync extras`는 global mode와 project mode 양쪽에서 작동합니다. skill·agent·extras·MCP를 함께 sync하려면 `sync --all`을, extras만 sync하려면 `sync extras`를 사용하세요. project mode에서 extras source는 `.skillshare/extras/<name>/`입니다.
 :::

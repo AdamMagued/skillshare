@@ -565,6 +565,9 @@ skillshare sync --all             # Sync skills + agents + extras + MCP
 | `--dry-run` | `-n` | Preview changes without writing |
 | `--force` | `-f` | Overwrite conflicting files at target |
 
+`--json` returns a non-zero exit status when extras sync has errors. For single-file extras,
+`--dry-run` also reports edits that would be backed up before replacement.
+
 :::info Both modes supported
 `sync extras` works in both global and project mode. Use `sync --all` to sync skills, agents, extras, and MCP together, or `sync extras` to sync extras only. In project mode, extras source is `.skillshare/extras/<name>/`.
 :::

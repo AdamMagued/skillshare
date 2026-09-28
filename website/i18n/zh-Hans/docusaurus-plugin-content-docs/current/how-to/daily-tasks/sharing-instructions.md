@@ -170,6 +170,8 @@ target 如何使用共享文件，取决于它是否会展开 `@` import：
   它们的行会跟随 universal。
 - cursor 不会出现在列表中：它的 User Rules 存在 Cursor 的设置里，而不是文件中。
 
+使用链接或 `copy` 的 target 文件只能属于一份共享文件，不能同时 import 另一份。**全部连接** 会跳过已被其他共享文件占用的 target，包括自行创建的链接；请先还原原有连接，再接上另一份文件。
+
 ## 管理一份共享文件 {#manage-one-shared-file}
 
 每个已连接的 target 都有一个 mode 选择器，并显示它的状态。mode 决定 target 如何获得共享
@@ -183,17 +185,18 @@ target 如何使用共享文件，取决于它是否会展开 `@` import：
 
 选择器会标出默认值：会展开 `@` import 的 target 为 `import`，其他为 `symlink`，在未开启
 Developer Mode 的 Windows 上则为 `copy`。使用多份共享文件的 target 只能使用 `import`。
-更改 mode 会立即 sync 该 target。切回 `import` 时，会放回接上共享文件之前你自己的内容，
-并加上 import 区块。
+更改 mode 会立即 sync 该 target。切回 `import` 时，会放回上次在 `import` mode 的自有内容（若未用过则使用连接前的内容），再加上 import 区块。
 
 在 Windows 上，如果 target 的文件是一个被建成文件夹的链接，就会显示警告：工具读不到它。
 把它切换为 `copy`（或运行 `skillshare sync extras`）即可修复；参见
 [Windows 疑难解答](../../troubleshooting/windows.md#agent-files-or-agentsmd-show-a-folder-icon-and-cant-be-read)。
 
+切换 mode 若替换了修改内容，dashboard 会显示备份提示。切回 `import` 时会保留最后保存的自有内容，包括有意清空的文件。
+
 | 状态 | 含义 |
 |--------|---------|
 | `synced` | 链接、副本或 import 行已就位 |
-| `modified` | 链接被替换成了内容不同的普通文件（[见下文](#when-a-linked-file-is-edited)） |
+| `modified` | 链接被替换为内容不同的普通文件，或受管理的副本被修改 ([见下文](#when-a-linked-file-is-edited)) |
 | `drift` | target 文件存在，但没有链接到共享文件，或不再有 import 行 |
 | `not synced` | target 文件还不存在 |
 | `no source` | 共享文件本身不存在 |
@@ -225,6 +228,8 @@ Developer Mode 的 Windows 上则为 `copy`。使用多份共享文件的 target
 删除共享文件会将它从配置中移除，并还原所有使用它的 target。文件本身会保留在 extras
 文件夹中。
 
+在 Windows 上，原本的 junction 会还原为 junction，不需要 Developer Mode 或管理员权限。
+
 ## 当链接的文件被编辑时 {#when-a-linked-file-is-edited}
 
 如果你或某个工具直接编辑了 target 的文件，链接被替换为内容不同的普通文件，其状态就会
@@ -238,8 +243,10 @@ Developer Mode 的 Windows 上则为 `copy`。使用多份共享文件的 target
 无论哪种方式，之后的还原仍会让 target 回到使用共享文件之前的状态，而不是编辑后的
 版本。
 
-`skillshare sync extras` 和 **同步** 也会不经询问地用链接替换 `modified` 的文件。修改会先
+`skillshare sync extras` 和 **同步** 也会不经询问地对 `modified` 的文件重新应用所选 mode。修改会先
 保留为 drift 备份，所以如果共享文件应该获得这些修改，请在同步之前选择 **收进**。
+
+受管理的 `copy` 被修改后也会显示 `modified`，并提供相同的 **收进** 与 **覆盖** 选项。覆盖或同步会重新应用所选 mode，因此 `copy` target 仍保持副本。
 
 ## 更改 target 读取的文件 {#change-which-file-a-target-reads}
 
@@ -251,6 +258,8 @@ target 标签页上的 **更改位置** 会打开一个对话框，你可以在�
 
 当 target 正在使用共享文件时，skillshare 会拒绝更改位置；请先把它切回自己的文件。在
 universal 标签页上列出的工具没有 target 配置，因此无法更改它们的位置。
+
+路径必须指向文件；现有目录会被拒绝。接上共享文件时，**更改位置** 会禁用。
 
 ## skillshare 不认识的工具 {#tools-skillshare-doesnt-know}
 
@@ -291,6 +300,8 @@ universal 标签页上列出的工具没有 target 配置，因此无法更改�
 
 target 标签页在项目中同样可用。此时读取顺序显示的是项目文件，而 **转换…** 还会为 claude
 提供 **重命名**。
+
+project mode 的 import 使用相对于 target 文件的路径，因此移动 repository 后仍可使用。
 
 ## 备份 {#backups}
 
