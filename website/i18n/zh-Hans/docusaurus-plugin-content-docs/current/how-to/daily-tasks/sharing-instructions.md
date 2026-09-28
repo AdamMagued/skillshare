@@ -23,7 +23,7 @@ claude 是 **CLAUDE.md**，gemini 是 **GEMINI.md**，codex 是 **AGENTS.md**。
   **转换…** 和 **保存**。
 - 一行 **读取顺序**：该工具加载的文件，按加载顺序排列，每个都标记是否已加载（鼠标悬停可
   看到 `loaded`、`skipped` 或 `missing`）。对 claude 来说，这包括 `~/.claude/rules/` 中的
-  Markdown 文件，以及一条说明 claude 不读取用户级 `AGENTS.md` 的提示。在 global mode 下，
+  Markdown 文件（该文件夹里有文件时才会列出，空的 rules 文件夹不会列出），以及一条说明 claude 不读取用户级 `AGENTS.md` 的提示。在 global mode 下，
   这一行的末尾还有 **共享 AGENTS.md**：这个 target 使用的共享文件，以及选择它们的链接。
 - 该文件的编辑器，带有 **编辑** 和 **预览** 两个标签页；**预览** 会渲染 Markdown，包括尚未保存的修改。
   长行会自动换行。**保存** 会先备份当前文件；如果文件还不存在，则会创建它。以 `@` 开头的
@@ -151,7 +151,7 @@ target 如何使用共享文件，取决于它是否会展开 `@` import：
   因此会改为替换成一份副本。
 
 标签页左侧列出共享文件，每份都附上连接到它的 target。点击其中一份，右侧就会显示它的路径、
-内容预览，以及每个 target 和对应的开关。选中的文件会写进 URL
+内容（可在 **源代码** 和渲染后的 **预览** 之间切换），以及每个 target 和对应的开关。选中的文件会写进 URL
 （`/extras?tab=instructions&file=<name>`），因此通过链接可以直接打开那份文件。
 
 - 打开某个 target 的开关即可连接它。import target 会多一行 import，并保留它的其他共享文件。
@@ -179,7 +179,7 @@ target 如何使用共享文件，取决于它是否会展开 `@` import：
 |------|-------------|-----------|
 | `import` | 你自己的文件，受管区块中有一行 `@import`。对共享文件的修改立即生效 | 会展开 `@` import 的 target |
 | `symlink` | 指向共享文件的链接。修改立即生效 | 未开启 Developer Mode 的 Windows 上不可用 |
-| `copy` | 共享文件的副本。修改共享文件后需要再次 sync | 始终可用 |
+| `copy` | 共享文件的副本。在控制台中保存共享文件会更新副本；在其他地方编辑后，需要再次 sync | 始终可用 |
 
 选择器会标出默认值：会展开 `@` import 的 target 为 `import`，其他为 `symlink`，在未开启
 Developer Mode 的 Windows 上则为 `copy`。使用多份共享文件的 target 只能使用 `import`。
@@ -201,8 +201,8 @@ Developer Mode 的 Windows 上则为 `copy`。使用多份共享文件的 target
 当有已连接的 target 处于 `drift` 或 `not synced` 时，标题会显示有多少个需要 sync，并提供
 **同步** 按钮，把这份文件的链接和 import 行放回原位。
 
-**编辑** 会在大尺寸编辑器中打开文件。侧边栏列出保存后会立即读到这份文件的 target，并对只
-读取长文件前一部分的 target 给出警告。按 ⌘S（Ctrl+S）保存。上一个版本会被备份。
+**编辑** 会在大尺寸编辑器中打开文件，带有 **编辑** 和 **预览** 两个标签页。侧边栏列出保存后会立即读到这份文件的 target，并对只
+读取长文件前一部分的 target 给出警告。按 ⌘S（Ctrl+S）保存。上一个版本会被备份，`copy` 模式的 target 也会获得新内容；保存后的提示会列出这些 target。
 
 **⋯** 菜单可以复制文件路径，或删除这份共享文件。
 

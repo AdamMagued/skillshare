@@ -23,7 +23,8 @@ The tab shows, from top to bottom:
   **Convert…** and **Save**.
 - One line with the **Read order**: the files the tool loads, in the order it loads
   them, each marked as loaded or not (hover to see `loaded`, `skipped` or `missing`).
-  For claude this includes the Markdown files in `~/.claude/rules/`, and a note that
+  For claude this includes the Markdown files in `~/.claude/rules/` once that folder
+  has any (an empty rules folder isn't listed), and a note that
   claude doesn't read a user-level `AGENTS.md`. In global mode the same line ends with
   **Shared AGENTS.md**: the shared files this target uses, and a link to choose them.
 - An editor for the file, with **Edit** and **Preview** tabs; **Preview** renders
@@ -168,7 +169,8 @@ How a target uses a shared file depends on whether it follows `@` imports:
   Developer Mode, file links aren't available, so it is replaced by a copy instead.
 
 The tab lists the shared files on the left, each with the targets connected to it.
-Click one to show it on the right: its path, a preview of its content, and every
+Click one to show it on the right: its path, its content (switch between **Source**
+and a rendered **Preview**), and every
 target with a switch. The selected file is part of the URL
 (`/extras?tab=instructions&file=<name>`), so a link opens that file directly.
 
@@ -199,7 +201,7 @@ the target gets the shared file:
 |------|-------------|-----------|
 | `import` | Your own file, with one `@import` line in the managed block. Changes to the shared file apply right away | Targets that follow `@` imports |
 | `symlink` | A link to the shared file. Changes apply right away | Not on Windows without Developer Mode |
-| `copy` | A copy of the shared file. Sync again after changing the shared file | Always |
+| `copy` | A copy of the shared file. Saving the shared file in the dashboard updates the copy; after editing it elsewhere, sync again | Always |
 
 The picker marks the default: `import` for targets that follow `@` imports, otherwise
 `symlink`, or `copy` on Windows without Developer Mode. A target that uses more than
@@ -224,9 +226,11 @@ When a connected target is `drift` or `not synced`, the heading shows how many n
 sync and a **Sync** button that puts the links and import lines of this file back in
 place.
 
-**Edit** opens the file in a large editor. The side panel lists the targets that read
-the saved file right away, and warns about targets that read only part of a long file.
-Press ⌘S (Ctrl+S) to save. The previous version is backed up.
+**Edit** opens the file in a large editor with **Edit** and **Preview** tabs. The side
+panel lists the targets that read the saved file right away, and warns about targets
+that read only part of a long file. Press ⌘S (Ctrl+S) to save. The previous version is
+backed up, and targets in `copy` mode get the new content too; the message after
+saving names them.
 
 The **⋯** menu copies the file's path or deletes the shared file.
 
