@@ -135,15 +135,23 @@ func Assignments(extras []config.ExtraConfig, file string, r Resolver) []Assignm
 		for j := range extra.Targets {
 			f := ExtraFile(extra, j, r)
 			if samePath(f.Target, file) {
-				a := Assignment{Name: extra.Name, Mode: f.Mode, Status: syncpkg.ExtraFileStatus(f)}
-				if a.Status != "synced" {
-					a.Reason = notSyncedReason(f.Target)
-				}
+				a := Assignment{Name: extra.Name, Mode: f.Mode}
+				a.Status, a.Reason = FileStatus(f)
 				out = append(out, a)
 			}
 		}
 	}
 	return out
+}
+
+// FileStatus returns the sync status of one target of a shared file and,
+// when it is not synced, the reason (see Assignment).
+func FileStatus(f syncpkg.ExtraFile) (string, string) {
+	status := syncpkg.ExtraFileStatus(f)
+	if status == "synced" {
+		return status, ""
+	}
+	return status, notSyncedReason(f.Target)
 }
 
 // folderLink reports whether path is a directory junction rather than a

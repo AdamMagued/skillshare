@@ -39,6 +39,8 @@ type sharedInstructionsFile struct {
 	Size    int64  `json:"size"`
 	Chars   int    `json:"chars"`
 	Targets int    `json:"targets"`
+	// Locations are targets outside the tools listed in targets.
+	Locations []sharedInstructionsLocation `json:"locations"`
 }
 
 type sharedInstructionsTarget struct {
@@ -96,19 +98,20 @@ func (s *Server) handleListSharedInstructions(w http.ResponseWriter, r *http.Req
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
+	tools := s.instructionTargets()
 	files := []sharedInstructionsFile{}
 	for _, extra := range s.cfg.Extras {
 		if extra.File == "" {
 			continue
 		}
-		f := sharedInstructionsFile{Name: extra.Name, File: extra.File, Path: filepath.Join(s.extrasSourceDir(extra), extra.File), Targets: len(extra.Targets)}
+		f := sharedInstructionsFile{Name: extra.Name, File: extra.File, Path: filepath.Join(s.extrasSourceDir(extra), extra.File), Targets: len(extra.Targets), Locations: s.sharedLocations(extra, tools)}
 		if data, err := readLimited(f.Path); err == nil {
 			f.Exists, f.Size, f.Chars = true, int64(len(data)), utf8.RuneCount(data)
 		}
 		files = append(files, f)
 	}
 	// file_links: false on Windows without Developer Mode, where link modes copy.
-	writeJSON(w, map[string]any{"files": files, "targets": s.instructionTargets(), "file_links": syncpkg.CanCreateFileLink()})
+	writeJSON(w, map[string]any{"files": files, "targets": tools, "file_links": syncpkg.CanCreateFileLink()})
 }
 
 // handleCreateSharedInstructions — POST /api/instructions

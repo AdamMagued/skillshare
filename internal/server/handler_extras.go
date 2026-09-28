@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -869,6 +870,7 @@ func (s *Server) handleExtrasAddTarget(w http.ResponseWriter, r *http.Request) {
 		Path    string `json:"path"`
 		Mode    string `json:"mode"`
 		Flatten bool   `json:"flatten"`
+		As      string `json:"as"` // single-file extra: target filename
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
@@ -914,7 +916,7 @@ func (s *Server) handleExtrasAddTarget(w http.ResponseWriter, r *http.Request) {
 	if !s.IsProjectMode() {
 		storedPath = newPath
 	}
-	et := config.ExtraTargetConfig{Path: storedPath, Flatten: body.Flatten}
+	et := config.ExtraTargetConfig{Path: storedPath, Flatten: body.Flatten, As: body.As}
 	if body.Mode != "" {
 		et.Mode = body.Mode
 	}
@@ -922,7 +924,23 @@ func (s *Server) handleExtrasAddTarget(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	extras[idx].Targets = append(extras[idx].Targets, et)
+	prev := extras[idx].Targets
+	extras[idx].Targets = append(slices.Clone(prev), et)
+
+	// The same ownership and import checks the CLI runs after --add-target.
+	var validateErr error
+	if s.IsProjectMode() {
+		validateErr = s.projectCfg.ValidateExtras(s.projectRoot, name)
+	} else {
+		validateErr = s.cfg.ValidateExtras(name)
+	}
+	if validateErr != nil {
+		extras[idx].Targets = prev
+		if !writeExtraTargetConflict(w, validateErr, body.Path) {
+			writeError(w, http.StatusBadRequest, validateErr.Error())
+		}
+		return
+	}
 
 	if err := s.saveAndReloadConfig(); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())

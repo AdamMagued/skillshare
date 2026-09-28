@@ -17,6 +17,20 @@ import (
 // target with. import needs a target that follows @path lines.
 var sharedInstructionsModes = []string{"import", "symlink", "copy"}
 
+// checkSharedMode answers 400 and returns false when a shared file cannot
+// reach a target with mode here.
+func checkSharedMode(w http.ResponseWriter, mode string) bool {
+	if !slices.Contains(sharedInstructionsModes, mode) {
+		writeCodedError(w, http.StatusBadRequest, "instructions_invalid_mode", "mode must be import, symlink, or copy", map[string]string{"mode": mode})
+		return false
+	}
+	if mode == "symlink" && !syncpkg.CanCreateFileLink() {
+		writeCodedError(w, http.StatusBadRequest, "instructions_file_links_unavailable", "file links need Windows Developer Mode; use copy", map[string]string{})
+		return false
+	}
+	return true
+}
+
 // handlePutSharedInstructionsMode — PUT /api/instructions/{name}/targets/{target}/mode
 // Changes how one attached target gets the shared file and syncs it again. The
 // restore point recorded when the target was first attached stays.
@@ -31,12 +45,7 @@ func (s *Server) handlePutSharedInstructionsMode(w http.ResponseWriter, r *http.
 		writeCodedError(w, http.StatusBadRequest, "instructions_invalid_json", "invalid JSON body", map[string]string{})
 		return
 	}
-	if !slices.Contains(sharedInstructionsModes, body.Mode) {
-		writeCodedError(w, http.StatusBadRequest, "instructions_invalid_mode", "mode must be import, symlink, or copy", map[string]string{"mode": body.Mode})
-		return
-	}
-	if body.Mode == "symlink" && !syncpkg.CanCreateFileLink() {
-		writeCodedError(w, http.StatusBadRequest, "instructions_file_links_unavailable", "file links need Windows Developer Mode; use copy", map[string]string{})
+	if !checkSharedMode(w, body.Mode) {
 		return
 	}
 
@@ -66,27 +75,38 @@ func (s *Server) handlePutSharedInstructionsMode(w http.ResponseWriter, r *http.
 		return
 	}
 
+	s.setSharedTargetMode(w, start, i, j, body.Mode, target, it.Path, "instructions_target_directory",
+		map[string]any{"name": name, "target": target, "mode": body.Mode, "scope": "ui"})
+}
+
+// setSharedTargetMode switches the j-th target of the i-th extra to mode,
+// syncs it again and saves the config; a failure leaves the mode as it was.
+// label names the target in a conflict; dirCode is the error code when a
+// directory sits at file. The success response lists the sync's structured
+// warnings. Callers must hold s.mu.
+func (s *Server) setSharedTargetMode(w http.ResponseWriter, start time.Time, i, j int, mode, label, file, dirCode string, args map[string]any) {
+	res := s.instructionsResolver()
 	tc := &s.cfg.Extras[i].Targets[j]
 	prev := tc.Mode
-	tc.Mode = body.Mode
-	validationErr := config.ValidateExtraConnections(s.cfg.Extras, res.SourceDir, res.TargetDir, name)
+	tc.Mode = mode
+	validationErr := config.ValidateExtraConnections(s.cfg.Extras, res.SourceDir, res.TargetDir, s.cfg.Extras[i].Name)
 	tc.Mode = prev
 	if validationErr != nil {
-		if !writeExtraTargetConflict(w, validationErr, target) {
+		if !writeExtraTargetConflict(w, validationErr, label) {
 			writeCodedError(w, http.StatusBadRequest, "instructions_mode_failed", validationErr.Error(), map[string]string{"detail": validationErr.Error()})
 		}
 		return
 	}
-	if tc.Mode == body.Mode {
+	if tc.Mode == mode {
 		writeJSON(w, map[string]any{"success": true, "warnings": []syncpkg.FileWarning{}})
 		return
 	}
-	args := map[string]any{"name": name, "target": target, "mode": body.Mode, "from": tc.Mode, "scope": "ui"}
+	args["from"] = tc.Mode
 	fail := func(err error) {
 		s.writeOpsLog("instructions-mode", "error", start, args, err.Error())
 		writeCodedError(w, http.StatusInternalServerError, "instructions_mode_failed", err.Error(), map[string]string{"detail": err.Error()})
 	}
-	tc.Mode = body.Mode
+	tc.Mode = mode
 	if err := config.ValidateExtraConfig(s.cfg.Extras[i]); err != nil {
 		tc.Mode = prev
 		writeCodedError(w, http.StatusBadRequest, "instructions_mode_failed", err.Error(), map[string]string{"detail": err.Error()})
@@ -102,7 +122,7 @@ func (s *Server) handlePutSharedInstructionsMode(w http.ResponseWriter, r *http.
 		tc.Mode = prev
 		diagnostic := strings.Join(result.Warnings, "; ")
 		s.writeOpsLog("instructions-mode", "error", start, args, diagnostic)
-		writeCodedError(w, http.StatusConflict, "instructions_target_directory", diagnostic, map[string]string{"path": it.Path})
+		writeCodedError(w, http.StatusConflict, dirCode, diagnostic, map[string]string{"path": file})
 		return
 	}
 	if err := s.saveAndReloadConfig(); err != nil {
