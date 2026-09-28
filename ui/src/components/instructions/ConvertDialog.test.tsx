@@ -30,9 +30,9 @@ const withExtras = (extras: Partial<Extra>[]) => {
   });
 };
 
-const renderDialog = () => render(
+const renderDialog = (data = claude) => render(
   <QueryClientProvider client={new QueryClient()}>
-    <I18nProvider><ToastProvider><ConvertDialog data={claude} onClose={() => {}} /></ToastProvider></I18nProvider>
+    <I18nProvider><ToastProvider><ConvertDialog data={data} onClose={() => {}} /></ToastProvider></I18nProvider>
   </QueryClientProvider>,
 );
 
@@ -47,6 +47,14 @@ describe('Convert dialog', () => {
     renderDialog();
 
     expect(await screen.findByRole('combobox', { name: 'Shared AGENTS.md' })).toHaveTextContent('New one…');
+  });
+
+  it('asks only for a name when no other shared file can be picked', async () => {
+    withExtras([{ name: 'personal', file: 'AGENTS.md' }]);
+    renderDialog({ ...claude, shared: [{ name: 'personal' }] as TargetInstructions['shared'] });
+
+    await screen.findByRole('textbox');
+    expect(screen.queryByRole('combobox', { name: 'Shared AGENTS.md' })).not.toBeInTheDocument();
   });
 
   it('names the new shared file after the target', async () => {

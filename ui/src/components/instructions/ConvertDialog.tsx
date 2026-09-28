@@ -117,14 +117,17 @@ export default function ConvertDialog({ data, onClose }: { data: TargetInstructi
               <div className="flex flex-col gap-2">
                 <label htmlFor="convert-share-name" className="text-[12px] text-ink-3">{t('instructions.convert.nameLabel')}</label>
                 <div className="flex gap-2">
-                  <Select
-                    ariaLabel={t('instructions.convert.shareInto')}
-                    value={choice}
-                    onChange={setPicked}
-                    disabled={busy}
-                    className={choice === NEW ? 'shrink-0' : 'min-w-0 flex-1'}
-                    options={[...available.map((f) => ({ value: f.name, label: f.name })), { value: NEW, label: t('instructions.convert.shareNew') }]}
-                  />
+                  {/* With no other shared file to pick, a new one is the only choice: just the name. */}
+                  {available.length > 0 && (
+                    <Select
+                      ariaLabel={t('instructions.convert.shareInto')}
+                      value={choice}
+                      onChange={setPicked}
+                      disabled={busy}
+                      className={choice === NEW ? 'shrink-0' : 'min-w-0 flex-1'}
+                      options={[...available.map((f) => ({ value: f.name, label: f.name })), { value: NEW, label: t('instructions.convert.shareNew') }]}
+                    />
+                  )}
                   {choice === NEW && (
                     <span className={`ss-inp min-w-0 flex-1 ${nameProblem ? 'err' : ''}`}>
                       <input id="convert-share-name" className="font-mono" value={shareName} onChange={(e) => setTypedName(e.target.value)} disabled={busy} spellCheck={false} autoComplete="off" />
