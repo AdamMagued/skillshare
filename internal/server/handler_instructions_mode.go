@@ -86,10 +86,11 @@ func (s *Server) handlePutSharedInstructionsMode(w http.ResponseWriter, r *http.
 // warnings. Callers must hold s.mu.
 func (s *Server) setSharedTargetMode(w http.ResponseWriter, start time.Time, i, j int, mode, label, file, dirCode string, args map[string]any) {
 	res := s.instructionsResolver()
-	tc := &s.cfg.Extras[i].Targets[j]
+	extras := *s.sharedExtras()
+	tc := &extras[i].Targets[j]
 	prev := tc.Mode
 	tc.Mode = mode
-	validationErr := config.ValidateExtraConnections(s.cfg.Extras, res.SourceDir, res.TargetDir, s.cfg.Extras[i].Name)
+	validationErr := config.ValidateExtraConnections(extras, res.SourceDir, res.TargetDir, extras[i].Name)
 	tc.Mode = prev
 	if validationErr != nil {
 		if !writeExtraTargetConflict(w, validationErr, label) {
@@ -107,12 +108,12 @@ func (s *Server) setSharedTargetMode(w http.ResponseWriter, start time.Time, i, 
 		writeCodedError(w, http.StatusInternalServerError, "instructions_mode_failed", err.Error(), map[string]string{"detail": err.Error()})
 	}
 	tc.Mode = mode
-	if err := config.ValidateExtraConfig(s.cfg.Extras[i]); err != nil {
+	if err := config.ValidateExtraConfig(extras[i]); err != nil {
 		tc.Mode = prev
 		writeCodedError(w, http.StatusBadRequest, "instructions_mode_failed", err.Error(), map[string]string{"detail": err.Error()})
 		return
 	}
-	result, err := syncpkg.SyncExtraFile(instructions.ExtraFile(s.cfg.Extras[i], j, res), false, "")
+	result, err := syncpkg.SyncExtraFile(instructions.ExtraFile(extras[i], j, res), false, s.projectRoot)
 	if err != nil {
 		tc.Mode = prev
 		fail(err)

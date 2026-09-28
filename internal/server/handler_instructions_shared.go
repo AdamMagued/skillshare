@@ -18,8 +18,9 @@ import (
 )
 
 // Shared instruction files are single-file extras attached to the global
-// instruction files of targets. Project mode has one ./AGENTS.md instead
-// (handler_instructions_project.go).
+// instruction files of targets. In project mode they are the project's
+// single-file extras, with every target listed as a location; the project's
+// own ./AGENTS.md is handled in handler_instructions_project.go.
 
 func (s *Server) requireGlobalInstructions(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -29,6 +30,24 @@ func (s *Server) requireGlobalInstructions(next http.HandlerFunc) http.HandlerFu
 		}
 		next(w, r)
 	}
+}
+
+// sharedExtras returns the extras of the current mode, to change in place.
+// Callers must hold s.mu.
+func (s *Server) sharedExtras() *[]config.ExtraConfig {
+	if s.IsProjectMode() {
+		return &s.projectCfg.Extras
+	}
+	return &s.cfg.Extras
+}
+
+// validateSharedExtras runs the ownership and import checks of the current
+// mode for the named extra. Callers must hold s.mu.
+func (s *Server) validateSharedExtras(name string) error {
+	if s.IsProjectMode() {
+		return s.projectCfg.ValidateExtras(s.projectRoot, name)
+	}
+	return s.cfg.ValidateExtras(name)
 }
 
 type sharedInstructionsFile struct {
@@ -57,8 +76,11 @@ type sharedInstructionsTarget struct {
 
 // instructionTargets returns the configured targets with a global instruction
 // file and their riders (see config.InstructionRiders), sorted by name.
-// Callers must hold s.mu.
+// Empty in project mode, where tools have no global file. Callers must hold s.mu.
 func (s *Server) instructionTargets() []sharedInstructionsTarget {
+	if s.IsProjectMode() {
+		return []sharedInstructionsTarget{}
+	}
 	names := make([]string, 0, len(s.cfg.Targets))
 	for name := range s.cfg.Targets {
 		names = append(names, name)
@@ -100,7 +122,7 @@ func (s *Server) handleListSharedInstructions(w http.ResponseWriter, r *http.Req
 
 	tools := s.instructionTargets()
 	files := []sharedInstructionsFile{}
-	for _, extra := range s.cfg.Extras {
+	for _, extra := range s.extrasConfig() {
 		if extra.File == "" {
 			continue
 		}
@@ -134,9 +156,15 @@ func (s *Server) handleCreateSharedInstructions(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	if body.FromTarget != "" && s.IsProjectMode() {
+		writeCodedError(w, http.StatusBadRequest, "instructions_global_required", "moving a tool's file into a shared file is done in global mode", map[string]string{})
+		return
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if err := config.ValidateExtraNameUnique(body.Name, s.cfg.Extras); err != nil {
+	extras := s.sharedExtras()
+	if err := config.ValidateExtraNameUnique(body.Name, *extras); err != nil {
 		writeCodedError(w, http.StatusConflict, "instructions_name_taken", err.Error(), map[string]string{"name": body.Name})
 		return
 	}
@@ -157,7 +185,7 @@ func (s *Server) handleCreateSharedInstructions(w http.ResponseWriter, r *http.R
 			fail(http.StatusInternalServerError, err)
 			return
 		}
-		s.cfg.Extras = append(s.cfg.Extras, extra)
+		*extras = append(*extras, extra)
 	} else if status, err := s.moveTargetIntoShared(body.FromTarget, &extra, path); err != nil {
 		fail(status, err)
 		return
@@ -222,7 +250,7 @@ func (s *Server) moveTargetIntoShared(target string, extra *config.ExtraConfig, 
 
 // sharedExtra returns the named single-file extra. Callers must hold s.mu.
 func (s *Server) sharedExtra(name string) (config.ExtraConfig, bool) {
-	for _, extra := range s.cfg.Extras {
+	for _, extra := range s.extrasConfig() {
 		if extra.Name == name && extra.File != "" {
 			return extra, true
 		}
@@ -311,7 +339,7 @@ func (s *Server) syncSharedCopies(extra config.ExtraConfig) []sharedCopyResult {
 		if r.Target == "" {
 			r.Target = f.Target
 		}
-		result, err := syncpkg.SyncExtraFile(f, false, "")
+		result, err := syncpkg.SyncExtraFile(f, false, s.projectRoot)
 		if err != nil {
 			r.Error = err.Error()
 		} else {
@@ -503,18 +531,18 @@ func (s *Server) handleResolveSharedInstructions(w http.ResponseWriter, r *http.
 			writeCodedError(w, http.StatusBadRequest, "instructions_no_file", body.Target+" has no instruction file", map[string]string{"target": body.Target})
 			return
 		}
-		i, j = instructions.Find(s.cfg.Extras, name, it.Path, res)
+		i, j = instructions.Find(*s.sharedExtras(), name, it.Path, res)
 		if j == -1 {
 			writeCodedError(w, http.StatusNotFound, "instructions_not_attached", name+" is not attached to "+body.Target, map[string]string{"name": name, "target": body.Target})
 			return
 		}
 	}
-	f := instructions.ExtraFile(s.cfg.Extras[i], j, res)
+	f := instructions.ExtraFile((*s.sharedExtras())[i], j, res)
 	var err error
 	if body.Action == "collect" {
-		err = syncpkg.CollectBackExtraFile(f, "")
+		err = syncpkg.CollectBackExtraFile(f, s.projectRoot)
 	} else {
-		err = syncpkg.ReapplyExtraFile(f, "")
+		err = syncpkg.ReapplyExtraFile(f, s.projectRoot)
 	}
 	args := map[string]any{"name": name, "target": body.Target, "path": body.Path, "action": body.Action, "scope": "ui"}
 	if err != nil {

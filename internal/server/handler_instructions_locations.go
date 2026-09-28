@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"time"
 
 	"skillshare/internal/config"
@@ -17,7 +18,8 @@ import (
 // A location is a target of a shared instruction file that is not the global
 // instruction file of a listed tool (instructionTargets): any folder the file
 // is written to, with an optional custom file name, like the CLI's
-// `extras <name> --add-target <dir> --as <file>`.
+// `extras <name> --add-target <dir> --as <file>`. In project mode every target
+// is a location, stored relative to the project root.
 
 type sharedInstructionsLocation struct {
 	Path   string `json:"path"` // target folder as stored in the config
@@ -46,15 +48,16 @@ func (s *Server) sharedLocations(extra config.ExtraConfig, tools []sharedInstruc
 }
 
 // findLocation returns the index of the named shared file and of its target
-// stored as path (compared after expanding ~), or -1. Callers must hold s.mu.
+// stored as path (compared after expanding ~ or, in project mode, joining the
+// project root), or -1. Callers must hold s.mu.
 func (s *Server) findLocation(name, path string) (int, int) {
-	for i, extra := range s.cfg.Extras {
+	for i, extra := range *s.sharedExtras() {
 		if extra.Name != name || extra.File == "" {
 			continue
 		}
-		want := filepath.Clean(config.ExpandPath(path))
+		want := filepath.Clean(resolveExtrasTargetPath(s.projectRoot, path))
 		for j, tc := range extra.Targets {
-			if tc.Path == path || filepath.Clean(config.ExpandPath(tc.Path)) == want {
+			if tc.Path == path || filepath.Clean(resolveExtrasTargetPath(s.projectRoot, tc.Path)) == want {
 				return i, j
 			}
 		}
@@ -91,21 +94,31 @@ func (s *Server) handleAddSharedInstructionsLocation(w http.ResponseWriter, r *h
 	if !checkSharedMode(w, body.Mode) {
 		return
 	}
-	dir := filepath.Clean(config.ExpandPath(body.Path))
-	if !filepath.IsAbs(dir) {
+	// stored is the folder as saved in the config; dir is its absolute path.
+	stored := filepath.Clean(config.ExpandPath(body.Path))
+	dir := stored
+	if s.IsProjectMode() {
+		rel, ok := projectRelativeDir(body.Path)
+		if !ok {
+			writeCodedError(w, http.StatusBadRequest, "instructions_location_outside_project", "folder must be relative and inside the project: "+body.Path, map[string]string{"path": body.Path})
+			return
+		}
+		stored, dir = rel, filepath.Join(s.projectRoot, filepath.FromSlash(rel))
+	} else if !filepath.IsAbs(dir) {
 		writeCodedError(w, http.StatusBadRequest, "instructions_location_not_absolute", "folder must be an absolute path or start with ~: "+body.Path, map[string]string{"path": body.Path})
 		return
 	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	i, j := s.findLocation(name, dir)
+	i, j := s.findLocation(name, stored)
 	if i == -1 {
 		writeCodedError(w, http.StatusNotFound, "instructions_shared_not_found", "shared instruction file not found: "+name, map[string]string{"name": name})
 		return
 	}
-	extra := s.cfg.Extras[i]
-	tc := config.ExtraTargetConfig{Path: dir, Mode: body.Mode}
+	extras := *s.sharedExtras()
+	extra := extras[i]
+	tc := config.ExtraTargetConfig{Path: stored, Mode: body.Mode}
 	if body.As != extra.File {
 		tc.As = body.As
 	}
@@ -126,7 +139,7 @@ func (s *Server) handleAddSharedInstructionsLocation(w http.ResponseWriter, r *h
 	}
 	// After the tool check: a connected tool's folder is also a target of the extra.
 	if j != -1 {
-		writeCodedError(w, http.StatusConflict, "instructions_location_exists", name+" already has the location "+dir, map[string]string{"path": dir})
+		writeCodedError(w, http.StatusConflict, "instructions_location_exists", name+" already has the location "+stored, map[string]string{"path": stored})
 		return
 	}
 	if info, err := os.Lstat(file); err == nil && info.IsDir() {
@@ -134,23 +147,23 @@ func (s *Server) handleAddSharedInstructionsLocation(w http.ResponseWriter, r *h
 		return
 	}
 
-	prev := s.cfg.Extras[i].Targets
-	s.cfg.Extras[i].Targets = append(slices.Clone(prev), tc)
-	if err := s.cfg.ValidateExtras(name); err != nil {
-		s.cfg.Extras[i].Targets = prev
+	prev := extras[i].Targets
+	extras[i].Targets = append(slices.Clone(prev), tc)
+	if err := s.validateSharedExtras(name); err != nil {
+		extras[i].Targets = prev
 		if !writeExtraTargetConflict(w, err, file) {
 			writeCodedError(w, http.StatusBadRequest, "instructions_location_failed", err.Error(), map[string]string{"detail": err.Error()})
 		}
 		return
 	}
-	args := map[string]any{"name": name, "path": dir, "as": tc.As, "mode": tc.Mode, "action": "add", "scope": "ui"}
+	args := map[string]any{"name": name, "path": stored, "as": tc.As, "mode": tc.Mode, "action": "add", "scope": "ui"}
 	fail := func(status int, code string, err string, params map[string]string) {
-		s.cfg.Extras[i].Targets = prev
+		extras[i].Targets = prev
 		s.writeOpsLog("instructions-location", "error", start, args, err)
 		writeCodedError(w, status, code, err, params)
 	}
-	f := instructions.ExtraFile(s.cfg.Extras[i], len(prev), s.instructionsResolver())
-	result, err := syncpkg.SyncExtraFile(f, false, "")
+	f := instructions.ExtraFile(extras[i], len(prev), s.instructionsResolver())
+	result, err := syncpkg.SyncExtraFile(f, false, s.projectRoot)
 	if err != nil {
 		fail(http.StatusInternalServerError, "instructions_location_failed", err.Error(), map[string]string{"detail": err.Error()})
 		return
@@ -177,6 +190,21 @@ func (s *Server) handleAddSharedInstructionsLocation(w http.ResponseWriter, r *h
 	}
 	s.writeOpsLog("instructions-location", "ok", start, args, "")
 	writeJSON(w, map[string]any{"success": true, "warnings": append([]syncpkg.FileWarning{}, result.FileWarnings...)})
+}
+
+// projectRelativeDir cleans a project-mode location folder to a relative
+// path with forward slashes. It refuses absolute paths, ~ and paths that
+// leave the project root.
+func projectRelativeDir(path string) (string, bool) {
+	if path == "~" || strings.HasPrefix(path, "~/") || strings.HasPrefix(path, "~\\") ||
+		strings.HasPrefix(path, "/") || strings.HasPrefix(path, "\\") || filepath.IsAbs(path) || filepath.VolumeName(path) != "" {
+		return "", false
+	}
+	rel := filepath.ToSlash(filepath.Clean(filepath.FromSlash(path)))
+	if rel == ".." || strings.HasPrefix(rel, "../") {
+		return "", false
+	}
+	return rel, true
 }
 
 // lookupLocation finds the location named by path, answering 404 when the
@@ -219,7 +247,7 @@ func (s *Server) handlePutSharedInstructionsLocationMode(w http.ResponseWriter, 
 	if !ok {
 		return
 	}
-	file := instructions.ExtraFile(s.cfg.Extras[i], j, s.instructionsResolver()).Target
+	file := instructions.ExtraFile((*s.sharedExtras())[i], j, s.instructionsResolver()).Target
 	s.setSharedTargetMode(w, start, i, j, body.Mode, file, file, "instructions_location_directory",
 		map[string]any{"name": name, "path": body.Path, "mode": body.Mode, "scope": "ui"})
 }
@@ -237,12 +265,13 @@ func (s *Server) handleDeleteSharedInstructionsLocation(w http.ResponseWriter, r
 		return
 	}
 	args := map[string]any{"name": name, "path": path, "action": "remove", "scope": "ui"}
-	if _, err := syncpkg.RestoreExtraTarget(instructions.ExtraFile(s.cfg.Extras[i], j, s.instructionsResolver())); err != nil {
+	extras := *s.sharedExtras()
+	if _, err := syncpkg.RestoreExtraTarget(instructions.ExtraFile(extras[i], j, s.instructionsResolver())); err != nil {
 		s.writeOpsLog("instructions-location", "error", start, args, err.Error())
 		writeCodedError(w, http.StatusInternalServerError, "instructions_restore_failed", err.Error(), map[string]string{"name": name, "detail": err.Error()})
 		return
 	}
-	s.cfg.Extras[i].Targets = slices.Delete(slices.Clone(s.cfg.Extras[i].Targets), j, j+1)
+	extras[i].Targets = slices.Delete(slices.Clone(extras[i].Targets), j, j+1)
 	if err := s.saveAndReloadConfig(); err != nil {
 		s.writeOpsLog("instructions-location", "error", start, args, err.Error())
 		writeCodedError(w, http.StatusInternalServerError, "instructions_save_failed", err.Error(), map[string]string{"name": name, "detail": err.Error()})
@@ -261,5 +290,5 @@ func (s *Server) handleSharedInstructionsLocationRestorePreview(w http.ResponseW
 	if !ok {
 		return
 	}
-	writeJSON(w, restorePreview(instructions.ExtraFile(s.cfg.Extras[i], j, s.instructionsResolver())))
+	writeJSON(w, restorePreview(instructions.ExtraFile((*s.sharedExtras())[i], j, s.instructionsResolver())))
 }
