@@ -82,6 +82,76 @@ skillshare sync
 
 ---
 
+## From `npx skills`
+
+If you installed skills with the [npx skills CLI](https://github.com/vercel-labs/skills) (`npx skills add ...`), skillshare can take over the same directories. You can also [run both tools side by side](/docs/troubleshooting/faq#using-universal-alongside-npx-skills) and only move the skills you want managed.
+
+Where `npx skills` keeps things:
+
+| Item | Global | Project |
+|------|--------|---------|
+| Skill files | `~/.agents/skills/<name>/` (real directories) | `.agents/skills/<name>/` |
+| Agent directories | Symlinks to the files above (for example `~/.claude/skills/<name>`) | Same |
+| Lock file | `~/.agents/.skill-lock.json` (or `$XDG_STATE_HOME/skills/.skill-lock.json`) | `skills-lock.json` |
+
+Skills installed with `--copy` are real directories in each agent directory instead of symlinks.
+
+### Step 1: Initialize skillshare
+
+```bash
+skillshare init
+```
+
+### Step 2: Backup existing skills
+
+```bash
+skillshare backup
+```
+
+### Step 3: Collect the skills
+
+`collect` copies real directories and skips symlinks, so the symlinks in agent directories are not collected twice.
+
+```bash
+skillshare collect universal --dry-run   # Preview
+skillshare collect universal             # ~/.agents/skills
+```
+
+If you used `--copy` or have skills in other agent directories, run `skillshare collect --all` instead and resolve duplicates as described in [From Manual Management](#from-manual-management).
+
+Collected skills are plain local copies. They do not remember which repository they came from, so `skillshare update` cannot update them.
+
+### Step 4: Reinstall skills you want to keep updating (optional)
+
+The lock file records where each skill came from. `source` is the repository and `skillPath` is the location inside it.
+
+```bash
+cat ~/.agents/.skill-lock.json
+
+# "source": "anthropics/skills", "skillPath": "skills/pdf/SKILL.md"
+skillshare install anthropics/skills/skills/pdf
+```
+
+Use `--force` if the skill already exists in your source from Step 3.
+
+### Step 5: Sync
+
+```bash
+skillshare sync
+```
+
+In merge mode, sync keeps a real directory of the same name in the target (`~/.agents/skills`) and reports it as a preserved local skill. The `npx skills` symlinks in other agent directories, such as `~/.claude/skills`, are repointed to your skillshare source. To also replace the real directories with symlinks, run this after Step 3 has collected them:
+
+```bash
+skillshare sync --force
+```
+
+`sync --force` backs up the target before replacing anything. After this, manage those skills with skillshare only. `npx skills` tracks installs in its own lock file, so avoid running `npx skills update` or `npx skills remove` on them.
+
+For a project that uses `npx skills`, follow [From Committed Project Skills](#from-committed-project-skills) with `.agents/skills/` as the directory to move.
+
+---
+
 ## From Git Submodules
 
 If you've been using git submodules:

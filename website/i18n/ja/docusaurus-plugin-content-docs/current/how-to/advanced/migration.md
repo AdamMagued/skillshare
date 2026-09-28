@@ -82,6 +82,76 @@ skillshare sync
 
 ---
 
+## `npx skills` からの移行
+
+[npx skills CLI](https://github.com/vercel-labs/skills)（`npx skills add ...`）で Skill をインストールしていた場合、skillshare は同じディレクトリを引き継げます。[両方のツールを併用](/docs/troubleshooting/faq#using-universal-alongside-npx-skills)し、skillshare で管理したい Skill だけを移すこともできます。
+
+`npx skills` のファイルの保存場所:
+
+| 項目 | Global | Project |
+|------|--------|---------|
+| Skill ファイル | `~/.agents/skills/<name>/`（実ディレクトリ） | `.agents/skills/<name>/` |
+| Agent ディレクトリ | 上記ファイルへのシンボリックリンク（例: `~/.claude/skills/<name>`） | 同じ |
+| ロックファイル | `~/.agents/.skill-lock.json`（または `$XDG_STATE_HOME/skills/.skill-lock.json`） | `skills-lock.json` |
+
+`--copy` でインストールした Skill は、シンボリックリンクではなく各 Agent ディレクトリ内の実ディレクトリになります。
+
+### ステップ 1: skillshare を初期化する
+
+```bash
+skillshare init
+```
+
+### ステップ 2: 既存の Skill をバックアップする
+
+```bash
+skillshare backup
+```
+
+### ステップ 3: Skill を収集する
+
+`collect` は実ディレクトリをコピーし、シンボリックリンクはスキップします。そのため、Agent ディレクトリ内のシンボリックリンクが二重に収集されることはありません。
+
+```bash
+skillshare collect universal --dry-run   # プレビュー
+skillshare collect universal             # ~/.agents/skills
+```
+
+`--copy` を使っていた場合や、他の Agent ディレクトリにも Skill がある場合は、代わりに `skillshare collect --all` を実行し、[手動管理からの移行](#手動管理からの移行)の説明に従って重複を処理してください。
+
+収集した Skill は単なるローカルコピーです。どのリポジトリから来たかを記録していないため、`skillshare update` では更新できません。
+
+### ステップ 4: 更新を続けたい Skill を再インストールする（任意）
+
+ロックファイルには各 Skill の取得元が記録されています。`source` はリポジトリ、`skillPath` はその中の場所です。
+
+```bash
+cat ~/.agents/.skill-lock.json
+
+# "source": "anthropics/skills", "skillPath": "skills/pdf/SKILL.md"
+skillshare install anthropics/skills/skills/pdf
+```
+
+ステップ 3 で Skill がすでに Source に存在する場合は `--force` を使ってください。
+
+### ステップ 5: Sync する
+
+```bash
+skillshare sync
+```
+
+merge mode では、Sync は Target（`~/.agents/skills`）内の同名の実ディレクトリを保持し、保持されたローカル Skill として報告します。`~/.claude/skills` など他の Agent ディレクトリにある `npx skills` のシンボリックリンクは、skillshare の Source を指すように張り替えられます。実ディレクトリもシンボリックリンクに置き換えるには、ステップ 3 で収集した後に次を実行します:
+
+```bash
+skillshare sync --force
+```
+
+`sync --force` は何かを置き換える前に Target をバックアップします。これ以降、それらの Skill は skillshare だけで管理してください。`npx skills` は独自のロックファイルでインストールを追跡しているため、それらの Skill に対して `npx skills update` や `npx skills remove` を実行しないでください。
+
+`npx skills` を使っている Project では、移動するディレクトリを `.agents/skills/` として[コミット済みの Project Skill からの移行](#コミット済みの-project-skill-からの移行)に従ってください。
+
+---
+
 ## Git サブモジュールからの移行
 
 git サブモジュールを使っていた場合:

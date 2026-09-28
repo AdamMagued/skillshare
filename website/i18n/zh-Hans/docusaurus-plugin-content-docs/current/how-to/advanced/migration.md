@@ -82,6 +82,76 @@ skillshare sync
 
 ---
 
+## 从 `npx skills` 迁移
+
+如果你使用 [npx skills CLI](https://github.com/vercel-labs/skills)（`npx skills add ...`）安装过 Skill，skillshare 可以接管相同的目录。你也可以[让两个工具并存使用](/docs/troubleshooting/faq#using-universal-alongside-npx-skills)，只迁移你希望由 skillshare 管理的 Skill。
+
+`npx skills` 的存放位置：
+
+| 项目 | Global | Project |
+|------|--------|---------|
+| Skill 文件 | `~/.agents/skills/<name>/`（真实目录） | `.agents/skills/<name>/` |
+| Agent 目录 | 指向上述文件的 symlink（例如 `~/.claude/skills/<name>`） | 同左 |
+| Lock file | `~/.agents/.skill-lock.json`（或 `$XDG_STATE_HOME/skills/.skill-lock.json`） | `skills-lock.json` |
+
+使用 `--copy` 安装的 Skill 在每个 Agent 目录中都是真实目录，而不是 symlink。
+
+### 第 1 步：初始化 skillshare
+
+```bash
+skillshare init
+```
+
+### 第 2 步：备份现有 Skill
+
+```bash
+skillshare backup
+```
+
+### 第 3 步：收集 Skill
+
+`collect` 会复制真实目录并跳过 symlink，因此 Agent 目录中的 symlink 不会被重复收集。
+
+```bash
+skillshare collect universal --dry-run   # 预览
+skillshare collect universal             # ~/.agents/skills
+```
+
+如果你使用过 `--copy`，或在其他 Agent 目录中也有 Skill，请改为执行 `skillshare collect --all`，并按照[从手动管理迁移](#从手动管理迁移)中的说明处理重复项。
+
+收集到的 Skill 是普通的本地副本。它们不会记录来自哪个仓库，因此 `skillshare update` 无法更新它们。
+
+### 第 4 步：重新安装需要持续更新的 Skill（可选）
+
+Lock file 记录了每个 Skill 的来源。`source` 是仓库，`skillPath` 是 Skill 在仓库中的位置。
+
+```bash
+cat ~/.agents/.skill-lock.json
+
+# "source": "anthropics/skills", "skillPath": "skills/pdf/SKILL.md"
+skillshare install anthropics/skills/skills/pdf
+```
+
+如果该 Skill 已在第 3 步中进入你的 Source，请加上 `--force`。
+
+### 第 5 步：Sync
+
+```bash
+skillshare sync
+```
+
+在 merge mode 下，Sync 会保留 Target（`~/.agents/skills`）中同名的真实目录，并将其报告为保留的本地 Skill。其他 Agent 目录（例如 `~/.claude/skills`）中由 `npx skills` 创建的 symlink 会被重新指向你的 skillshare Source。如果还想把这些真实目录也替换为 symlink，请在第 3 步收集完成后执行：
+
+```bash
+skillshare sync --force
+```
+
+`sync --force` 会在替换任何内容之前备份 Target。此后请只用 skillshare 管理这些 Skill。`npx skills` 在自己的 lock file 中记录安装信息，因此请避免对它们执行 `npx skills update` 或 `npx skills remove`。
+
+对于使用 `npx skills` 的项目，请按照[从已提交的项目 Skill 迁移](#从已提交的项目-skill-迁移)操作，并将 `.agents/skills/` 作为要迁移的目录。
+
+---
+
 ## 从 Git Submodule 迁移
 
 如果你一直在使用 git submodule：

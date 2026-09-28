@@ -82,6 +82,76 @@ skillshare sync
 
 ---
 
+## `npx skills`로부터
+
+[npx skills CLI](https://github.com/vercel-labs/skills)(`npx skills add ...`)로 skill을 install했다면, skillshare가 같은 디렉터리를 이어받아 관리할 수 있습니다. [두 도구를 함께 사용](/docs/troubleshooting/faq#using-universal-alongside-npx-skills)하면서 skillshare로 관리하고 싶은 skill만 옮길 수도 있습니다.
+
+`npx skills`가 파일을 보관하는 위치:
+
+| 항목 | Global | Project |
+|------|--------|---------|
+| Skill 파일 | `~/.agents/skills/<name>/` (실제 디렉터리) | `.agents/skills/<name>/` |
+| Agent 디렉터리 | 위 파일을 가리키는 symlink (예: `~/.claude/skills/<name>`) | 동일 |
+| Lock file | `~/.agents/.skill-lock.json` (또는 `$XDG_STATE_HOME/skills/.skill-lock.json`) | `skills-lock.json` |
+
+`--copy`로 install한 skill은 symlink 대신 각 agent 디렉터리에 실제 디렉터리로 존재합니다.
+
+### 1단계: skillshare 초기화
+
+```bash
+skillshare init
+```
+
+### 2단계: 기존 skill 백업
+
+```bash
+skillshare backup
+```
+
+### 3단계: skill 수집
+
+`collect`는 실제 디렉터리를 복사하고 symlink는 건너뛰므로, agent 디렉터리의 symlink가 중복으로 수집되지 않습니다.
+
+```bash
+skillshare collect universal --dry-run   # 미리보기
+skillshare collect universal             # ~/.agents/skills
+```
+
+`--copy`를 사용했거나 다른 agent 디렉터리에 skill이 있다면, 대신 `skillshare collect --all`을 실행하고 [수동 관리로부터](#수동-관리로부터)에 설명된 대로 중복을 처리하세요.
+
+수집된 skill은 단순한 로컬 복사본입니다. 어느 repository에서 왔는지 기억하지 않으므로 `skillshare update`로 업데이트할 수 없습니다.
+
+### 4단계: 계속 업데이트할 skill 재설치 (선택 사항)
+
+Lock file에는 각 skill의 출처가 기록되어 있습니다. `source`는 repository이고 `skillPath`는 그 안의 위치입니다.
+
+```bash
+cat ~/.agents/.skill-lock.json
+
+# "source": "anthropics/skills", "skillPath": "skills/pdf/SKILL.md"
+skillshare install anthropics/skills/skills/pdf
+```
+
+3단계에서 이미 source에 같은 skill이 있다면 `--force`를 사용하세요.
+
+### 5단계: Sync
+
+```bash
+skillshare sync
+```
+
+Merge mode에서 sync는 target(`~/.agents/skills`)에 있는 같은 이름의 실제 디렉터리를 유지하고, 보존된 로컬 skill로 보고합니다. `~/.claude/skills` 같은 다른 agent 디렉터리의 `npx skills` symlink는 skillshare source를 가리키도록 다시 연결됩니다. 실제 디렉터리도 symlink로 교체하려면, 3단계에서 수집을 마친 뒤 다음을 실행하세요:
+
+```bash
+skillshare sync --force
+```
+
+`sync --force`는 교체하기 전에 target을 백업합니다. 이후에는 해당 skill을 skillshare로만 관리하세요. `npx skills`는 자체 lock file로 install을 추적하므로, 해당 skill에 `npx skills update`나 `npx skills remove`를 실행하지 마세요.
+
+`npx skills`를 사용하는 프로젝트라면, 옮길 디렉터리를 `.agents/skills/`로 하여 [커밋된 Project Skill로부터](#커밋된-project-skill로부터)를 따르세요.
+
+---
+
 ## Git Submodule로부터
 
 git submodule을 사용해왔다면:

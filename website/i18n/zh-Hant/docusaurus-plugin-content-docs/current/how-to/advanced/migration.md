@@ -82,6 +82,76 @@ skillshare sync
 
 ---
 
+## 從 `npx skills` 遷移
+
+如果你是用 [npx skills CLI](https://github.com/vercel-labs/skills)（`npx skills add ...`）安裝 Skills，skillshare 可以接管相同的目錄。你也可以[讓兩個工具並存](/docs/troubleshooting/faq#using-universal-alongside-npx-skills)，只把想交給 skillshare 管理的 Skills 搬過來。
+
+`npx skills` 存放各項內容的位置：
+
+| 項目 | Global | Project |
+|------|--------|---------|
+| Skill 檔案 | `~/.agents/skills/<name>/`（實體目錄） | `.agents/skills/<name>/` |
+| Agent 目錄 | 指向上述檔案的 symlink（例如 `~/.claude/skills/<name>`） | 同左 |
+| Lock file | `~/.agents/.skill-lock.json`（或 `$XDG_STATE_HOME/skills/.skill-lock.json`） | `skills-lock.json` |
+
+以 `--copy` 安裝的 Skills 在每個 Agent 目錄中都是實體目錄，而不是 symlink。
+
+### 步驟 1：初始化 skillshare
+
+```bash
+skillshare init
+```
+
+### 步驟 2：備份既有的 Skills
+
+```bash
+skillshare backup
+```
+
+### 步驟 3：收集 Skills
+
+`collect` 會複製實體目錄並略過 symlink，因此 Agent 目錄中的 symlink 不會被重複收集。
+
+```bash
+skillshare collect universal --dry-run   # 預覽
+skillshare collect universal             # ~/.agents/skills
+```
+
+如果你用過 `--copy`，或其他 Agent 目錄中也有 Skills，請改為執行 `skillshare collect --all`，並依照[從手動管理遷移](#從手動管理遷移)中的說明處理重複項目。
+
+收集來的 Skills 是單純的本機副本。它們不會記得來自哪個 repository，因此 `skillshare update` 無法更新它們。
+
+### 步驟 4：重新安裝想持續更新的 Skills（可選）
+
+Lock file 記錄了每個 Skill 的來源。`source` 是 repository，`skillPath` 是它在 repository 中的位置。
+
+```bash
+cat ~/.agents/.skill-lock.json
+
+# "source": "anthropics/skills", "skillPath": "skills/pdf/SKILL.md"
+skillshare install anthropics/skills/skills/pdf
+```
+
+如果該 Skill 已在步驟 3 中收集到你的 Source，請加上 `--force`。
+
+### 步驟 5：Sync
+
+```bash
+skillshare sync
+```
+
+在 merge mode 下，sync 會保留 Target（`~/.agents/skills`）中同名的實體目錄，並將其回報為保留的本機 Skill。其他 Agent 目錄（例如 `~/.claude/skills`）中由 `npx skills` 建立的 symlink，會改為指向你的 skillshare Source。若也要把這些實體目錄換成 symlink，請在步驟 3 收集完成後執行：
+
+```bash
+skillshare sync --force
+```
+
+`sync --force` 會在取代任何內容之前先備份 Target。之後請只用 skillshare 管理這些 Skills。`npx skills` 會在自己的 lock file 中追蹤安裝紀錄，因此請避免對它們執行 `npx skills update` 或 `npx skills remove`。
+
+若是使用 `npx skills` 的專案，請依照[從已 Commit 的 Project Skills 遷移](#從已-commit-的-project-skills-遷移)操作，並以 `.agents/skills/` 作為要搬移的目錄。
+
+---
+
 ## 從 Git Submodules 遷移
 
 如果你一直使用 git submodules：
