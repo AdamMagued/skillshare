@@ -66,6 +66,14 @@ export const queryKeys = {
   // Under `plugins`, so invalidating that key refreshes both.
   pluginPackages: ['plugins', 'packages'] as const,
   hubConfig: ['hub-config'] as const,
+  // Everything under `hub`, so invalidating `hub.drafts` also refreshes each draft.
+  hub: {
+    drafts: ['hub', 'drafts'] as const,
+    draft: (id: string) => ['hub', 'drafts', id] as const,
+    contents: (url: string) => ['hub', 'contents', url] as const,
+    refs: (source: string) => ['hub', 'refs', source] as const,
+    candidates: ['hub', 'candidates'] as const,
+  },
   preview: (source: string) => ['preview', source] as const,
   extrasDiff: (name?: string) => ['extras-diff', name ?? '__all'] as const,
   analyze: ['analyze'] as const,

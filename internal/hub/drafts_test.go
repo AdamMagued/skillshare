@@ -201,3 +201,29 @@ func TestDraftCandidatesTrackedRepository(t *testing.T) {
 		t.Fatalf("tracked source lost: %#v", entries[0])
 	}
 }
+
+func TestDraftCandidatesKeepInstalledRef(t *testing.T) {
+	root := t.TempDir()
+	for _, path := range []string{"review", "_team/skills/lint"} {
+		os.MkdirAll(filepath.Join(root, path), 0755)
+		os.WriteFile(filepath.Join(root, path, "SKILL.md"), []byte("---\nname: x\n---\nX."), 0644)
+	}
+	os.MkdirAll(filepath.Join(root, "_team", ".git"), 0755)
+	os.WriteFile(filepath.Join(root, ".metadata.json"), []byte(`{"version":1,"entries":{
+		"review":{"source":"acme/repo","subdir":"skills/review","branch":"v1.2.0"},
+		"_team":{"source":"github.com/acme/team/tree/release/2","tracked":true,"branch":"release/2"}}}`), 0644)
+	entries, err := DraftCandidates(root)
+	if err != nil || len(entries) != 2 {
+		t.Fatalf("candidates: %v %#v", err, entries)
+	}
+	got := map[string]string{}
+	for _, e := range entries {
+		got[e.ID] = field(e.Data, "source") + " " + field(e.Data, "skill")
+	}
+	if want := "github.com/acme/repo/tree/v1.2.0 skills/review"; got["review"] != want {
+		t.Errorf("review = %q, want %q", got["review"], want)
+	}
+	if want := "github.com/acme/team/tree/release/2 skills/lint"; got["_team/skills/lint"] != want {
+		t.Errorf("tracked = %q, want %q", got["_team/skills/lint"], want)
+	}
+}

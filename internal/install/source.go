@@ -140,6 +140,9 @@ type Source struct {
 	// webRef is the {ref}/{path} tail of a tree/, blob/ or src/ web URL,
 	// kept so a ref containing "/" can be resolved at install time.
 	webRef webRef
+	// webHost is "gitlab" or "bitbucket" for HTTPS sources on those hosts,
+	// whose web URLs can name a ref.
+	webHost string
 }
 
 // GitHub URL pattern: github.com/owner/repo[/path/to/subdir]
@@ -716,6 +719,11 @@ func parseGitHTTPS(matches []string, source *Source, opts ParseOptions) (*Source
 
 	source.Type = SourceTypeGitHTTPS
 	source.CloneURL = fmt.Sprintf("%s://%s/%s.git", schema, host, repoPath)
+	if strings.Contains(host, "bitbucket") {
+		source.webHost = "bitbucket"
+	} else if isGitLabHost(host, opts.GitLabHosts) {
+		source.webHost = "gitlab"
+	}
 
 	if err := validateCloneURL(source.CloneURL); err != nil {
 		return nil, err

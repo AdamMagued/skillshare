@@ -476,6 +476,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("DELETE /api/hub/drafts/{id}", s.handleHubDraft)
 	s.mux.HandleFunc("POST /api/hub/drafts/{id}/export", s.handleHubDraftExport)
 	s.mux.HandleFunc("GET /api/hub/index", s.handleHubIndex)
+	s.mux.HandleFunc("POST /api/hub/refs", s.handleHubRefs)
 	s.mux.HandleFunc("GET /api/hub/saved", s.handleGetHubSaved)
 	s.mux.HandleFunc("PUT /api/hub/saved", s.handlePutHubSaved)
 	s.mux.HandleFunc("POST /api/hub/saved", s.handlePostHubSaved)

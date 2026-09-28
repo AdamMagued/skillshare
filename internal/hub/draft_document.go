@@ -119,6 +119,19 @@ func validateDraft(d Draft) error {
 	return nil
 }
 
+// DraftRefs maps each entry whose source names a ref to that ref. It never
+// asks a remote, since every read and save of a draft goes through it: a ref
+// containing "/" shows only its first segment until the editor settles it.
+func DraftRefs(d Draft, opts install.ParseOptions) map[string]string {
+	refs := make(map[string]string)
+	for _, e := range d.Entries {
+		if ref := install.SourceRef(field(e.Data, "source"), opts, nil); ref != "" {
+			refs[e.ID] = ref
+		}
+	}
+	return refs
+}
+
 // DraftProblems lists all blockers, including local skills; none are silently omitted.
 func DraftProblems(d Draft) []DraftProblem {
 	problems := make([]DraftProblem, 0)

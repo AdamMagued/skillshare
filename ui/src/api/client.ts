@@ -1207,6 +1207,8 @@ export interface SearchResult {
   owner: string;
   repo: string;
   tags?: string[];
+  /** Branch or tag the source names; empty or absent means the default branch. */
+  ref?: string;
 }
 
 export interface SkillPreview {

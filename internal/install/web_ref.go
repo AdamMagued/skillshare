@@ -2,8 +2,12 @@ package install
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os/exec"
 	"path"
+	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -53,10 +57,23 @@ func (s *Source) applyWebRef(w webRef) string {
 // RemoteRefs caches each remote's branch and tag names, so resolving many web
 // URLs from one repo lists its refs once. The zero value is ready to use.
 type RemoteRefs struct {
-	byURL map[string]map[string]bool
+	byURL map[string]*RefList
 }
 
-func (r *RemoteRefs) list(s *Source) (map[string]bool, error) {
+// RefList is a remote's default branch, branches and tags. Branches are
+// sorted by name; tags newest version first.
+type RefList struct {
+	DefaultBranch string
+	Branches      []string
+	Tags          []string
+}
+
+func (l *RefList) has(ref string) bool {
+	return slices.Contains(l.Branches, ref) || slices.Contains(l.Tags, ref)
+}
+
+// List returns the source remote's refs, listing each remote once.
+func (r *RemoteRefs) List(s *Source) (*RefList, error) {
 	if refs, ok := r.byURL[s.CloneURL]; ok {
 		return refs, nil
 	}
@@ -65,7 +82,7 @@ func (r *RemoteRefs) list(s *Source) (map[string]bool, error) {
 		return nil, err
 	}
 	if r.byURL == nil {
-		r.byURL = make(map[string]map[string]bool)
+		r.byURL = make(map[string]*RefList)
 	}
 	r.byURL[s.CloneURL] = refs
 	return refs, nil
@@ -95,17 +112,17 @@ func (r *RemoteRefs) Resolve(s *Source) error {
 		return s.settleWebRef(first)
 	}
 
-	refs, err := r.list(s)
+	refs, err := r.List(s)
 	if err != nil {
 		return nil // let the clone report the real problem
 	}
-	if refs[first] {
+	if refs.has(first) {
 		return s.settleWebRef(first)
 	}
 	override := s.Branch != "" && s.Branch != first
 	segments := strings.Split(w.tail, "/")
 	for i := len(segments); i > 1; i-- {
-		if ref := strings.Join(segments[:i], "/"); refs[ref] {
+		if ref := strings.Join(segments[:i], "/"); refs.has(ref) {
 			if !override {
 				s.Branch = ref
 			}
@@ -116,6 +133,17 @@ func (r *RemoteRefs) Resolve(s *Source) error {
 		return nil
 	}
 	return fmt.Errorf("ref %q from the URL was not found on the remote; pass --branch to choose one (needed when a branch name contains \"/\")", first)
+}
+
+// Settle resolves the source's URL ref like Resolve, but reads a ref the
+// remote does not have, or a remote that cannot be listed, as the URL's first
+// segment, so the source can be re-pinned with AtRef.
+func (r *RemoteRefs) Settle(s *Source) error {
+	if err := r.Resolve(s); err == nil && !s.HasAmbiguousWebRef() {
+		return nil
+	}
+	first, _, _ := strings.Cut(s.webRef.tail, "/")
+	return s.settleWebRef(first)
 }
 
 // HasAmbiguousWebRef reports whether the source's URL ref might contain "/",
@@ -157,31 +185,87 @@ func (s *Source) settleWebRef(ref string) error {
 	return nil
 }
 
-// listRemoteRefs returns the remote's branch and tag names.
-func listRemoteRefs(s *Source) (map[string]bool, error) {
+// listRemoteRefs returns the remote's default branch, branches and tags.
+func listRemoteRefs(s *Source) (*RefList, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), gitCommandTimeout)
 	defer cancel()
 
-	cmd := gitCommand(ctx, "ls-remote", "--heads", "--tags", s.CloneURL)
+	cmd := gitCommand(ctx, "ls-remote", "--symref", s.CloneURL, "HEAD", "refs/heads/*", "refs/tags/*")
 	cmd.Env = append(cmd.Env, s.authEnv()...)
 	out, err := cmd.Output()
 	if err != nil {
-		return nil, err
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && len(exitErr.Stderr) > 0 {
+			return nil, fmt.Errorf("git ls-remote: %s", strings.TrimSpace(string(exitErr.Stderr)))
+		}
+		return nil, fmt.Errorf("git ls-remote: %w", err)
 	}
-	refs := make(map[string]bool)
+	refs := &RefList{Branches: []string{}, Tags: []string{}}
 	for _, line := range strings.Split(string(out), "\n") {
-		_, name, ok := strings.Cut(strings.TrimSpace(line), "\t")
+		value, name, ok := strings.Cut(strings.TrimSpace(line), "\t")
 		if !ok {
 			continue
 		}
-		name = strings.TrimSuffix(name, "^{}")
-		if b, ok := strings.CutPrefix(name, "refs/heads/"); ok {
-			refs[b] = true
-		} else if t, ok := strings.CutPrefix(name, "refs/tags/"); ok {
-			refs[t] = true
+		if target, ok := strings.CutPrefix(value, "ref: refs/heads/"); ok && name == "HEAD" {
+			refs.DefaultBranch = target
+		} else if b, ok := strings.CutPrefix(name, "refs/heads/"); ok {
+			refs.Branches = append(refs.Branches, b)
+		} else if t, ok := strings.CutPrefix(name, "refs/tags/"); ok && !strings.HasSuffix(t, "^{}") {
+			refs.Tags = append(refs.Tags, t)
 		}
 	}
+	slices.Sort(refs.Branches)
+	slices.SortFunc(refs.Tags, compareTagsNewestFirst)
 	return refs, nil
+}
+
+// compareTagsNewestFirst orders version tags (v1.2.0, 1.2) by descending
+// version, before any other tags, which follow in reverse name order.
+func compareTagsNewestFirst(a, b string) int {
+	va, okA := parseTagVersion(a)
+	vb, okB := parseTagVersion(b)
+	switch {
+	case okA && okB:
+		if c := slices.Compare(vb.numbers, va.numbers); c != 0 {
+			return c
+		}
+		// A release sorts before its pre-releases.
+		if (va.pre == "") != (vb.pre == "") {
+			if va.pre == "" {
+				return -1
+			}
+			return 1
+		}
+		return strings.Compare(b, a)
+	case okA:
+		return -1
+	case okB:
+		return 1
+	}
+	return strings.Compare(b, a)
+}
+
+type tagVersion struct {
+	numbers []int
+	pre     string
+}
+
+func parseTagVersion(tag string) (tagVersion, bool) {
+	core, pre, _ := strings.Cut(strings.TrimPrefix(tag, "v"), "-")
+	core, _, _ = strings.Cut(core, "+")
+	parts := strings.Split(core, ".")
+	if len(parts) > 3 {
+		return tagVersion{}, false
+	}
+	numbers := make([]int, 3)
+	for i, p := range parts {
+		n, err := strconv.Atoi(p)
+		if err != nil || n < 0 {
+			return tagVersion{}, false
+		}
+		numbers[i] = n
+	}
+	return tagVersion{numbers: numbers, pre: pre}, true
 }
 
 // ApplyRecordedBranch sets the branch a skill was installed with, for
@@ -199,4 +283,108 @@ func (s *Source) ApplyRecordedBranch(branch string) {
 		// On a validation error the web ref stays, so install reports it.
 		_ = s.settleWebRef(branch)
 	}
+}
+
+// ErrRefNotPinnable reports a source whose URL cannot name a ref: only
+// GitHub, GitLab and Bitbucket web URLs can.
+var ErrRefNotPinnable = errors.New("only GitHub, GitLab and Bitbucket sources can pin a ref")
+
+// webRepo returns the repo's web URL and the path markers that come before a
+// ref in tree and file URLs, or ok=false for hosts whose URLs cannot name a ref.
+func (s *Source) webRepo() (repo, tree, blob string, ok bool) {
+	base := strings.TrimSuffix(s.CloneURL, ".git")
+	switch {
+	case s.Type == SourceTypeGitHub:
+		return strings.TrimPrefix(base, "https://"), "tree", "blob", true
+	case s.Type == SourceTypeGitHTTPS && s.webHost == "gitlab":
+		return base, "-/tree", "-/blob", true
+	case s.Type == SourceTypeGitHTTPS && s.webHost == "bitbucket":
+		return base, "src", "src", true
+	}
+	return "", "", "", false
+}
+
+// PinnedRef returns the ref the source's URL names ("" for the remote
+// default branch), and ok=false when the source cannot name one. A ref that
+// may contain "/" is only its first segment until RemoteRefs.Resolve.
+func (s *Source) PinnedRef() (ref string, ok bool) {
+	if _, _, _, ok := s.webRepo(); !ok {
+		return "", false
+	}
+	return s.Branch, true
+}
+
+// AtRef returns the source as a web URL that pins ref, keeping its subdir and
+// SKILL.md target. An empty ref means the remote default branch.
+func (s *Source) AtRef(ref string) (string, error) {
+	repo, tree, blob, ok := s.webRepo()
+	if !ok {
+		return "", ErrRefNotPinnable
+	}
+	if s.HasAmbiguousWebRef() {
+		return "", fmt.Errorf("the ref in %q could not be resolved", s.Raw)
+	}
+	if ref != "" && (strings.ContainsAny(ref, " \t\r\n?#\\") || strings.Contains(ref, "..") ||
+		strings.HasPrefix(ref, "/") || strings.HasSuffix(ref, "/") || strings.HasPrefix(ref, "-")) {
+		return "", fmt.Errorf("invalid ref %q", ref)
+	}
+	marker, tail := tree, s.Subdir
+	if s.ExplicitSkill {
+		marker, tail = blob, path.Join(s.Subdir, "SKILL.md")
+	}
+	if ref == "" {
+		// GitHub URLs need no ref. Elsewhere a repo root keeps ".git" and a path
+		// gets HEAD for the default branch, so a path joined on later is not
+		// read as part of the repo.
+		if !s.ExplicitSkill && s.Type == SourceTypeGitHub {
+			return joinURLPath(repo, s.Subdir), nil
+		}
+		if !s.ExplicitSkill && s.Subdir == "" {
+			return repo + ".git", nil
+		}
+		ref = "HEAD"
+	}
+	return joinURLPath(repo, marker, ref, tail), nil
+}
+
+func joinURLPath(parts ...string) string {
+	return strings.Join(slices.DeleteFunc(parts, func(p string) bool { return p == "" }), "/")
+}
+
+// SourceAtRef rewrites a GitHub, GitLab or Bitbucket source as a web URL
+// pinned at ref (the remote default branch when ref is empty). A URL ref that
+// may contain "/" is settled against the remote first.
+func SourceAtRef(raw, ref string, opts ParseOptions) (string, error) {
+	s, err := ParseSourceWithOptions(raw, opts)
+	if err != nil {
+		return "", err
+	}
+	if _, _, _, ok := s.webRepo(); !ok {
+		return "", ErrRefNotPinnable
+	}
+	if err := (&RemoteRefs{}).Settle(s); err != nil {
+		return "", err
+	}
+	return s.AtRef(ref)
+}
+
+// SourceRef returns the ref a source's URL names, or "" for the default
+// branch, other hosts and unparseable sources. A ref that may contain "/" is
+// settled against the remote, listed once per remote through refs; with nil
+// refs it stays the URL's first segment and nothing is asked of the remote.
+func SourceRef(raw string, opts ParseOptions, refs *RemoteRefs) string {
+	s, err := ParseSourceWithOptions(raw, opts)
+	if err != nil {
+		return ""
+	}
+	if _, ok := s.PinnedRef(); !ok {
+		return ""
+	}
+	if refs != nil {
+		// Settle only fails on an invalid subdir, which install reports; the
+		// ref it settled on still stands.
+		_ = refs.Settle(s)
+	}
+	ref, _ := s.PinnedRef()
+	return ref
 }

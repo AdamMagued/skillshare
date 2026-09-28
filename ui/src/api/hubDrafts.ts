@@ -14,7 +14,21 @@ export interface HubDraft {
   fields: Record<string, unknown>;
 }
 export interface HubProblem { entryId: string; code: string }
-export interface DraftResponse { draft: HubDraft; problems: HubProblem[] }
+export interface DraftResponse {
+  draft: HubDraft;
+  problems: HubProblem[];
+  /** Branch or tag each entry's source names, keyed by entry id; entries on the default branch are absent. */
+  refs?: Record<string, string>;
+}
+/** Versions a source can be pinned to. `source` is set only when a `ref` was asked for. */
+export interface HubRefs {
+  pinnable: boolean;
+  current: string;
+  defaultBranch: string;
+  branches: string[];
+  tags: string[];
+  source?: string;
+}
 const root = '/hub/drafts';
 const json = (method: string, data: unknown) => ({ method, body: JSON.stringify(data) });
 export const hubDrafts = {
@@ -27,6 +41,10 @@ export const hubDrafts = {
   import: (raw: string) => apiFetch<DraftResponse>(`${root}/import`, { method: 'POST', body: raw }),
   export: (draft: HubDraft) => apiFetch<Record<string, unknown>>(`${root}/${encodeURIComponent(draft.id)}/export`, json('POST', { revision: draft.revision })),
 };
+
+/** Lists a source's branches and tags; with `ref` ("" = default branch), also returns the source rewritten to it. */
+export const hubRefs = (source: string, ref?: string) =>
+  apiFetch<HubRefs>('/hub/refs', json('POST', ref === undefined ? { source } : { source, ref }));
 
 export function hubAddCommand(location: string, label: string): string {
   const quote = (s: string) => `'${s.replace(/'/g, `'"'"'`)}'`;

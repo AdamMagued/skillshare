@@ -30,8 +30,11 @@ func draftError(w http.ResponseWriter, err error) {
 	writeError(w, status, err.Error())
 }
 
-func writeDraft(w http.ResponseWriter, d hub.Draft) {
-	writeJSON(w, map[string]any{"draft": d, "problems": hub.DraftProblems(d)})
+func (s *Server) writeDraft(w http.ResponseWriter, d hub.Draft) {
+	s.mu.RLock()
+	parseOpts := s.parseOpts()
+	s.mu.RUnlock()
+	writeJSON(w, map[string]any{"draft": d, "problems": hub.DraftProblems(d), "refs": hub.DraftRefs(d, parseOpts)})
 }
 
 func decodeDraftBody(w http.ResponseWriter, r *http.Request, dst any) error {
@@ -80,7 +83,7 @@ func (s *Server) handleHubDrafts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.writeOpsLog("hub-draft-create", "ok", start, map[string]any{"id": created.ID}, "")
-	writeDraft(w, created)
+	s.writeDraft(w, created)
 }
 
 func (s *Server) handleHubDraft(w http.ResponseWriter, r *http.Request) {
@@ -93,7 +96,7 @@ func (s *Server) handleHubDraft(w http.ResponseWriter, r *http.Request) {
 			draftError(w, err)
 			return
 		}
-		writeDraft(w, d)
+		s.writeDraft(w, d)
 	case http.MethodPut:
 		var d hub.Draft
 		if err := decodeDraftBody(w, r, &d); err != nil {
@@ -107,7 +110,7 @@ func (s *Server) handleHubDraft(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		s.writeOpsLog("hub-draft-save", "ok", start, map[string]any{"id": id}, "")
-		writeDraft(w, saved)
+		s.writeDraft(w, saved)
 	case http.MethodDelete:
 		if err := store.Delete(id, r.URL.Query().Get("revision")); err != nil {
 			draftError(w, err)
@@ -136,7 +139,7 @@ func (s *Server) handleHubDraftImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.writeOpsLog("hub-draft-import", "ok", start, map[string]any{"id": d.ID}, "")
-	writeDraft(w, d)
+	s.writeDraft(w, d)
 }
 
 func (s *Server) handleHubDraftExport(w http.ResponseWriter, r *http.Request) {

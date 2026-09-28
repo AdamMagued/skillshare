@@ -16,6 +16,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
 	source := s.skillsSource()
+	parseOpts := s.parseOpts()
 	hubCfg := s.cfg.Hub
 	if s.IsProjectMode() && s.projectCfg != nil {
 		hubCfg = s.projectCfg.Hub
@@ -63,6 +64,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		Name        string   `json:"name"`
 		Description string   `json:"description"`
 		Source      string   `json:"source"`
+		Ref         string   `json:"ref,omitempty"`
 		Skill       string   `json:"skill,omitempty"`
 		Stars       int      `json:"stars"`
 		Owner       string   `json:"owner"`
@@ -76,11 +78,14 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 			Name:        r.Name,
 			Description: r.Description,
 			Source:      r.Source,
-			Skill:       r.Skill,
-			Stars:       r.Stars,
-			Owner:       r.Owner,
-			Repo:        r.Repo,
-			Tags:        r.Tags,
+			// A hosted index can hold hundreds of entries, so the remote is not
+			// asked; a branch containing "/" shows as its first segment.
+			Ref:   install.SourceRef(r.Source, parseOpts, nil),
+			Skill: r.Skill,
+			Stars: r.Stars,
+			Owner: r.Owner,
+			Repo:  r.Repo,
+			Tags:  r.Tags,
 		})
 	}
 
