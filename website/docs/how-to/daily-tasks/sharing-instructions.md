@@ -28,7 +28,7 @@ The tab shows, from top to bottom:
   claude doesn't read a user-level `AGENTS.md`. In global mode the same line ends with
   **Shared AGENTS.md**: the shared files this target uses, and a link to choose them.
 - An editor for the file, with **Edit** and **Preview** tabs; **Preview** renders
-  the Markdown, including unsaved edits. Long lines wrap. **Save** backs up the
+  the Markdown, including unsaved edits. Long lines wrap. **Save** (or ⌘S / Ctrl+S) backs up the
   current file first, and creates the file if it doesn't exist yet. Lines that start
   with `@` are imports, and only some tools expand them; other tools read them as
   plain text. The editor tints these lines and adds a short note saying which tool
@@ -169,8 +169,8 @@ How a target uses a shared file depends on whether it follows `@` imports:
   Developer Mode, file links aren't available, so it is replaced by a copy instead.
 
 The tab lists the shared files on the left, each with the targets connected to it.
-Click one to show it on the right: its path, its content (switch between **Source**
-and a rendered **Preview**), and every
+Click one to show it on the right: its path, its content (a rendered **Preview** by default; switch to
+**Source** for the raw text), and every
 target with a switch. The selected file is part of the URL
 (`/extras?tab=instructions&file=<name>`), so a link opens that file directly.
 
