@@ -1199,7 +1199,6 @@
   "instructions.switchFrom.confirm": "Switch to {name}",
   "instructions.plan.import": "Adds an import line",
   "instructions.plan.link": "Replaced by a link",
-  "instructions.plan.switch": "Switches from {other} to {name}",
   "instructions.plan.held": "Skipped: uses {other} through a link or copy",
   "instructions.plan.tooLong": "Reads only the first {max} characters",
   "instructions.plan.importKeep": "Removes the {name} import line; {others} stay",

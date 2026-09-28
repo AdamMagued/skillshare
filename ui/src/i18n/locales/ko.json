@@ -1199,7 +1199,6 @@
   "instructions.switchFrom.confirm": "{name}(으)로 변경",
   "instructions.plan.import": "import 줄 추가",
   "instructions.plan.link": "링크로 대체",
-  "instructions.plan.switch": "{other}에서 {name}(으)로 변경",
   "instructions.plan.held": "건너뜀: 링크 또는 복사본으로 {other}을(를) 사용 중",
   "instructions.plan.tooLong": "처음 {max}자만 읽음",
   "instructions.plan.importKeep": "{name} import 줄 삭제, {others} 유지",

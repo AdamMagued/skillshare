@@ -1199,7 +1199,6 @@
   "instructions.switchFrom.confirm": "تغییر به {name}",
   "instructions.plan.import": "افزودن یک خط import",
   "instructions.plan.link": "با پیوند جایگزین می‌شود",
-  "instructions.plan.switch": "از {other} به {name} تغییر می‌کند",
   "instructions.plan.held": "رد شد: {other} را از طریق پیوند یا کپی استفاده می‌کند",
   "instructions.plan.tooLong": "فقط {max} نویسه اول را می‌خواند",
   "instructions.plan.importKeep": "خط import {name} حذف می‌شود؛ {others} می‌ماند",

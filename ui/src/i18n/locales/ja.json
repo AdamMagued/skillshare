@@ -1199,7 +1199,6 @@
   "instructions.switchFrom.confirm": "{name} に切り替え",
   "instructions.plan.import": "import 行を 1 行追加",
   "instructions.plan.link": "リンクに置き換え",
-  "instructions.plan.switch": "{other} から {name} に切り替え",
   "instructions.plan.held": "スキップ：リンクまたはコピーで {other} を使っています",
   "instructions.plan.tooLong": "先頭 {max} 文字だけ読み込み",
   "instructions.plan.importKeep": "{name} の import 行を削除、{others} は残す",

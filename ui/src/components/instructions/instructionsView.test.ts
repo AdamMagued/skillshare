@@ -98,8 +98,13 @@ describe('connect and restore plans', () => {
     expect(connectPlan([claude], general)).toEqual([{ target: 'claude', extras: ['team', 'general'], note: 'import' }]);
   });
 
-  it('replaces a link target on another file and says which', () => {
-    expect(connectPlan([opencode], general)).toEqual([{ target: 'opencode', extras: ['general'], note: 'switch', other: 'team' }]);
+  it('skips a target another file holds by link, saying which', () => {
+    expect(connectPlan([opencode], general)).toEqual([{ target: 'opencode', extras: ['general'], note: 'held', other: 'team' }]);
+  });
+
+  it('skips a target another file holds by copy', () => {
+    const pi = tg('pi', { assigned: [{ name: 'team', mode: 'copy', status: 'synced' }] });
+    expect(connectPlan([pi], general)[0]).toMatchObject({ note: 'held', other: 'team' });
   });
 
   it('warns when a target reads less than the file holds', () => {

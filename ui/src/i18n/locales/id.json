@@ -1199,7 +1199,6 @@
   "instructions.switchFrom.confirm": "Ganti ke {name}",
   "instructions.plan.import": "Menambah satu baris import",
   "instructions.plan.link": "Diganti dengan tautan",
-  "instructions.plan.switch": "Beralih dari {other} ke {name}",
   "instructions.plan.held": "Dilewati: memakai {other} lewat tautan atau salinan",
   "instructions.plan.tooLong": "Hanya membaca {max} karakter pertama",
   "instructions.plan.importKeep": "Menghapus baris import {name}; {others} tetap",

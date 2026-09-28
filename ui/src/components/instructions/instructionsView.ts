@@ -206,18 +206,20 @@ export const connectExtras = (target: SharedInstructionsTarget, name: string) =>
 export const needsSync = (targets: SharedInstructionsTarget[], name: string) =>
   connectedTo(targets, name).filter((tg) => ['not synced', 'drift'].includes(tg.assigned.find((a) => a.name === name)!.status));
 
-export type ConnectStep = { target: string; extras: string[]; note: 'import' | 'link' | 'switch' | 'tooLong' | 'held'; other?: string; max?: number };
+export type ConnectStep = { target: string; extras: string[]; note: 'import' | 'link' | 'tooLong' | 'held'; other?: string; max?: number };
 
 /**
  * One step per target that would be connected to file, with what changes for it.
- * A target whose file is another shared file's source (a link or a copy) is
- * skipped (held): writing to it would change that other file.
+ * A target another shared file holds (its file links to or copies that file,
+ * or it is assigned in link or copy mode) is skipped (held): connecting it
+ * would change that file or silently take the target away from it.
  */
 export function connectPlan(targets: SharedInstructionsTarget[], file: SharedInstructionsFile): ConnectStep[] {
   return targets.filter((tg) => !tg.same_as && !usesOf(tg).includes(file.name)).map((tg) => {
     const step = { target: tg.name, extras: connectExtras(tg, file.name) };
     if (tg.linked_shared && tg.linked_shared !== file.name) return { ...step, note: 'held', other: tg.linked_shared };
-    if (!tg.import && tg.assigned.length > 0) return { ...step, note: 'switch', other: tg.assigned[0].name };
+    const holder = tg.assigned.find((a) => a.mode !== 'import');
+    if (holder) return { ...step, note: 'held', other: holder.name };
     if (tg.max_chars && file.chars > tg.max_chars) return { ...step, note: 'tooLong', max: tg.max_chars };
     return { ...step, note: tg.import ? 'import' : 'link' };
   });

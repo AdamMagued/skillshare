@@ -240,8 +240,7 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
     return t(`instructions.mode.${o.mode}`, { name, file: tg.path.split('/').pop() ?? '' });
   };
 
-  const connectNote = (s: ConnectStep) => (s.note === 'switch' ? t('instructions.plan.switch', { other: s.other ?? '', name })
-    : s.note === 'held' ? t('instructions.plan.held', { other: s.other ?? '' })
+  const connectNote = (s: ConnectStep) => (s.note === 'held' ? t('instructions.plan.held', { other: s.other ?? '' })
     : s.note === 'tooLong' ? t('instructions.plan.tooLong', { max: (s.max ?? 0).toLocaleString() })
       : t(`instructions.plan.${s.note}`));
   const restoreNote = (s: RestoreStep) => (s.note === 'importKeep' ? t('instructions.plan.importKeep', { name, others: list(s.others ?? []) })

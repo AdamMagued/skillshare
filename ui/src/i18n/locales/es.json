@@ -1199,7 +1199,6 @@
   "instructions.switchFrom.confirm": "Cambiar a {name}",
   "instructions.plan.import": "Añade una línea de import",
   "instructions.plan.link": "Se reemplaza por un enlace",
-  "instructions.plan.switch": "Cambia de {other} a {name}",
   "instructions.plan.held": "Se omite: usa {other} mediante un enlace o una copia",
   "instructions.plan.tooLong": "Solo lee los primeros {max} caracteres",
   "instructions.plan.importKeep": "Quita la línea de import de {name}; {others} se mantienen",

@@ -59,7 +59,8 @@ export function BoxHeader<V extends string>({ content, view, views, onChange, ch
       <span className="flex-1 text-[12.5px] text-ink-2">
         {content === undefined ? '…' : t(lineCount(content) === 1 ? 'instructions.preview.stats.one' : 'instructions.preview.stats.other', { lines: lineCount(content), size: formatSize(new TextEncoder().encode(content).length) })}
       </span>
-      <ViewTabs view={view} views={views} onChange={onChange} className="mr-2 self-end" />
+      {/* Shorter tabs, centred, so the underline sits clear of the strip's divider. */}
+      <ViewTabs view={view} views={views} onChange={onChange} className="mr-2 [&>button]:mb-0 [&>button]:h-7" />
       {children}
     </div>
   );

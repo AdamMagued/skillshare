@@ -1199,7 +1199,6 @@
   "instructions.switchFrom.confirm": "Zu {name} wechseln",
   "instructions.plan.import": "Fügt eine Import-Zeile hinzu",
   "instructions.plan.link": "Durch einen Link ersetzt",
-  "instructions.plan.switch": "Wechselt von {other} zu {name}",
   "instructions.plan.held": "Übersprungen: nutzt {other} über einen Link oder eine Kopie",
   "instructions.plan.tooLong": "Liest nur die ersten {max} Zeichen",
   "instructions.plan.importKeep": "Entfernt die Import-Zeile von {name}; {others} bleiben",

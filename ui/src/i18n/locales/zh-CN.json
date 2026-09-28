@@ -1199,7 +1199,6 @@
   "instructions.switchFrom.confirm": "改用 {name}",
   "instructions.plan.import": "加一行 import",
   "instructions.plan.link": "用链接替换",
-  "instructions.plan.switch": "从 {other} 换成 {name}",
   "instructions.plan.held": "跳过：通过链接或副本使用 {other}",
   "instructions.plan.tooLong": "只读前 {max} 字",
   "instructions.plan.importKeep": "去掉 {name} 的 import 行，{others} 保留",
