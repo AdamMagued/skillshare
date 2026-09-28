@@ -355,7 +355,11 @@ skillshare 在取代、移除檔案，或更動你寫的內容之前，都會先
 
 還原使用的是接上共用檔案時原本存在的內容，而不是最新的備份。被同步、覆蓋或還原取代的改動，
 會放到另一個 `drift/` 資料夾，也就是 `extras/backups/<id>/drift/`，其中 `<id>` 由 target 檔案的路徑
-推導而來。還原絕不會把這些放回去；如果需要，請手動複製回來。
+推導而來。還原絕不會把這些放回去。
+
+若要查看或放回這些版本，請在 dashboard 開啟 **設定 › 備份 › 檔案**，
+或使用 [`skillshare backup files`](../../reference/commands/backup.md#file-history)。
+每個版本都會顯示保存的原因，例如轉換成 `AGENTS.md` 或 **覆蓋**，而 **預覽並還原** 會先與目前的檔案比較。
 
 關於共用檔案背後的設定，以及也能處理它們的 CLI 指令，請參閱
 [單一檔案 extra](../../reference/commands/extras.md#single-file-extras)。

@@ -363,7 +363,12 @@ macOS 和 Linux 上位于 `~/.local/state/skillshare/extras/backups/`（设置�
 
 还原使用的是接上共享文件时原本存在的内容，而不是最新的备份。被同步、覆盖或还原替换
 掉的修改会进入单独的 `drift/` 文件夹，即 `extras/backups/<id>/drift/`，其中 `<id>` 由
-target 文件的路径推导而来。还原从不会把这些放回去；如有需要，请手动复制回来。
+target 文件的路径推导而来。还原从不会把这些放回去。
+
+要查看或放回任何一个版本，请在 dashboard 中打开 **设置 › 备份 › 文件**，或使用
+[`skillshare backup files`](../../reference/commands/backup.md#file-history)。
+每个版本都会显示保存的原因，例如转换为 `AGENTS.md` 或覆盖，而 **预览并还原**
+会先把它与当前文件进行比较。
 
 关于共享文件背后的配置，以及同样能处理它们的 CLI 命令，请参见
 [单文件 extras](../../reference/commands/extras.md#single-file-extras)。

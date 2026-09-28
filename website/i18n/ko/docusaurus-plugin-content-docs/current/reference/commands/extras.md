@@ -487,7 +487,8 @@ extras:
 백업은 skillshare의 state 디렉터리(macOS와 Linux에서는
 `~/.local/state/skillshare/extras/backups/`)에 파일당 최근 10개까지 보관됩니다.
 drift 백업은 그 안의 `extras/backups/<id>/drift/`에 저장되며, `<id>`는 target 파일
-경로에서 만들어집니다. 복원에는 절대 사용되지 않습니다.
+경로에서 만들어집니다. 복원에는 절대 사용되지 않습니다. 저장된 버전을 조회하거나
+복원하려면 [`backup files`](./backup.md#file-history)를 사용하세요.
 
 ---
 

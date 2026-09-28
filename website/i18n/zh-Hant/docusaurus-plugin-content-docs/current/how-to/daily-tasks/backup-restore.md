@@ -175,6 +175,18 @@ skillshare restore agents claude --from 2026-01-19_10-00-00
 
 在 Project mode 中，只有 agents 可以備份或還原 — `skillshare backup -p agents` 可以正常執行，但單純的 `skillshare backup -p` 會回傳錯誤。Project mode 的規則請參閱 [backup](/docs/reference/commands/backup#agent-backup)。
 
+### 取回檔案的較早版本
+
+skillshare 也會保留它改寫的單一檔案的較早版本，例如 `AGENTS.md`、`CLAUDE.md` 以及共用檔案的各個位置：
+
+```bash
+skillshare backup files                               # 有保存版本的檔案
+skillshare backup files show ~/.claude/CLAUDE.md      # 選一個版本 ID
+skillshare backup files restore ~/.claude/CLAUDE.md <id>
+```
+
+Dashboard 的 **設定 › 備份 › 檔案** 也提供相同功能，並會在還原前顯示差異。參見[檔案歷史](/docs/reference/commands/backup#file-history)。
+
 ---
 
 ## 最佳實務

@@ -421,7 +421,12 @@ versions of each file are kept in skillshare's state directory, under
 Restore uses what was there when the shared file was attached, not the newest
 backup. Edits that Sync, Overwrite or Restore replace go to a separate `drift/`
 folder, `extras/backups/<id>/drift/`, where `<id>` is derived from the target
-file's path. Restore never puts those back; copy one back by hand if you need it.
+file's path. Restore never puts those back.
+
+To see or put back any of these versions, open **Settings › Backup › Files** in the
+dashboard, or use [`skillshare backup files`](../../reference/commands/backup.md#file-history).
+Each version shows why it was saved, such as converting to `AGENTS.md` or an
+Overwrite, and **Preview and restore** compares it with the current file first.
 
 For the configuration behind shared files and the CLI commands that also handle
 them, see [single-file extras](../../reference/commands/extras.md#single-file-extras).

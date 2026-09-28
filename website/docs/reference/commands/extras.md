@@ -493,7 +493,8 @@ Rules:
 Backups are kept in skillshare's state directory
 (`~/.local/state/skillshare/extras/backups/` on macOS and Linux), the last 10 per
 file. Drift backups go to `extras/backups/<id>/drift/` there, where `<id>` is derived
-from the target file's path; restore never uses them.
+from the target file's path; restore never uses them. To list or restore any saved
+version, use [`backup files`](./backup.md#file-history).
 
 ---
 

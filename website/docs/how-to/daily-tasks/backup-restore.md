@@ -175,6 +175,18 @@ skillshare restore agents claude --from 2026-01-19_10-00-00
 
 In project mode, only agents can be backed up or restored — `skillshare backup -p agents` works, but plain `skillshare backup -p` errors. See [backup](/docs/reference/commands/backup#agent-backup) for the project-mode rule.
 
+### Get back an earlier version of a file
+
+skillshare also keeps earlier versions of single files it rewrites, such as `AGENTS.md`, `CLAUDE.md` and the locations of shared files:
+
+```bash
+skillshare backup files                               # Files with saved versions
+skillshare backup files show ~/.claude/CLAUDE.md      # Pick a version ID
+skillshare backup files restore ~/.claude/CLAUDE.md <id>
+```
+
+The dashboard has the same under **Settings › Backup › Files**, with a diff before restoring. See [File History](/docs/reference/commands/backup#file-history).
+
 ---
 
 ## Best Practices

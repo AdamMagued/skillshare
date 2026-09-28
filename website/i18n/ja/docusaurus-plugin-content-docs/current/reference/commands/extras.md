@@ -468,7 +468,8 @@ Claude Code のように `@` import に従うツールでのみ使ってくだ�
 バックアップは skillshare の state ディレクトリ（macOS と Linux では
 `~/.local/state/skillshare/extras/backups/`）に、ファイルごとに最新 10 件まで保存されます。
 drift バックアップはその中の `extras/backups/<id>/drift/` に保存されます。`<id>` は Target の
-ファイルのパスから導出されます。復元でこれらが使われることはありません。
+ファイルのパスから導出されます。復元でこれらが使われることはありません。保存された任意のバージョンを
+一覧表示または復元するには、[`backup files`](./backup.md#file-history) を使います。
 
 ---
 

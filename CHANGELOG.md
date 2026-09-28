@@ -16,6 +16,17 @@
 - **Preview everywhere, and Cmd/Ctrl+S on the target page** — every box that shows an AGENTS.md has **Preview** and **Source** (or **Edit**) tabs, long lines wrap, and the shared file's card opens in **Preview**. The target page editor saves with Cmd/Ctrl+S and asks before you leave with unsaved edits.
 - **Update progress** — the **Updates** tab on **Skills** and **Agents** shows a progress bar, marks the row being updated, and moves blocked or failed updates into their own section with a one-line reason.
 
+#### Backups
+
+- **Manage every backup from Settings → Backup** — the tab now has three sections. **Target folders** lists snapshots with a filter by target or agents, and can delete one. **Files** lists each AGENTS.md, CLAUDE.md or shared-file location skillshare backed up before rewriting it, with each version's reason (converted, `@AGENTS.md` added, edited, collected, overwritten…), a diff preview, and restore. **MCP** lists MCP config backups by agent and what each changed. The tab now appears in project mode too, scoped to the project. Refs: #299.
+  ```bash
+  skillshare backup files                      # files with backups
+  skillshare backup files show ~/.claude/CLAUDE.md
+  skillshare backup files restore ~/.claude/CLAUDE.md <id>
+  skillshare backup --delete 2026-09-28_10-52-00
+  ```
+  `skillshare backup files` is now a subcommand; to back up a target named `files`, use `skillshare backup -t files`.
+
 #### Extras
 
 - **Attach a single-file extra under another name** — `--add-target` takes `--as` to pick the file name in the target folder, such as `instructions.md` in a notes folder. `skillshare extras <name> --help` now prints that extra's options.
@@ -40,6 +51,7 @@
 
 #### Dashboard
 
+- **Agents backups can be restored from the dashboard** — restoring a `<target>-agents` snapshot failed with "target not found".
 - **Messages about shared AGENTS.md files are translated** — warnings and errors from mode changes, connecting, moving and restoring used to appear in English in every language.
 
 #### CLI

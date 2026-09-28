@@ -464,7 +464,8 @@ extras:
 
 備份保存在 skillshare 的 state 目錄中（macOS 與 Linux 上為 `~/.local/state/skillshare/extras/backups/`），
 每個檔案保留最近 10 份。Drift backup 放在其中的 `extras/backups/<id>/drift/`，`<id>` 由 target 檔案的
-路徑推導而來；還原時絕不會使用它們。
+路徑推導而來；還原時絕不會使用它們。若要列出或還原任何保存的版本，請使用
+[`backup files`](./backup.md#file-history)。
 
 ---
 

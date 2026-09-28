@@ -396,8 +396,12 @@ skillshare의 state 디렉터리, 즉 macOS와 Linux에서는
 
 복원은 가장 최근 백업이 아니라 공유 파일을 연결할 때 있던 것을 사용합니다. 동기화, 덮어쓰기,
 복원이 교체한 편집 내용은 별도의 `drift/` 폴더인 `extras/backups/<id>/drift/`에
-저장되며, `<id>`는 target 파일 경로에서 만들어집니다. 복원은 이것을 되돌리지 않으므로,
-필요하면 직접 복사해 오세요.
+저장되며, `<id>`는 target 파일 경로에서 만들어집니다. 복원은 이것을 되돌리지 않습니다.
+
+이 버전들을 보거나 되돌리려면 대시보드에서 **설정 › 백업 › 파일**을 열거나
+[`skillshare backup files`](../../reference/commands/backup.md#file-history)를 사용하세요.
+각 버전에는 `AGENTS.md`로 변환하거나 덮어쓰기를 한 것처럼 저장된 이유가 표시되며,
+**미리 보고 복원**은 먼저 현재 파일과 비교해 보여 줍니다.
 
 공유 파일의 설정과 이를 다루는 CLI 명령은
 [single-file extras](../../reference/commands/extras.md#single-file-extras)를 참고하세요.
