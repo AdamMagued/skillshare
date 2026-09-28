@@ -40,6 +40,7 @@
 
 - **AGENTS.md no longer shows up as a folder** — single files were linked with directory junctions, which tools read as a folder. Files are now linked with file symlinks, and when Windows can't create them (Developer Mode off and not an administrator), skillshare writes copies and keeps them up to date instead. The dashboard marks `symlink` as unavailable and explains why. Refs: #299.
 - **Junctions are recognized as links again** — since Go 1.23, a junction is no longer reported as a symlink, so skills synced as junctions could be reported as local folders by `status`, `doctor`, `sync` and the dashboard.
+- **The AGENTS.md tab shows the file name on Windows** — a target's instructions tab was labeled with the whole Windows path instead of its file name, such as `CLAUDE.md`.
 
 #### Extras
 
@@ -53,6 +54,7 @@
 
 - **Agents backups can be restored from the dashboard** — restoring a `<target>-agents` snapshot failed with "target not found".
 - **Messages about shared AGENTS.md files are translated** — warnings and errors from mode changes, connecting, moving and restoring used to appear in English in every language.
+- **Empty rules folders are left out of the read order** — a target's AGENTS.md tab listed `~/.claude/rules/` even when it held no rule files.
 
 #### CLI
 
