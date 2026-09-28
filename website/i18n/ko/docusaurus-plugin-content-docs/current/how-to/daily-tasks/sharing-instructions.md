@@ -288,8 +288,7 @@ target 아래의 **다른 위치**에는 공유 파일이 쓰이는 곳 중 목�
 목록에서 뺍니다. `modified`인 위치에는 target 행과 같은 두 버튼이 있어 편집 내용을 가져오거나 덮어쓸 수
 있습니다([아래 참고](#when-a-linked-file-is-edited)).
 
-프로젝트에서는 **Extras** 페이지에 단일 파일 extras도 표시됩니다. 그 **대상 추가** 행에는 확장자 대신
-**파일 이름** 필드가 있으며, `--as`와 같은 역할을 합니다.
+프로젝트에서도 위치는 같은 방식으로 동작합니다. [프로젝트의 공유 파일](#shared-files-in-a-project)을 참고하세요.
 
 ## 링크된 파일이 편집되었을 때 {#when-a-linked-file-is-edited}
 
@@ -370,6 +369,22 @@ target 탭은 프로젝트에서도 동작합니다. 이때 읽는 순서에는 
 **변환…** 은 claude에 대해 **CLAUDE.md 이름을 AGENTS.md로 변경**도 제공합니다.
 
 project mode의 import는 target 파일 기준 상대 경로를 사용하므로 repository를 이동해도 유지됩니다.
+
+### 프로젝트의 공유 파일 {#shared-files-in-a-project}
+
+같은 파일을 repository 안의 여러 곳(`./.gemini/GEMINI.md`와 `./docs/ai/instructions.md` 등)에 두려면
+탭 아래쪽의 **공유 파일**을 사용하세요. 공유 파일은 단일 파일 extra로, 하나뿐인 사본이
+`.skillshare/extras/<name>/`에 있고 프로젝트와 함께 commit됩니다. **새 공유 파일**로 만들며, 각 카드에는
+그 위치가 [다른 위치](#other-locations)와 같은 **위치 추가**, 모드 선택, 상태, **제거**와 함께 표시됩니다.
+프로젝트에서 다른 점:
+
+- **폴더**는 프로젝트 루트 기준 상대 경로입니다. 루트 자체는 `.`을 쓰세요. `../notes`나 `~/notes`처럼
+  프로젝트 밖의 경로는 거부됩니다.
+- 도구 자체의 파일도 쓸 수 있습니다. 예를 들어 `./CLAUDE.md`를 `import`로 쓸 수 있습니다.
+- 링크와 import는 상대 경로를 사용하므로 repository를 clone해도 계속 동작합니다.
+
+단일 파일 extras는 여기에만 표시되고 **폴더** 탭에는 표시되지 않습니다. 카드 메뉴의 **삭제**는 먼저 모든
+위치를 복원한 다음 config에서 extra를 제거하며, `.skillshare/extras/`의 파일은 유지됩니다.
 
 ## 백업 {#backups}
 

@@ -264,8 +264,7 @@ Developer Mode 的 Windows 上则为 `copy`。使用多份共享文件的 target
 [还原预览](#restore-and-delete)；**移除并还原** 会放回文件原来的内容，并把该位置从列表中移除。
 `modified` 的位置和 target 行一样有两个按钮，可以收回修改或覆盖它（[见下文](#when-a-linked-file-is-edited)）。
 
-在项目中，**Extras** 页面也会列出单文件 extras。它们的 **添加目标** 行用 **文件名** 字段代替扩展名，
-作用等同 `--as`。
+在项目中，位置的工作方式相同；请参阅[项目中的共享文件](#shared-files-in-a-project)。
 
 ## 当链接的文件被编辑时 {#when-a-linked-file-is-edited}
 
@@ -339,6 +338,21 @@ target 标签页在项目中同样可用。此时读取顺序显示的是项目�
 提供 **重命名**。
 
 project mode 的 import 使用相对于 target 文件的路径，因此移动 repository 后仍可使用。
+
+### 项目中的共享文件 {#shared-files-in-a-project}
+
+要把同一份文件放到 repository 中的多个位置，例如 `./.gemini/GEMINI.md` 和 `./docs/ai/instructions.md`，
+请使用标签页底部的 **共享文件**。共享文件是单文件 extra：它唯一的一份存放在 `.skillshare/extras/<name>/`，
+并随项目一起 commit。**新建共享文件** 会创建它，每张卡片列出它的位置，并提供与
+[其他位置](#other-locations)相同的 **添加位置**、模式选择器、状态和 **移除**。在项目中的区别：
+
+- **文件夹** 是相对于项目根目录的路径；根目录本身用 `.`。项目之外的路径，例如 `../notes` 或 `~/notes`，
+  会被拒绝。
+- 可以使用工具自己的文件，例如以 `import` 方式使用 `./CLAUDE.md`。
+- 链接和 import 使用相对路径，因此 clone 下来的 repository 仍可正常使用。
+
+单文件 extras 只会出现在这里，不会出现在 **文件夹** 标签页。卡片菜单中的 **删除** 会先还原所有位置，
+再将该 extra 从配置中移除；`.skillshare/extras/` 中的文件会保留。
 
 ## 备份 {#backups}
 

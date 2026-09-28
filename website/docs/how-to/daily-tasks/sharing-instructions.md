@@ -306,8 +306,8 @@ held before and takes the location off the list. A `modified` location has the s
 two buttons as a target row, to collect the edit or overwrite it
 ([see below](#when-a-linked-file-is-edited)).
 
-In a project, the **Extras** page lists single-file extras too. Their **Add target**
-row has a **File name** field in place of the extension, the same as `--as`.
+In a project, locations work the same way; see
+[Shared files in a project](#shared-files-in-a-project).
 
 ## When a linked file is edited
 
@@ -390,6 +390,25 @@ The target tabs work in projects too. There the read order shows the project fil
 and **Convert…** also offers **Rename** for claude.
 
 Project-mode imports use paths relative to the target file, so moving the repository keeps the imports working.
+
+### Shared files in a project
+
+To put the same file in several places in the repository, such as `./.gemini/GEMINI.md`
+and `./docs/ai/instructions.md`, use **Shared files** at the bottom of the tab. A
+shared file is a single-file extra: its one copy lives in
+`.skillshare/extras/<name>/` and is committed with the project. **New shared file**
+creates it, and each card lists its locations with the same **Add location**, mode
+picker, status and **Remove** as [Other locations](#other-locations). Differences in a
+project:
+
+- **Folder** is relative to the project root; use `.` for the root itself. A path
+  outside the project, such as `../notes` or `~/notes`, is refused.
+- A tool's own file is allowed, for example `./CLAUDE.md` with `import`.
+- Links and imports use relative paths, so a clone of the repository keeps them working.
+
+Single-file extras appear only here, not in the **Folders** tab. **Delete** in the
+card's menu first restores every location, then removes the extra from the config;
+the file in `.skillshare/extras/` is kept.
 
 ## Backups
 

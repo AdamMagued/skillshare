@@ -259,8 +259,7 @@ target，並警告哪些 target 只會讀取長檔案的一部分。按 ⌘S（C
 [還原預覽](#restore-and-delete)；**移除並還原** 會放回檔案原本的內容，並把該位置從清單移除。
 `modified` 的位置和 target 列一樣有兩個按鈕，可以收回修改或覆蓋它（[見下方](#when-a-linked-file-is-edited)）。
 
-在專案中，**Extras** 頁面也會列出單一檔案 extras。它們的 **新增目標** 列會以 **檔名** 欄位取代副檔名，
-作用等同 `--as`。
+在專案中，位置的運作方式相同；請見[專案中的共用檔案](#shared-files-in-a-project)。
 
 ## 已連結的檔案被修改時 {#when-a-linked-file-is-edited}
 
@@ -331,6 +330,21 @@ Target 分頁在專案中同樣可用。在那裡，讀取順序會顯示專案�
 **改名** 的做法。
 
 project mode 的 import 使用相對於 target 檔案的路徑，因此移動 repository 後仍可使用。
+
+### 專案中的共用檔案 {#shared-files-in-a-project}
+
+要把同一份檔案放到 repository 裡的多個地方，例如 `./.gemini/GEMINI.md` 和 `./docs/ai/instructions.md`，
+請使用分頁底部的 **共用檔**。共用檔案是單一檔案 extra：它唯一的一份放在 `.skillshare/extras/<name>/`，
+並跟著專案一起 commit。**新增共用檔** 會建立它，每張卡片列出它的位置，並提供和
+[其他位置](#other-locations)相同的 **新增位置**、模式選單、狀態與 **移除**。在專案中的差異：
+
+- **資料夾** 是相對於專案根目錄的路徑；根目錄本身用 `.`。專案以外的路徑，例如 `../notes` 或 `~/notes`，
+  會被拒絕。
+- 可以使用工具自己的檔案，例如以 `import` 方式使用 `./CLAUDE.md`。
+- 連結和 import 使用相對路徑，因此 clone 下來的 repository 仍可正常使用。
+
+單一檔案 extras 只會出現在這裡，不會出現在 **目錄** 分頁。卡片選單中的 **刪除** 會先還原所有位置，
+再把這個 extra 從設定中移除；`.skillshare/extras/` 中的檔案會保留。
 
 ## 備份 {#backups}
 
