@@ -44,10 +44,10 @@ Checking environment
 Checking targets
 claude
   skills   [merge] merged (8 shared, 2 local)
-  agents   [merge] merged (8/8 linked)
+  agents   [merge] synced (8/8 linked)
 cursor
   skills   [copy] copied (8 managed, 0 local)
-  agents   [merge] merged (8/8 linked)
+  agents   [merge] synced (8/8 linked)
 codex
   skills   [merge] needs sync
 
@@ -80,7 +80,7 @@ Summary
 
 每个 target 都会显示 **skills** 和 **agents** 的子项（当配置了 agents 时）：
 - Skills：路径、同步模式、同步状态、共享/本地计数
-- Agents：已链接数量、drift 检测
+- Agents：同步模式、已链接数量、drift 检测。在未开启 Developer Mode 的 Windows 上，`merge` 会显示为 `[copy]`，且已是最新的副本会计为 linked
 - 没有损坏的 symlinks
 - 针对意外本地冲突的重复 skill 检查：
   - `merge` 模式：跳过（本地 skills 是预期存在的）
@@ -207,10 +207,12 @@ skillshare new my-skill  # Creates proper structure
 
 ### "Link not supported"
 
-在未开启 Developer Mode 的 Windows 上：
+`doctor` 会在系统临时目录（Windows 上是 `%TEMP%`，其他系统是 `$TMPDIR` 或 `/tmp`）中链接一个测试文件夹。在 Windows 上这个链接是 NTFS junction，既不需要管理员权限，也不需要 Developer Mode，所以开启 Developer Mode 无法解决这个错误。消息中的 `junction error:` 一行会显示 Windows 拒绝的原因。请确认临时目录：
 
-1. 在 Settings 中启用 Developer Mode
-2. 或以管理员身份运行
+1. 位于本地 NTFS 磁盘，而不是 FAT32、exFAT 或网络共享（junction 只能在 NTFS 上使用）
+2. 当前账户有写入权限，且没有被杀毒或安全软件拦截
+
+这项检查不会测试文件链接。没有 Developer Mode 时，会链接单个文件的 agents 和 extras 会改为复制；请参阅 [Windows 故障排除](../../troubleshooting/windows.md#file-links-need-windows-developer-mode-copying-instead)。
 
 ## 带有问题的示例输出
 
@@ -229,7 +231,7 @@ Checking environment
 Checking targets
 claude
   skills   [merge] merged (8 shared, 2 local)
-  agents   [merge] merged (8/8 linked)
+  agents   [merge] synced (8/8 linked)
 cursor
   skills   [merge] 2 broken symlink(s): old-skill, removed-skill
 codex

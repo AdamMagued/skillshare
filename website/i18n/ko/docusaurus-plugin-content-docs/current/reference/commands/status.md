@@ -87,8 +87,9 @@ claude
 - **Shared/local 개수**: merge와 copy mode에서는 해당 target의 expected set(`include`/`exclude` filter 적용 후)을 기준으로 개수를 계산합니다. copy mode는 "shared" 대신 "managed"를 표시합니다.
 
 **agents 하위 항목**은 다음을 표시합니다.
-- **Status**: `synced` 또는 `drift`
-- **Linked 개수**: 예) `8/8 linked`
+- **Sync mode**: agents가 실제로 sync되는 mode. Developer Mode가 없는 Windows에서는 agent 파일을 링크하지 않고 복사하므로 `merge`가 `[copy]`로 표시됩니다
+- **Status**: `merged`, `copied`, `linked`, 또는 `drift`
+- **Linked 개수**: 예) `8/8 linked` (최신 상태의 복사본도 linked로 집계)
 
 agent source가 존재하지 않거나 target에 agent path가 구성되어 있지 않으면 agents 하위 항목은 생략됩니다.
 
@@ -111,7 +112,7 @@ rules        has files  [merge] .cursor/rules (4 files)
 commands     has files  [merge] .claude/commands (3 files)
 ```
 
-각 항목은 이름, 상태, sync mode, target 경로, file 개수를 표시합니다.
+각 항목은 이름, 상태, sync mode, target 경로, file 개수를 표시합니다. sync mode는 파일이 실제로 sync되는 mode입니다. Developer Mode가 없는 Windows에서는 파일을 링크하는 target이 `[copy]`로 표시됩니다.
 
 ### Audit
 

@@ -17,17 +17,22 @@ Gemini CLI는 `GEMINI.md`를, Codex와 대부분의 다른 도구는 `AGENTS.md`
 
 **대상**에서 target을 여세요. 페이지에는 그 target이 읽는 파일 이름을 딴 탭이 있습니다.
 claude는 **CLAUDE.md**, gemini는 **GEMINI.md**, codex는 **AGENTS.md**입니다.
-탭에는 다음이 표시됩니다:
+탭에는 위에서부터 다음이 표시됩니다:
 
-- **읽는 순서**: 도구가 불러오는 파일을 불러오는 순서대로 번호를 매겨 보여 주며,
-  `loaded`, `skipped`, `missing`으로 표시합니다. claude의 경우 `~/.claude/rules/`의
-  Markdown 파일과, claude가 사용자 레벨 `AGENTS.md`를 읽지 않는다는 `AGENTS.md` 행도
-  포함됩니다.
-- 파일 편집기. **저장**은 먼저 현재 파일을 백업하며, 파일이 아직 없으면 새로 만듭니다.
-- 경고. `@`로 시작하는 줄은 import이며, 이를 펼치는 도구는 일부뿐입니다. 다른 도구는
-  일반 텍스트로 읽습니다. Windsurf는 전역 rules 파일의 처음 6,000자만 읽습니다.
-- **공유 AGENTS.md**(global 모드): 이 target이 사용하는 공유 파일과, 공유 파일을
-  선택하는 링크.
+- 파일 경로와 크기, 그리고 **위치 변경**([아래 참고](#change-which-file-a-target-reads)),
+  **변환…**, **저장**.
+- **읽는 순서** 한 줄: 도구가 불러오는 파일을 불러오는 순서대로 보여 주며, 각 파일이
+  불러와졌는지 표시합니다(마우스를 올리면 `loaded`, `skipped`, `missing`이 보입니다).
+  claude의 경우 `~/.claude/rules/`의 Markdown 파일과, claude가 사용자 레벨 `AGENTS.md`를
+  읽지 않는다는 안내도 포함됩니다. global 모드에서는 같은 줄 끝에 **공유 AGENTS.md**가
+  있으며, 이 target이 사용하는 공유 파일과 공유 파일을 선택하는 링크가 표시됩니다.
+- **편집**과 **미리 보기** 탭이 있는 파일 편집기. **미리 보기**는 저장하지 않은 편집을 포함해
+  Markdown을 렌더링합니다. 긴 줄은 줄바꿈됩니다. **저장**은 먼저 현재 파일을 백업하며, 파일이
+  아직 없으면 새로 만듭니다.
+  `@`로 시작하는 줄은 import이며, 이를 펼치는 도구는 일부뿐입니다. 다른 도구는 일반
+  텍스트로 읽습니다. 편집기는 이런 줄에 색을 입히고, 어떤 도구가 펼치는지 짧은 안내를
+  덧붙입니다.
+- 경고. Windsurf는 전역 rules 파일의 처음 6,000자만 읽습니다.
 
 파일이 공유 `AGENTS.md`에 대한 링크이면 편집기는 읽기 전용입니다. 여기서 편집하면 그
 공유 파일을 쓰는 모든 target이 바뀌므로, 해당 파일의 페이지에서 편집하세요. dotfiles로
@@ -86,8 +91,9 @@ target은 [어떤 파일을 읽는지 skillshare에 알려 주세요](#tools-ski
 `~/.agents/AGENTS.md`가 아니라 자기 지침 파일을 읽습니다. 예를 들어 Codex는 `~/.codex/AGENTS.md`,
 Gemini CLI는 `~/.gemini/GEMINI.md`를 읽습니다.
 
-global 모드에서는 universal의 **AGENTS.md** 탭 편집기 위에 드롭다운이 있으며, 설치된 이런 도구가
-표시됩니다. skillshare는 `~/.codex`나 `~/.gemini` 같은 폴더가 있는지로 판단합니다. 하나를 고르면 그
+global 모드에서는 universal의 **AGENTS.md** 탭 왼쪽에 관리하는 파일 목록이 표시됩니다. universal
+자체 파일이 먼저 오고, 그다음 설치된 이런 도구가 나옵니다. skillshare는 `~/.codex`나 `~/.gemini`
+같은 폴더가 있는지로 판단합니다. 각 행에는 파일이 이미 있는지가 표시됩니다. 하나를 고르면 그
 도구의 파일을 보고 편집할 수 있으며, 선택은 URL에 `?tool=<name>`으로 남습니다. **Extras**의 공유
 AGENTS.md 목록에도 나타나므로 공유 파일을 연결할 수도 있습니다. 이 값을 저장할 target 설정이 없으므로
 파일 위치는 바꿀 수 없습니다. 목록에 없는 도구는 별도의 target으로 추가할 수 있습니다.
@@ -116,8 +122,8 @@ target 탭에서 **변환…** 을 클릭하면 그 내용을 다른 도구도 �
 global 모드에서는 첫 번째 방법에 **다른 대상도 쓸 수 있는 공유 AGENTS.md로 만들기**
 옵션도 있으며, 기본으로 켜져 있습니다:
 
-- **새로 만들기…**: 새 공유 `AGENTS.md`의 이름을 정합니다. 내용이 그리로 옮겨지고
-  `CLAUDE.md`가 그것을 가져옵니다.
+- **새로 만들기…**: 새 공유 `AGENTS.md`의 이름을 정합니다. 이름은 처음에 `claude`처럼 target의
+  이름으로 채워져 있습니다. 내용이 그리로 옮겨지고 `CLAUDE.md`가 그것을 가져옵니다.
 - 기존 공유 파일: 내용이 그 파일의 끝에 추가되고, `CLAUDE.md`가 그것을 가져옵니다.
 
 공유를 끄면 내용은 `~/.claude/AGENTS.md`로 가고 `CLAUDE.md`에 `@AGENTS.md` 줄이
@@ -152,7 +158,8 @@ target이 공유 파일을 쓰는 방식은 `@` import를 따르는지에 따라
   ```
 
 - **그 밖의 target**(codex, gemini 등)은 공유 파일 하나를 씁니다. 기존 파일은 백업된 뒤
-  공유 파일에 대한 링크(symlink)로 교체됩니다.
+  공유 파일에 대한 링크(symlink)로 교체됩니다. Developer Mode가 없는 Windows에서는
+  파일 링크를 쓸 수 없으므로 대신 복사본으로 교체됩니다.
 
 탭 왼쪽에는 공유 파일 목록이 있고, 각 파일에 연결된 target이 함께 표시됩니다. 하나를
 클릭하면 오른쪽에 그 파일의 경로, 내용 미리보기, 스위치가 달린 모든 target이 표시됩니다.
@@ -162,8 +169,8 @@ target이 공유 파일을 쓰는 방식은 `@` import를 따르는지에 따라
 - target의 스위치를 켜면 연결됩니다. import target은 import 줄이 하나 더 추가되고 다른
   공유 파일은 그대로 유지됩니다. 이미 다른 공유 파일을 쓰는 target은 하나만 쓸 수 있으므로
   먼저 확인을 요청합니다.
-- 스위치를 끄면 target을 [복원](#restore-and-delete)합니다. 먼저 확인을 요청합니다. import
-  target은 이 파일의 import 줄만 제거되고 다른 공유 파일은 유지됩니다.
+- 스위치를 끄면 target을 [복원](#restore-and-delete)합니다. 먼저 결과 미리보기를
+  보여 줍니다. import target은 이 파일의 import 줄만 제거되고 다른 공유 파일은 유지됩니다.
 - **모두 연결**과 **모두 복원**은 실행하기 전에 바뀌는 target을 모두 나열하고, 각각 어떻게
   되는지 안내합니다. 일부 target만 바꾸려면 행을 체크하고 선택 막대의 **연결** 또는
   **복원**을 사용하세요.
@@ -178,11 +185,28 @@ target이 공유 파일을 쓰는 방식은 `@` import를 따르는지에 따라
 
 ## 공유 파일 하나 관리하기 {#manage-one-shared-file}
 
-연결된 각 target에는 mode(`import` 또는 `symlink`)와 상태가 표시됩니다:
+연결된 각 target에는 mode 선택기와 상태가 표시됩니다. mode는 target이 공유 파일을
+받는 방식을 정합니다:
+
+| Mode | target 파일 | 사용 가능 |
+|------|-------------|-----------|
+| `import` | 사용자 자신의 파일이며, 관리 블록 안에 `@import` 줄이 하나 있음. 공유 파일의 변경이 바로 반영됨 | `@` import를 따르는 target |
+| `symlink` | 공유 파일에 대한 링크. 변경이 바로 반영됨 | Developer Mode가 없는 Windows에서는 불가 |
+| `copy` | 공유 파일의 복사본. 공유 파일을 바꾼 뒤 다시 sync해야 함 | 항상 |
+
+선택기는 기본값을 표시합니다. `@` import를 따르는 target은 `import`, 그 밖에는
+`symlink`이며, Developer Mode가 없는 Windows에서는 `copy`입니다. 공유 파일을 둘 이상 쓰는
+target은 `import`만 쓸 수 있습니다. mode를 바꾸면 target이 바로 sync됩니다. `import`로
+되돌리면 공유 파일을 연결하기 전의 사용자 내용과 import 블록이 함께 돌아옵니다.
+
+Windows에서 파일이 폴더로 만들어진 링크인 target에는 도구가 읽을 수 없다는 경고가
+표시됩니다. `copy`로 전환하거나 `skillshare sync extras`를 실행하면 해결됩니다.
+[Windows 문제 해결](../../troubleshooting/windows.md#agent-files-or-agentsmd-show-a-folder-icon-and-cant-be-read)을
+참고하세요.
 
 | 상태 | 의미 |
 |--------|---------|
-| `synced` (동기화됨) | 링크 또는 import 줄이 제자리에 있음 |
+| `synced` (동기화됨) | 링크, 복사본 또는 import 줄이 제자리에 있음 |
 | `modified` (수정됨) | 링크가 내용이 다른 일반 파일로 바뀜([아래 참고](#when-a-linked-file-is-edited)) |
 | `drift` (차이 있음) | target 파일은 있지만 공유 파일에 연결되어 있지 않거나, import 줄이 더 이상 없음 |
 | `not synced` (동기화되지 않음) | target 파일이 아직 없음 |
@@ -200,7 +224,17 @@ target이 공유 파일을 쓰는 방식은 `@` import를 따르는지에 따라
 ### 복원과 삭제 {#restore-and-delete}
 
 target을 복원하면 공유 파일을 연결하기 전 상태로 돌아갑니다. 원래 있던 파일이나
-symlink가 돌아오고, 원래 없었다면 파일이 제거됩니다. import target의 경우 skillshare의
+symlink가 돌아오고, 원래 없었다면 파일이 제거됩니다.
+
+target의 스위치를 끄면 먼저 복원 결과를 보여 줍니다:
+
+- 기본적으로 복원 후 파일이 갖게 될 내용을 보여 주며, 지금 파일과의 차이를 보여 주는
+  탭이 있습니다.
+- 원래 파일이 없었다면, 복원하면 파일이 삭제된다는 안내.
+- 원래 파일이 링크였다면, 되돌려 놓을 링크.
+- 연결한 뒤 파일을 편집했다면, 그 편집 내용은 복원되지 않고
+  [drift 백업](#backups)으로 보관된다는 안내.
+import target의 경우 skillshare의
 import 줄만 제거되며, skillshare가 블록만을 위해 만든 `CLAUDE.md`는 비게 되면 제거됩니다.
 공유 파일 자체는 유지됩니다. target이 여전히 `modified`이면, 편집된 파일을 먼저
 [drift 백업](#backups)으로 보관합니다.
@@ -225,6 +259,19 @@ extras 폴더에 남습니다.
 편집 내용은 먼저 drift 백업으로 보관되므로, 공유 파일에 반영하려면 sync 전에
 **공유 파일에 반영**을 선택하세요.
 
+## target이 읽는 파일 바꾸기 {#change-which-file-a-target-reads}
+
+target 탭의 **위치 변경**을 누르면 target이 읽는 경로와 파일 이름을 바꿀 수 있는 대화
+상자가 열립니다. 예를 들어 `~/.claude/CLAUDE.md` 대신 `~/.claude/instructions.md`를
+읽게 할 수 있습니다. 도구가 `@` 줄을 따른다면 **이 도구는 @import를 지원합니다**를
+체크하세요. 이 설정은 target에
+[`instructions`](../../reference/targets/configuration.md#target-instructions)로
+저장됩니다. **기본값으로 되돌리기**는 skillshare가 그 target에 대해 알고 있는 파일로
+돌아갑니다.
+
+target이 공유 파일을 쓰는 동안에는 위치를 변경할 수 없으니, 먼저 자체 파일로 되돌리세요.
+universal의 탭에 나열되는 도구는 target 항목이 없으므로 위치를 바꿀 수 없습니다.
+
 ## skillshare가 모르는 도구 {#tools-skillshare-doesnt-know}
 
 [custom target](../../reference/targets/adding-custom-targets.md)처럼 알려진 지침 파일이
@@ -239,7 +286,7 @@ claude처럼 여러 공유 파일을 동시에 쓸 수 있습니다. 이 설정�
 [`instructions`](../../reference/targets/configuration.md#target-instructions)로
 저장됩니다. 도구를 추가할 때 **대상 추가** → **사용자 지정 대상**에서 바로 입력할 수도 있습니다.
 
-나중에 바꾸려면 읽는 순서 아래의 **변경** 또는 **설정 제거**를 사용하세요. 설정을
+나중에 바꾸려면 **위치 변경**을 사용하세요. 대화 상자에 **설정 제거**도 있습니다. 설정을
 제거해도 파일은 삭제되지 않습니다. target이 공유 파일을 쓰는 동안에는 위치를 변경하거나
 제거할 수 없으니, 먼저 자체 파일로 되돌리세요.
 

@@ -44,10 +44,10 @@ Checking environment
 Checking targets
 claude
   skills   [merge] merged (8 shared, 2 local)
-  agents   [merge] merged (8/8 linked)
+  agents   [merge] synced (8/8 linked)
 cursor
   skills   [copy] copied (8 managed, 0 local)
-  agents   [merge] merged (8/8 linked)
+  agents   [merge] synced (8/8 linked)
 codex
   skills   [merge] needs sync
 
@@ -80,7 +80,7 @@ Summary
 
 Each target shows sub-items for **skills** and **agents** (when agents are configured):
 - Skills: path, sync mode, sync state, shared/local counts
-- Agents: linked count, drift detection
+- Agents: sync mode, linked count, drift detection. On Windows without Developer Mode, `merge` shows as `[copy]` and up-to-date copies count as linked
 - No broken symlinks
 - Duplicate-skill checks for unintended local collisions:
   - `merge` mode: skipped (local skills are expected)
@@ -203,10 +203,12 @@ skillshare new my-skill  # Creates proper structure
 
 ### "Link not supported"
 
-On Windows without Developer Mode:
+`doctor` links a test folder inside the system temp directory (`%TEMP%` on Windows, `$TMPDIR` or `/tmp` elsewhere). On Windows that link is an NTFS junction, which needs neither Administrator nor Developer Mode, so turning on Developer Mode does not fix this error. The `junction error:` line in the message shows why Windows refused. Check that the temp directory:
 
-1. Enable Developer Mode in Settings
-2. Or run as Administrator
+1. Is on a local NTFS drive, not FAT32, exFAT, or a network share (junctions only work on NTFS)
+2. Is writable by your account, and not blocked by antivirus or security software
+
+This check does not test file links. Without Developer Mode, agents and extras that link single files are copied instead; see [Windows troubleshooting](../../troubleshooting/windows.md#file-links-need-windows-developer-mode-copying-instead).
 
 ## Example Output with Issues
 
@@ -225,7 +227,7 @@ Checking environment
 Checking targets
 claude
   skills   [merge] merged (8 shared, 2 local)
-  agents   [merge] merged (8/8 linked)
+  agents   [merge] synced (8/8 linked)
 cursor
   skills   [merge] 2 broken symlink(s): old-skill, removed-skill
 codex

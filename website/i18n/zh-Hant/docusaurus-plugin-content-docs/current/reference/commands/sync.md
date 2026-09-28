@@ -518,7 +518,7 @@ skillshare sync agents       # 只同步 agents
 skillshare sync --all        # 同步 skills + agents + extras + MCP
 ```
 
-Agent sync 支援全部三種 modes（merge、copy、symlink），會依照 target 已設定的 mode 進行。只有定義了 `agents` 路徑的 targets 才會收到 agent 同步 — 目前是 Claude、Cursor、OpenCode 與 Augment。完整清單見 [Agents — Supported Targets](/docs/understand/agents#supported-targets)。
+Agent sync 支援全部三種 modes（merge、copy、symlink），會依照 target 已設定的 mode 進行。在沒有開啟開發人員模式的 Windows 上，merge mode 會複製 agent 檔案而不是連結它們，並印出 `! <target>: agents file links need Windows Developer Mode; copying instead`；請參閱 [Windows 疑難排解](/docs/troubleshooting/windows#file-links-need-windows-developer-mode-copying-instead)。只有定義了 `agents` 路徑的 targets 才會收到 agent 同步 — 目前是 Claude、Cursor、OpenCode 與 Augment。完整清單見 [Agents — Supported Targets](/docs/understand/agents#supported-targets)。
 
 孤兒清理、`.agentignore` 篩選，以及 per-target include/exclude filters，運作方式都與 skills 相同。
 
@@ -604,6 +604,8 @@ Source 檔案位於 `extras/` 子目錄下：
 | `symlink` | 整個 source 目錄 symlink 到 target 路徑 |
 
 在 merge mode 中，只有 symlinks 會被清除 — target 上使用者自建的本地檔案會被保留。
+
+在沒有開啟開發人員模式的 Windows 上，merge mode（以及 symlink mode 的[單一檔案 extra](./extras.md#single-file-extras)）會改為複製檔案，將 target 回報為 `(copy)`，並在其下方印出 `file links need Windows Developer Mode; copying instead`。這些副本會像連結一樣被更新與清理，並在檔案連結可用後換成連結。
 
 ### 發生了什麼
 

@@ -87,8 +87,9 @@ claude
 - **Shared/local の件数**: merge および copy mode では、その target の期待セット（`include`/`exclude` フィルター適用後）でカウントされます。Copy mode では "shared" の代わりに "managed" と表示されます。
 
 **Agents サブ項目**が表示するもの:
-- **Status**: `synced` または `drift`
-- **Linked count**: 例 `8/8 linked`
+- **Sync mode**: agents が実際に sync されるモード。Developer Mode がオフの Windows では、agent ファイルはリンクではなくコピーされるため、`merge` が `[copy]` と表示されます
+- **Status**: `merged`、`copied`、`linked`、または `drift`
+- **Linked count**: 例 `8/8 linked`（最新のコピーはリンク済みとして数えられます）
 
 agents source が存在しない、または target に agent path が設定されていない場合、agents サブ項目は省略されます。
 

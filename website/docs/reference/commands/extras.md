@@ -253,6 +253,8 @@ skillshare extras collect rules --force
 | `symlink` | Entire directory symlink |
 | `import` | [Single-file extras](#single-file-extras) only: an `@<source file>` line in the target file |
 
+On Windows without Developer Mode, `merge` copies each file instead of linking it, and `sync` prints `file links need Windows Developer Mode; copying instead`. `extras list` and `status` then show the target as `copy`. The copies are tracked, so later syncs update and prune them, keep your own files, and replace them with links once file links work. See [Windows troubleshooting](/docs/troubleshooting/windows#file-links-need-windows-developer-mode-copying-instead).
+
 When switching modes (e.g., from `merge` to `copy`), the next `sync` automatically replaces existing symlinks with the new mode's format. No `--force` is needed — symlinks are always safe to replace. Regular files created locally require `--force` to overwrite.
 
 ---
@@ -448,7 +450,7 @@ extras:
 
 | Mode | Target file |
 |------|-------------|
-| `merge` (default) or `symlink` | A symlink to the source file |
+| `merge` (default) or `symlink` | A symlink to the source file (a copy on Windows without Developer Mode) |
 | `copy` | A copy of the source file |
 | `import` | Your file, with an `@<source file>` line in a managed block at the top |
 
@@ -467,6 +469,9 @@ Rules:
   file is kept as a drift backup, not as the restore point.
 - `extras list` shows `modified` when a linked target was replaced by a regular file
   with different content.
+- Switching a target from `merge`, `symlink` or `copy` to `import` puts back the
+  content the file had before the first sync (none if it was a link or didn't exist),
+  with the import block added. An edited copy is kept as a drift backup first.
 - `extras remove` and `--remove-target --prune` restore each target file: the link,
   copy or import line goes, and the file or symlink that was there before the first
   sync comes back (or no file, if there was none). A `modified` target is kept as a

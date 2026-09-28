@@ -253,6 +253,8 @@ skillshare extras collect rules --force
 | `symlink` | 整個目錄的 symlink |
 | `import` | 僅限[單一檔案 extra](#single-file-extras)：在 target 檔案中加入一行 `@<source file>` |
 
+在沒有開啟開發人員模式的 Windows 上，`merge` 會改為複製每個檔案，而不是連結它，`sync` 會印出 `file links need Windows Developer Mode; copying instead`。之後 `extras list` 與 `status` 會把該 target 顯示為 `copy`。這些複本會被追蹤，所以之後的 sync 會更新並清理它們、保留你自己的檔案，並在檔案連結可用後換成連結。請參閱 [Windows 疑難排解](/docs/troubleshooting/windows#file-links-need-windows-developer-mode-copying-instead)。
+
 切換模式時（例如從 `merge` 切換到 `copy`），下一次 `sync` 會自動用新模式的格式取代既有的 symlink。不需要 `--force`——symlink 一律可以安全地取代。本機建立的一般檔案則需要 `--force` 才能覆寫。
 
 ---
@@ -431,7 +433,7 @@ extras:
 
 | Mode | Target 檔案 |
 |------|-------------|
-| `merge`（預設）或 `symlink` | 指向 source 檔案的 symlink |
+| `merge`（預設）或 `symlink` | 指向 source 檔案的 symlink（在沒有開啟開發人員模式的 Windows 上為複本） |
 | `copy` | source 檔案的複本 |
 | `import` | 你自己的檔案，頂端的受管理區塊中有一行 `@<source file>` |
 
@@ -447,6 +449,8 @@ extras:
   若擋在路上的是目錄，則會略過。
 - 連結之後被改成 `modified` 的 target 也會被取代；修改過的檔案會保存為 drift backup，而不是還原點。
 - 當已連結的 target 被換成內容不同的一般檔案時，`extras list` 會顯示 `modified`。
+- 把 target 從 `merge`、`symlink` 或 `copy` 切換成 `import` 時，會放回第一次 sync 前檔案的內容
+  （若原本是連結或不存在，就沒有內容），並加上 import 區塊。修改過的複本會先保存為 drift backup。
 - `extras remove` 與 `--remove-target --prune` 會還原每個 target 檔案：移除連結、複本或 import 那一行，
   並放回第一次 sync 前原本的檔案或 symlink（若原本沒有，就不留檔案）。`modified` 的 target
   會先保存為 drift backup。不加 `--prune` 的 `--remove-target` 會保留檔案並忘掉那個還原點，

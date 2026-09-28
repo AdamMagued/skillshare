@@ -44,10 +44,10 @@ Checking environment
 Checking targets
 claude
   skills   [merge] merged (8 shared, 2 local)
-  agents   [merge] merged (8/8 linked)
+  agents   [merge] synced (8/8 linked)
 cursor
   skills   [copy] copied (8 managed, 0 local)
-  agents   [merge] merged (8/8 linked)
+  agents   [merge] synced (8/8 linked)
 codex
   skills   [merge] needs sync
 
@@ -80,7 +80,7 @@ Summary
 
 每個 target 會顯示 **skills** 與 **agents**（若有設定 agents）的子項目：
 - Skills：路徑、同步模式、同步狀態、共用/本機數量
-- Agents：已連結數量、飄移偵測
+- Agents：同步模式、已連結數量、飄移偵測。在沒有開啟開發人員模式的 Windows 上，`merge` 會顯示為 `[copy]`，而最新的副本會算作已連結
 - 沒有損壞的 symlinks
 - 針對非預期本機衝突的重複 skill 檢查：
   - `merge` 模式：跳過（本機 skills 屬於預期情況）
@@ -203,10 +203,12 @@ skillshare new my-skill  # Creates proper structure
 
 ### "Link not supported"
 
-在未啟用開發人員模式的 Windows 上：
+`doctor` 會在系統暫存目錄（Windows 上是 `%TEMP%`，其他系統是 `$TMPDIR` 或 `/tmp`）裡連結一個測試資料夾。在 Windows 上這個連結是 NTFS junction，不需要系統管理員權限，也不需要開發人員模式，所以開啟開發人員模式無法解決這個錯誤。訊息中的 `junction error:` 那一行會顯示 Windows 拒絕的原因。請確認暫存目錄：
 
-1. 在設定中啟用開發人員模式
-2. 或以系統管理員身分執行
+1. 位於本機的 NTFS 磁碟，而不是 FAT32、exFAT 或網路共用資料夾（junction 只能在 NTFS 上使用）
+2. 你的帳號有寫入權限，且沒有被防毒或安全軟體封鎖
+
+這項檢查不會測試檔案連結。沒有開發人員模式時，會連結單一檔案的 agents 與 extras 會改為複製；請參閱 [Windows 疑難排解](../../troubleshooting/windows.md#file-links-need-windows-developer-mode-copying-instead)。
 
 ## 有問題時的範例輸出
 
@@ -225,7 +227,7 @@ Checking environment
 Checking targets
 claude
   skills   [merge] merged (8 shared, 2 local)
-  agents   [merge] merged (8/8 linked)
+  agents   [merge] synced (8/8 linked)
 cursor
   skills   [merge] 2 broken symlink(s): old-skill, removed-skill
 codex

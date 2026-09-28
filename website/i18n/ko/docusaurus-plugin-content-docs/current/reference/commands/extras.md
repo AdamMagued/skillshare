@@ -253,6 +253,8 @@ skillshare extras collect rules --force
 | `symlink` | 디렉터리 전체 symlink |
 | `import` | [single-file extra](#single-file-extras) 전용: target 파일 안의 `@<source file>` 한 줄 |
 
+Developer Mode가 없는 Windows에서는 `merge`가 각 파일을 링크하는 대신 복사하며, `sync`는 `file links need Windows Developer Mode; copying instead`를 출력합니다. 이때 `extras list`와 `status`는 target을 `copy`로 표시합니다. 복사본은 추적되므로 이후 sync가 업데이트하고 정리하며, 사용자 파일은 유지하고, 파일 링크를 쓸 수 있게 되면 링크로 교체합니다. [Windows 문제 해결](/docs/troubleshooting/windows#file-links-need-windows-developer-mode-copying-instead)을 참고하세요.
+
 mode를 전환할 때 (예: `merge`에서 `copy`로), 다음 `sync`는 기존 symlink를 새 mode 형식으로 자동으로 대체합니다. `--force`는 필요하지 않습니다 — symlink는 항상 안전하게 대체됩니다. 로컬에서 생성된 일반 파일을 덮어쓰려면 `--force`가 필요합니다.
 
 ---
@@ -448,7 +450,7 @@ extras:
 
 | Mode | Target 파일 |
 |------|-------------|
-| `merge` (기본값) 또는 `symlink` | source 파일에 대한 symlink |
+| `merge` (기본값) 또는 `symlink` | source 파일에 대한 symlink (Developer Mode가 없는 Windows에서는 복사본) |
 | `copy` | source 파일의 복사본 |
 | `import` | 사용자의 파일 그대로, 맨 위 관리 블록에 `@<source file>` 한 줄 추가 |
 
@@ -467,6 +469,9 @@ extras:
   drift 백업으로 보관됩니다.
 - 링크된 target이 내용이 다른 일반 파일로 바뀌면 `extras list`에 `modified`로
   표시됩니다.
+- target을 `merge`, `symlink`, `copy`에서 `import`로 바꾸면, 첫 sync 전에 파일에 있던
+  내용(링크였거나 파일이 없었다면 내용 없음)이 import 블록과 함께 돌아옵니다. 편집된
+  복사본은 먼저 drift 백업으로 보관됩니다.
 - `extras remove`와 `--remove-target --prune`은 각 target 파일을 복원합니다. 링크,
   복사본 또는 import 줄이 사라지고, 첫 sync 전에 있던 파일이나 symlink가 돌아옵니다
   (원래 없었다면 파일도 없습니다). `modified` target은 먼저 drift 백업으로 보관됩니다.

@@ -15,15 +15,19 @@ dashboard（`skillshare ui`）會顯示這些檔案、讓你編輯它們，也�
 ## 查看 target 讀哪些檔案 {#see-what-a-target-reads}
 
 從 **Targets** 開啟一個 target。它的頁面有一個以該 target 所讀檔案命名的分頁：claude 是
-**CLAUDE.md**，gemini 是 **GEMINI.md**，codex 是 **AGENTS.md**。這個分頁會顯示：
+**CLAUDE.md**，gemini 是 **GEMINI.md**，codex 是 **AGENTS.md**。這個分頁由上到下會顯示：
 
-- **讀取順序**：工具會載入的檔案，依載入順序編號，並標示 `loaded`、`skipped` 或 `missing`。
-  claude 的讀取順序會包含 `~/.claude/rules/` 中的 Markdown 檔案，另外還有一列 `AGENTS.md`，
-  註明 claude 不讀使用者層級的 `AGENTS.md`。
-- 該檔案的編輯器。**儲存** 會先備份目前的檔案；若檔案還不存在，則會建立它。
-- 警告。以 `@` 開頭的行是 import，只有部分工具會展開它們；其他工具會把它們當成一般文字讀取。
-  Windsurf 只會讀取其全域 rules 檔案的前 6,000 個字元。
-- **共用 AGENTS.md**（global mode）：這個 target 使用的共用檔案，以及一個用來選擇它們的連結。
+- 檔案的路徑與大小，以及 **變更位置**（[見下方](#change-which-file-a-target-reads)）、
+  **轉換…** 與 **儲存**。
+- 一行 **讀取順序**：工具會載入的檔案，依載入順序排列，每個都標示是否已載入（滑鼠移上去可以看到
+  `loaded`、`skipped` 或 `missing`）。claude 的讀取順序會包含 `~/.claude/rules/` 中的 Markdown 檔案，
+  並註明 claude 不讀使用者層級的 `AGENTS.md`。在 global mode 中，同一行的最後是
+  **共用 AGENTS.md**：這個 target 使用的共用檔案，以及一個用來選擇它們的連結。
+- 該檔案的編輯器，有 **編輯** 與 **預覽** 兩個分頁；**預覽** 會渲染 Markdown，包含尚未儲存的修改。
+  過長的行會自動換行。**儲存** 會先備份目前的檔案；若檔案還不存在，則會建立它。以 `@` 開頭的行是
+  import，只有部分工具會展開它們；其他工具會把它們當成一般文字讀取。編輯器會替這些行上色，並加上
+  一段簡短說明，註明哪個工具會展開它們。
+- 警告。Windsurf 只會讀取其全域 rules 檔案的前 6,000 個字元。
 
 如果檔案是指向共用 `AGENTS.md` 的連結，編輯器會是唯讀的。編輯它會改到所有使用該共用檔案的
 target，所以請改到該檔案自己的頁面編輯。你自己建立的連結（例如指向你的 dotfiles）仍然可以編輯，
@@ -80,8 +84,9 @@ skills 資料夾，Gemini CLI、Pi、OpenCode 等工具則是除了自己的資�
 把 skills 同步給它們，而沒有把它們加成 target，它們讀的仍是自己的指令檔，而不是
 `~/.agents/AGENTS.md`：例如 Codex 讀 `~/.codex/AGENTS.md`，Gemini CLI 讀 `~/.gemini/GEMINI.md`。
 
-在 global 模式下，universal 的 **AGENTS.md** 分頁會在編輯器上方提供一個下拉選單，列出已安裝的這類工具；
-skillshare 以它們的資料夾（例如 `~/.codex` 或 `~/.gemini`）是否存在來判斷。選擇其中一個就能查看並編輯
+在 global 模式下，universal 的 **AGENTS.md** 分頁會在左側列出它管理的檔案：先是 universal 自己的檔案，
+接著是已安裝的這類工具；skillshare 以它們的資料夾（例如 `~/.codex` 或 `~/.gemini`）是否存在來判斷。
+每一列都會顯示該檔案是否已經存在。選擇其中一個就能查看並編輯
 它自己的檔案，選擇會以 `?tool=<name>` 記在網址裡。它們也會出現在 **Extras** 的共用 AGENTS.md 清單中，
 所以可以替它們接上共用檔案。它們的檔案位置無法變更，因為它們沒有 target 設定可以存放這個值。沒有列出的
 工具，可以把它加成獨立的 target。
@@ -107,7 +112,8 @@ skillshare 以它們的資料夾（例如 `~/.codex` 或 `~/.gemini`）是否存
 在使用者層級，沒有其他工具會讀 `~/.claude` 裡的 `AGENTS.md`。因此在 global mode 中，第一種做法
 還會提供 **轉換成共用 AGENTS.md，讓其他目標也能接**，且預設為開啟：
 
-- **新增一份…**：為新的共用 `AGENTS.md` 命名。內容會搬進去，`CLAUDE.md` 改成匯入它。
+- **新增一份…**：為新的共用 `AGENTS.md` 命名；名稱預設為 target 的名稱，例如 `claude`。
+  內容會搬進去，`CLAUDE.md` 改成匯入它。
 - 既有的共用檔案：內容會接在該檔案的最後面，`CLAUDE.md` 接著改成匯入它。
 
 關閉共用時，內容會放到 `~/.claude/AGENTS.md`，`CLAUDE.md` 則會加上一行 `@AGENTS.md`。
@@ -139,7 +145,8 @@ Target 使用共用檔案的方式，取決於它是否會展開 `@` import：
   ```
 
 - **其他 target**（codex、gemini 及其餘工具）只使用一份共用檔案。它們的檔案會先備份，再換成
-  指向共用檔案的連結（symlink）。
+  指向共用檔案的連結（symlink）。在沒有開啟開發人員模式的 Windows 上無法建立檔案連結，
+  所以會改換成一份複本。
 
 分頁左側列出共用檔案，每份都附上接上它的 target。點其中一份，右側就會顯示它的路徑、內容預覽，
 以及每個 target 和它的開關。選取的檔案會寫進 URL（`/extras?tab=instructions&file=<name>`），
@@ -147,8 +154,8 @@ Target 使用共用檔案的方式，取決於它是否會展開 `@` import：
 
 - 打開 target 的開關就會接上。Import target 會多一行 import，其他共用檔案維持不變。已經在使用
   另一份共用檔案的 target 會先詢問，因為它只能用一份。
-- 關掉開關會[還原](#restore-and-delete)該 target，並會先要求確認。對 import target 來說，只會拿掉
-  這份檔案的 import 行，其他共用檔案保留。
+- 關掉開關會[還原](#restore-and-delete)該 target，並會先預覽還原後的結果。對 import target 來說，
+  只會拿掉這份檔案的 import 行，其他共用檔案保留。
 - **全部接上** 與 **全部還原** 在動手之前，會先列出每個會變動的 target，並註明各自會發生什麼事。
   只想變更部分 target 時，勾選它們的列，再使用選取列上的 **接上** 或 **還原**。
 
@@ -162,11 +169,25 @@ Target 使用共用檔案的方式，取決於它是否會展開 `@` import：
 
 ## 管理單一共用檔案 {#manage-one-shared-file}
 
-每個已接上的 target 都會顯示模式（`import` 或 `symlink`）與狀態：
+每個已接上的 target 都有一個模式選單，並會顯示狀態。模式決定 target 如何取得共用檔案：
+
+| 模式 | Target 檔案 | 可用時機 |
+|------|-------------|-----------|
+| `import` | 你自己的檔案，受管理區塊中有一行 `@import`。共用檔案的改動會立即生效 | 會展開 `@` import 的 target |
+| `symlink` | 指向共用檔案的連結。改動會立即生效 | 沒有開啟開發人員模式的 Windows 上不可用 |
+| `copy` | 共用檔案的複本。修改共用檔案後需要再同步一次 | 一律可用 |
+
+選單會標出預設值：會展開 `@` import 的 target 是 `import`，其他是 `symlink`，在沒有開啟
+開發人員模式的 Windows 上則是 `copy`。使用多份共用檔案的 target 只能用 `import`。變更模式會
+立即同步該 target。切回 `import` 時，會放回接上共用檔案之前你自己的內容，再加上 import 區塊。
+
+在 Windows 上，如果 target 的檔案是一個被建成資料夾的連結，會顯示警告：工具讀不到它。把它切換成
+`copy`（或執行 `skillshare sync extras`）就能修正；請參閱
+[Windows 疑難排解](../../troubleshooting/windows.md#agent-files-or-agentsmd-show-a-folder-icon-and-cant-be-read)。
 
 | 狀態 | 意義 |
 |--------|---------|
-| `synced`（已同步） | 連結或 import 那一行都在正確位置 |
+| `synced`（已同步） | 連結、複本或 import 那一行都在正確位置 |
 | `modified`（已修改） | 連結被換成內容不同的一般檔案（[見下方](#when-a-linked-file-is-edited)） |
 | `drift`（有差異） | Target 檔案存在，但沒有連結到共用檔案，或已經沒有 import 那一行 |
 | `not synced`（尚未同步） | Target 檔案還不存在 |
@@ -183,7 +204,15 @@ Target 使用共用檔案的方式，取決於它是否會展開 `@` import：
 ### 還原與刪除 {#restore-and-delete}
 
 還原 target 會讓它回到接上共用檔案之前的樣子。原本的檔案或 symlink 會被放回；
-若原本沒有檔案，就會刪除該檔案。對 import target 來說，只會移除 skillshare 的 import 行；若
+若原本沒有檔案，就會刪除該檔案。
+
+關掉 target 的開關時，會先顯示還原會做什麼：
+
+- 預設顯示還原後檔案的內容，另有一個分頁顯示與目前檔案的差異。
+- 如果原本沒有檔案，會註明還原將刪除該檔案。
+- 如果原本是連結，會顯示將放回的連結。
+- 如果接上後你修改過檔案，會註明那些改動不會被還原；它們會保存為 [drift backup](#backups)。
+對 import target 來說，只會移除 skillshare 的 import 行；若
 `CLAUDE.md` 是 skillshare 只為了這個區塊而建立的，它在清空後就會被移除。共用檔案本身會保留。
 若 target 仍是 `modified`，會先把修改過的檔案保存為 [drift backup](#backups)。
 
@@ -203,6 +232,17 @@ Target 使用共用檔案的方式，取決於它是否會展開 `@` import：
 `skillshare sync extras` 與 **同步** 也會不經詢問，直接把 `modified` 的檔案換回連結。改動會先保存為
 drift backup，所以如果共用檔案應該拿到這些改動，請在同步之前選擇 **收進**。
 
+## 變更 target 讀取的檔案 {#change-which-file-a-target-reads}
+
+在 target 分頁上點 **變更位置**，會開啟一個對話框，可以變更 target 讀取的路徑與檔名，例如用
+`~/.claude/instructions.md` 取代 `~/.claude/CLAUDE.md`。如果工具會展開 `@` 行，請勾選
+**這個工具支援 @import**。這項設定會以
+[`instructions`](../../reference/targets/configuration.md#target-instructions) 儲存在 target 上。
+**改回預設** 會回到 skillshare 為該 target 所知的檔案。
+
+當 target 正在使用共用檔案時，skillshare 會拒絕變更位置；請先把它切回自己的檔案。列在 universal
+分頁上的工具沒有 target 設定，所以無法變更它們的位置。
+
 ## skillshare 不認得的工具 {#tools-skillshare-doesnt-know}
 
 對於沒有已知指示檔案的 target，例如
@@ -216,7 +256,7 @@ drift backup，所以如果共用檔案應該拿到這些改動，請在同步�
 共用檔案。這項設定會以 [`instructions`](../../reference/targets/configuration.md#target-instructions)
 儲存在 target 上。新增工具時，也可以直接在 **新增目標** → **自訂目標** 裡填好。
 
-之後可以用讀取順序下方的 **變更** 或 **移除設定** 來更新它。移除設定不會刪除檔案。當 target 正在
+之後可以用 **變更位置** 來更新它；對話框中也有 **移除設定**。移除設定不會刪除檔案。當 target 正在
 使用共用檔案時，skillshare 會拒絕變更或移除這個位置；請先把它切回自己的檔案。
 
 ## 專案 {#projects}

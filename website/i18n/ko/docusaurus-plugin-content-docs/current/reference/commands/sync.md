@@ -519,7 +519,7 @@ skillshare sync agents       # agent만 sync
 skillshare sync --all        # skill + agent + extras + MCP를 sync
 ```
 
-agent sync는 세 가지 mode(merge, copy, symlink) 모두를 지원하며, target에 설정된 mode와 일치합니다. `agents` path 정의가 있는 target만 agent sync를 받습니다 — 현재는 Claude, Cursor, OpenCode, Augment입니다. 전체 목록은 [Agents — Supported Targets](/docs/understand/agents#supported-targets)를 참고하세요.
+agent sync는 세 가지 mode(merge, copy, symlink) 모두를 지원하며, target에 설정된 mode와 일치합니다. Developer Mode가 없는 Windows에서는 merge mode가 agent 파일을 링크하는 대신 복사하고 `! <target>: agents file links need Windows Developer Mode; copying instead`를 출력합니다. [Windows 문제 해결](/docs/troubleshooting/windows#file-links-need-windows-developer-mode-copying-instead)을 참고하세요. `agents` path 정의가 있는 target만 agent sync를 받습니다 — 현재는 Claude, Cursor, OpenCode, Augment입니다. 전체 목록은 [Agents — Supported Targets](/docs/understand/agents#supported-targets)를 참고하세요.
 
 Orphan cleanup, `.agentignore` 필터링, target별 include/exclude filter는 모두 skill과 동일하게 동작합니다.
 
@@ -607,6 +607,8 @@ Source 파일은 `extras/` 하위 디렉터리에 있습니다.
 | `symlink` | 전체 source 디렉터리를 target 경로로 symlink |
 
 merge mode에서는 symlink만 pruning되며 — target에 사용자가 만든 local 파일은 보존됩니다.
+
+Developer Mode가 없는 Windows에서는 merge mode(그리고 symlink mode의 [single-file extra](./extras.md#single-file-extras))가 대신 파일을 복사하고, target을 `(copy)`로 표시하며, 그 아래에 `file links need Windows Developer Mode; copying instead`를 출력합니다. 이 복사본은 링크처럼 업데이트되고 pruning되며, 파일 링크를 쓸 수 있게 되면 링크로 교체됩니다.
 
 ### 동작 방식
 

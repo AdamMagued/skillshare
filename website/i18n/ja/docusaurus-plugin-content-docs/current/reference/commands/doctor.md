@@ -44,10 +44,10 @@ Checking environment
 Checking targets
 claude
   skills   [merge] merged (8 shared, 2 local)
-  agents   [merge] merged (8/8 linked)
+  agents   [merge] synced (8/8 linked)
 cursor
   skills   [copy] copied (8 managed, 0 local)
-  agents   [merge] merged (8/8 linked)
+  agents   [merge] synced (8/8 linked)
 codex
   skills   [merge] needs sync
 
@@ -80,7 +80,7 @@ Summary
 
 各 Target には **skills** と **agents**（Agent が設定されている場合）のサブ項目が表示されます。
 - Skills: パス、sync モード、sync 状態、共有/ローカルの件数
-- Agents: リンク済み件数、drift の検出
+- Agents: sync モード、リンク済み件数、drift の検出。Developer Mode がオフの Windows では `merge` が `[copy]` と表示され、最新のコピーはリンク済みとして数えられます
 - 壊れたシンボリックリンクがないこと
 - 意図しないローカルの衝突を検出する Skill 重複チェック:
   - `merge` モード: スキップ（ローカルの Skill は想定内のため）
@@ -203,10 +203,12 @@ skillshare new my-skill  # 正しい構造を作成
 
 ### "Link not supported"
 
-Developer Mode が無効な Windows 環境の場合:
+`doctor` はシステムの一時ディレクトリ（Windows では `%TEMP%`、それ以外では `$TMPDIR` または `/tmp`）にテスト用フォルダーのリンクを作成します。Windows ではこのリンクは NTFS ジャンクションで、管理者権限も Developer Mode も不要なため、Developer Mode を有効にしてもこのエラーは解決しません。メッセージ内の `junction error:` の行に、Windows が拒否した理由が表示されます。一時ディレクトリについて次を確認してください:
 
-1. 設定で Developer Mode を有効にする
-2. または管理者として実行する
+1. FAT32、exFAT、ネットワーク共有ではなく、ローカルの NTFS ドライブ上にあること（ジャンクションは NTFS でのみ動作します）
+2. 自分のアカウントで書き込みができ、ウイルス対策ソフトやセキュリティソフトにブロックされていないこと
+
+このチェックはファイルのリンクをテストしません。Developer Mode がない場合、単一ファイルをリンクする agents と extras は代わりにコピーされます。詳しくは [Windows のトラブルシューティング](../../troubleshooting/windows.md#file-links-need-windows-developer-mode-copying-instead) を参照してください。
 
 ## 問題がある場合の出力例
 
@@ -225,7 +227,7 @@ Checking environment
 Checking targets
 claude
   skills   [merge] merged (8 shared, 2 local)
-  agents   [merge] merged (8/8 linked)
+  agents   [merge] synced (8/8 linked)
 cursor
   skills   [merge] 2 broken symlink(s): old-skill, removed-skill
 codex

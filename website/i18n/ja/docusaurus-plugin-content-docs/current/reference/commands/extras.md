@@ -253,6 +253,8 @@ skillshare extras collect rules --force
 | `symlink` | ディレクトリ全体のシンボリックリンク |
 | `import` | [単一ファイルの Extras](#single-file-extras) のみ: Target のファイル内の `@<source file>` 行 |
 
+Developer Mode がオフの Windows では、`merge` は各ファイルをリンクする代わりにコピーし、`sync` は `file links need Windows Developer Mode; copying instead` と表示します。その場合、`extras list` と `status` では Target が `copy` と表示されます。コピーは追跡されるため、後の sync で更新・削除され、自分のファイルは残り、ファイルのリンクが使えるようになるとリンクに置き換えられます。[Windows のトラブルシューティング](/docs/troubleshooting/windows#file-links-need-windows-developer-mode-copying-instead) を参照してください。
+
 モードを切り替える場合（例: `merge` から `copy` へ）、次の `sync` で既存のシンボリックリンクが自動的に新しいモードの形式に置き換えられます。`--force` は不要です — シンボリックリンクは常に安全に置き換えられます。ローカルで作成された通常のファイルを上書きするには `--force` が必要です。
 
 ---
@@ -429,7 +431,7 @@ extras:
 
 | モード | Target のファイル |
 |------|-------------|
-| `merge`（デフォルト）または `symlink` | Source ファイルへのシンボリックリンク |
+| `merge`（デフォルト）または `symlink` | Source ファイルへのシンボリックリンク（Developer Mode がオフの Windows ではコピー） |
 | `copy` | Source ファイルのコピー |
 | `import` | あなたのファイル。先頭の管理ブロック内に `@<source file>` 行が入る |
 
@@ -448,6 +450,9 @@ Claude Code のように `@` import に従うツールでのみ使ってくだ�
   drift バックアップとして保存されます。
 - リンクされた Target が内容の異なる通常ファイルに置き換えられている場合、`extras list` は
   `modified` と表示します。
+- Target を `merge`、`symlink`、`copy` から `import` に切り替えると、最初の sync の前にファイルにあった
+  内容（リンクだった場合や存在しなかった場合はなし）が import ブロックとともに戻ります。編集されたコピーは
+  先に drift バックアップとして保存されます。
 - `extras remove` と `--remove-target --prune` は各 Target のファイルを元に戻します。リンク、
   コピー、または import 行が取り除かれ、最初の sync の前にあったファイルやシンボリックリンクが戻ります
   （元々なかった場合はファイルなし）。`modified` の Target は、先に drift バックアップとして保存されます。

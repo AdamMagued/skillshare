@@ -525,7 +525,7 @@ skillshare sync agents       # Sync agents only
 skillshare sync --all        # Sync skills + agents + extras + MCP
 ```
 
-Agent sync supports all three modes (merge, copy, symlink), matching the target's configured mode. Only targets with an `agents` path definition receive agent syncs — currently Claude, Cursor, OpenCode, and Augment. See [Agents — Supported Targets](/docs/understand/agents#supported-targets) for the full list.
+Agent sync supports all three modes (merge, copy, symlink), matching the target's configured mode. On Windows without Developer Mode, merge mode copies agent files instead of linking them and prints `! <target>: agents file links need Windows Developer Mode; copying instead`; see [Windows troubleshooting](/docs/troubleshooting/windows#file-links-need-windows-developer-mode-copying-instead). Only targets with an `agents` path definition receive agent syncs — currently Claude, Cursor, OpenCode, and Augment. See [Agents — Supported Targets](/docs/understand/agents#supported-targets) for the full list.
 
 Orphan cleanup, `.agentignore` filtering, and per-target include/exclude filters all work the same way as for skills.
 
@@ -612,6 +612,8 @@ Source files live under the `extras/` subdirectory:
 | `symlink` | Entire source directory symlinked to target path |
 
 In merge mode, only symlinks are pruned — user-created local files at the target are preserved.
+
+On Windows without Developer Mode, merge mode (and a [single-file extra](./extras.md#single-file-extras) in symlink mode) copies files instead, reports the target as `(copy)`, and prints `file links need Windows Developer Mode; copying instead` under it. These copies are updated and pruned like links, and replaced with links once file links work.
 
 ### What happens
 

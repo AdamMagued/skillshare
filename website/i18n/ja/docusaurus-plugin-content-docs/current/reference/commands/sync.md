@@ -518,7 +518,7 @@ skillshare sync agents       # agents のみを sync
 skillshare sync --all        # skills + agents + extras + MCP を sync
 ```
 
-Agent sync は 3 つすべての mode（merge、copy、symlink）をサポートし、target に設定された mode に一致します。`agents` パス定義を持つ target のみが agent sync を受け取ります — 現在は Claude、Cursor、OpenCode、Augment です。全リストは [Agents — Supported Targets](/docs/understand/agents#supported-targets) を参照してください。
+Agent sync は 3 つすべての mode（merge、copy、symlink）をサポートし、target に設定された mode に一致します。Developer Mode がオフの Windows では、merge mode は agent ファイルをリンクする代わりにコピーし、`! <target>: agents file links need Windows Developer Mode; copying instead` と表示します。[Windows のトラブルシューティング](/docs/troubleshooting/windows#file-links-need-windows-developer-mode-copying-instead) を参照してください。`agents` パス定義を持つ target のみが agent sync を受け取ります — 現在は Claude、Cursor、OpenCode、Augment です。全リストは [Agents — Supported Targets](/docs/understand/agents#supported-targets) を参照してください。
 
 Orphan のクリーンアップ、`.agentignore` フィルタリング、target ごとの include/exclude フィルターはすべて skills と同じように動作します。
 
@@ -604,6 +604,8 @@ Source ファイルは `extras/` サブディレクトリ配下に置かれま�
 | `symlink` | source ディレクトリ全体が target パスにシンボリックリンクされる |
 
 merge mode では、シンボリックリンクのみが削除されます — target にあるユーザー作成のローカルファイルは保持されます。
+
+Developer Mode がオフの Windows では、merge mode（および symlink mode の[単一ファイルの Extras](./extras.md#single-file-extras)）は代わりにファイルをコピーし、target を `(copy)` と報告して、その下に `file links need Windows Developer Mode; copying instead` と表示します。これらのコピーはリンクと同じように更新・削除され、ファイルのリンクが使えるようになるとリンクに置き換えられます。
 
 ### 実行内容
 

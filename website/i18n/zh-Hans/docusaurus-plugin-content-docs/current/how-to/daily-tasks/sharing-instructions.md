@@ -17,15 +17,19 @@ sidebar_position: 11
 
 在 **目标** 中打开一个 target。它的页面有一个以该 target 读取的文件命名的标签页：
 claude 是 **CLAUDE.md**，gemini 是 **GEMINI.md**，codex 是 **AGENTS.md**。
-这个标签页会显示：
+这个标签页从上到下显示：
 
-- **读取顺序**：该工具加载的文件，按加载顺序编号，并标记为 `loaded`、`skipped` 或
-  `missing`。对 claude 来说，这包括 `~/.claude/rules/` 中的 Markdown 文件，以及一行
-  `AGENTS.md`，说明 claude 不读取用户级的 `AGENTS.md`。
-- 该文件的编辑器。**保存** 会先备份当前文件；如果文件还不存在，则会创建它。
-- 警告。以 `@` 开头的行是 import，只有部分工具会展开它们；其他工具会把它们当作纯文本
-  读取。Windsurf 只读取其全局 rules 文件的前 6,000 个字符。
-- **共享 AGENTS.md**（global mode）：这个 target 使用的共享文件，以及选择它们的链接。
+- 文件的路径和大小，以及 **更改位置**（[见下文](#change-which-file-a-target-reads)）、
+  **转换…** 和 **保存**。
+- 一行 **读取顺序**：该工具加载的文件，按加载顺序排列，每个都标记是否已加载（鼠标悬停可
+  看到 `loaded`、`skipped` 或 `missing`）。对 claude 来说，这包括 `~/.claude/rules/` 中的
+  Markdown 文件，以及一条说明 claude 不读取用户级 `AGENTS.md` 的提示。在 global mode 下，
+  这一行的末尾还有 **共享 AGENTS.md**：这个 target 使用的共享文件，以及选择它们的链接。
+- 该文件的编辑器，带有 **编辑** 和 **预览** 两个标签页；**预览** 会渲染 Markdown，包括尚未保存的修改。
+  长行会自动换行。**保存** 会先备份当前文件；如果文件还不存在，则会创建它。以 `@` 开头的
+  行是 import，只有部分工具会展开它们；其他工具会把它们当作纯文本读取。编辑器会给这些行
+  着色，并附上一条简短说明，指出哪个工具会展开它们。
+- 警告。Windsurf 只读取其全局 rules 文件的前 6,000 个字符。
 
 如果该文件是指向共享 `AGENTS.md` 的链接，编辑器就是只读的。编辑它会改变所有使用该共享
 文件的 target，所以请改到那份文件自己的页面上编辑。你自己建立的链接（例如指向你的
@@ -82,8 +86,9 @@ skills 文件夹，Gemini CLI、Pi、OpenCode 等工具则是除了自己的文�
 把 skills 同步给它们，而没有把它们添加为 target，它们读取的仍是自己的指令文件，而不是
 `~/.agents/AGENTS.md`：例如 Codex 读取 `~/.codex/AGENTS.md`，Gemini CLI 读取 `~/.gemini/GEMINI.md`。
 
-在 global 模式下，universal 的 **AGENTS.md** 标签页会在编辑器上方提供一个下拉菜单，列出已安装的这类工具；
-skillshare 以它们的文件夹（例如 `~/.codex` 或 `~/.gemini`）是否存在来判断。选择其中一个即可查看并编辑
+在 global 模式下，universal 的 **AGENTS.md** 标签页会在左侧列出它管理的文件：先是 universal 自己的文件，
+再是已安装的这类工具；skillshare 以它们的文件夹（例如 `~/.codex` 或 `~/.gemini`）是否存在来判断。
+每一行都会显示该文件是否已存在。选择其中一个即可查看并编辑
 它自己的文件，选择会以 `?tool=<name>` 记录在 URL 中。它们也会出现在 **Extras** 的共享 AGENTS.md 列表中，
 因此可以为它们连接共享文件。它们的文件位置无法修改，因为它们没有 target 配置可以保存这个值。没有列出的
 工具，可以把它添加为独立的 target。
@@ -109,7 +114,7 @@ skillshare 以它们的文件夹（例如 `~/.codex` 或 `~/.gemini`）是否存
 在用户级，没有其他工具会读取 `~/.claude` 中的 `AGENTS.md`。因此在 global mode 下，
 第一种方式还提供 **转换为共享 AGENTS.md，让其他目标也能接**，默认开启：
 
-- **新建一份…**：为新的共享 `AGENTS.md` 命名。内容会移进去，`CLAUDE.md` 改为导入它。
+- **新建一份…**：为新的共享 `AGENTS.md` 命名；名称默认是该 target 的名称，例如 `claude`。内容会移进去，`CLAUDE.md` 改为导入它。
 - 已有的共享文件：内容会接在该文件的最后面，`CLAUDE.md` 随后导入它。
 
 关闭共享时，内容会移到 `~/.claude/AGENTS.md`，`CLAUDE.md` 则得到一行 `@AGENTS.md`。
@@ -142,7 +147,8 @@ target 如何使用共享文件，取决于它是否会展开 `@` import：
   ```
 
 - **其他 target**（codex、gemini 等）使用一份共享文件。它们的文件会先备份，然后被替换为
-  指向共享文件的链接（symlink）。
+  指向共享文件的链接（symlink）。在未开启 Developer Mode 的 Windows 上无法使用文件链接，
+  因此会改为替换成一份副本。
 
 标签页左侧列出共享文件，每份都附上连接到它的 target。点击其中一份，右侧就会显示它的路径、
 内容预览，以及每个 target 和对应的开关。选中的文件会写进 URL
@@ -150,8 +156,8 @@ target 如何使用共享文件，取决于它是否会展开 `@` import：
 
 - 打开某个 target 的开关即可连接它。import target 会多一行 import，并保留它的其他共享文件。
   已经在使用另一份共享文件的 target 会先询问，因为它只能使用一份。
-- 关闭开关会[还原](#restore-and-delete)该 target，并且会先要求确认。对于 import target，
-  只会去掉这份文件的 import 行，其他共享文件保留。
+- 关闭开关会[还原](#restore-and-delete)该 target，并且会先显示结果的预览。对于 import
+  target，只会去掉这份文件的 import 行，其他共享文件保留。
 - **全部连接** 和 **全部还原** 在执行任何操作之前，会列出所有将被修改的 target，并说明每个
   target 会发生什么。只想修改部分 target 时，勾选它们的行，然后使用选择栏中的 **连接** 或
   **还原**。
@@ -166,11 +172,27 @@ target 如何使用共享文件，取决于它是否会展开 `@` import：
 
 ## 管理一份共享文件 {#manage-one-shared-file}
 
-每个已连接的 target 都会显示它的 mode（`import` 或 `symlink`）和状态：
+每个已连接的 target 都有一个 mode 选择器，并显示它的状态。mode 决定 target 如何获得共享
+文件：
+
+| Mode | Target 文件 | 可用范围 |
+|------|-------------|-----------|
+| `import` | 你自己的文件，受管区块中有一行 `@import`。对共享文件的修改立即生效 | 会展开 `@` import 的 target |
+| `symlink` | 指向共享文件的链接。修改立即生效 | 未开启 Developer Mode 的 Windows 上不可用 |
+| `copy` | 共享文件的副本。修改共享文件后需要再次 sync | 始终可用 |
+
+选择器会标出默认值：会展开 `@` import 的 target 为 `import`，其他为 `symlink`，在未开启
+Developer Mode 的 Windows 上则为 `copy`。使用多份共享文件的 target 只能使用 `import`。
+更改 mode 会立即 sync 该 target。切回 `import` 时，会放回接上共享文件之前你自己的内容，
+并加上 import 区块。
+
+在 Windows 上，如果 target 的文件是一个被建成文件夹的链接，就会显示警告：工具读不到它。
+把它切换为 `copy`（或运行 `skillshare sync extras`）即可修复；参见
+[Windows 疑难解答](../../troubleshooting/windows.md#agent-files-or-agentsmd-show-a-folder-icon-and-cant-be-read)。
 
 | 状态 | 含义 |
 |--------|---------|
-| `synced` | 链接或 import 行已就位 |
+| `synced` | 链接、副本或 import 行已就位 |
 | `modified` | 链接被替换成了内容不同的普通文件（[见下文](#when-a-linked-file-is-edited)） |
 | `drift` | target 文件存在，但没有链接到共享文件，或不再有 import 行 |
 | `not synced` | target 文件还不存在 |
@@ -187,7 +209,16 @@ target 如何使用共享文件，取决于它是否会展开 `@` import：
 ### 还原与删除 {#restore-and-delete}
 
 还原 target 会让它回到接上共享文件之前的状态。原本的文件或 symlink 会被放回；如果原本
-没有文件，则删除该文件。对于 import target，只会移除 skillshare 的 import 行；skillshare
+没有文件，则删除该文件。
+
+关闭 target 的开关时，会先显示还原将做什么：
+
+- 默认显示还原后文件的内容，另有一个标签页显示与当前文件的差异。
+- 如果原本没有文件，会提示还原将删除该文件。
+- 如果原本是链接，会显示将放回的链接。
+- 如果你在接上之后编辑过该文件，会提示这些编辑不会被还原；它们会保留为
+  [drift 备份](#backups)。
+对于 import target，只会移除 skillshare 的 import 行；skillshare
 仅为该区块而创建的 `CLAUDE.md`，在变空后会被删除。共享文件本身会保留。如果 target 仍处于
 `modified`，编辑过的文件会先保留为 [drift 备份](#backups)。
 
@@ -210,6 +241,17 @@ target 如何使用共享文件，取决于它是否会展开 `@` import：
 `skillshare sync extras` 和 **同步** 也会不经询问地用链接替换 `modified` 的文件。修改会先
 保留为 drift 备份，所以如果共享文件应该获得这些修改，请在同步之前选择 **收进**。
 
+## 更改 target 读取的文件 {#change-which-file-a-target-reads}
+
+target 标签页上的 **更改位置** 会打开一个对话框，你可以在其中更改 target 读取的路径和
+文件名，例如用 `~/.claude/instructions.md` 代替 `~/.claude/CLAUDE.md`。如果该工具会展开
+`@` 行，请勾选 **这个工具支持 @import**。该设置会以
+[`instructions`](../../reference/targets/configuration.md#target-instructions) 保存在 target 上。
+**恢复默认** 会回到 skillshare 为该 target 所知的文件。
+
+当 target 正在使用共享文件时，skillshare 会拒绝更改位置；请先把它切回自己的文件。在
+universal 标签页上列出的工具没有 target 配置，因此无法更改它们的位置。
+
 ## skillshare 不认识的工具 {#tools-skillshare-doesnt-know}
 
 对于没有已知指示文件的 target（例如
@@ -223,7 +265,7 @@ target 如何使用共享文件，取决于它是否会展开 `@` import：
 使用多份共享文件。该设置会以
 [`instructions`](../../reference/targets/configuration.md#target-instructions) 保存在 target 上。添加工具时，也可以直接在 **添加目标** → **自定义目标** 中填写。
 
-之后可以使用读取顺序下方的 **更改** 或 **移除设置** 来更新它。移除设置不会删除文件。
+之后可以使用 **更改位置** 来更新它；对话框中也有 **移除设置**。移除设置不会删除文件。
 当 target 正在使用共享文件时，skillshare 会拒绝更改或移除该位置；请先把它切回自己的文件。
 
 ## 项目 {#projects}

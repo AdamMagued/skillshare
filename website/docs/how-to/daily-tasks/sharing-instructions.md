@@ -17,19 +17,22 @@ is stored as an [extra](../../reference/commands/extras.md#single-file-extras), 
 
 Open a target from **Targets**. Its page has a tab named after the file that target
 reads: **CLAUDE.md** for claude, **GEMINI.md** for gemini, **AGENTS.md** for codex.
-The tab shows:
+The tab shows, from top to bottom:
 
-- **Read order**: the files the tool loads, numbered in the order it loads them and
-  marked `loaded`, `skipped` or `missing`. For claude this includes the Markdown files
-  in `~/.claude/rules/`, plus an `AGENTS.md` row noting that claude doesn't read a
-  user-level `AGENTS.md`.
-- An editor for the file. **Save** backs up the current file first, and creates the
-  file if it doesn't exist yet.
-- Warnings. Lines that start with `@` are imports, and only some tools expand them;
-  other tools read them as plain text. Windsurf reads only the first 6,000 characters
-  of its global rules file.
-- **Shared AGENTS.md** (global mode): the shared files this target uses, and a link
-  to choose them.
+- The file's path and size, with **Change location** ([see below](#change-which-file-a-target-reads)),
+  **Convert…** and **Save**.
+- One line with the **Read order**: the files the tool loads, in the order it loads
+  them, each marked as loaded or not (hover to see `loaded`, `skipped` or `missing`).
+  For claude this includes the Markdown files in `~/.claude/rules/`, and a note that
+  claude doesn't read a user-level `AGENTS.md`. In global mode the same line ends with
+  **Shared AGENTS.md**: the shared files this target uses, and a link to choose them.
+- An editor for the file, with **Edit** and **Preview** tabs; **Preview** renders
+  the Markdown, including unsaved edits. Long lines wrap. **Save** backs up the
+  current file first, and creates the file if it doesn't exist yet. Lines that start
+  with `@` are imports, and only some tools expand them; other tools read them as
+  plain text. The editor tints these lines and adds a short note saying which tool
+  expands them.
+- Warnings. Windsurf reads only the first 6,000 characters of its global rules file.
 
 If the file is a link to a shared `AGENTS.md`, the editor is read-only. Editing it
 would change every target that uses the shared file, so edit that file on its own
@@ -90,10 +93,11 @@ universal and don't add them as targets, they still read their own instruction
 file, not `~/.agents/AGENTS.md`: for example, Codex reads `~/.codex/AGENTS.md` and
 Gemini CLI reads `~/.gemini/GEMINI.md`.
 
-In global mode, universal's **AGENTS.md** tab has a dropdown above the editor that
-lists these tools when they are installed, which skillshare tells by their folder,
-such as `~/.codex` or `~/.gemini`. Pick one to see and edit its own file; the
-choice is kept in the URL as `?tool=<name>`. They also appear in the shared
+In global mode, universal's **AGENTS.md** tab lists the files it manages on the
+left: universal's own file first, then these tools when they are installed, which
+skillshare tells by their folder, such as `~/.codex` or `~/.gemini`. Each row shows
+whether the file exists yet. Pick one to see and edit its own file; the choice is
+kept in the URL as `?tool=<name>`. They also appear in the shared
 AGENTS.md list under **Extras**, so you can connect a shared file to them. Their
 file location can't be changed, because they have no target entry to store it in.
 A tool that isn't listed can be added as its own target.
@@ -122,8 +126,8 @@ At user level, no other tool reads an `AGENTS.md` in `~/.claude`. So in global m
 the first method also offers **Make it a shared AGENTS.md other targets can use**,
 which is on by default:
 
-- **New one…**: name a new shared `AGENTS.md`. The content moves into it and
-  `CLAUDE.md` imports it.
+- **New one…**: name a new shared `AGENTS.md`; the name starts as the target's
+  name, such as `claude`. The content moves into it and `CLAUDE.md` imports it.
 - An existing shared file: the content goes at the end of that file, and
   `CLAUDE.md` then imports it.
 
@@ -160,7 +164,8 @@ How a target uses a shared file depends on whether it follows `@` imports:
   ```
 
 - **Other targets** (codex, gemini and the rest) use one shared file. Their file is
-  backed up, then replaced by a link (symlink) to the shared file.
+  backed up, then replaced by a link (symlink) to the shared file. On Windows without
+  Developer Mode, file links aren't available, so it is replaced by a copy instead.
 
 The tab lists the shared files on the left, each with the targets connected to it.
 Click one to show it on the right: its path, a preview of its content, and every
@@ -170,9 +175,9 @@ target with a switch. The selected file is part of the URL
 - Turn a target's switch on to connect it. An import target gets one more import line
   and keeps its other shared files. A target that already uses another shared file
   asks first, because it can use only one.
-- Turn the switch off to [restore](#restore-and-delete) the target. It asks for
-  confirmation first. For an import target only this file's import line goes; its
-  other shared files stay.
+- Turn the switch off to [restore](#restore-and-delete) the target. It shows a
+  preview of the result first. For an import target only this file's import line
+  goes; its other shared files stay.
 - **Connect all** and **Restore all** list every target they change, with a note on
   what happens to each one, before they do anything. To change only some targets,
   tick their rows and use **Connect** or **Restore** in the selection bar.
@@ -187,11 +192,29 @@ Some targets are special:
 
 ## Manage one shared file
 
-Each connected target shows its mode (`import` or `symlink`) and its status:
+Each connected target has a mode picker and shows its status. The mode decides how
+the target gets the shared file:
+
+| Mode | Target file | Available |
+|------|-------------|-----------|
+| `import` | Your own file, with one `@import` line in the managed block. Changes to the shared file apply right away | Targets that follow `@` imports |
+| `symlink` | A link to the shared file. Changes apply right away | Not on Windows without Developer Mode |
+| `copy` | A copy of the shared file. Sync again after changing the shared file | Always |
+
+The picker marks the default: `import` for targets that follow `@` imports, otherwise
+`symlink`, or `copy` on Windows without Developer Mode. A target that uses more than
+one shared file can only use `import`. Changing the mode syncs the target right away.
+Switching back to `import` puts back your own content from before the shared file was
+attached, plus the import block.
+
+On Windows, a target whose file is a link that was created as a folder shows a
+warning: tools can't read it. Switching it to `copy` (or running
+`skillshare sync extras`) fixes it; see
+[Windows troubleshooting](../../troubleshooting/windows.md#agent-files-or-agentsmd-show-a-folder-icon-and-cant-be-read).
 
 | Status | Meaning |
 |--------|---------|
-| `synced` | The link or import line is in place |
+| `synced` | The link, copy, or import line is in place |
 | `modified` | The link was replaced by a regular file with different content ([see below](#when-a-linked-file-is-edited)) |
 | `drift` | The target file exists but isn't linked to the shared file, or no longer has the import line |
 | `not synced` | The target file doesn't exist yet |
@@ -211,6 +234,15 @@ The **⋯** menu copies the file's path or deletes the shared file.
 
 Restoring a target returns it to how it was before the shared file was attached. The
 file or symlink that was there is put back, or the file is removed if there was none.
+
+Turning a target's switch off first shows what the restore will do:
+
+- By default, the content the file will have after the restore, with a tab that shows
+  the difference from the file now.
+- If there was no file before, a note that restoring deletes the file.
+- If the file was a link before, the link it puts back.
+- If you edited the file after attaching, a note that those edits are not restored;
+  they are kept as a [drift backup](#backups).
 For an import target, only skillshare's import line is removed; a `CLAUDE.md` that
 skillshare created just for the block is removed once it is empty. The shared file
 itself is kept. If the target is still `modified`, the edited file is first kept as a
@@ -237,6 +269,19 @@ shared file, not to the edited version.
 without asking. The edit is kept as a drift backup first, so choose **Collect into**
 before syncing if the shared file should get it.
 
+## Change which file a target reads
+
+**Change location** on a target's tab opens a dialog where you can change the path
+and file name the target reads, for example `~/.claude/instructions.md` instead of
+`~/.claude/CLAUDE.md`. Tick **This tool supports @import** if the tool follows `@`
+lines. The setting is saved on the target as
+[`instructions`](../../reference/targets/configuration.md#target-instructions).
+**Reset to default** goes back to the file skillshare knows for that target.
+
+skillshare refuses to change the location while the target uses shared files; switch
+it back to its own file first. Tools listed on universal's tab have no
+target entry, so their location can't be changed.
+
 ## Tools skillshare doesn't know
 
 For a target without a known instruction file, such as a
@@ -251,7 +296,7 @@ several shared files at once, like claude. The setting is saved on the target as
 [`instructions`](../../reference/targets/configuration.md#target-instructions).
 You can also fill it in when you add the tool with **Add target** → **Custom target**.
 
-Use **Change** or **Remove setting** under the read order to update it later.
+Use **Change location** to update it later; the dialog also has **Remove setting**.
 Removing the setting doesn't delete the file. skillshare refuses to change or remove
 the location while the target uses shared files; switch it back to its own file
 first.

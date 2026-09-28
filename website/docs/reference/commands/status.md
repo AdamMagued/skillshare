@@ -87,8 +87,9 @@ claude
 - **Shared/local counts**: In merge and copy modes, counts use that target's expected set (after `include`/`exclude` filters). Copy mode shows "managed" instead of "shared".
 
 **Agents sub-item** shows:
-- **Status**: `synced` or `drift`
-- **Linked count**: e.g. `8/8 linked`
+- **Sync mode**: the mode agents actually sync with. On Windows without Developer Mode, `merge` shows as `[copy]` because agent files are copied instead of linked
+- **Status**: `merged`, `copied`, `linked`, or `drift`
+- **Linked count**: e.g. `8/8 linked` (up-to-date copies count as linked)
 
 If agents source does not exist or the target has no agent path configured, the agents sub-item is omitted.
 
@@ -111,7 +112,7 @@ rules        has files  [merge] .cursor/rules (4 files)
 commands     has files  [merge] .claude/commands (3 files)
 ```
 
-Each entry shows the name, status, sync mode, target path, and file count.
+Each entry shows the name, status, sync mode, target path, and file count. The sync mode is the one files are actually synced with: on Windows without Developer Mode, a target that links files shows `[copy]`.
 
 ### Audit
 

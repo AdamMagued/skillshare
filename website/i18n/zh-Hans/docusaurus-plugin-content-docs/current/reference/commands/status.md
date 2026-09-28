@@ -87,8 +87,9 @@ claude
 - **Shared/local 计数**：在 merge 和 copy 模式下，计数使用的是该 target 的预期集合（应用 `include`/`exclude` filter 之后）。copy 模式下显示的是 "managed" 而非 "shared"。
 
 **agents 子项** 显示：
-- **Status**：`synced` 或 `drift`
-- **Linked 计数**：例如 `8/8 linked`
+- **Sync mode**：agents 实际使用的同步模式。在未开启 Developer Mode 的 Windows 上，`merge` 会显示为 `[copy]`，因为 agent 文件是被复制而不是被链接
+- **Status**：`merged`、`copied`、`linked` 或 `drift`
+- **Linked 计数**：例如 `8/8 linked`（已是最新的副本也计为 linked）
 
 如果 agents source 不存在，或该 target 没有配置 agent path，则 agents 子项会被省略。
 
@@ -111,7 +112,7 @@ rules        has files  [merge] .cursor/rules (4 files)
 commands     has files  [merge] .claude/commands (3 files)
 ```
 
-每一项显示名称、状态、sync mode、target 路径和文件数量。
+每一项显示名称、状态、sync mode、target 路径和文件数量。sync mode 是文件实际同步时使用的模式：在未开启 Developer Mode 的 Windows 上，链接文件的 target 会显示 `[copy]`。
 
 ### Audit
 
