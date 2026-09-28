@@ -21,6 +21,11 @@ export const queryKeys = {
 
   backups: ['backups'] as const,
   restoreValidate: (timestamp: string, target: string) => ['restore-validate', timestamp, target] as const,
+  fileBackups: {
+    all: ['file-backups'] as const,
+    versions: (path: string) => ['file-backups', 'versions', path] as const,
+    version: (path: string, id: string) => ['file-backups', 'version', path, id] as const,
+  },
   trash: ['trash'] as const,
   gitStatus: ['git-status'] as const,
   gitBranches: ['git-branches'] as const,

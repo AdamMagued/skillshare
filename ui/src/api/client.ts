@@ -667,6 +667,20 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(opts),
     }),
+  deleteBackup: (timestamp: string) =>
+    apiFetch<{ success: boolean }>(`/backups/${encodeURIComponent(timestamp)}`, { method: 'DELETE' }),
+
+  // File history: earlier versions of single files skillshare rewrote
+  listFileBackups: () => apiFetch<{ files: FileBackup[] }>('/file-backups'),
+  getFileBackupVersions: (path: string) =>
+    apiFetch<FileBackupVersions>(`/file-backups/versions?path=${encodeURIComponent(path)}`),
+  getFileBackupVersion: (path: string, id: string) =>
+    apiFetch<{ content: string; current: string }>(`/file-backups/version?path=${encodeURIComponent(path)}&id=${encodeURIComponent(id)}`),
+  restoreFileBackup: (body: { path: string; id: string; unlink?: boolean }) =>
+    apiFetch<{ success: boolean; backup_id?: string }>('/file-backups/restore', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 
   // Trash
   listTrash: () => apiFetch<TrashListResponse>('/trash'),
@@ -1377,6 +1391,37 @@ export interface BackupInfo {
 export interface BackupListResponse {
   backups: BackupInfo[];
   totalSizeBytes: number;
+}
+
+/** A file with earlier versions kept. `target`/`extra` name who uses the path, when known. */
+export interface FileBackup {
+  path: string;
+  versions: number;
+  latest: string;
+  target?: string;
+  extra?: string;
+  /** The shared file itself, not a place it is put. */
+  source?: boolean;
+}
+
+/** `history`: saved before a write; `drift`: edits a write replaced; `origin`: the file before it was first attached. */
+export interface FileBackupVersion {
+  id: string;
+  kind: 'history' | 'drift' | 'origin';
+  reason: string;
+  time: string;
+  size: number;
+  preview: string;
+  /** The path was a link to this destination. */
+  link_to?: string;
+  /** There was no file. */
+  none?: boolean;
+}
+
+export interface FileBackupVersions {
+  path: string;
+  current: { exists: boolean; link_to?: string };
+  versions: FileBackupVersion[];
 }
 
 export interface RestoreValidateResponse {
