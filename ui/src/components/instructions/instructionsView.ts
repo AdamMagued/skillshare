@@ -22,9 +22,12 @@ export function takenName(name: string, taken: string[]): string | undefined {
   return taken.find((x) => x.toLowerCase() === n);
 }
 
-/** Whether name is a folder extra (not a shared instruction file), so a name clash should say so. */
-export const isFolderExtra = (name: string, extras: { name: string; file?: string }[]) =>
-  extras.some((e) => e.name === name && !e.file);
+/** Whether an extra is a shared AGENTS.md, shown on the AGENTS.md tab. Every other extra (folders and other single files) is on the first tab. */
+export const isAgentsExtra = (extra: { file?: string }) => extra.file === 'AGENTS.md';
+
+/** Whether name is an extra on the first tab (not a shared AGENTS.md), so a name clash should say so. */
+export const isOtherExtra = (name: string, extras: { name: string; file?: string }[]) =>
+  extras.some((e) => e.name === name && !isAgentsExtra(e));
 
 /** A free name for a new shared file made from a target: the target's name, else <name>-2, <name>-3, … */
 export function defaultShareName(target: string, taken: string[]): string {

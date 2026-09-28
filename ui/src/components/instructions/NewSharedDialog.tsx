@@ -13,7 +13,7 @@ import { useT } from '../../i18n';
 import { shortenHome } from '../../lib/paths';
 import { queryKeys } from '../../lib/queryKeys';
 import { BoxHeader, InstructionsPreview } from './ViewTabs';
-import { instructionsErrorMessage, isFolderExtra, isImportLine, sharedNameProblem, takenName } from './instructionsView';
+import { instructionsErrorMessage, isOtherExtra, isImportLine, sharedNameProblem, takenName } from './instructionsView';
 
 /** Creates a shared instruction file, from content or by moving a target's current file into it. */
 export default function NewSharedDialog({ targets, project = false, onClose, onCreated }: {
@@ -68,7 +68,7 @@ export default function NewSharedDialog({ targets, project = false, onClose, onC
             <span className={`ss-inp ${problem ? 'err' : ''}`}>
               <input id="shared-name" autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="personal" disabled={saving} />
             </span>
-            <span className={`hp ${problem ? 'text-bad' : ''}`}>{problem === 'invalid' ? t('instructions.shared.nameInvalid') : problem === 'taken' ? t(isFolderExtra(taken, extras.data?.extras ?? []) ? 'instructions.shared.nameTakenFolder' : 'instructions.convert.nameTaken', { name: taken }) : t('instructions.shared.nameHint')}</span>
+            <span className={`hp ${problem ? 'text-bad' : ''}`}>{problem === 'invalid' ? t('instructions.shared.nameInvalid') : problem === 'taken' ? t(isOtherExtra(taken, extras.data?.extras ?? []) ? 'instructions.shared.nameTakenFolder' : 'instructions.convert.nameTaken', { name: taken }) : t('instructions.shared.nameHint')}</span>
           </div>
           {!project && <div className="ss-fld">
             <span className="text-[13px] font-semibold">{t('instructions.shared.startFrom')}</span>

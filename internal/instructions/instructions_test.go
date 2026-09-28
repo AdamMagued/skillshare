@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"skillshare/internal/config"
+	syncpkg "skillshare/internal/sync"
 )
 
 func write(t *testing.T, path, content string) {
@@ -209,6 +210,36 @@ func TestAssign_RestoreModifiedTargetPutsBackPreAttachFile(t *testing.T) {
 	}
 	if got := read(t, file); got != "mine\n" || len(extras[0].Targets) != 0 {
 		t.Errorf("after restore: content %q, targets %+v", got, extras[0].Targets)
+	}
+}
+
+func TestAssign_LeavesOtherSingleFileExtrasAlone(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
+	src, home := t.TempDir(), t.TempDir()
+	write(t, filepath.Join(src, "personal", "AGENTS.md"), "p\n")
+	write(t, filepath.Join(src, "prompt", "system.md"), "s\n")
+	claude := filepath.Join(home, "CLAUDE.md")
+	write(t, claude, "mine\n")
+	prompt := config.ExtraConfig{Name: "prompt", File: "system.md", Targets: []config.ExtraTargetConfig{{Path: home, As: "CLAUDE.md", Mode: "import"}}}
+	extras := []config.ExtraConfig{{Name: "personal", File: "AGENTS.md"}, prompt}
+	target := Target{Name: "claude", File: claude, Import: true}
+	r := newResolver(src)
+	if _, err := syncpkg.SyncExtraFile(ExtraFile(prompt, 0, r), false, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := PlanAssign(extras, target, []string{"prompt"}, r); err == nil {
+		t.Error("PlanAssign accepted a single-file extra that is not an AGENTS.md")
+	}
+	extras, err := Assign(extras, target, []string{"personal"}, r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if extras, err = Assign(extras, target, nil, r); err != nil {
+		t.Fatal(err)
+	}
+	if len(extras[1].Targets) != 1 || !strings.Contains(read(t, claude), "system.md") {
+		t.Errorf("prompt extra detached: targets %+v, CLAUDE.md %q", extras[1].Targets, read(t, claude))
 	}
 }
 

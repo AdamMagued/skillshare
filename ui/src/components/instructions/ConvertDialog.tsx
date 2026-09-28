@@ -11,7 +11,7 @@ import { useToast } from '../Toast';
 import { useT } from '../../i18n';
 import { fileName, shortenHome } from '../../lib/paths';
 import { queryKeys } from '../../lib/queryKeys';
-import { instructionsErrorMessage, defaultShareName, importLines, isFolderExtra, lineDiff, refreshInstructions, sharedNameProblem, takenName } from './instructionsView';
+import { instructionsErrorMessage, defaultShareName, importLines, isOtherExtra, lineDiff, refreshInstructions, sharedNameProblem, takenName } from './instructionsView';
 
 const METHODS: ConvertMethod[] = ['import', 'rename', 'copy'];
 // The share picker's choice for a new shared file; real names are extras names.
@@ -46,7 +46,7 @@ export default function ConvertDialog({ data, onClose }: { data: TargetInstructi
   const nameProblem = choice === NEW ? sharedNameProblem(shareName, names) : null;
   const taken = takenName(shareName, names) ?? shareName.trim();
   const nameError = nameProblem === 'invalid' ? t('instructions.shared.nameInvalid')
-    : nameProblem === 'taken' ? t(isFolderExtra(taken, extras.data?.extras ?? []) ? 'instructions.shared.nameTakenFolder' : 'instructions.convert.nameTaken', { name: taken })
+    : nameProblem === 'taken' ? t(isOtherExtra(taken, extras.data?.extras ?? []) ? 'instructions.shared.nameTakenFolder' : 'instructions.convert.nameTaken', { name: taken })
       : '';
   const shareAs = shareReady && choice === NEW && !nameProblem ? shareName.trim() : undefined;
   const body = { method, keep_tool_lines: keep, ...(shareAs && { share_as: shareAs }), ...(shareInto && { share_into: shareInto }) };

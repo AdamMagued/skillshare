@@ -158,7 +158,7 @@ export interface ExtraTarget {
 
 export interface Extra {
   name: string;
-  file?: string; // single-file extra (a shared instruction file): the file in source_dir
+  file?: string; // single-file extra: the file in source_dir (AGENTS.md ones are shared instruction files)
   source_dir: string;
   source_type: "per-extra" | "extras_source" | "default";
   file_count: number;
@@ -707,7 +707,8 @@ export const api = {
   createExtra: (data: {
     name: string;
     source?: string;
-    targets: Array<{ path: string; mode: string; flatten?: boolean; extension?: string }>;
+    file?: string; // single-file extra: the file in the source folder
+    targets: Array<{ path: string; mode: string; flatten?: boolean; extension?: string; as?: string }>;
   }) =>
     apiFetch<{ success: boolean }>('/extras', {
       method: 'POST',
@@ -745,7 +746,7 @@ export const api = {
         ...(extension !== undefined && { extension }),
       }),
     }),
-  addExtraTarget: (name: string, target: { path: string; mode?: string; flatten?: boolean }) =>
+  addExtraTarget: (name: string, target: { path: string; mode?: string; flatten?: boolean; as?: string }) =>
     apiFetch<{ success: boolean }>(`/extras/${encodeURIComponent(name)}/targets`, {
       method: 'POST',
       body: JSON.stringify(target),

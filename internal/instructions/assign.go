@@ -24,6 +24,16 @@ type Resolver struct {
 	TargetDir func(string) string
 }
 
+// IsShared reports whether extra is a shared instruction file: a single-file
+// extra whose file is AGENTS.md. Other single-file extras may target the same
+// instruction files, but Assign and PlanAssign never attach or detach them.
+func IsShared(extra config.ExtraConfig) bool { return extra.File == AgentsFile }
+
+// Shared returns the shared instruction files among extras.
+func Shared(extras []config.ExtraConfig) []config.ExtraConfig {
+	return slices.DeleteFunc(slices.Clone(extras), func(e config.ExtraConfig) bool { return !IsShared(e) })
+}
+
 // Assign makes want exactly the shared files attached to t, in that order of
 // addition. Files no longer wanted are restored first (their link or import
 // line removed, the replaced file put back); newly wanted ones are added to
@@ -36,7 +46,7 @@ func Assign(extras []config.ExtraConfig, t Target, want []string, r Resolver, wa
 
 	var errs []string
 	for i := range extras {
-		if extras[i].File == "" || slices.Contains(want, extras[i].Name) {
+		if !IsShared(extras[i]) || slices.Contains(want, extras[i].Name) {
 			continue
 		}
 		j := targetIndex(extras[i], t.File, r)
@@ -93,14 +103,14 @@ func PlanAssign(extras []config.ExtraConfig, t Target, want []string, r Resolver
 		return nil, &config.ExtraTargetConflict{Name: want[0], Target: t.Name}
 	}
 	for _, name := range want {
-		if i := indexOf(extras, name); i == -1 || extras[i].File == "" {
+		if i := indexOf(extras, name); i == -1 || !IsShared(extras[i]) {
 			return nil, fmt.Errorf("shared instruction file %q not found", name)
 		}
 	}
 	next := slices.Clone(extras)
 	for i := range next {
 		next[i].Targets = slices.Clone(next[i].Targets)
-		if next[i].File == "" {
+		if !IsShared(next[i]) {
 			continue
 		}
 		j := targetIndex(next[i], t.File, r)

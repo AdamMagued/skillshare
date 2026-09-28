@@ -168,7 +168,7 @@ func (s *Server) handleGetTargetInstructions(w http.ResponseWriter, r *http.Requ
 		resp.LinkTo = dest
 		resp.LinkShared = s.sharedLinkName(it.Path)
 	}
-	resp.Shared = instructions.Assignments(s.extrasConfig(), it.Path, s.instructionsResolver())
+	resp.Shared = instructions.Assignments(instructions.Shared(s.extrasConfig()), it.Path, s.instructionsResolver())
 	resp.Convert, resp.Blocked = convertMethods(it, resp.Exists && instructions.HasMovableContent(resp.Content), s.IsProjectMode(), s.usesShared(it.Path))
 	writeJSON(w, resp)
 }

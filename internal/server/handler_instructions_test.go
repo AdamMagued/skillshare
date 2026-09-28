@@ -473,3 +473,22 @@ func TestSharedInstructions_ReportsCopyWithoutFileLinks(t *testing.T) {
 		t.Errorf("codex assigned = %+v, want a synced copy", a)
 	}
 }
+
+func TestSharedInstructions_OnlyAgentsFileExtras(t *testing.T) {
+	s, _ := newInstructionsServer(t, "claude")
+	if rr := instructionsRequest(t, s, http.MethodPost, "/api/instructions", `{"name":"personal","content":"p\n"}`); rr.Code != http.StatusOK {
+		t.Fatalf("create: %d %s", rr.Code, rr.Body.String())
+	}
+	s.cfg.Extras = append(s.cfg.Extras, config.ExtraConfig{Name: "prompt", File: "system.md", Targets: []config.ExtraTargetConfig{}})
+
+	got := decodeBody[struct {
+		Files []sharedInstructionsFile `json:"files"`
+	}](t, instructionsRequest(t, s, http.MethodGet, "/api/instructions", ""))
+	if len(got.Files) != 1 || got.Files[0].Name != "personal" {
+		t.Errorf("files = %+v, want only personal", got.Files)
+	}
+	rr := instructionsRequest(t, s, http.MethodPost, "/api/instructions/assign", `{"targets":["claude"],"extras":["prompt"]}`)
+	if rr.Code != http.StatusNotFound {
+		t.Errorf("assign prompt: %d %s, want 404", rr.Code, rr.Body.String())
+	}
+}

@@ -52,7 +52,7 @@ func printExtrasHelp() {
 Manage non-skill resources (rules, commands, prompts, etc.).
 
 Commands:
-  init <name>        Create a new extra resource type
+  init <name>        Create a new extra (a folder, or one file with --file [--as])
   list               List all configured extras and sync status (interactive TUI)
   remove <name>      Remove an extra resource type
   collect <name>     Collect local files from a target into extras source
@@ -80,7 +80,7 @@ func printExtraHelp(name string) {
 	fmt.Printf(`Usage: skillshare extras %s [options]
 
 Options:
-  --mode <mode>             Change sync mode: merge, copy, symlink, or import
+  --mode <mode>             Change sync mode: merge, copy, symlink, or import (single-file extras)
   --target <path>           Select a target for --mode
   --add-target <path>       Add a target directory
   --as <filename>           Target filename for a single-file --add-target

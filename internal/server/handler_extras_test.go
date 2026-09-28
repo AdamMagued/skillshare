@@ -900,3 +900,59 @@ func TestHandleExtrasRemoveTarget_Last(t *testing.T) {
 		t.Fatalf("expected 400, got %d: %s", rr.Code, rr.Body.String())
 	}
 }
+
+func TestHandleExtrasCreate_SingleFile(t *testing.T) {
+	s, _ := newTestServerWithExtras(t, nil, "")
+	targetDir := t.TempDir()
+	body := `{"name":"pi-prompt","file":"system.md","targets":[{"path":"` + targetDir + `","as":"APPEND_SYSTEM.md","mode":"copy"}]}`
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, "/api/extras", strings.NewReader(body)))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	rr = httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/api/extras", nil))
+	var resp struct {
+		Extras []extrasListEntry `json:"extras"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if len(resp.Extras) != 1 || resp.Extras[0].File != "system.md" || resp.Extras[0].Targets[0].As != "APPEND_SYSTEM.md" {
+		t.Errorf("extras = %+v, want file system.md with as APPEND_SYSTEM.md", resp.Extras)
+	}
+}
+
+func TestHandleExtrasCreate_SingleFileRejectsInvalidSettings(t *testing.T) {
+	targetDir := t.TempDir()
+	cases := map[string]string{
+		"flatten":      `{"name":"x","file":"a.md","targets":[{"path":"` + targetDir + `","flatten":true}]}`,
+		"as_no_file":   `{"name":"x","targets":[{"path":"` + targetDir + `","as":"b.md"}]}`,
+		"file_is_path": `{"name":"x","file":"sub/a.md","targets":[{"path":"` + targetDir + `"}]}`,
+	}
+	for name, body := range cases {
+		t.Run(name, func(t *testing.T) {
+			s, _ := newTestServerWithExtras(t, nil, "")
+			rr := httptest.NewRecorder()
+			s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, "/api/extras", strings.NewReader(body)))
+			if rr.Code != http.StatusBadRequest {
+				t.Errorf("expected 400, got %d: %s", rr.Code, rr.Body.String())
+			}
+		})
+	}
+}
+
+func TestHandleExtrasCreate_SingleFileTargetHeld(t *testing.T) {
+	targetDir := t.TempDir()
+	s, _ := newTestServerWithExtras(t, []config.ExtraConfig{{Name: "a", File: "a.md", Targets: []config.ExtraTargetConfig{{Path: targetDir, As: "OUT.md"}}}}, "")
+	body := `{"name":"b","file":"b.md","targets":[{"path":"` + targetDir + `","as":"OUT.md"}]}`
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, "/api/extras", strings.NewReader(body)))
+	if rr.Code != http.StatusConflict {
+		t.Fatalf("expected 409, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if len(s.cfg.Extras) != 1 {
+		t.Errorf("extras after rejected create = %+v, want unchanged", s.cfg.Extras)
+	}
+}

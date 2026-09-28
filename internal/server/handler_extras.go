@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -423,11 +424,13 @@ func (s *Server) handleExtrasCreate(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Name    string `json:"name"`
 		Source  string `json:"source,omitempty"`
+		File    string `json:"file,omitempty"` // single-file extra: the file in the source dir
 		Targets []struct {
 			Path      string `json:"path"`
 			Mode      string `json:"mode"`
 			Flatten   bool   `json:"flatten"`
 			Extension string `json:"extension,omitempty"`
+			As        string `json:"as,omitempty"` // single-file extra: target filename
 		} `json:"targets"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -469,9 +472,9 @@ func (s *Server) handleExtrasCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Build ExtraConfig
-	extra := config.ExtraConfig{Name: body.Name, Source: body.Source}
+	extra := config.ExtraConfig{Name: body.Name, Source: body.Source, File: body.File}
 	for _, t := range body.Targets {
-		et := config.ExtraTargetConfig{Path: t.Path, Flatten: t.Flatten}
+		et := config.ExtraTargetConfig{Path: t.Path, Flatten: t.Flatten, As: t.As}
 		if t.Mode != "" {
 			et.Mode = t.Mode
 		}
@@ -489,10 +492,29 @@ func (s *Server) handleExtrasCreate(w http.ResponseWriter, r *http.Request) {
 
 	// Append to config (extras source resolution is handled by
 	// s.cfg.EffectiveExtrasSource() inside s.extrasSourceDir; no backfill needed).
+	// The same ownership and import checks add-target runs.
+	var validateErr error
 	if s.IsProjectMode() {
-		s.projectCfg.Extras = append(s.projectCfg.Extras, extra)
+		prev := s.projectCfg.Extras
+		s.projectCfg.Extras = append(slices.Clone(prev), extra)
+		if validateErr = s.projectCfg.ValidateExtras(s.projectRoot, extra.Name); validateErr != nil {
+			s.projectCfg.Extras = prev
+		}
 	} else {
-		s.cfg.Extras = append(s.cfg.Extras, extra)
+		prev := s.cfg.Extras
+		s.cfg.Extras = append(slices.Clone(prev), extra)
+		if validateErr = s.cfg.ValidateExtras(extra.Name); validateErr != nil {
+			s.cfg.Extras = prev
+		}
+	}
+	if validateErr != nil {
+		var conflict *config.ExtraTargetConflict
+		if errors.As(validateErr, &conflict) {
+			writeExtraTargetConflict(w, validateErr, conflict.Target)
+		} else {
+			writeError(w, http.StatusBadRequest, validateErr.Error())
+		}
+		return
 	}
 
 	if err := s.saveConfig(); err != nil {

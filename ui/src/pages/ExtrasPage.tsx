@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Ellipsis, FoldVertical, Folder, FolderPlus, Link2, Plus, Puzzle, RefreshCw, Trash2, X, Zap } from 'lucide-react';
+import { Ellipsis, FileText, FoldVertical, Folder, FolderPlus, Link2, Plus, Puzzle, RefreshCw, Trash2, X, Zap } from 'lucide-react';
 import { api } from '../api/client';
 import type { AvailableTarget, Extra, ExtraTarget } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
@@ -21,8 +21,17 @@ import { buildSyncToast, sumEntry, syncToastType } from '../lib/extrasSyncToast'
 import { shortenHome } from '../lib/paths';
 import ProjectInstructions from '../components/instructions/ProjectInstructions';
 import SharedInstructions from '../components/instructions/SharedInstructions';
+import { isAgentsExtra } from '../components/instructions/instructionsView';
 
 const MODES = ['merge', 'copy', 'symlink'] as const;
+// A single file can't be a directory symlink; import writes an @ line instead.
+const FILE_MODES = ['merge', 'copy', 'import'] as const;
+
+/** A file name typed where a path would be wrong. */
+const isPathLike = (name: string) => /[\\/]/.test(name);
+
+/** <folder>/<file>, for a single-file extra's source or target file. */
+const joinFile = (dir: string, file: string) => `${dir.replace(/[\\/]+$/, '')}/${file}`;
 
 const STATUS: Record<string, { tone: string; labelKey: string }> = {
   synced: { tone: 'ok', labelKey: 'extras.status.synced' },
@@ -54,9 +63,53 @@ interface Draft {
   mode: string;
   flatten: boolean;
   extension: string;
+  as: string; // single-file extra: target file name, empty keeps the source name
 }
 
-const newDraft = (): Draft => ({ id: crypto.randomUUID(), path: '', mode: 'merge', flatten: false, extension: '' });
+const newDraft = (): Draft => ({ id: crypto.randomUUID(), path: '', mode: 'merge', flatten: false, extension: '', as: '' });
+
+/** Folder · File name · Mode for a single-file extra, shared by the Add extra dialog and the inline Add target row. */
+function FileDraftFields({ draft, onChange, fileName, known, disabled }: {
+  draft: Draft;
+  onChange: (next: Draft) => void;
+  fileName: string;
+  known: AvailableTarget[];
+  disabled: boolean;
+}) {
+  const t = useT();
+  return (
+    <>
+      <TargetMark path={draft.path} known={known} />
+      <span className="ss-inp min-w-0 flex-1">
+        <input
+          value={draft.path}
+          onChange={(e) => onChange({ ...draft, path: e.target.value })}
+          placeholder="~/.claude"
+          aria-label={t('extras.modal.colPath')}
+          disabled={disabled}
+        />
+      </span>
+      <span className={`ss-inp w-[170px] shrink-0 ${isPathLike(draft.as) ? 'err' : ''}`}>
+        <input
+          value={draft.as}
+          onChange={(e) => onChange({ ...draft, as: e.target.value })}
+          placeholder={fileName || 'CONVENTIONS.md'}
+          aria-label={t('extras.modal.fileName')}
+          aria-invalid={isPathLike(draft.as)}
+          title={isPathLike(draft.as) ? t('extras.modal.fileNameInvalid') : undefined}
+          disabled={disabled}
+        />
+      </span>
+      <Select
+        className="w-[104px] shrink-0"
+        value={draft.mode}
+        onChange={(v) => onChange({ ...draft, mode: v })}
+        options={FILE_MODES.map((m) => ({ value: m, label: m, description: t(`extras.fileModeDescription.${m}`) }))}
+        disabled={disabled}
+      />
+    </>
+  );
+}
 
 /** Folder · Extension · Mode · flatten, shared by the Add extra dialog and the inline Add target row. */
 function DraftFields({ draft, onChange, extensions, known, disabled }: {
@@ -126,9 +179,20 @@ function DraftHints({ extensions }: { extensions: string[] }) {
   );
 }
 
+function FileDraftHints({ fileName }: { fileName: string }) {
+  const t = useT();
+  return (
+    <div className="flex flex-col gap-0.5 text-[12.5px] text-ink-3">
+      <span>{t('extras.hint.fileAs', { file: fileName || '…' })}</span>
+      <span>{t('extras.hint.fileModes')}</span>
+      <span>{t('extras.hint.fileBackup')}</span>
+    </div>
+  );
+}
+
 function AddExtraDialog({ onClose, onCreated, extensions, known, sharedDir }: {
   onClose: () => void;
-  onCreated: () => void;
+  onCreated: (agents: boolean) => void;
   extensions: string[];
   known: AvailableTarget[];
   sharedDir: string;
@@ -136,13 +200,26 @@ function AddExtraDialog({ onClose, onCreated, extensions, known, sharedDir }: {
   const { toast } = useToast();
   const t = useT();
   const [name, setName] = useState('');
+  const [single, setSingle] = useState(false);
+  const [file, setFile] = useState('');
   const [custom, setCustom] = useState(false);
   const [source, setSource] = useState('');
   const [drafts, setDrafts] = useState<Draft[]>(() => [newDraft()]);
   const [saving, setSaving] = useState(false);
   const title = t('extras.addExtraTitle');
   const valid = drafts.filter((d) => d.path.trim());
-  const canCreate = name.trim() !== '' && valid.length > 0 && (!custom || source.trim() !== '') && !saving;
+  const fileName = file.trim();
+  const fileOk = !single || (fileName !== '' && !isPathLike(fileName) && valid.every((d) => !isPathLike(d.as.trim())));
+  const canCreate = name.trim() !== '' && valid.length > 0 && (!custom || source.trim() !== '') && fileOk && !saving;
+  const agents = single && isAgentsExtra({ file: fileName });
+  const sourceFile = joinFile(custom ? source.trim() || '…' : `${shortenHome(sharedDir)}/${name.trim() || '…'}`, fileName || '…');
+
+  // Keep each target's mode valid for the chosen kind.
+  const switchKind = (toSingle: boolean) => {
+    const modes: readonly string[] = toSingle ? FILE_MODES : MODES;
+    setSingle(toSingle);
+    setDrafts(drafts.map((d) => (modes.includes(d.mode) ? d : { ...d, mode: 'merge' })));
+  };
 
   const create = async () => {
     if (!canCreate) return;
@@ -151,10 +228,13 @@ function AddExtraDialog({ onClose, onCreated, extensions, known, sharedDir }: {
       await api.createExtra({
         name: name.trim(),
         ...(custom && { source: source.trim() }),
-        targets: valid.map((d) => ({ path: d.path.trim(), mode: d.extension ? 'copy' : d.mode, flatten: d.flatten, ...(d.extension && { extension: d.extension }) })),
+        ...(single && { file: fileName }),
+        targets: valid.map((d) => (single
+          ? { path: d.path.trim(), mode: d.mode, ...(d.as.trim() && { as: d.as.trim() }) }
+          : { path: d.path.trim(), mode: d.extension ? 'copy' : d.mode, flatten: d.flatten, ...(d.extension && { extension: d.extension }) })),
       });
       toast(t('extras.toast.created', { name: name.trim() }), 'success');
-      onCreated();
+      onCreated(agents);
     } catch (err) {
       toast((err as Error).message, 'error');
       setSaving(false);
@@ -180,6 +260,17 @@ function AddExtraDialog({ onClose, onCreated, extensions, known, sharedDir }: {
             <span className="hp">{t('extras.modal.nameHint')}</span>
           </div>
           <div className="ss-fld">
+            <span id="extra-kind" className="text-[13px] font-semibold">{t('extras.modal.sync')}</span>
+            <div className="ss-seg self-start" role="radiogroup" aria-labelledby="extra-kind">
+              {[false, true].map((on) => (
+                <button key={String(on)} type="button" role="radio" aria-checked={single === on} className={single === on ? 'on' : ''} onClick={() => switchKind(on)} disabled={saving}>
+                  {on ? <FileText size={14} /> : <Folder size={14} />}
+                  {t(on ? 'extras.modal.syncFile' : 'extras.modal.syncFolder')}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="ss-fld">
             <span className="text-[13px] font-semibold">{t('extras.modal.source')}</span>
             <Select
               value={custom ? 'custom' : 'shared'}
@@ -194,10 +285,23 @@ function AddExtraDialog({ onClose, onCreated, extensions, known, sharedDir }: {
               <span className="ss-inp">
                 <input value={source} onChange={(e) => setSource(e.target.value)} placeholder={t('extras.modal.sourcePathPlaceholder')} aria-label={t('extras.sourceType.custom')} disabled={saving} />
               </span>
-            ) : (
+            ) : !single && (
               <span className="hp truncate font-mono">{`${shortenHome(sharedDir)}/${name.trim() || '…'}`}</span>
             )}
           </div>
+          {single && (
+            <div className="ss-fld">
+              <label htmlFor="extra-file">{t('extras.modal.fileName')}</label>
+              <span className={`ss-inp ${isPathLike(fileName) ? 'err' : ''}`}>
+                <input id="extra-file" value={file} onChange={(e) => setFile(e.target.value)} placeholder="CONVENTIONS.md" aria-invalid={isPathLike(fileName)} disabled={saving} />
+              </span>
+              {isPathLike(fileName) && <span className="hp text-bad">{t('extras.modal.fileNameInvalid')}</span>}
+            </div>
+          )}
+          {single && (
+            <p className="col-span-2 min-w-0 break-all text-[12.5px] text-ink-3">{t('extras.modal.fileSyncs', { path: sourceFile })}</p>
+          )}
+          {agents && <div className="ss-note inf col-span-2"><span className="flex-1">{t('extras.modal.agentsNote')}</span></div>}
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -206,14 +310,16 @@ function AddExtraDialog({ onClose, onCreated, extensions, known, sharedDir }: {
             <div className="ss-lh !px-3">
               <span className="w-[30px]" />
               <span className="flex-1">{t('extras.modal.colPath')}</span>
-              <span className="w-[170px]">{t('extras.modal.colExtension')}</span>
+              <span className="w-[170px]">{t(single ? 'extras.modal.fileName' : 'extras.modal.colExtension')}</span>
               <span className="w-[104px]">{t('extras.modal.colMode')}</span>
-              <span className="w-[96px]" />
+              {!single && <span className="w-[96px]" />}
               <span className="w-[30px]" />
             </div>
             {drafts.map((d, i) => (
               <div key={d.id} className="ss-r !min-h-[52px] !px-3 !py-1.5">
-                <DraftFields draft={d} onChange={(next) => setDrafts(drafts.map((x, j) => (j === i ? next : x)))} extensions={extensions} known={known} disabled={saving} />
+                {single
+                  ? <FileDraftFields draft={d} onChange={(next) => setDrafts(drafts.map((x, j) => (j === i ? next : x)))} fileName={fileName} known={known} disabled={saving} />
+                  : <DraftFields draft={d} onChange={(next) => setDrafts(drafts.map((x, j) => (j === i ? next : x)))} extensions={extensions} known={known} disabled={saving} />}
                 <button
                   type="button"
                   className="ss-ib shrink-0 disabled:invisible"
@@ -232,7 +338,7 @@ function AddExtraDialog({ onClose, onCreated, extensions, known, sharedDir }: {
               </button>
             </div>
           </div>
-          <DraftHints extensions={extensions} />
+          {single ? <FileDraftHints fileName={fileName} /> : <DraftHints extensions={extensions} />}
         </div>
       </div>
       <div className="df">
@@ -244,24 +350,28 @@ function AddExtraDialog({ onClose, onCreated, extensions, known, sharedDir }: {
   );
 }
 
-function AddTargetRow({ onAdd, onCancel, extensions, known }: {
+function AddTargetRow({ onAdd, onCancel, extensions, known, file }: {
   onAdd: (draft: Draft) => Promise<boolean>;
   onCancel: () => void;
   extensions: string[];
   known: AvailableTarget[];
+  file?: string; // single-file extra: the source file name
 }) {
   const t = useT();
   const [draft, setDraft] = useState(newDraft);
   const [busy, setBusy] = useState(false);
+  const ready = draft.path.trim() !== '' && !isPathLike(draft.as.trim());
   const add = async () => {
-    if (!draft.path.trim() || busy) return;
+    if (!ready || busy) return;
     setBusy(true);
     if (!(await onAdd(draft))) setBusy(false);
   };
   return (
     <form className="ss-r !min-h-[52px] !py-1.5" onSubmit={(e) => { e.preventDefault(); void add(); }}>
-      <DraftFields draft={draft} onChange={setDraft} extensions={extensions} known={known} disabled={busy} />
-      <Button type="submit" variant="primary" size="sm" loading={busy} disabled={!draft.path.trim()}>{t('extras.addTarget')}</Button>
+      {file
+        ? <FileDraftFields draft={draft} onChange={setDraft} fileName={file} known={known} disabled={busy} />
+        : <DraftFields draft={draft} onChange={setDraft} extensions={extensions} known={known} disabled={busy} />}
+      <Button type="submit" variant="primary" size="sm" loading={busy} disabled={!ready}>{t('extras.addTarget')}</Button>
       <button type="button" className="ss-ib shrink-0" aria-label={t('extras.cancel')} onClick={onCancel} disabled={busy}><X size={16} /></button>
     </form>
   );
@@ -282,7 +392,7 @@ export default function ExtrasPage() {
   const { toast } = useToast();
   const t = useT();
   const queryClient = useQueryClient();
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const tab = params.get('tab') === 'instructions' ? 'instructions' : 'folders';
 
   const { data, isPending, error } = useQuery({ queryKey: queryKeys.extras, queryFn: () => api.listExtras(), staleTime: staleTimes.extras });
@@ -340,10 +450,13 @@ export default function ExtrasPage() {
     }
   };
 
-  const addTarget = async (name: string, d: Draft) => {
+  const addTarget = async (extra: Extra, d: Draft) => {
+    const { name } = extra;
     const path = d.path.trim();
     try {
-      await api.addExtraTarget(name, { path, mode: d.extension ? 'copy' : d.mode, flatten: d.flatten });
+      await api.addExtraTarget(name, extra.file
+        ? { path, mode: d.mode, ...(d.as.trim() && { as: d.as.trim() }) }
+        : { path, mode: d.extension ? 'copy' : d.mode, flatten: d.flatten });
       // The add endpoint takes no extension, so set it on the new target afterwards
       if (d.extension) await api.setExtraMode(name, path, 'copy', undefined, d.extension);
       toast(t('extras.toast.targetAdded', { path }), 'success');
@@ -363,7 +476,25 @@ export default function ExtrasPage() {
     { key: 'remove', label: t('extras.removeConfirm.title'), icon: <Trash2 size={14} />, danger: true, onSelect: () => setRemoveExtra(extra.name) },
   ];
 
-  const targetMenu = (extra: Extra, tg: ExtraTarget): ContextMenuItem[] => [
+  // Single files: merge, copy or import; symlink only when a target already uses it.
+  const fileTargetMenu = (extra: Extra, tg: ExtraTarget): ContextMenuItem[] => [
+    {
+      key: 'mode',
+      label: t('extras.modal.colMode'),
+      icon: <Link2 size={14} />,
+      items: [...FILE_MODES, ...(tg.mode === 'symlink' ? ['symlink'] : [])].map((m) => ({
+        key: m,
+        label: m,
+        selected: tg.mode === m,
+        onSelect: () => void changeTarget(extra.name, tg, { mode: m }, t('extras.toast.modeChanged', { mode: m })),
+      })),
+    },
+    ...(extra.targets.length > 1
+      ? [{ key: 'remove', label: t('extras.removeTarget'), icon: <Trash2 size={14} />, danger: true, onSelect: () => setRemoveTarget({ name: extra.name, path: tg.path }) }]
+      : []),
+  ];
+
+  const targetMenu = (extra: Extra, tg: ExtraTarget): ContextMenuItem[] => extra.file ? fileTargetMenu(extra, tg) : [
     ...(extensions.length > 0 || tg.extension
       ? [{
           key: 'extension',
@@ -412,8 +543,8 @@ export default function ExtrasPage() {
       : []),
   ];
 
-  // Shared instruction files (single-file extras) have their own tab.
-  const extras = (data?.extras ?? []).filter((e) => !e.file);
+  // Shared AGENTS.md files have their own tab.
+  const extras = (data?.extras ?? []).filter((e) => !isAgentsExtra(e));
   const sharedCount = (data?.extras ?? []).length - extras.length;
 
   return (
@@ -449,10 +580,22 @@ export default function ExtrasPage() {
             {extras.map((extra) => (
               <div key={extra.name} className="contents">
                 <div className="ss-gh !min-h-12">
-                  <span className="ss-cat sm extra"><FolderPlus size={14} /></span>
+                  <span className="ss-cat sm extra">{extra.file ? <FileText size={14} /> : <FolderPlus size={14} />}</span>
                   <span className="font-mono font-semibold">{extra.name}</span>
-                  <span className="min-w-0 truncate font-mono text-ink-3" title={extra.source_dir}>{shortenHome(extra.source_dir)}</span>
-                  <span className="shrink-0 text-ink-3">· {t(extra.file_count === 1 ? 'extras.files.one' : 'extras.files.other', { count: extra.file_count })}</span>
+                  {extra.file ? (
+                    <>
+                      <span className="min-w-0 truncate font-mono text-ink-3" title={joinFile(extra.source_dir, extra.file)}>
+                        {joinFile(shortenHome(extra.source_dir), '')}<span className="font-semibold text-ink">{extra.file}</span>
+                      </span>
+                      <span className="shrink-0 text-ink-3">· {t('extras.singleFile')}</span>
+                      {!extra.source_exists && <span className="ss-tag bad shrink-0">{t('extras.sourceFileMissing')}</span>}
+                    </>
+                  ) : (
+                    <>
+                      <span className="min-w-0 truncate font-mono text-ink-3" title={extra.source_dir}>{shortenHome(extra.source_dir)}</span>
+                      <span className="shrink-0 text-ink-3">· {t(extra.file_count === 1 ? 'extras.files.one' : 'extras.files.other', { count: extra.file_count })}</span>
+                    </>
+                  )}
                   <span className="flex-1" />
                   <button type="button" className="ss-ib" aria-label={t('extras.moreActions', { name: extra.name })} onClick={(e) => openMenu(e, extraMenu(extra))}>
                     <Ellipsis size={16} />
@@ -460,10 +603,11 @@ export default function ExtrasPage() {
                 </div>
                 {extra.targets.map((tg) => {
                   const status = STATUS[tg.status];
+                  const dest = extra.file ? joinFile(tg.path, tg.as || extra.file) : tg.path;
                   return (
                     <div key={tg.path} className="ss-r !min-h-[46px]">
                       <TargetMark path={tg.path} known={known} />
-                      <span className="min-w-0 flex-1 truncate font-mono text-[13px]" title={tg.path}>{shortenHome(tg.path)}</span>
+                      <span className="min-w-0 flex-1 truncate font-mono text-[13px]" title={dest}>{shortenHome(dest)}</span>
                       <TargetTags target={tg} />
                       <span className="w-[120px] shrink-0">
                         <span className={`ss-st ${status?.tone ?? ''}`}>{status ? t(status.labelKey) : tg.status}</span>
@@ -475,7 +619,7 @@ export default function ExtrasPage() {
                   );
                 })}
                 {addingTo === extra.name ? (
-                  <AddTargetRow onAdd={(d) => addTarget(extra.name, d)} onCancel={() => setAddingTo(null)} extensions={extensions} known={known} />
+                  <AddTargetRow onAdd={(d) => addTarget(extra, d)} onCancel={() => setAddingTo(null)} extensions={extensions} known={known} file={extra.file} />
                 ) : (
                   <div className="ss-r !min-h-10">
                     <button type="button" className="flex items-center gap-[7px] text-[13px] text-ink-2 hover:text-ink" onClick={() => setAddingTo(extra.name)}>
@@ -497,7 +641,11 @@ export default function ExtrasPage() {
       {showAdd && (
         <AddExtraDialog
           onClose={() => setShowAdd(false)}
-          onCreated={() => { setShowAdd(false); invalidate(); }}
+          onCreated={(agents) => {
+            setShowAdd(false);
+            invalidate();
+            if (agents) setParams({ tab: 'instructions' }, { replace: true });
+          }}
           extensions={extensions}
           known={known}
           sharedDir={sharedDir}

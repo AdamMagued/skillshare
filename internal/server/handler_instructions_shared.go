@@ -17,9 +17,10 @@ import (
 	syncpkg "skillshare/internal/sync"
 )
 
-// Shared instruction files are single-file extras attached to the global
-// instruction files of targets. In project mode they are the project's
-// single-file extras, with every target listed as a location; the project's
+// Shared instruction files are single-file extras whose file is AGENTS.md (see
+// instructions.IsShared), attached to the global instruction files of targets.
+// Other single-file extras belong to the Extras page. In project mode they are
+// the project's AGENTS.md extras, with every target listed as a location; the project's
 // own ./AGENTS.md is handled in handler_instructions_project.go.
 
 func (s *Server) requireGlobalInstructions(next http.HandlerFunc) http.HandlerFunc {
@@ -99,7 +100,7 @@ func (s *Server) instructionTargets() []sharedInstructionsTarget {
 		}
 		_, err := os.Stat(it.Path)
 		t.Exists = err == nil
-		t.Assigned = instructions.Assignments(s.cfg.Extras, it.Path, res)
+		t.Assigned = instructions.Assignments(instructions.Shared(s.cfg.Extras), it.Path, res)
 		t.LinkedShared = s.sharedLinkName(it.Path)
 		out = append(out, t)
 	}
@@ -107,7 +108,7 @@ func (s *Server) instructionTargets() []sharedInstructionsTarget {
 		t := sharedInstructionsTarget{Name: r.Name, Path: r.Path, Import: r.Import, MaxChars: r.MaxChars, RiderOf: r.Via}
 		_, err := os.Stat(r.Path)
 		t.Exists = err == nil
-		t.Assigned = instructions.Assignments(s.cfg.Extras, r.Path, res)
+		t.Assigned = instructions.Assignments(instructions.Shared(s.cfg.Extras), r.Path, res)
 		t.LinkedShared = s.sharedLinkName(r.Path)
 		out = append(out, t)
 	}
@@ -123,7 +124,7 @@ func (s *Server) handleListSharedInstructions(w http.ResponseWriter, r *http.Req
 	tools := s.instructionTargets()
 	files := []sharedInstructionsFile{}
 	for _, extra := range s.extrasConfig() {
-		if extra.File == "" {
+		if !instructions.IsShared(extra) {
 			continue
 		}
 		f := sharedInstructionsFile{Name: extra.Name, File: extra.File, Path: filepath.Join(s.extrasSourceDir(extra), extra.File), Targets: len(extra.Targets), Locations: s.sharedLocations(extra, tools)}
@@ -405,7 +406,7 @@ func (s *Server) handleAssignSharedInstructions(w http.ResponseWriter, r *http.R
 			return
 		}
 		for _, shared := range body.Extras {
-			if _, found := s.sharedExtra(shared); !found {
+			if extra, found := s.sharedExtra(shared); !found || !instructions.IsShared(extra) {
 				writeCodedError(w, http.StatusNotFound, "instructions_shared_not_found", fmt.Sprintf("shared instruction file %q not found", shared), map[string]string{"name": shared})
 				return
 			}
@@ -484,7 +485,7 @@ func (s *Server) handleRestoreSharedInstructions(w http.ResponseWriter, r *http.
 		return
 	}
 	var keep []string
-	for _, a := range instructions.Assignments(s.cfg.Extras, it.Path, s.instructionsResolver()) {
+	for _, a := range instructions.Assignments(instructions.Shared(s.cfg.Extras), it.Path, s.instructionsResolver()) {
 		if a.Name != name {
 			keep = append(keep, a.Name)
 		}

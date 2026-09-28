@@ -234,7 +234,14 @@ func cmdExtrasList(args []string) error {
 		if i > 0 {
 			fmt.Println()
 		}
-		if !entry.SourceExists {
+		if entry.File != "" {
+			// Single-file extra: the source is one file, shown in full.
+			src := shortenPath(filepath.Join(entry.SourceDir, entry.File))
+			if !entry.SourceExists {
+				src += " · source not found"
+			}
+			fmt.Printf("%s→%s %s  %s%s%s\n", ui.Cyan, ui.Reset, entry.Name, ui.Dim, src, ui.Reset)
+		} else if !entry.SourceExists {
 			fmt.Printf("%s→%s %s  %s\n", ui.Cyan, ui.Reset, entry.Name, ui.Dim+"source not found"+ui.Reset)
 		} else {
 			fileLabel := fmt.Sprintf("%d files", entry.FileCount)
@@ -269,7 +276,7 @@ func cmdExtrasList(args []string) error {
 			if t.Status != "synced" {
 				statusSuffix = fmt.Sprintf("  %s%s%s", color, t.Status, ui.Reset)
 			}
-			fmt.Printf("  %s%s%s %s  %s%s%s%s\n", color, icon, ui.Reset, shortenPath(t.Path), ui.Dim, modeLabel, ui.Reset, statusSuffix)
+			fmt.Printf("  %s%s%s %s  %s%s%s%s\n", color, icon, ui.Reset, shortenPath(extrasTargetDisplayPath(entry.File, t)), ui.Dim, modeLabel, ui.Reset, statusSuffix)
 		}
 	}
 

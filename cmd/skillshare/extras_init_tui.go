@@ -16,8 +16,11 @@ type extrasInitPhase int
 
 const (
 	extrasPhaseNameInput     extrasInitPhase = iota
+	extrasPhaseKindSelect                    // folder or single file?
+	extrasPhaseFileInput                     // single file: source file name
 	extrasPhaseSourceInput                   // ask for custom source directory
 	extrasPhaseTargetInput                   // ask for target path
+	extrasPhaseAsInput                       // single file: target file name
 	extrasPhaseModeSelect                    // choose sync mode
 	extrasPhaseFlattenToggle                 // flatten files into target root?
 	extrasPhaseAddMore                       // add another target?
@@ -28,14 +31,18 @@ type extrasInitTarget struct {
 	path    string
 	mode    string
 	flatten bool
+	as      string // single file: target filename ("" = the source file name)
 }
 
 type extrasInitTUIModel struct {
 	phase       extrasInitPhase
 	name        string
 	sourceValue string
+	singleFile  bool
+	kindCursor  int    // 0 folder, 1 single file
+	file        string // single file: source file name
 	targets     []extrasInitTarget
-	currMode    int // cursor index into syncModes
+	currMode    int // cursor index into m.modes()
 
 	textInput   textinput.Model
 	sourceInput textinput.Model
@@ -44,7 +51,32 @@ type extrasInitTUIModel struct {
 	err         error
 }
 
-var syncModes = config.ValidSyncModes // import needs a single-file extra, which init does not create
+var syncModes = config.ValidSyncModes // folder extras; import needs a single file
+
+// singleFileSyncModes are offered for a single-file extra. symlink is left out:
+// for one file it does the same as merge.
+var singleFileSyncModes = []string{"merge", "copy", "import"}
+
+// modes returns the sync modes offered for the extra being created.
+func (m extrasInitTUIModel) modes() []string {
+	if m.singleFile {
+		return singleFileSyncModes
+	}
+	return syncModes
+}
+
+// targetLabel returns a target as listed in the wizard: its path (for a
+// single file, the file it writes) and settings.
+func (m extrasInitTUIModel) targetLabel(t extrasInitTarget) string {
+	path, modeLabel := t.path, t.mode
+	if m.singleFile {
+		path = singleFileTargetPath(config.ExtraConfig{File: m.file}, config.ExtraTargetConfig{Path: t.path, As: t.as})
+	}
+	if t.flatten {
+		modeLabel += ", flatten"
+	}
+	return fmt.Sprintf("%s (%s)", path, modeLabel)
+}
 
 func newExtrasInitTUIModel() extrasInitTUIModel {
 	ti := textinput.New()
@@ -83,10 +115,23 @@ func (m extrasInitTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case extrasPhaseNameInput:
 				m.cancelled = true
 				return m, tea.Quit
-			case extrasPhaseSourceInput:
+			case extrasPhaseKindSelect:
 				m.phase = extrasPhaseNameInput
 				m.textInput.SetValue(m.name)
 				m.textInput.Placeholder = "rules"
+				return m, nil
+			case extrasPhaseFileInput:
+				m.err = nil
+				m.phase = extrasPhaseKindSelect
+				return m, nil
+			case extrasPhaseSourceInput:
+				if m.singleFile {
+					m.phase = extrasPhaseFileInput
+					m.textInput.SetValue(m.file)
+					m.textInput.Placeholder = "system.md"
+					return m, nil
+				}
+				m.phase = extrasPhaseKindSelect
 				return m, nil
 			case extrasPhaseTargetInput:
 				if len(m.targets) == 0 {
@@ -97,7 +142,20 @@ func (m extrasInitTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				m.phase = extrasPhaseAddMore
 				return m, nil
+			case extrasPhaseAsInput:
+				m.err = nil
+				m.targets = m.targets[:len(m.targets)-1] // remove the pending target
+				m.phase = extrasPhaseTargetInput
+				m.textInput.SetValue("")
+				m.textInput.Placeholder = targetPlaceholder(len(m.targets))
+				return m, nil
 			case extrasPhaseModeSelect:
+				if m.singleFile {
+					m.phase = extrasPhaseAsInput
+					m.textInput.SetValue(m.targets[len(m.targets)-1].as)
+					m.textInput.Placeholder = m.file
+					return m, nil
+				}
 				m.targets = m.targets[:len(m.targets)-1] // remove the pending target
 				m.phase = extrasPhaseTargetInput
 				m.textInput.SetValue("")
@@ -107,7 +165,7 @@ func (m extrasInitTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.phase = extrasPhaseModeSelect
 				return m, nil
 			case extrasPhaseAddMore:
-				if m.targets[len(m.targets)-1].mode == "symlink" {
+				if m.singleFile || m.targets[len(m.targets)-1].mode == "symlink" {
 					m.phase = extrasPhaseModeSelect
 				} else {
 					m.phase = extrasPhaseFlattenToggle
@@ -133,6 +191,42 @@ func (m extrasInitTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				m.name = name
 				m.err = nil
+				m.phase = extrasPhaseKindSelect
+				return m, nil
+			}
+
+		case extrasPhaseKindSelect:
+			switch msg.String() {
+			case "up", "k":
+				m.kindCursor = 0
+			case "down", "j":
+				m.kindCursor = 1
+			case "enter", " ":
+				m.singleFile = m.kindCursor == 1
+				if m.singleFile {
+					m.phase = extrasPhaseFileInput
+					m.textInput.SetValue(m.file)
+					m.textInput.Placeholder = "system.md"
+					return m, nil
+				}
+				m.phase = extrasPhaseSourceInput
+				m.sourceInput.Focus()
+			}
+			return m, nil
+
+		case extrasPhaseFileInput:
+			switch msg.String() {
+			case "enter":
+				file := strings.TrimSpace(m.textInput.Value())
+				if file == "" {
+					return m, nil
+				}
+				if err := config.ValidateExtraConfig(config.ExtraConfig{Name: m.name, File: file}); err != nil {
+					m.err = err
+					return m, nil
+				}
+				m.file = file
+				m.err = nil
 				m.phase = extrasPhaseSourceInput
 				m.sourceInput.Focus()
 				return m, nil
@@ -157,6 +251,31 @@ func (m extrasInitTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				m.targets = append(m.targets, extrasInitTarget{path: path})
 				m.currMode = 0
+				if m.singleFile {
+					m.phase = extrasPhaseAsInput
+					m.textInput.SetValue("")
+					m.textInput.Placeholder = m.file
+					return m, nil
+				}
+				m.phase = extrasPhaseModeSelect
+				return m, nil
+			}
+
+		case extrasPhaseAsInput:
+			switch msg.String() {
+			case "enter":
+				as := strings.TrimSpace(m.textInput.Value())
+				if as == m.file {
+					as = ""
+				}
+				tc := config.ExtraTargetConfig{Path: m.targets[len(m.targets)-1].path, As: as}
+				if err := config.ValidateExtraConfig(config.ExtraConfig{Name: m.name, File: m.file, Targets: []config.ExtraTargetConfig{tc}}); err != nil {
+					m.err = err
+					return m, nil
+				}
+				m.err = nil
+				m.targets[len(m.targets)-1].as = as
+				m.currMode = 0
 				m.phase = extrasPhaseModeSelect
 				return m, nil
 			}
@@ -169,14 +288,15 @@ func (m extrasInitTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return m, nil
 			case "down", "j":
-				if m.currMode < len(syncModes)-1 {
+				if m.currMode < len(m.modes())-1 {
 					m.currMode++
 				}
 				return m, nil
 			case "enter", " ":
-				m.targets[len(m.targets)-1].mode = syncModes[m.currMode]
-				if syncModes[m.currMode] == "symlink" {
-					m.phase = extrasPhaseAddMore // skip flatten for symlink
+				mode := m.modes()[m.currMode]
+				m.targets[len(m.targets)-1].mode = mode
+				if m.singleFile || mode == "symlink" {
+					m.phase = extrasPhaseAddMore // no flatten for one file or a directory symlink
 				} else {
 					m.phase = extrasPhaseFlattenToggle
 				}
@@ -224,7 +344,7 @@ func (m extrasInitTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Delegate to textinput for typing phases
 	switch m.phase {
-	case extrasPhaseNameInput, extrasPhaseTargetInput:
+	case extrasPhaseNameInput, extrasPhaseFileInput, extrasPhaseTargetInput, extrasPhaseAsInput:
 		var cmd tea.Cmd
 		m.textInput, cmd = m.textInput.Update(msg)
 		return m, cmd
@@ -253,8 +373,40 @@ func (m extrasInitTUIModel) View() string {
 		b.WriteString("\n\n")
 		b.WriteString(theme.Dim().MarginLeft(2).Render("enter confirm  esc cancel"))
 
+	case extrasPhaseKindSelect:
+		b.WriteString(theme.Dim().Render(fmt.Sprintf("Name: %s", m.name)))
+		b.WriteString("\n\n")
+		b.WriteString(theme.Accent().Render("What do you want to sync?"))
+		b.WriteString("\n")
+		kinds := [][2]string{{"Folder", " (every file in a folder)"}, {"Single file", " (one file, renamed per target if needed)"}}
+		for i, k := range kinds {
+			if i == m.kindCursor {
+				b.WriteString(theme.Accent().Render("▸ "+k[0]) + theme.Dim().Render(k[1]))
+			} else {
+				b.WriteString(theme.Dim().Render("  " + k[0] + k[1]))
+			}
+			b.WriteString("\n")
+		}
+		b.WriteString("\n")
+		b.WriteString(theme.Dim().MarginLeft(2).Render("↑↓/jk navigate  enter/space select  esc back"))
+
+	case extrasPhaseFileInput:
+		b.WriteString(theme.Dim().Render(fmt.Sprintf("Name: %s", m.name)))
+		b.WriteString("\n\n")
+		b.WriteString(theme.Accent().Render("Source file name: "))
+		b.WriteString(m.textInput.View())
+		if m.err != nil {
+			b.WriteString("\n" + theme.Danger().Render(m.err.Error()))
+		}
+		b.WriteString("\n\n")
+		b.WriteString(theme.Dim().MarginLeft(2).Render("enter confirm  esc back"))
+
 	case extrasPhaseSourceInput:
 		b.WriteString(theme.Dim().Render(fmt.Sprintf("Name: %s", m.name)))
+		if m.singleFile {
+			b.WriteString("\n")
+			b.WriteString(theme.Dim().Render(fmt.Sprintf("File: %s", m.file)))
+		}
 		b.WriteString("\n\n")
 		b.WriteString(theme.Accent().Render("Source directory (optional): "))
 		b.WriteString(m.sourceInput.View())
@@ -263,6 +415,10 @@ func (m extrasInitTUIModel) View() string {
 
 	case extrasPhaseTargetInput:
 		b.WriteString(theme.Dim().Render(fmt.Sprintf("Name: %s", m.name)))
+		if m.singleFile {
+			b.WriteString("\n")
+			b.WriteString(theme.Dim().Render(fmt.Sprintf("File: %s", m.file)))
+		}
 		if m.sourceValue != "" {
 			b.WriteString("\n")
 			b.WriteString(theme.Dim().Render(fmt.Sprintf("Source: %s", m.sourceValue)))
@@ -270,11 +426,7 @@ func (m extrasInitTUIModel) View() string {
 		if len(m.targets) > 0 {
 			b.WriteString("\n")
 			for _, t := range m.targets {
-				modeLabel := t.mode
-				if t.flatten {
-					modeLabel += ", flatten"
-				}
-				b.WriteString(theme.Dim().Render(fmt.Sprintf("  → %s (%s)", t.path, modeLabel)))
+				b.WriteString(theme.Dim().Render("  → " + m.targetLabel(t)))
 				b.WriteString("\n")
 			}
 		}
@@ -284,25 +436,44 @@ func (m extrasInitTUIModel) View() string {
 		b.WriteString("\n\n")
 		b.WriteString(theme.Dim().MarginLeft(2).Render("enter confirm  esc back"))
 
-	case extrasPhaseModeSelect:
+	case extrasPhaseAsInput:
 		b.WriteString(theme.Dim().Render(fmt.Sprintf("Name: %s", m.name)))
 		b.WriteString("\n")
 		b.WriteString(theme.Dim().Render(fmt.Sprintf("Target: %s", m.targets[len(m.targets)-1].path)))
 		b.WriteString("\n\n")
+		b.WriteString(theme.Accent().Render("Target file name: "))
+		b.WriteString(m.textInput.View())
+		if m.err != nil {
+			b.WriteString("\n" + theme.Danger().Render(m.err.Error()))
+		}
+		b.WriteString("\n\n")
+		b.WriteString(theme.Dim().MarginLeft(2).Render(fmt.Sprintf("enter to keep %s  esc back", m.file)))
+
+	case extrasPhaseModeSelect:
+		b.WriteString(theme.Dim().Render(fmt.Sprintf("Name: %s", m.name)))
+		b.WriteString("\n")
+		b.WriteString(theme.Dim().Render(fmt.Sprintf("Target: %s", m.targetLabel(m.targets[len(m.targets)-1]))))
+		b.WriteString("\n\n")
 		b.WriteString(theme.Accent().Render("Sync mode:"))
 		b.WriteString("\n")
-		for i, mode := range syncModes {
+		for i, mode := range m.modes() {
 			cursor := "  "
 			if i == m.currMode {
 				cursor = "▸ "
 			}
 			var desc string
-			switch mode {
-			case "merge":
+			switch {
+			case m.singleFile && mode == "merge":
+				desc = " (file symlink, default)"
+			case m.singleFile && mode == "copy":
+				desc = " (file copy)"
+			case mode == "import":
+				desc = " (@path line in the target file)"
+			case mode == "merge":
 				desc = " (per-file symlinks, default)"
-			case "copy":
+			case mode == "copy":
 				desc = " (file copies)"
-			case "symlink":
+			case mode == "symlink":
 				desc = " (directory symlink)"
 			}
 			if i == m.currMode {
@@ -329,11 +500,7 @@ func (m extrasInitTUIModel) View() string {
 		b.WriteString(theme.Dim().Render(fmt.Sprintf("Name: %s", m.name)))
 		b.WriteString("\n")
 		for _, t := range m.targets {
-			modeLabel := t.mode
-			if t.flatten {
-				modeLabel += ", flatten"
-			}
-			b.WriteString(theme.Dim().Render(fmt.Sprintf("  → %s (%s)", t.path, modeLabel)))
+			b.WriteString(theme.Dim().Render("  → " + m.targetLabel(t)))
 			b.WriteString("\n")
 		}
 		b.WriteString("\n")
@@ -345,15 +512,14 @@ func (m extrasInitTUIModel) View() string {
 		b.WriteString(theme.Accent().Render("Summary:"))
 		b.WriteString("\n")
 		b.WriteString(fmt.Sprintf("  Name: %s\n", m.name))
+		if m.singleFile {
+			b.WriteString(fmt.Sprintf("  File: %s\n", m.file))
+		}
 		if m.sourceValue != "" {
 			b.WriteString(fmt.Sprintf("  Source: %s\n", m.sourceValue))
 		}
 		for _, t := range m.targets {
-			modeLabel := t.mode
-			if t.flatten {
-				modeLabel += ", flatten"
-			}
-			b.WriteString(fmt.Sprintf("  → %s (%s)\n", t.path, modeLabel))
+			b.WriteString(fmt.Sprintf("  → %s\n", m.targetLabel(t)))
 		}
 		b.WriteString("\n")
 		b.WriteString(theme.Accent().Render("Create this extra? (Y/n) "))
@@ -391,23 +557,39 @@ func cmdExtrasInitTUI(mode runMode, cwd string) error {
 		return nil
 	}
 
-	// Collect targets and the first non-empty mode (mode applies globally)
-	var targetPaths []string
-	syncMode := ""
-	flatten := false
-	for _, t := range result.targets {
-		targetPaths = append(targetPaths, t.path)
-		if syncMode == "" && t.mode != "" && t.mode != "merge" {
-			syncMode = t.mode
+	start := time.Now()
+	opts := extrasInitOptions{name: result.name, source: result.sourceValue, file: result.file}
+	if result.singleFile {
+		// Each target keeps its own file name and mode; merge is the default.
+		for _, t := range result.targets {
+			if t.mode == "merge" {
+				t.mode = ""
+			}
+			opts.targets = append(opts.targets, t)
 		}
-		if t.flatten {
-			flatten = true
+	} else {
+		// Collect targets and the first non-empty mode (mode applies globally)
+		syncMode := ""
+		flatten := false
+		for _, t := range result.targets {
+			if syncMode == "" && t.mode != "" && t.mode != "merge" {
+				syncMode = t.mode
+			}
+			if t.flatten {
+				flatten = true
+			}
 		}
+		for _, t := range result.targets {
+			opts.targets = append(opts.targets, extrasInitTarget{path: t.path, mode: syncMode, flatten: flatten})
+		}
+	}
+	if err := validateExtrasInit(opts); err != nil {
+		return err
 	}
 
-	start := time.Now()
 	if mode == modeProject {
-		return extrasInitProject(cwd, result.name, targetPaths, syncMode, flatten, false, start)
+		opts.source = ""
+		return extrasInitProject(cwd, opts, start)
 	}
-	return extrasInitGlobal(result.name, targetPaths, syncMode, result.sourceValue, flatten, false, start)
+	return extrasInitGlobal(opts, start)
 }

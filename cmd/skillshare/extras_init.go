@@ -3,10 +3,12 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"skillshare/internal/config"
 	"skillshare/internal/oplog"
+	"skillshare/internal/sync"
 	"skillshare/internal/ui"
 )
 
@@ -38,6 +40,7 @@ func cmdExtrasInit(args []string) error {
 	var targets []string
 	var syncMode string
 	var sourceOverride string
+	var file, as string
 	var force bool
 	var noTUI bool
 	var flatten bool
@@ -51,7 +54,7 @@ func cmdExtrasInit(args []string) error {
 			targets = append(targets, rest[i])
 		case "--mode":
 			if i+1 >= len(rest) {
-				return fmt.Errorf("--mode requires an argument (merge/copy/symlink)")
+				return fmt.Errorf("--mode requires an argument (merge/copy/symlink/import)")
 			}
 			i++
 			syncMode = rest[i]
@@ -61,6 +64,18 @@ func cmdExtrasInit(args []string) error {
 			}
 			i++
 			sourceOverride = rest[i]
+		case "--file":
+			if i+1 >= len(rest) {
+				return fmt.Errorf("--file requires a filename")
+			}
+			i++
+			file = rest[i]
+		case "--as":
+			if i+1 >= len(rest) {
+				return fmt.Errorf("--as requires a filename")
+			}
+			i++
+			as = rest[i]
 		case "--flatten":
 			flatten = true
 		case "--force":
@@ -80,7 +95,7 @@ func cmdExtrasInit(args []string) error {
 	}
 
 	// No arguments at all → launch interactive TUI wizard
-	if name == "" && len(targets) == 0 && syncMode == "" && shouldLaunchTUI(noTUI, nil) {
+	if name == "" && len(targets) == 0 && syncMode == "" && file == "" && as == "" && shouldLaunchTUI(noTUI, nil) {
 		return cmdExtrasInitTUI(mode, cwd)
 	}
 	if name == "" {
@@ -90,121 +105,215 @@ func cmdExtrasInit(args []string) error {
 		return fmt.Errorf("at least one --target is required")
 	}
 
-	// Validate name
-	if err := config.ValidateExtraName(name); err != nil {
-		return err
+	initTargets := make([]extrasInitTarget, 0, len(targets))
+	for _, t := range targets {
+		initTargets = append(initTargets, extrasInitTarget{path: t, mode: syncMode, flatten: flatten, as: as})
 	}
-
-	// Validate sync mode
-	if err := config.ValidateExtraMode(syncMode); err != nil {
+	opts := extrasInitOptions{name: name, source: sourceOverride, file: file, targets: initTargets, force: force}
+	if err := validateExtrasInit(opts); err != nil {
 		return err
-	}
-
-	// Validate flatten + mode combination
-	if err := config.ValidateExtraFlatten(flatten, syncMode); err != nil {
-		return err
-	}
-	if syncMode == "import" {
-		return fmt.Errorf("import mode requires a single-file extra (set file: on the extra in config)")
 	}
 
 	if mode == modeProject {
 		if sourceOverride != "" {
 			return fmt.Errorf("--source is not supported in project mode (source is always .skillshare/extras/<name>/)")
 		}
-		return extrasInitProject(cwd, name, targets, syncMode, flatten, force, start)
+		return extrasInitProject(cwd, opts, start)
 	}
-	return extrasInitGlobal(name, targets, syncMode, sourceOverride, flatten, force, start)
+	return extrasInitGlobal(opts, start)
 }
 
-func extrasInitGlobal(name string, targets []string, syncMode string, sourceOverride string, flatten bool, force bool, start time.Time) error {
+// extrasInitOptions describes the extra that init creates. A non-empty file
+// makes it a single-file extra.
+type extrasInitOptions struct {
+	name    string
+	source  string // global mode only
+	file    string
+	targets []extrasInitTarget
+	force   bool
+}
+
+func (o extrasInitOptions) extra() config.ExtraConfig {
+	extra := config.ExtraConfig{Name: o.name, Source: o.source, File: o.file}
+	for _, t := range o.targets {
+		et := config.ExtraTargetConfig{Path: t.path, Flatten: t.flatten, As: t.as}
+		if t.mode != "" {
+			et.Mode = t.mode
+		}
+		extra.Targets = append(extra.Targets, et)
+	}
+	return extra
+}
+
+// validateExtrasInit checks the flags before anything is written.
+func validateExtrasInit(o extrasInitOptions) error {
+	if err := config.ValidateExtraName(o.name); err != nil {
+		return err
+	}
+	for _, t := range o.targets {
+		if err := config.ValidateExtraMode(t.mode); err != nil {
+			return err
+		}
+		if err := config.ValidateExtraFlatten(t.flatten, t.mode); err != nil {
+			return err
+		}
+		if o.file == "" && t.as != "" {
+			return fmt.Errorf("--as requires --file")
+		}
+		if o.file == "" && t.mode == "import" {
+			return fmt.Errorf("import mode requires a single-file extra: add --file <filename>")
+		}
+	}
+	return config.ValidateExtraConfig(o.extra())
+}
+
+// checkExtraSourceFile rejects a single-file extra whose source path is a
+// directory. A missing file is fine: the user creates it before syncing.
+func checkExtraSourceFile(sourceDir, file string) error {
+	if file == "" {
+		return nil
+	}
+	path := filepath.Join(sourceDir, file)
+	if info, err := os.Stat(path); err == nil && info.IsDir() {
+		return fmt.Errorf("source %s is a directory, not a file", path)
+	}
+	return nil
+}
+
+func extrasInitGlobal(o extrasInitOptions, start time.Time) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
 	}
 
-	if force {
-		cfg.Extras = removeExtraByName(cfg.Extras, name)
-	} else if err := config.ValidateExtraNameUnique(name, cfg.Extras); err != nil {
+	if o.force {
+		cfg.Extras = removeExtraByName(cfg.Extras, o.name)
+	} else if err := config.ValidateExtraNameUnique(o.name, cfg.Extras); err != nil {
 		return err
 	}
 
-	// Build extra config
-	extra := config.ExtraConfig{Name: name, Source: sourceOverride}
-	for _, t := range targets {
-		et := config.ExtraTargetConfig{Path: t, Flatten: flatten}
-		if syncMode != "" {
-			et.Mode = syncMode
+	extra := o.extra()
+	sourceDir := config.ResolveExtrasSourceDir(extra, cfg.EffectiveExtrasSource(), cfg.EffectiveSkillsSource())
+	if err := checkExtraSourceFile(sourceDir, o.file); err != nil {
+		return err
+	}
+	cfg.Extras = append(cfg.Extras, extra)
+	if o.file != "" {
+		if err := cfg.ValidateExtras(o.name); err != nil {
+			return err
 		}
-		extra.Targets = append(extra.Targets, et)
 	}
 
 	// Create source directory
-	sourceDir := config.ResolveExtrasSourceDir(extra, cfg.EffectiveExtrasSource(), cfg.EffectiveSkillsSource())
 	if err := os.MkdirAll(sourceDir, 0755); err != nil {
 		return fmt.Errorf("failed to create extras source directory: %w", err)
 	}
 
-	// Add to config and save
-	cfg.Extras = append(cfg.Extras, extra)
 	if err := cfg.Save(); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	ui.Success("Created extras/%s/ with %d target(s)", name, len(targets))
-	ui.Info("Add files to extras/%s/ then run 'skillshare sync extras'", name)
+	if o.file != "" {
+		printSingleFileExtraCreated(extra, sourceDir, "")
+	} else {
+		ui.Success("Created extras/%s/ with %d target(s)", o.name, len(o.targets))
+		ui.Info("Add files to extras/%s/ then run 'skillshare sync extras'", o.name)
+	}
 
 	// Oplog
 	e := oplog.NewEntry("extras-init", "ok", time.Since(start))
-	e.Args = map[string]any{"name": name, "targets": len(targets), "scope": "global"}
+	e.Args = map[string]any{"name": o.name, "targets": len(o.targets), "scope": "global"}
+	if o.file != "" {
+		e.Args["file"] = o.file
+	}
 	oplog.WriteWithLimit(config.ConfigPath(), oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 
 	return nil
 }
 
-func extrasInitProject(cwd, name string, targets []string, syncMode string, flatten bool, force bool, start time.Time) error {
+func extrasInitProject(cwd string, o extrasInitOptions, start time.Time) error {
 	projCfg, err := config.LoadProject(cwd)
 	if err != nil {
 		return err
 	}
 
-	if force {
-		projCfg.Extras = removeExtraByName(projCfg.Extras, name)
-	} else if err := config.ValidateExtraNameUnique(name, projCfg.Extras); err != nil {
+	if o.force {
+		projCfg.Extras = removeExtraByName(projCfg.Extras, o.name)
+	} else if err := config.ValidateExtraNameUnique(o.name, projCfg.Extras); err != nil {
 		return err
 	}
 
-	extra := config.ExtraConfig{Name: name}
-	for _, t := range targets {
-		et := config.ExtraTargetConfig{Path: t, Flatten: flatten}
-		if syncMode != "" {
-			et.Mode = syncMode
+	extra := o.extra()
+	sourceDir := config.ExtrasSourceDirProject(projCfg.EffectiveExtrasSource(cwd), o.name)
+	if err := checkExtraSourceFile(sourceDir, o.file); err != nil {
+		return err
+	}
+	projCfg.Extras = append(projCfg.Extras, extra)
+	if o.file != "" {
+		if err := projCfg.ValidateExtras(cwd, o.name); err != nil {
+			return err
 		}
-		extra.Targets = append(extra.Targets, et)
 	}
 
 	// Create source directory
-	sourceDir := config.ExtrasSourceDirProject(projCfg.EffectiveExtrasSource(cwd), name)
 	if err := os.MkdirAll(sourceDir, 0755); err != nil {
 		return fmt.Errorf("failed to create extras source directory: %w", err)
 	}
 
-	// Add to config and save
-	projCfg.Extras = append(projCfg.Extras, extra)
 	if err := projCfg.Save(cwd); err != nil {
 		return fmt.Errorf("failed to save project config: %w", err)
 	}
 
-	ui.Success("Created .skillshare/extras/%s/ with %d target(s)", name, len(targets))
-	ui.Info("Add files to .skillshare/extras/%s/ then run 'skillshare sync extras -p'", name)
+	if o.file != "" {
+		printSingleFileExtraCreated(extra, sourceDir, " -p")
+	} else {
+		ui.Success("Created .skillshare/extras/%s/ with %d target(s)", o.name, len(o.targets))
+		ui.Info("Add files to .skillshare/extras/%s/ then run 'skillshare sync extras -p'", o.name)
+	}
 
 	// Oplog
 	cfgPath := config.ProjectConfigPath(cwd)
 	e := oplog.NewEntry("extras-init", "ok", time.Since(start))
-	e.Args = map[string]any{"name": name, "targets": len(targets), "scope": "project"}
+	e.Args = map[string]any{"name": o.name, "targets": len(o.targets), "scope": "project"}
+	if o.file != "" {
+		e.Args["file"] = o.file
+	}
 	oplog.WriteWithLimit(cfgPath, oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 
 	return nil
+}
+
+// printSingleFileExtraCreated reports a new single-file extra: its source file
+// and the file each target will get, as configured. suffix is appended to the
+// sync hint.
+func printSingleFileExtraCreated(extra config.ExtraConfig, sourceDir, suffix string) {
+	src := filepath.Join(sourceDir, extra.File)
+	ui.Success("Created extra %s (single file)", extra.Name)
+	_, err := os.Stat(src)
+	missing := ""
+	if err != nil {
+		missing = " (not found)"
+	}
+	fmt.Printf("Source: %s%s\n", shortenPath(src), missing)
+	for _, t := range extra.Targets {
+		fmt.Printf("Target: %s [%s]\n", shortenPath(singleFileTargetPath(extra, t)), sync.EffectiveMode(t.Mode))
+	}
+	if missing != "" {
+		fmt.Printf("Create the source file, then run 'skillshare sync extras%s'.\n", suffix)
+		return
+	}
+	fmt.Printf("Run 'skillshare sync extras%s' to sync.\n", suffix)
+}
+
+// singleFileTargetPath returns the file a single-file extra's target writes,
+// <path>/<as or file>, with the path as configured (relative project paths
+// stay relative).
+func singleFileTargetPath(extra config.ExtraConfig, t config.ExtraTargetConfig) string {
+	name := t.As
+	if name == "" {
+		name = extra.File
+	}
+	return filepath.Join(config.ExpandPath(t.Path), name)
 }
 
 // removeExtraByName returns a new slice with the named extra removed.
@@ -222,7 +331,7 @@ func removeExtraByName(extras []config.ExtraConfig, name string) []config.ExtraC
 func printExtrasInitHelp() {
 	fmt.Println(`Usage: skillshare extras init <name> [options]
 
-Create a new extra resource type.
+Create a new extra resource type: a folder of files, or one file (--file).
 
 Arguments:
   name                Name for the extra (e.g., rules, commands, prompts)
@@ -230,8 +339,10 @@ Arguments:
 Options:
   --target <path>     Target directory (repeatable)
   --source <path>     Custom source directory (overrides extras_source and default; global mode only)
-  --mode <mode>       Sync mode: merge (default), copy, symlink
-  --flatten           Flatten files from subdirectories into target root
+  --file <filename>   Sync only this file from the source directory (single-file extra)
+  --as <filename>     Target filename for every --target (requires --file; default: the --file name)
+  --mode <mode>       Sync mode: merge (default), copy, symlink; import for single-file extras
+  --flatten           Flatten files from subdirectories into target root (folder extras only)
   --force             Overwrite if extra already exists
   --project, -p       Create in project mode (.skillshare/)
   --global, -g        Create in global mode (~/.config/skillshare/)
@@ -244,5 +355,7 @@ Examples:
   skillshare extras init rules --source ~/company-shared/rules --target ~/.claude/rules
   skillshare extras init rules --target ~/.claude/rules --force
   skillshare extras init agents --target ~/.claude/agents --flatten
-  skillshare extras init prompts --target .claude/prompts -p`)
+  skillshare extras init prompts --target .claude/prompts -p
+  skillshare extras init pi-prompt --source ~/dotfiles/prompts --file system.md \
+    --target ~/.pi/agent --as APPEND_SYSTEM.md`)
 }

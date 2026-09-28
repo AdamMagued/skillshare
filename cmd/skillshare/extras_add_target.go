@@ -137,7 +137,11 @@ func cmdExtrasAddTarget(args []string) error {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	ui.Success("Added target %s to %s", shortenPath(addPath), name)
+	shown := addPath
+	if extras[idx].File != "" {
+		shown = singleFileTargetPath(extras[idx], et)
+	}
+	ui.Success("Added target %s to %s", shortenPath(shown), name)
 	ui.Info("Run 'skillshare sync extras%s' to sync the new target", projectSuffix(mode))
 
 	e := oplog.NewEntry("extras-target", "ok", time.Since(start))
@@ -155,7 +159,7 @@ Add a new target directory to an existing extra. Config-only — run
 
 Options:
   --add-target <path>   Target directory to add (required)
-  --mode <mode>         Sync mode: merge (default), copy, symlink, import
+  --mode <mode>         Sync mode: merge (default), copy, symlink; import for single-file extras
   --as <filename>        Target filename (single-file extras only)
   --flatten             Flatten subdirectory files into the target root
   --project, -p         Use project mode (.skillshare/)

@@ -83,6 +83,7 @@ type extrasListTUIModel struct {
 	// Target sub-menu
 	showTargetMenu  bool
 	targetMenuItems []extrasTargetInfo
+	targetMenuFile  string // single-file extra: its file, for target display paths
 	targetCursor    int
 	targetAction    string
 
@@ -423,6 +424,15 @@ func (m extrasListTUIModel) viewExtrasVertical() string {
 
 // ─── Detail Panel ────────────────────────────────────────────────────
 
+// extrasTargetDisplayPath returns the path shown for a target: the directory,
+// or for a single-file extra (file set) the file it writes.
+func extrasTargetDisplayPath(file string, t extrasTargetInfo) string {
+	if file == "" {
+		return t.Path
+	}
+	return singleFileTargetPath(config.ExtraConfig{File: file}, config.ExtraTargetConfig{Path: t.Path, As: t.As})
+}
+
 func (m extrasListTUIModel) renderExtrasDetail(e extrasListEntry) string {
 	var b strings.Builder
 
@@ -430,7 +440,13 @@ func (m extrasListTUIModel) renderExtrasDetail(e extrasListEntry) string {
 	b.WriteString("\n\n")
 
 	label := theme.Dim().Width(14).Render("Source")
-	if e.SourceExists {
+	if e.File != "" {
+		b.WriteString(label + shortenPath(filepath.Join(e.SourceDir, e.File)))
+		if !e.SourceExists {
+			b.WriteString(theme.Dim().Render(" · not found"))
+		}
+		b.WriteString("\n")
+	} else if e.SourceExists {
 		b.WriteString(label + shortenPath(e.SourceDir) + "\n")
 	} else {
 		b.WriteString(label + theme.Dim().Render("not found") + "\n")
@@ -481,7 +497,7 @@ func (m extrasListTUIModel) renderExtrasDetail(e extrasListEntry) string {
 				modeLabel += ", flatten"
 			}
 			fmt.Fprintf(&b, "  %s %s (%s)%s\n",
-				style.Render(icon), shortenPath(t.Path), modeLabel, theme.Dim().Render(statusText))
+				style.Render(icon), shortenPath(extrasTargetDisplayPath(e.File, t)), modeLabel, theme.Dim().Render(statusText))
 		}
 		if hasDrift {
 			b.WriteString("\n" + theme.Warning().Render("hint:") + " press S to sync, or use --force to overwrite conflicts\n")
@@ -704,6 +720,7 @@ func (m extrasListTUIModel) enterTargetMenu(action string) (tea.Model, tea.Cmd) 
 	m.showTargetMenu = true
 	m.targetAction = action
 	m.targetMenuItems = item.entry.Targets
+	m.targetMenuFile = item.entry.File
 	m.targetCursor = 0
 	m.lastActionMsg = ""
 	return m, nil
@@ -784,7 +801,7 @@ func (m extrasListTUIModel) renderTargetMenu() string {
 			if i == m.targetCursor {
 				prefix = theme.Accent().Render(">") + " "
 			}
-			fmt.Fprintf(&b, "%s%s  (%s)\n", prefix, shortenPath(t.Path), t.Mode)
+			fmt.Fprintf(&b, "%s%s  (%s)\n", prefix, shortenPath(extrasTargetDisplayPath(m.targetMenuFile, t)), t.Mode)
 		}
 	} else {
 		for i := 0; i <= len(m.targetMenuItems); i++ {
@@ -796,7 +813,7 @@ func (m extrasListTUIModel) renderTargetMenu() string {
 				fmt.Fprintf(&b, "%s%s\n", prefix, "All targets")
 			} else {
 				t := m.targetMenuItems[i-1]
-				fmt.Fprintf(&b, "%s%s  (%s)\n", prefix, shortenPath(t.Path), t.Mode)
+				fmt.Fprintf(&b, "%s%s  (%s)\n", prefix, shortenPath(extrasTargetDisplayPath(m.targetMenuFile, t)), t.Mode)
 			}
 		}
 	}

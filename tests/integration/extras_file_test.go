@@ -269,3 +269,80 @@ func TestExtrasFile_InitRejectsImport(t *testing.T) {
 	result.AssertFailure(t)
 	result.AssertAnyOutputContains(t, "import mode requires a single-file extra")
 }
+
+func TestExtrasFile_InitFileAsThenSync(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.CreateSkill("placeholder", map[string]string{"SKILL.md": "# P"})
+	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets:\n  claude:\n    path: " + sb.CreateTarget("claude") + "\n")
+	prompts := filepath.Join(sb.Home, "dotfiles", "prompts")
+	piDir := filepath.Join(sb.Home, ".pi", "agent")
+
+	result := sb.RunCLI("extras", "init", "pi-prompt", "--source", prompts, "--file", "system.md", "--target", piDir, "--as", "APPEND_SYSTEM.md")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "Created extra pi-prompt (single file)")
+	result.AssertOutputContains(t, "Source: ~/dotfiles/prompts/system.md (not found)")
+	result.AssertOutputContains(t, "Target: ~/.pi/agent/APPEND_SYSTEM.md [merge]")
+	result.AssertOutputContains(t, "Create the source file, then run 'skillshare sync extras'.")
+	if sb.FileExists(filepath.Join(prompts, "system.md")) {
+		t.Error("init created the source file")
+	}
+
+	sb.WriteFile(filepath.Join(prompts, "system.md"), "# system")
+	sb.RunCLI("sync", "extras").AssertSuccess(t)
+	if got := sb.SymlinkTarget(filepath.Join(piDir, "APPEND_SYSTEM.md")); got != filepath.Join(prompts, "system.md") {
+		t.Errorf("APPEND_SYSTEM.md link = %q, want the source file", got)
+	}
+
+	list := sb.RunCLI("extras", "list", "--no-tui")
+	list.AssertSuccess(t)
+	list.AssertOutputContains(t, "~/dotfiles/prompts/system.md")
+	list.AssertOutputContains(t, "~/.pi/agent/APPEND_SYSTEM.md")
+}
+
+func TestExtrasFile_InitSharedSourceDirSyncsOwnFileOnly(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.CreateSkill("placeholder", map[string]string{"SKILL.md": "# P"})
+	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets:\n  claude:\n    path: " + sb.CreateTarget("claude") + "\n")
+	prompts := filepath.Join(sb.Home, "dotfiles", "prompts")
+	sb.WriteFile(filepath.Join(prompts, "a.md"), "a")
+	sb.WriteFile(filepath.Join(prompts, "b.md"), "b")
+	aDir, bDir := filepath.Join(sb.Home, "out-a"), filepath.Join(sb.Home, "out-b")
+
+	sb.RunCLI("extras", "init", "a", "--source", prompts, "--file", "a.md", "--target", aDir).AssertSuccess(t)
+	result := sb.RunCLI("extras", "init", "b", "--source", prompts, "--file", "b.md", "--target", bDir, "--mode", "copy")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "Run 'skillshare sync extras' to sync.")
+	sb.RunCLI("sync", "extras").AssertSuccess(t)
+
+	if got := sb.ListDir(aDir); len(got) != 1 || got[0] != "a.md" {
+		t.Errorf("out-a = %v, want [a.md]", got)
+	}
+	if got := sb.ListDir(bDir); len(got) != 1 || got[0] != "b.md" || sb.IsSymlink(filepath.Join(bDir, "b.md")) {
+		t.Errorf("out-b = %v, want a copied b.md only", got)
+	}
+}
+
+func TestExtrasFile_InitRejectsFlattenAndDirectorySource(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.CreateSkill("placeholder", map[string]string{"SKILL.md": "# P"})
+	cfg := "source: " + sb.SourcePath + "\ntargets:\n  claude:\n    path: " + sb.CreateTarget("claude") + "\n"
+	sb.WriteConfig(cfg)
+	prompts := filepath.Join(sb.Home, "prompts")
+	if err := os.MkdirAll(filepath.Join(prompts, "system.md"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(sb.Home, "out")
+
+	result := sb.RunCLI("extras", "init", "p", "--file", "system.md", "--target", target, "--flatten")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "flatten cannot be used with a single-file extra")
+	result = sb.RunCLI("extras", "init", "p", "--source", prompts, "--file", "system.md", "--target", target)
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "is a directory")
+	if got := sb.ReadFile(sb.ConfigPath); strings.Contains(got, "name: p") {
+		t.Errorf("config changed after rejected init:\n%s", got)
+	}
+}

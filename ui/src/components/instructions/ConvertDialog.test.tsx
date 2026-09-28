@@ -76,7 +76,7 @@ describe('Convert dialog', () => {
     expect(screen.queryByText('Enter a name for the shared AGENTS.md to see the preview.')).not.toBeInTheDocument();
   });
 
-  it('says when a name belongs to a folder extra', async () => {
+  it('says when a name belongs to an extra on the first tab', async () => {
     withExtras([{ name: 'personal', file: 'AGENTS.md' }, { name: 'claude-rules' }]);
     renderDialog();
     const user = userEvent.setup();
@@ -85,6 +85,6 @@ describe('Convert dialog', () => {
     await user.clear(input);
     await user.type(input, 'claude-rules');
 
-    expect(screen.getAllByText('claude-rules is already used by a folder extra. Pick another name.')).toHaveLength(2);
+    expect(screen.getAllByText('claude-rules is already used by an extra on the Folders & files tab. Pick another name.')).toHaveLength(2);
   });
 });
