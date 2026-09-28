@@ -1234,7 +1234,7 @@
   "instructions.mode.default": "· 默认",
   "instructions.mode.import": "在 {file} 加一行 @import。你自己写的内容会保留，修改 {name} 后立即生效。",
   "instructions.mode.symlink": "链接到共享文件。修改 {name} 后立即生效。",
-  "instructions.mode.copy": "复制一份共享文件过去。在这里保存会一并更新副本；在别处改了 {name}，“目标”标题右边会出现“同步”按钮。",
+  "instructions.mode.copy": "复制一份共享文件过去。在这里保存会一并更新副本；在别处改了 {name}，这一页会出现“同步”按钮。",
   "instructions.mode.blocked.fileLinks": "Windows 需要开启“开发者模式”才能创建文件链接。",
   "instructions.mode.blocked.several": "{target} 连接了不止一份共享 AGENTS.md，只有 import 能同时连接多份。",
   "instructions.mode.changed": "{target} 现在用 {mode} 拿到 {name}",

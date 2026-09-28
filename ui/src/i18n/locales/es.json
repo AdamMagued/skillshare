@@ -1234,7 +1234,7 @@
   "instructions.mode.default": "· predeterminado",
   "instructions.mode.import": "Añade una línea @import a {file}. Tus propias líneas se quedan y los cambios en {name} se aplican al momento.",
   "instructions.mode.symlink": "Enlaza al archivo compartido. Los cambios en {name} se aplican al momento.",
-  "instructions.mode.copy": "Escribe una copia del archivo compartido. Guardar aquí actualiza la copia; si {name} se edita en otro lugar, aparece un botón «Sincronizar» junto al título «Destinos».",
+  "instructions.mode.copy": "Escribe una copia del archivo compartido. Guardar aquí actualiza la copia; si {name} se edita en otro lugar, aparece un botón «Sincronizar» en esta página.",
   "instructions.mode.blocked.fileLinks": "Windows necesita el Modo de desarrollador para crear enlaces a archivos.",
   "instructions.mode.blocked.several": "{target} usa más de un AGENTS.md compartido y solo import puede tener varios.",
   "instructions.mode.changed": "{target} ahora recibe {name} con {mode}",
