@@ -1234,7 +1234,7 @@
   "instructions.mode.default": "· پیش‌فرض",
   "instructions.mode.import": "یک خط @import به {file} اضافه می‌کند. خط‌های خودتان می‌مانند و تغییرات {name} فوراً اعمال می‌شود.",
   "instructions.mode.symlink": "به فایل مشترک پیوند می‌دهد. تغییرات {name} فوراً اعمال می‌شود.",
-  "instructions.mode.copy": "یک نسخه از فایل مشترک می‌نویسد. ذخیره در اینجا نسخه را هم به‌روز می‌کند؛ اگر {name} جای دیگری ویرایش شود، دکمهٔ «همگام‌سازی» بالای فهرست مقصدها نمایش داده می‌شود.",
+  "instructions.mode.copy": "یک نسخه از فایل مشترک می‌نویسد. ذخیره در اینجا نسخه را هم به‌روز می‌کند؛ اگر {name} جای دیگری ویرایش شود، دکمهٔ «همگام‌سازی» کنار عنوان «هدف‌ها» نمایش داده می‌شود.",
   "instructions.mode.blocked.fileLinks": "ویندوز برای ساختن پیوند فایل به حالت توسعه‌دهنده (Developer Mode) نیاز دارد.",
   "instructions.mode.blocked.several": "{target} بیش از یک AGENTS.md مشترک دارد و فقط import می‌تواند چند تا را نگه دارد.",
   "instructions.mode.changed": "{target} اکنون {name} را با {mode} می‌گیرد",

@@ -1234,7 +1234,7 @@
   "instructions.mode.default": "· bawaan",
   "instructions.mode.import": "Menambahkan satu baris @import ke {file}. Baris milik Anda tetap ada, dan perubahan pada {name} langsung berlaku.",
   "instructions.mode.symlink": "Menautkan ke file bersama. Perubahan pada {name} langsung berlaku.",
-  "instructions.mode.copy": "Menulis salinan berkas bersama. Menyimpan di sini ikut memperbarui salinan; jika {name} diubah di tempat lain, tombol \"Sinkronkan\" muncul di atas daftar target.",
+  "instructions.mode.copy": "Menulis salinan berkas bersama. Menyimpan di sini ikut memperbarui salinan; jika {name} diubah di tempat lain, tombol \"Sinkronkan\" muncul di samping judul \"Target\".",
   "instructions.mode.blocked.fileLinks": "Windows memerlukan Mode Pengembang untuk membuat tautan file.",
   "instructions.mode.blocked.several": "{target} memakai lebih dari satu AGENTS.md bersama, dan hanya import yang bisa menampung beberapa.",
   "instructions.mode.changed": "{target} sekarang mendapatkan {name} lewat {mode}",

@@ -1234,7 +1234,7 @@
   "instructions.mode.default": "· デフォルト",
   "instructions.mode.import": "{file} に @import 行を 1 行追加します。自分で書いた内容は残り、{name} の変更はすぐに反映されます。",
   "instructions.mode.symlink": "共有ファイルにリンクします。{name} の変更はすぐに反映されます。",
-  "instructions.mode.copy": "共有ファイルのコピーを書き込みます。ここで保存するとコピーも更新されます。{name} を別の場所で編集すると、ターゲット一覧の上に「同期」ボタンが表示されます。",
+  "instructions.mode.copy": "共有ファイルのコピーを書き込みます。ここで保存するとコピーも更新されます。{name} を別の場所で編集すると、「ターゲット」見出しの右に「同期」ボタンが表示されます。",
   "instructions.mode.blocked.fileLinks": "ファイルリンクを作成するには Windows の開発者モードが必要です。",
   "instructions.mode.blocked.several": "{target} は複数の共有 AGENTS.md に接続しています。複数を保持できるのは import だけです。",
   "instructions.mode.changed": "{target} は {mode} で {name} を受け取るようになりました",
