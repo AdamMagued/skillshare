@@ -187,9 +187,7 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 			continue
 		}
 		source.Name = bareName
-		if skill.Branch != "" {
-			source.Branch = skill.Branch
-		}
+		source.ApplyRecordedBranch(skill.Branch)
 		source.Commit = locked
 
 		if skill.Tracked {

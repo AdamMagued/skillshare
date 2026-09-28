@@ -152,3 +152,37 @@ func TestUpdateWebURLRef_LegacyInstallKeepsDefaultBranch(t *testing.T) {
 		})
 	}
 }
+
+// Reinstalling a legacy entry from config must pick the same branch update
+// does, not pin it to the ref its URL happens to name.
+func TestInstallFromConfigWebURLRef_LegacyInstallKeepsDefaultBranch(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+	workDir := setupWebRefRemote(t, sb)
+
+	sb.RunCLI("install", "github.com/acme/skills/skills/foo", "--skip-audit").AssertSuccess(t)
+	store, err := install.LoadMetadata(sb.SourcePath)
+	if err != nil {
+		t.Fatalf("load metadata: %v", err)
+	}
+	entry := store.Get("foo")
+	if entry == nil {
+		t.Fatal("expected metadata entry for foo")
+	}
+	entry.Source = "github.com/acme/skills/tree/v1.0/skills/foo"
+	entry.Branch = ""
+	if err := store.Save(sb.SourcePath); err != nil {
+		t.Fatalf("save metadata: %v", err)
+	}
+
+	writeSkill(t, workDir, "skills/foo", "foo", "V2")
+	gitAddCommit(t, workDir, "v2")
+	gitPush(t, workDir)
+	if err := os.RemoveAll(filepath.Join(sb.SourcePath, "foo")); err != nil {
+		t.Fatal(err)
+	}
+
+	sb.RunCLI("install", "--skip-audit").AssertSuccess(t)
+	assertSkillBody(t, sb, "foo", "V2")
+}
