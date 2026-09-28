@@ -302,7 +302,9 @@ Each row shows the file, a mode picker and the [status](#manage-one-shared-file)
 Changing the mode syncs the location right away. A location that is `drift` or
 `not synced` counts toward the heading's **Sync** button. **Remove** first shows the
 [restore preview](#restore-and-delete); **Remove and restore** puts back what the file
-held before and takes the location off the list.
+held before and takes the location off the list. A `modified` location has the same
+two buttons as a target row, to collect the edit or overwrite it
+([see below](#when-a-linked-file-is-edited)).
 
 In a project, the **Extras** page lists single-file extras too. Their **Add target**
 row has a **File name** field in place of the extension, the same as `--as`.

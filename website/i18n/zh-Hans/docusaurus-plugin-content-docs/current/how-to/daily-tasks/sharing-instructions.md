@@ -262,6 +262,7 @@ Developer Mode 的 Windows 上则为 `copy`。使用多份共享文件的 target
 每一行显示文件、模式选择器和[状态](#manage-one-shared-file)。更改模式会立即同步该位置。
 处于 `drift` 或 `not synced` 的位置会计入标题的 **同步** 按钮。**移除** 会先显示
 [还原预览](#restore-and-delete)；**移除并还原** 会放回文件原来的内容，并把该位置从列表中移除。
+`modified` 的位置和 target 行一样有两个按钮，可以收回修改或覆盖它（[见下文](#when-a-linked-file-is-edited)）。
 
 在项目中，**Extras** 页面也会列出单文件 extras。它们的 **添加目标** 行用 **文件名** 字段代替扩展名，
 作用等同 `--as`。

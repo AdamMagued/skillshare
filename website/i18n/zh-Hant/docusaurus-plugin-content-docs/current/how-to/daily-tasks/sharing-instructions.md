@@ -257,6 +257,7 @@ target，並警告哪些 target 只會讀取長檔案的一部分。按 ⌘S（C
 每一列會顯示檔案、模式選單與[狀態](#manage-one-shared-file)。變更模式會立即同步該位置。
 `drift` 或 `not synced` 的位置會計入標題的 **同步** 按鈕。**移除** 會先顯示
 [還原預覽](#restore-and-delete)；**移除並還原** 會放回檔案原本的內容，並把該位置從清單移除。
+`modified` 的位置和 target 列一樣有兩個按鈕，可以收回修改或覆蓋它（[見下方](#when-a-linked-file-is-edited)）。
 
 在專案中，**Extras** 頁面也會列出單一檔案 extras。它們的 **新增目標** 列會以 **檔名** 欄位取代副檔名，
 作用等同 `--as`。
