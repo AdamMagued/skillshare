@@ -221,7 +221,7 @@ func fileExists(path string) bool {
 // clearExtraAttach drops the attach-time record of path.
 func clearExtraAttach(path string) {
 	dir := extraBackupDir(path)
-	for _, name := range []string{attachCreated, attachRestore, attachRestoreLink, extraWritten} {
+	for _, name := range []string{attachCreated, attachRestore, attachRestoreLink, extraWritten, extraImportBase} {
 		_ = os.Remove(filepath.Join(dir, name))
 	}
 }
@@ -243,15 +243,37 @@ func clearExtraWritten(path string) {
 	_ = os.Remove(filepath.Join(extraBackupDir(path), extraWritten))
 }
 
+// extraImportBase holds the target's own content (without this extra's
+// import line) when it left import mode, so switching back rebuilds the file
+// as it was then rather than as it was at attach time. Restore ignores it.
+const extraImportBase = "import-base"
+
+func recordExtraImportBase(path, content string) error {
+	dir := extraBackupDir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dir, extraImportBase), []byte(content), 0600)
+}
+
+func clearExtraImportBase(path string) {
+	_ = os.Remove(filepath.Join(extraBackupDir(path), extraImportBase))
+}
+
 func hasExtraWritten(path string) bool {
 	return fileExists(filepath.Join(extraBackupDir(path), extraWritten))
 }
 
-// extraRestoreBase returns the file content recorded at attach time, or ""
-// when no file existed or a link was replaced (a link's content is not the
-// user's to rebuild).
+// extraRestoreBase returns the file content to rebuild when switching back to
+// import: the content recorded when the target left import mode, else the one
+// recorded at attach time, or "" when no file existed or a link was replaced
+// (a link's content is not the user's to rebuild).
 func extraRestoreBase(path string) string {
-	data, err := os.ReadFile(filepath.Join(extraBackupDir(path), attachRestore))
+	dir := extraBackupDir(path)
+	if data, err := os.ReadFile(filepath.Join(dir, extraImportBase)); err == nil {
+		return string(data)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, attachRestore))
 	if err != nil {
 		return ""
 	}

@@ -510,3 +510,38 @@ func TestSyncExtraFile_SwitchBackToImportKeepsOtherImports(t *testing.T) {
 		t.Errorf("target = %q, want both imports in one block and the user lines", got)
 	}
 }
+
+func TestSyncExtraFile_SwitchBackToImportKeepsEditsMadeInImportMode(t *testing.T) {
+	for _, via := range []string{"copy", "symlink"} {
+		t.Run("import->"+via+"->import", func(t *testing.T) {
+			src, tgt := setupExtraFileTest(t, "# agents")
+			target := filepath.Join(tgt, "CLAUDE.md")
+			os.WriteFile(target, []byte("A\n"), 0644)
+			imp := NewExtraFile(src, "AGENTS.md", tgt, "CLAUDE.md", "import")
+			other := NewExtraFile(src, "AGENTS.md", tgt, "CLAUDE.md", via)
+			// Leave import once so the attach-time restore point holds only A.
+			SyncExtraFile(imp, false, "")
+			SyncExtraFile(other, false, "")
+			SyncExtraFile(imp, false, "")
+			os.WriteFile(target, []byte(readFile(t, target)+"B\n"), 0644)
+			before := readFile(t, target)
+
+			SyncExtraFile(other, false, "")
+			if _, err := SyncExtraFile(imp, false, ""); err != nil {
+				t.Fatal(err)
+			}
+
+			if got := readFile(t, target); got != before {
+				t.Fatalf("after switching back = %q, want %q", got, before)
+			}
+			if _, err := RestoreExtraTarget(imp); err != nil {
+				t.Fatal(err)
+			}
+			// Import-mode restore drops only the import line, as it would have
+			// before the switch: A plus the edit made in import mode.
+			if got := readFile(t, target); got != "A\nB\n" {
+				t.Errorf("restored %q, want the file as left in import mode", got)
+			}
+		})
+	}
+}

@@ -137,6 +137,11 @@ func syncExtraFileReplace(f ExtraFile, dryRun bool, projectRoot string) (*ExtraR
 		result.Warnings = append(result.Warnings, fmt.Sprintf("%s is a directory; not replaced", f.Target))
 		return result, nil
 	default:
+		// A file leaving import mode: keep its own lines for switching back.
+		leavingImport := ""
+		if data, err := os.ReadFile(f.Target); err == nil && hasImportLine(string(data), f.importLine()) {
+			leavingImport, _ = removeImportLine(string(data), f.importLine())
+		}
 		same := contentEqual(f.Source, f.Target)
 		if copyMode && same {
 			if !dryRun && attached && !isOurExtraCopy(f.Target) {
@@ -164,6 +169,11 @@ func syncExtraFileReplace(f ExtraFile, dryRun bool, projectRoot string) (*ExtraR
 			}
 			if edited {
 				result.Warnings = append(result.Warnings, fmt.Sprintf("backed up %s before replacing it", f.Target))
+			}
+			if leavingImport != "" {
+				if err := recordExtraImportBase(f.Target, leavingImport); err != nil {
+					return nil, fmt.Errorf("back up %s: %w", f.Target, err)
+				}
 			}
 			if err := os.Remove(f.Target); err != nil {
 				return nil, fmt.Errorf("failed to remove existing file: %w", err)
@@ -267,7 +277,11 @@ func syncExtraImport(f ExtraFile, dryRun bool) (*ExtraResult, error) {
 	} else {
 		updated, changed = addImportLine(string(data), f.importLine())
 	}
-	if !changed || dryRun {
+	if dryRun {
+		return result, nil
+	}
+	if !changed {
+		clearExtraImportBase(f.Target)
 		return result, nil
 	}
 
@@ -293,6 +307,7 @@ func syncExtraImport(f ExtraFile, dryRun bool) (*ExtraResult, error) {
 		return nil, fmt.Errorf("failed to write target: %w", err)
 	}
 	clearExtraWritten(f.Target)
+	clearExtraImportBase(f.Target)
 	// A switch from another mode keeps the restore point recorded then.
 	if (!exists || ourLink) && !attached {
 		if err := markExtraCreated(f.Target); err != nil {
