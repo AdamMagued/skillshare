@@ -1234,7 +1234,7 @@
   "instructions.mode.default": "· 預設",
   "instructions.mode.import": "在 {file} 加一行 @import。你自己寫的內容會留著，改 {name} 後馬上生效。",
   "instructions.mode.symlink": "連到共用檔案。改 {name} 後馬上生效。",
-  "instructions.mode.copyAfter": "在這裡儲存會一併更新副本；在別處改 {name} 後要再同步。",
+  "instructions.mode.copy": "複製一份共用檔過去。在這裡儲存會一併更新副本；在別處改 {name} 後要再同步。",
   "instructions.mode.blocked.fileLinks": "Windows 要開啟「開發人員模式」才能建立檔案連結。",
   "instructions.mode.blocked.several": "{target} 接了不只一份共用 AGENTS.md，只有 import 能同時接好幾份。",
   "instructions.mode.changed": "{target} 現在用 {mode} 拿到 {name}",

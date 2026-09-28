@@ -237,7 +237,6 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
   });
   const modeText = (o: ModeOption, tg: SharedInstructionsTarget) => {
     if (o.blocked) return t(`instructions.mode.blocked.${o.blocked}`, { target: tg.name });
-    if (o.mode === 'copy') return `${t('targetDetail.mode.copy')} ${t('instructions.mode.copyAfter', { name })}`;
     return t(`instructions.mode.${o.mode}`, { name, file: fileName(tg.path) });
   };
 

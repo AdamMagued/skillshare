@@ -1234,7 +1234,7 @@
   "instructions.mode.default": "· Standard",
   "instructions.mode.import": "Fügt {file} eine @import-Zeile hinzu. Deine eigenen Zeilen bleiben, und Änderungen an {name} wirken sofort.",
   "instructions.mode.symlink": "Verlinkt auf die gemeinsame Datei. Änderungen an {name} wirken sofort.",
-  "instructions.mode.copyAfter": "Speichern hier aktualisiert die Kopien; nach Änderungen an {name} woanders bitte synchronisieren.",
+  "instructions.mode.copy": "Schreibt eine Kopie der gemeinsamen Datei. Speichern hier aktualisiert die Kopie; nach Änderungen an {name} woanders synchronisieren.",
   "instructions.mode.blocked.fileLinks": "Windows braucht den Entwicklermodus, um Dateilinks zu erstellen.",
   "instructions.mode.blocked.several": "{target} verwendet mehr als eine gemeinsame AGENTS.md, und nur import kann mehrere aufnehmen.",
   "instructions.mode.changed": "{target} erhält {name} jetzt per {mode}",
