@@ -35,6 +35,8 @@ The tab shows, from top to bottom:
   expands them.
 - Warnings. Windsurf reads only the first 6,000 characters of its global rules file.
 
+![claude target's CLAUDE.md tab: read order, editor and import note](/img/targets-instructions-tab.png)
+
 If the file is a link to a shared `AGENTS.md`, the editor is read-only. Editing it
 would change every target that uses the shared file, so edit that file on its own
 page instead. A link you made yourself, such as one into your dotfiles, stays
@@ -170,6 +172,23 @@ How a target uses a shared file depends on whether it follows `@` imports:
   backed up, then replaced by a link (symlink) to the shared file. On Windows without
   Developer Mode, file links aren't available, so it is replaced by a copy instead.
 
+In global mode, one shared file reaches each target like this:
+
+```mermaid
+flowchart LR
+    S["shared AGENTS.md"]
+    C["claude<br/>CLAUDE.md"]
+    X["codex<br/>AGENTS.md"]
+    G["gemini<br/>GEMINI.md"]
+    WIN["Windows target<br/>without Developer Mode"]
+    O["other location<br/>~/notes"]
+    S -->|"@import line"| C
+    S -->|symlink| X
+    S -->|symlink| G
+    S -->|copy| WIN
+    S -->|"symlink / copy"| O
+```
+
 The tab lists the shared files on the left, each with the targets connected to it.
 Click one to show it on the right: its path, its content (a rendered **Preview** by default; switch to
 **Source** for the raw text), and every
@@ -208,6 +227,8 @@ the target gets the shared file:
 | `import` | Your own file, with one `@import` line in the managed block. Changes to the shared file apply right away | Targets that follow `@` imports |
 | `symlink` | A link to the shared file. Changes apply right away | Not on Windows without Developer Mode |
 | `copy` | A copy of the shared file. Saving the shared file in the dashboard updates the copy; after editing the shared file elsewhere, sync again with **Sync** on this page | Always |
+
+![Extras › AGENTS.md: a shared file with per-target modes and other locations](/img/extras-agents-md-shared.png)
 
 When file links are unavailable, an info tooltip beside **Targets** explains Windows Developer Mode. Instruction warnings and errors use the dashboard language, with the original English message as a fallback for unknown codes.
 

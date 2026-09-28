@@ -61,15 +61,17 @@ skillshare backup --list
 ```
 
 **출력 예시:**
-```
-Backups
+```text
+All backups in ~/.local/share/skillshare/backups (56.3 KB total)
 ─────────────────────────────────────────
-  2026-01-20_15-30-00/
-    claude/    5 skills, 2.1 MB
-    cursor/    5 skills, 2.1 MB
-  2026-01-19_10-00-00/
-    claude/    4 skills, 1.8 MB
+  2026-09-28_12-52-50  claude, claude-work, cursor, gemini, opencode, universal   11.3 KB  ~/.local/share/skillshare/backups/2026-09-28_12-52-50
+  2026-09-28_12-41-50  claude, claude-work, cursor, gemini, opencode, universal   11.2 KB  ~/.local/share/skillshare/backups/2026-09-28_12-41-50
+  2026-09-28_12-39-56  claude, claude-work, cursor, gemini, opencode, universal   11.2 KB  ~/.local/share/skillshare/backups/2026-09-28_12-39-56
 ```
+
+대시보드에서는 **Settings → Backup → Target folders**에 같은 스냅샷이 표시됩니다.
+
+![Settings › Backup › Target folders: 스냅샷 목록과 복원 작업](/img/backup-target-folders.png)
 
 ---
 

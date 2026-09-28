@@ -138,6 +138,8 @@ Versions saved by older releases have no reason. The last 10 of each kind are ke
 - **Files** — the file history above. Pick a file to see its versions with their reason, then **Preview and restore** shows the diff with the current file or the full version. A linked location is replaced by a regular file only after you confirm **Restore and cut the link**.
 - **MCP** — the backups taken before each MCP config write, grouped by Agent config, with the servers each one added, changed or removed. **Preview and restore** opens the same restore dialog as the **MCP** page (or [`mcp restore`](/docs/reference/commands/mcp) on the command line).
 
+![Settings › Backup › Files: preview an earlier CLAUDE.md version before restoring](/img/backup-files-preview.png)
+
 In project mode the page covers only the project: its agent snapshots in `.skillshare/backups/`, files inside the project, and the backups of its MCP configs. Deleted skills and agents are not here; they go to the **Trash** tab of **Skills** and **Agents**.
 
 ## Options

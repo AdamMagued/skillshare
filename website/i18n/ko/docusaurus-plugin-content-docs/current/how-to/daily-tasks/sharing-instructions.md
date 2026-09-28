@@ -35,6 +35,8 @@ claude는 **CLAUDE.md**, gemini는 **GEMINI.md**, codex는 **AGENTS.md**입니�
   덧붙입니다.
 - 경고. Windsurf는 전역 rules 파일의 처음 6,000자만 읽습니다.
 
+![claude target의 CLAUDE.md 탭: 읽기 순서, 편집기, import 안내](/img/targets-instructions-tab.png)
+
 파일이 공유 `AGENTS.md`에 대한 링크이면 편집기는 읽기 전용입니다. 여기서 편집하면 그
 공유 파일을 쓰는 모든 target이 바뀌므로, 해당 파일의 페이지에서 편집하세요. dotfiles로
 연결한 링크처럼 직접 만든 링크는 계속 편집할 수 있으며, 저장하면 링크가 가리키는
@@ -164,6 +166,23 @@ target이 공유 파일을 쓰는 방식은 `@` import를 따르는지에 따라
   공유 파일에 대한 링크(symlink)로 교체됩니다. Developer Mode가 없는 Windows에서는
   파일 링크를 쓸 수 없으므로 대신 복사본으로 교체됩니다.
 
+전역 모드에서 공유 파일 하나는 다음과 같이 각 target에 전달됩니다.
+
+```mermaid
+flowchart LR
+    S["공유 AGENTS.md"]
+    C["claude<br/>CLAUDE.md"]
+    X["codex<br/>AGENTS.md"]
+    G["gemini<br/>GEMINI.md"]
+    WIN["Developer Mode가 없는<br/>Windows target"]
+    O["다른 위치<br/>~/notes"]
+    S -->|"@import 줄"| C
+    S -->|symlink| X
+    S -->|symlink| G
+    S -->|copy| WIN
+    S -->|"symlink / copy"| O
+```
+
 탭 왼쪽에는 공유 파일 목록이 있고, 각 파일에 연결된 target이 함께 표시됩니다. 하나를
 클릭하면 오른쪽에 그 파일의 경로, 내용(기본은 렌더링된 **미리 보기**이며, **원본**으로 전환하면 원문 텍스트를 표시),
 스위치가 달린 모든 target이 표시됩니다.
@@ -199,6 +218,8 @@ target이 공유 파일을 쓰는 방식은 `@` import를 따르는지에 따라
 | `import` | 사용자 자신의 파일이며, 관리 블록 안에 `@import` 줄이 하나 있음. 공유 파일의 변경이 바로 반영됨 | `@` import를 따르는 target |
 | `symlink` | 공유 파일에 대한 링크. 변경이 바로 반영됨 | Developer Mode가 없는 Windows에서는 불가 |
 | `copy` | 공유 파일의 복사본. 대시보드에서 공유 파일을 저장하면 복사본도 업데이트됨. 다른 곳에서 공유 파일을 편집한 뒤에는 이 페이지의 **Sync**로 다시 sync해야 함 | 항상 |
+
+![Extras › AGENTS.md: 공유 파일의 target별 모드와 다른 위치](/img/extras-agents-md-shared.png)
 
 파일 링크를 사용할 수 없으면 **Targets** 옆의 정보 툴팁에 Windows Developer Mode 설명이 표시됩니다. 지침 파일의 경고와 오류는 대시보드 언어로 표시되며, 알 수 없는 코드는 원래 영어 메시지로 표시됩니다.
 

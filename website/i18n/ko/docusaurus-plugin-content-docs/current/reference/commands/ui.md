@@ -140,6 +140,7 @@ project mode(`-p`)로 실행할 때 대시보드는 다음과 같이 달라집�
   <img src="/img/web-skill-detail-demo.png" alt="Skill 상세 보기" />
   <img src="/img/web-sync-demo.png" alt="Sync 컨트롤" />
   <img src="/img/web-search-skills-demo.png" alt="GitHub 검색 화면" />
+  <img src="/img/web-projects-demo.png" alt="프로젝트 폴더 목록을 보여 주는 Projects 페이지" />
 </div>
 
 ## REST API

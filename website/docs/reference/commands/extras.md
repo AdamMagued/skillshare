@@ -15,6 +15,10 @@ Each extra has:
 - A **source directory** — configurable via `extras_source` or per-extra `source`, defaults to `~/.config/skillshare/extras/<name>/` (global) or `.skillshare/extras/<name>/` (project)
 - One or more **targets** where files are synced to
 
+In the dashboard, **Extras → Folders** lists each extra with its targets and mode:
+
+![Extras › Folders: rules and commands synced to their targets](/img/extras-folders.png)
+
 ## Commands
 
 ### `extras init`

@@ -140,6 +140,7 @@ When running in project mode (`-p`), the dashboard adapts:
   <img src="/img/web-skill-detail-demo.png" alt="Skill detail view" />
   <img src="/img/web-sync-demo.png" alt="Sync controls" />
   <img src="/img/web-search-skills-demo.png" alt="GitHub search view" />
+  <img src="/img/web-projects-demo.png" alt="Projects page listing project folders" />
 </div>
 
 ## REST API

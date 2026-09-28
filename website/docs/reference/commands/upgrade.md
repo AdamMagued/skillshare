@@ -18,7 +18,20 @@ skillshare upgrade --skill      # Skill only
 - The built-in skillshare skill needs updating
 - After `doctor` reports an available update
 
-![upgrade demo](/img/upgrade-demo.png)
+```text
+skillshare upgrade --skill --dry-run
+
+! Dry run mode - no changes will be made
+
+▸  Skill  skillshare
+│
+├─ Current  v0.21.12
+│
+├─ Checking latest version...
+├─ Latest: v0.21.13 (1.0s)
+│
+└─ Action  Would upgrade to v0.21.13
+```
 
 ## What Happens
 

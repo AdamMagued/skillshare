@@ -138,6 +138,8 @@ reason 说明 skillshare 当时要做什么：
 - **文件**——上文的文件历史。选择一个文件即可查看它的各个版本及其 reason，然后 **预览并还原** 会显示与当前文件的差异，或完整的版本内容。链接形式的位置只有在你确认 **还原并断开链接** 之后，才会被替换为常规文件。
 - **MCP**——每次写入 MCP 配置之前做的备份，按 Agent 配置分组，并列出每份备份新增、修改或移除的 server。**预览并还原** 会打开与 **MCP** 页面相同的还原对话框（命令行中则使用 [`mcp restore`](/docs/reference/commands/mcp)）。
 
+![设置 › 备份 › 文件：恢复前预览较早的 CLAUDE.md 版本](/img/backup-files-preview.png)
+
 在 project mode 下，此页面只涵盖该项目：`.skillshare/backups/` 中的 agent 快照、项目内的文件，以及其 MCP 配置的备份。已删除的 skills 和 agents 不在这里；它们会进入 **Skill** 和 **Agent** 页面的 **回收站** 标签页。
 
 ## Options

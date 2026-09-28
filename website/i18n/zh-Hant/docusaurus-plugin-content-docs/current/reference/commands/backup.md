@@ -138,6 +138,8 @@ reason 說明 skillshare 當時正要做什麼：
 - **檔案** — 上面說明的檔案歷史。選擇一個檔案即可看到它的各個版本與 reason，接著 **預覽並還原** 會顯示與目前檔案的差異或完整版本。有連結的位置只有在你確認 **還原並切斷連結** 之後，才會被換成一般檔案。
 - **MCP** — 每次寫入 MCP 設定前建立的備份，依 Agent 設定分組，並列出每份備份新增、變更或移除的 server。**預覽並還原** 會開啟與 **MCP** 頁面相同的還原對話框（命令列上則是 [`mcp restore`](/docs/reference/commands/mcp)）。
 
+![設定 › 備份 › 檔案：還原前預覽較早的 CLAUDE.md 版本](/img/backup-files-preview.png)
+
 在 project mode 下，這個頁面只涵蓋該專案：`.skillshare/backups/` 中的 agent 快照、專案內的檔案，以及專案 MCP 設定的備份。刪除的 skills 與 agents 不在這裡；它們會進入 **Skills** 與 **Agents** 的 **垃圾桶** 分頁。
 
 ## 選項

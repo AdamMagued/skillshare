@@ -13,7 +13,56 @@ skillshare doctor -g        # global mode 강제
 skillshare doctor --json    # CI용 구조화된 JSON 출력
 ```
 
-![doctor demo](/img/doctor-demo.png)
+```text
+skillshare doctor
+
+Checking environment
+─────────────────────────────────────────
+✓ Config: ~/.config/skillshare/config.yaml
+→ Config directory: ~/.config/skillshare
+→ Data directory:   ~/.local/share/skillshare
+→ State directory:  ~/.local/state/skillshare
+
+✓ Source: ~/.config/skillshare/skills (43 skills)
+✓ Agents source: ~/.config/skillshare/agents (2 agents)
+→ Skillignore: not configured
+✓ Link support: OK
+! Git: not initialized (recommended for backup)
+
+✓ Skill integrity: 27/27 verified
+
+Checking targets
+─────────────────────────────────────────
+claude
+  skills   [merge] merged (43 shared, 0 local)
+  agents   [merge] synced (2/2 linked)
+cursor
+  skills   [merge] merged (43 shared, 1 local)
+  agents   [merge] synced (2/2 linked)
+gemini
+  skills   [merge] merged (43 shared, 0 local)
+…
+! gemini will see content from: universal
+    ~/.agents/skills ← universal
+…
+✗ claude: 1 broken symlink(s): frontend__css-review
+…
+
+Extras
+─────────────────────────────────────────
+✓ rules: 2 files, 2/2 targets OK
+✓ commands: 1 files, 1/1 targets OK
+✓ team: 1 files, 4/4 targets OK
+
+Storage
+─────────────────────────────────────────
+→ Backups: last backup 2026-09-28_12-41-50 (10 minutes ago)
+→ Trash: 1 item(s) (247 B), oldest <1 day
+
+Summary
+─────────────────────────────────────────
+✗ 6 error(s), 4 warning(s)
+```
 
 ## 사용 시점
 

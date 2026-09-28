@@ -18,7 +18,20 @@ skillshare upgrade --skill      # 仅升级 skill
 - 内置的 skillshare skill 需要更新
 - `doctor` 报告有可用更新时
 
-![upgrade demo](/img/upgrade-demo.png)
+```text
+skillshare upgrade --skill --dry-run
+
+! Dry run mode - no changes will be made
+
+▸  Skill  skillshare
+│
+├─ Current  v0.21.12
+│
+├─ Checking latest version...
+├─ Latest: v0.21.13 (1.0s)
+│
+└─ Action  Would upgrade to v0.21.13
+```
 
 ## 会发生什么
 

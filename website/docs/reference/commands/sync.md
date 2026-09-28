@@ -193,9 +193,28 @@ flowchart TD
 
 ### Example Output
 
-<p>
-  <img src="/img/sync-demo.png" alt="sync demo" width="720" />
-</p>
+```text
+$ skillshare sync
+✓ Discovered 43 skills
+
+Backing up
+─────────────────────────────────────────
+✓ claude -> ~/.local/share/skillshare/backups/2026-09-28_12-52-50/claude
+✓ cursor -> ~/.local/share/skillshare/backups/2026-09-28_12-52-50/cursor
+✓ gemini -> ~/.local/share/skillshare/backups/2026-09-28_12-52-50/gemini
+  …
+
+Syncing skills
+─────────────────────────────────────────
+✓ claude: merged (43 linked, 0 local, 0 updated, 1 pruned)
+✓ claude-work: merged (43 linked, 0 local, 0 updated, 1 pruned)
+✓ cursor: merged (43 linked, 1 local, 0 updated, 1 pruned)
+✓ gemini: merged (43 linked, 0 local, 0 updated, 1 pruned)
+✓ opencode: merged (43 linked, 0 local, 0 updated, 1 pruned)
+✓ universal: merged (43 linked, 0 local, 0 updated, 1 pruned)
+
+Sync complete: 6 targets, 258 linked, 1 local, 0 updated, 6 pruned (0.0s)
+```
 
 ---
 

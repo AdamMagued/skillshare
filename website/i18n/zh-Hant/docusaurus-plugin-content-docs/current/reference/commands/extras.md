@@ -15,6 +15,10 @@ Extras 是 skillshare 管理的額外資源類型——可以把它想成「給�
 - 一個**source 目錄**——可透過 `extras_source` 或個別 extra 的 `source` 設定，預設為 `~/.config/skillshare/extras/<name>/`（global）或 `.skillshare/extras/<name>/`（project）
 - 一個或多個檔案同步的 **target**
 
+在 dashboard 中，**Extras → Folders** 會列出每個 extra 及其 targets 與模式：
+
+![Extras › Folders：rules 與 commands 同步到各自的 targets](/img/extras-folders.png)
+
 ## Commands
 
 ### `extras init`

@@ -138,6 +138,8 @@ reason은 skillshare가 하려던 작업을 나타냅니다.
 - **파일** — 위의 파일 이력입니다. 파일을 고르면 reason과 함께 버전이 표시되며, **미리 보고 복원**은 현재 파일과의 diff 또는 버전 전체를 보여 줍니다. 링크된 위치는 **복원하고 링크 끊기**를 확인한 뒤에만 일반 파일로 교체됩니다.
 - **MCP** — MCP 설정을 쓸 때마다 만들어진 백업으로, Agent 설정별로 묶이고 각 백업이 추가, 변경, 제거한 서버가 표시됩니다. **미리 보고 복원**은 **MCP** 페이지와 같은 복원 대화상자를 엽니다(명령줄에서는 [`mcp restore`](/docs/reference/commands/mcp)).
 
+![설정 › 백업 › 파일: 복원 전에 이전 CLAUDE.md 버전 미리 보기](/img/backup-files-preview.png)
+
 project mode에서는 이 페이지가 프로젝트만 다룹니다. `.skillshare/backups/`의 agent 스냅샷, 프로젝트 안의 파일, 프로젝트 MCP 설정의 백업입니다. 삭제된 skill과 agent는 여기에 없으며, **Skills**와 **Agents**의 **휴지통** 탭으로 이동합니다.
 
 ## 옵션

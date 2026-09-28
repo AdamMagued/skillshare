@@ -29,6 +29,8 @@ dashboard（`skillshare ui`）會顯示這些檔案、讓你編輯它們，也�
   一段簡短說明，註明哪個工具會展開它們。
 - 警告。Windsurf 只會讀取其全域 rules 檔案的前 6,000 個字元。
 
+![claude target 的 CLAUDE.md 分頁：讀取順序、編輯器與 import 提示](/img/targets-instructions-tab.png)
+
 如果檔案是指向共用 `AGENTS.md` 的連結，編輯器會是唯讀的。編輯它會改到所有使用該共用檔案的
 target，所以請改到該檔案自己的頁面編輯。你自己建立的連結（例如指向你的 dotfiles）仍然可以編輯，
 儲存時會寫入它所指向的檔案。
@@ -150,6 +152,23 @@ Target 使用共用檔案的方式，取決於它是否會展開 `@` import：
   指向共用檔案的連結（symlink）。在沒有開啟開發人員模式的 Windows 上無法建立檔案連結，
   所以會改換成一份複本。
 
+在全域模式下，一份共用檔案會這樣送到各個 target：
+
+```mermaid
+flowchart LR
+    S["共用 AGENTS.md"]
+    C["claude<br/>CLAUDE.md"]
+    X["codex<br/>AGENTS.md"]
+    G["gemini<br/>GEMINI.md"]
+    WIN["未開啟開發人員模式<br/>的 Windows target"]
+    O["其他位置<br/>~/notes"]
+    S -->|"@import 行"| C
+    S -->|symlink| X
+    S -->|symlink| G
+    S -->|copy| WIN
+    S -->|"symlink / copy"| O
+```
+
 分頁左側列出共用檔案，每份都附上接上它的 target。點其中一份，右側就會顯示它的路徑、它的內容（預設顯示渲染後的 **預覽**，可切換到 **原始碼** 看原始文字），
 以及每個 target 和它的開關。選取的檔案會寫進 URL（`/extras?tab=instructions&file=<name>`），
 所以用連結就能直接開啟那份檔案。
@@ -180,6 +199,8 @@ Target 使用共用檔案的方式，取決於它是否會展開 `@` import：
 | `import` | 你自己的檔案，受管理區塊中有一行 `@import`。共用檔案的改動會立即生效 | 會展開 `@` import 的 target |
 | `symlink` | 指向共用檔案的連結。改動會立即生效 | 沒有開啟開發人員模式的 Windows 上不可用 |
 | `copy` | 共用檔案的複本。在儀表板儲存共用檔案時會一併更新複本；在其他地方編輯共用檔案後，請在這一頁按 **Sync** 再同步一次 | 一律可用 |
+
+![Extras › AGENTS.md：共用檔案的各 target 模式與其他位置](/img/extras-agents-md-shared.png)
 
 無法使用檔案連結時，**Targets** 旁的資訊提示會說明 Windows Developer Mode。指令檔的警告與錯誤會使用儀表板語言；未知代碼則顯示原始英文訊息。
 

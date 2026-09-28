@@ -34,6 +34,8 @@ claude なら **CLAUDE.md**、gemini なら **GEMINI.md**、codex なら **AGENT
   読みます。エディタはこれらの行に色を付け、どのツールが展開するかを示す短い注記を添えます。
 - 警告。Windsurf はグローバルな rules ファイルの先頭 6,000 文字しか読み込みません。
 
+![claude Target の CLAUDE.md タブ: 読み込み順、エディター、import の注記](/img/targets-instructions-tab.png)
+
 ファイルが共有 `AGENTS.md` へのリンクの場合、エディタは読み取り専用になります。編集するとその共有
 ファイルを使うすべての Target が変わるため、そのファイル専用のページで編集してください。dotfiles への
 リンクなど、自分で作ったリンクは編集でき、保存するとリンク先のファイルに書き込まれます。
@@ -160,6 +162,23 @@ Target が共有ファイルをどう使うかは、`@` import に従うかど�
   共有ファイルへのリンク（シンボリックリンク）に置き換えられます。Developer Mode がオフの Windows では
   ファイルのリンクを使えないため、代わりにコピーに置き換えられます。
 
+グローバルモードでは、1 つの共有ファイルが次のように各 Target に届きます:
+
+```mermaid
+flowchart LR
+    S["共有 AGENTS.md"]
+    C["claude<br/>CLAUDE.md"]
+    X["codex<br/>AGENTS.md"]
+    G["gemini<br/>GEMINI.md"]
+    WIN["Developer Mode オフの<br/>Windows の Target"]
+    O["その他の場所<br/>~/notes"]
+    S -->|"@import 行"| C
+    S -->|symlink| X
+    S -->|symlink| G
+    S -->|copy| WIN
+    S -->|"symlink / copy"| O
+```
+
 タブの左側には共有ファイルが一覧され、それぞれに接続している Target が表示されます。どれかをクリックすると
 右側に表示されます。パス、内容（既定はレンダリングされた **プレビュー**。**ソース** に切り替えると元のテキストを表示）、そしてスイッチ付きのすべての Target です。選択したファイルは
 URL の一部になる（`/extras?tab=instructions&file=<name>`）ため、リンクからそのファイルを直接開けます。
@@ -193,6 +212,8 @@ URL の一部になる（`/extras?tab=instructions&file=<name>`）ため、リ�
 | `import` | 自分のファイルに、管理ブロック内の `@import` 行が 1 つ入ります。共有ファイルの変更はすぐに反映されます | `@` import に従う Target |
 | `symlink` | 共有ファイルへのリンク。変更はすぐに反映されます | Developer Mode がオフの Windows 以外 |
 | `copy` | 共有ファイルのコピー。ダッシュボードで共有ファイルを保存するとコピーも更新されます。ほかの場所で共有ファイルを編集した後は、このページの **Sync** で再度 sync します | 常に |
+
+![Extras › AGENTS.md: 共有ファイルの Target ごとのモードとその他の場所](/img/extras-agents-md-shared.png)
 
 ファイルリンクを使えない場合、**Targets** の横の情報ツールチップに Windows Developer Mode の説明が表示されます。指示ファイルの警告とエラーはダッシュボードの言語で表示され、未知のコードでは元の英語メッセージが使われます。
 

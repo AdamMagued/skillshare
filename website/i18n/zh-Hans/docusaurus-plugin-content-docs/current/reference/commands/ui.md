@@ -140,6 +140,7 @@ Dashboard 支持两种视觉风格和三种颜色模式，可通过侧边栏的 
   <img src="/img/web-skill-detail-demo.png" alt="Skill detail view" />
   <img src="/img/web-sync-demo.png" alt="Sync controls" />
   <img src="/img/web-search-skills-demo.png" alt="GitHub search view" />
+  <img src="/img/web-projects-demo.png" alt="列出项目文件夹的 Projects 页面" />
 </div>
 
 ## REST API

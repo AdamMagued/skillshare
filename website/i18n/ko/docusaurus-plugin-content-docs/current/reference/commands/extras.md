@@ -15,6 +15,10 @@ Extras는 skillshare가 관리하는 추가 리소스 유형입니다 — "skill
 - **source directory** — `extras_source` 또는 extra별 `source`로 설정 가능하며, 기본값은 `~/.config/skillshare/extras/<name>/` (전역) 또는 `.skillshare/extras/<name>/` (프로젝트)
 - 파일이 동기화되는 하나 이상의 **target**
 
+대시보드의 **Extras → Folders**에는 각 extra와 그 Target, 모드가 표시됩니다.
+
+![Extras › Folders: 각 Target에 동기화된 rules와 commands](/img/extras-folders.png)
+
 ## Commands
 
 ### `extras init`

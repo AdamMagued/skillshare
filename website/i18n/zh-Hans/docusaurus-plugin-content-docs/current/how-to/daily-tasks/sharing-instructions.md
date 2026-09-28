@@ -31,6 +31,8 @@ claude 是 **CLAUDE.md**，gemini 是 **GEMINI.md**，codex 是 **AGENTS.md**。
   着色，并附上一条简短说明，指出哪个工具会展开它们。
 - 警告。Windsurf 只读取其全局 rules 文件的前 6,000 个字符。
 
+![claude target 的 CLAUDE.md 标签页：读取顺序、编辑器与 import 提示](/img/targets-instructions-tab.png)
+
 如果该文件是指向共享 `AGENTS.md` 的链接，编辑器就是只读的。编辑它会改变所有使用该共享
 文件的 target，所以请改到那份文件自己的页面上编辑。你自己建立的链接（例如指向你的
 dotfiles 的链接）仍然可以编辑，保存时会写入它所指向的文件。
@@ -152,6 +154,23 @@ target 如何使用共享文件，取决于它是否会展开 `@` import：
   指向共享文件的链接（symlink）。在未开启 Developer Mode 的 Windows 上无法使用文件链接，
   因此会改为替换成一份副本。
 
+在全局模式下，一份共享文件会这样送到各个 target：
+
+```mermaid
+flowchart LR
+    S["共享 AGENTS.md"]
+    C["claude<br/>CLAUDE.md"]
+    X["codex<br/>AGENTS.md"]
+    G["gemini<br/>GEMINI.md"]
+    WIN["未开启 Developer Mode<br/>的 Windows target"]
+    O["其他位置<br/>~/notes"]
+    S -->|"@import 行"| C
+    S -->|symlink| X
+    S -->|symlink| G
+    S -->|copy| WIN
+    S -->|"symlink / copy"| O
+```
+
 标签页左侧列出共享文件，每份都附上连接到它的 target。点击其中一份，右侧就会显示它的路径、
 内容（默认显示渲染后的 **预览**，可切换到 **源代码** 查看原始文本），以及每个 target 和对应的开关。选中的文件会写进 URL
 （`/extras?tab=instructions&file=<name>`），因此通过链接可以直接打开那份文件。
@@ -184,6 +203,8 @@ target 如何使用共享文件，取决于它是否会展开 `@` import：
 | `import` | 你自己的文件，受管区块中有一行 `@import`。对共享文件的修改立即生效 | 会展开 `@` import 的 target |
 | `symlink` | 指向共享文件的链接。修改立即生效 | 未开启 Developer Mode 的 Windows 上不可用 |
 | `copy` | 共享文件的副本。在控制台中保存共享文件会更新副本；在其他地方编辑共享文件后，请在这个页面点 **Sync** 再同步一次 | 始终可用 |
+
+![Extras › AGENTS.md：共享文件的各 target 模式与其他位置](/img/extras-agents-md-shared.png)
 
 无法使用文件链接时，**Targets** 旁的信息提示会说明 Windows Developer Mode。指令文件的警告和错误会使用控制台语言；未知代码则显示原始英文消息。
 
