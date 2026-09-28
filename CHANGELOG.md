@@ -18,9 +18,9 @@
 
 #### Extras
 
-- **Attach a single-file extra under another name** — `--add-target` takes `--as` to pick the file name in the target folder, such as `GEMINI.md` for Gemini CLI. `skillshare extras <name> --help` now prints that extra's options.
+- **Attach a single-file extra under another name** — `--add-target` takes `--as` to pick the file name in the target folder, such as `instructions.md` in a notes folder. `skillshare extras <name> --help` now prints that extra's options.
   ```bash
-  skillshare extras personal --add-target ~/.gemini --as GEMINI.md --mode symlink
+  skillshare extras personal --add-target ~/work/notes --as instructions.md --mode symlink
   ```
 
 ### Bug Fixes
