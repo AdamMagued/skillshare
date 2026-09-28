@@ -278,7 +278,7 @@
   "dashboard.summary": "一個來源，已同步到 {total} 個目標中的 {synced} 個。",
   "dashboard.lastSync": "上次同步：{time}。",
   "dashboard.projectSummary": "專案模式。Skill 放在 .skillshare/，只同步到這個專案。",
-  "dashboard.projectNote": "專案模式不會顯示 Git 同步和備份。專案的 skill 隨專案本身做版本控制。執行 skillshare ui -g 查看全域設定。",
+  "dashboard.projectNote": "專案模式不會顯示 Git 同步。專案的 skill 隨專案本身做版本控制。執行 skillshare ui -g 查看全域設定。",
   "dashboard.pending": "{count} 項待同步",
   "doctor.error.failedToLoad": "載入健康檢查失敗：{error}",
   "doctor.filter.all": "全部",

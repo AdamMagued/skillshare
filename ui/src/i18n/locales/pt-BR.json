@@ -278,7 +278,7 @@
   "dashboard.summary": "Uma origem, sincronizada com {synced} de {total} destinos.",
   "dashboard.lastSync": "Última sincronização {time}.",
   "dashboard.projectSummary": "Modo projeto. As skills ficam em .skillshare/ e são sincronizadas apenas com este projeto.",
-  "dashboard.projectNote": "Git sync e Backup não aparecem no modo projeto. As skills do projeto são versionadas com o próprio projeto. Execute skillshare ui -g para a configuração global.",
+  "dashboard.projectNote": "Git sync não aparece no modo projeto. As skills do projeto são versionadas com o próprio projeto. Execute skillshare ui -g para a configuração global.",
   "dashboard.pending": "{count} pendentes",
   "doctor.check.agents_source": "Fonte dos Agentes",
   "doctor.check.backup": "Backups",

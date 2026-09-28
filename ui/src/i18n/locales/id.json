@@ -278,7 +278,7 @@
   "dashboard.summary": "Satu sumber, tersinkron ke {synced} dari {total} target.",
   "dashboard.lastSync": "Sinkron terakhir {time}.",
   "dashboard.projectSummary": "Mode proyek. Skill berada di .skillshare/ dan hanya disinkronkan ke proyek ini.",
-  "dashboard.projectNote": "Git sync dan Backup tidak ditampilkan dalam mode proyek. Skill proyek diberi versi bersama proyek itu sendiri. Jalankan skillshare ui -g untuk pengaturan global.",
+  "dashboard.projectNote": "Git sync tidak ditampilkan dalam mode proyek. Skill proyek diberi versi bersama proyek itu sendiri. Jalankan skillshare ui -g untuk pengaturan global.",
   "dashboard.pending": "{count} tertunda",
   "doctor.error.failedToLoad": "Gagal memuat pemeriksaan kesehatan: {error}",
   "doctor.check.agents_source": "Sumber Agen",

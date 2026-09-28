@@ -278,7 +278,7 @@
   "dashboard.summary": "1 つのソースを {total} 件中 {synced} 件のターゲットに同期済み。",
   "dashboard.lastSync": "最終同期: {time}。",
   "dashboard.projectSummary": "プロジェクトモード。スキルは .skillshare/ にあり、このプロジェクトにのみ同期されます。",
-  "dashboard.projectNote": "プロジェクトモードでは Git 同期とバックアップは表示されません。プロジェクトのスキルはプロジェクト自体と一緒にバージョン管理されます。グローバル設定には skillshare ui -g を実行してください。",
+  "dashboard.projectNote": "プロジェクトモードでは Git 同期は表示されません。プロジェクトのスキルはプロジェクト自体と一緒にバージョン管理されます。グローバル設定には skillshare ui -g を実行してください。",
   "dashboard.pending": "{count} 件保留中",
   "doctor.error.failedToLoad": "ヘルスチェックの読み込みに失敗しました: {error}",
   "doctor.filter.all": "すべて",

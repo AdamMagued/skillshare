@@ -278,7 +278,7 @@
   "dashboard.summary": "一个来源，已同步到 {total} 个目标中的 {synced} 个。",
   "dashboard.lastSync": "上次同步：{time}。",
   "dashboard.projectSummary": "项目模式。技能位于 .skillshare/，只同步到此项目。",
-  "dashboard.projectNote": "项目模式下不显示 Git 同步和备份。项目技能随项目本身做版本控制。运行 skillshare ui -g 查看全局设置。",
+  "dashboard.projectNote": "项目模式下不显示 Git 同步。项目技能随项目本身做版本控制。运行 skillshare ui -g 查看全局设置。",
   "dashboard.pending": "{count} 项待同步",
   "doctor.error.failedToLoad": "加载健康检查失败：{error}",
   "doctor.filter.all": "全部",

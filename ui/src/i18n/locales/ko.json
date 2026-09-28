@@ -278,7 +278,7 @@
   "dashboard.summary": "하나의 소스가 대상 {total}개 중 {synced}개에 동기화되었습니다.",
   "dashboard.lastSync": "마지막 동기화: {time}.",
   "dashboard.projectSummary": "프로젝트 모드. 스킬은 .skillshare/에 있으며 이 프로젝트에만 동기화됩니다.",
-  "dashboard.projectNote": "프로젝트 모드에서는 Git 동기화와 백업이 표시되지 않습니다. 프로젝트 스킬은 프로젝트와 함께 버전 관리됩니다. 전역 설정은 skillshare ui -g를 실행하세요.",
+  "dashboard.projectNote": "프로젝트 모드에서는 Git 동기화가 표시되지 않습니다. 프로젝트 스킬은 프로젝트와 함께 버전 관리됩니다. 전역 설정은 skillshare ui -g를 실행하세요.",
   "dashboard.pending": "{count}개 대기 중",
   "doctor.error.failedToLoad": "상태 확인을 불러오지 못했습니다: {error}",
   "doctor.filter.all": "전체",

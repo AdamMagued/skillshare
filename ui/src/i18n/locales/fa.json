@@ -278,7 +278,7 @@
   "dashboard.summary": "یک منبع، همگام‌شده با {synced} از {total} مقصد.",
   "dashboard.lastSync": "آخرین همگام‌سازی {time}.",
   "dashboard.projectSummary": "حالت پروژه. Skillها در .skillshare/ قرار دارند و فقط با این پروژه همگام می‌شوند.",
-  "dashboard.projectNote": "همگام‌سازی Git و پشتیبان‌گیری در حالت پروژه نمایش داده نمی‌شوند. Skillهای پروژه همراه خود پروژه نسخه‌بندی می‌شوند. برای تنظیمات سراسری skillshare ui -g را اجرا کنید.",
+  "dashboard.projectNote": "همگام‌سازی Git در حالت پروژه نمایش داده نمی‌شود. Skillهای پروژه همراه خود پروژه نسخه‌بندی می‌شوند. برای تنظیمات سراسری skillshare ui -g را اجرا کنید.",
   "dashboard.pending": "{count} در انتظار",
   "doctor.check.agents_source": "منبع عامل‌ها",
   "doctor.check.backup": "پشتیبان‌گیری",

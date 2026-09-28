@@ -269,7 +269,7 @@
   "dashboard.summary": "One source, synced to {synced} of {total} targets.",
   "dashboard.lastSync": "Last sync {time}.",
   "dashboard.projectSummary": "Project mode. Skills live in .skillshare/ and sync to this project only.",
-  "dashboard.projectNote": "Git sync and Backup are not shown in project mode. Project skills are versioned with the project itself. Run skillshare ui -g for your global setup.",
+  "dashboard.projectNote": "Git sync is not shown in project mode. Project skills are versioned with the project itself. Run skillshare ui -g for your global setup.",
   "dashboard.pending": "{count} pending",
   "gitSync.actions.commit": "Commit locally",
   "gitSync.actions.pull": "Pull",

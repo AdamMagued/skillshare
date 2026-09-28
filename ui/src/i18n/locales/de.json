@@ -278,7 +278,7 @@
   "dashboard.summary": "Eine Quelle, synchronisiert mit {synced} von {total} Zielen.",
   "dashboard.lastSync": "Letzte Synchronisierung {time}.",
   "dashboard.projectSummary": "Projektmodus. Skills liegen in .skillshare/ und werden nur mit diesem Projekt synchronisiert.",
-  "dashboard.projectNote": "Git-Sync und Backup werden im Projektmodus nicht angezeigt. Projekt-Skills werden mit dem Projekt selbst versioniert. Führe skillshare ui -g für deine globale Einrichtung aus.",
+  "dashboard.projectNote": "Git-Sync wird im Projektmodus nicht angezeigt. Projekt-Skills werden mit dem Projekt selbst versioniert. Führe skillshare ui -g für deine globale Einrichtung aus.",
   "dashboard.pending": "{count} ausstehend",
   "doctor.error.failedToLoad": "Systemprüfung konnte nicht geladen werden: {error}",
   "doctor.filter.all": "Alle",
