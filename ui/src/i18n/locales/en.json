@@ -1234,7 +1234,7 @@
   "instructions.mode.default": "· default",
   "instructions.mode.import": "Adds one @import line to {file}. Your own lines stay, and changes to {name} apply right away.",
   "instructions.mode.symlink": "Links to the shared file. Changes to {name} apply right away.",
-  "instructions.mode.copy": "Writes a copy of the shared file. Saving here updates the copy; after editing {name} elsewhere, run a sync.",
+  "instructions.mode.copy": "Writes a copy of the shared file. Saving here updates the copy; if {name} is edited elsewhere, a Sync button appears above the targets.",
   "instructions.mode.blocked.fileLinks": "Windows needs Developer Mode to create file links.",
   "instructions.mode.blocked.several": "{target} uses more than one shared AGENTS.md, and only import can hold several.",
   "instructions.mode.changed": "{target} now gets {name} by {mode}",
