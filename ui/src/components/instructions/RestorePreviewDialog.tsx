@@ -5,15 +5,17 @@ import { api } from '../../api/client';
 import Button from '../Button';
 import DialogShell from '../DialogShell';
 import Spinner from '../Spinner';
-import { formatDateTime, useI18n, useT } from '../../i18n';
+import { useT } from '../../i18n';
 import { shortenHome } from '../../lib/paths';
 import { queryKeys } from '../../lib/queryKeys';
 import { formatSize, lineCount, lineDiff } from './instructionsView';
 
 /** Restore one target: shows what its file goes back to before taking the shared file off it. */
-export default function RestorePreviewDialog({ name, target, label, busy, onConfirm, onClose }: {
+export default function RestorePreviewDialog({ name, target, label, mode, busy, onConfirm, onClose }: {
   name: string;
   target: string;
+  /** How the target gets the file: an import target only loses the import line. */
+  mode: string;
   /** The target as the row names it (Codex for a tool that is not a target). */
   label: string;
   busy: boolean;
@@ -21,11 +23,13 @@ export default function RestorePreviewDialog({ name, target, label, busy, onConf
   onClose: () => void;
 }) {
   const t = useT();
-  const { locale } = useI18n();
   const [tab, setTab] = useState<'content' | 'diff'>('content');
   const { data, error } = useQuery({ queryKey: queryKeys.instructions.restorePreview(name, target), queryFn: () => api.getSharedRestorePreview(name, target), gcTime: 0 });
   const title = t('instructions.restorePreview.title', { name, target: label });
   const lines = data ? data.content.replace(/\n$/, '').split('\n') : [];
+  // The record behind the preview is kept per target file, not per shared file, so
+  // its time can be another shared file's; the line says what happens, without a time.
+  const imported = mode === 'import' && data?.kind === 'content';
 
   return (
     <DialogShell open onClose={onClose} padding="none" preventClose={busy} ariaLabel={title} className="!max-w-[720px]">
@@ -34,9 +38,7 @@ export default function RestorePreviewDialog({ name, target, label, busy, onConf
           <h2 className="ss-h2">{title}</h2>
           {data && (
             <p className="text-[13px] text-ink-2">
-              {data.recorded_at
-                ? t('instructions.restorePreview.when', { path: shortenHome(data.path), name, time: formatDateTime(data.recorded_at, locale, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) })
-                : t('instructions.restorePreview.whenUnknown', { path: shortenHome(data.path), name })}
+              {t(imported ? 'instructions.restorePreview.import' : 'instructions.restorePreview.whenUnknown', { path: shortenHome(data.path), name })}
             </p>
           )}
         </div>
@@ -64,7 +66,7 @@ export default function RestorePreviewDialog({ name, target, label, busy, onConf
               <div className="ss-lh !normal-case">
                 <span className="flex-1 text-[12.5px]">
                   {tab === 'content'
-                    ? t('instructions.preview.stats', { lines: lineCount(data.content), size: formatSize(new TextEncoder().encode(data.content).length) })
+                    ? t(lineCount(data.content) === 1 ? 'instructions.preview.stats.one' : 'instructions.preview.stats.other', { lines: lineCount(data.content), size: formatSize(new TextEncoder().encode(data.content).length) })
                     : shortenHome(data.path)}
                 </span>
               </div>
@@ -83,7 +85,7 @@ export default function RestorePreviewDialog({ name, target, label, busy, onConf
             </div>
           </>
         )}
-        {data?.drift && <p className="text-[12.5px] text-ink-2">{t('instructions.restorePreview.drift', { target: label })}</p>}
+        {data?.drift && !imported && <p className="text-[12.5px] text-ink-2">{t('instructions.restorePreview.drift', { target: label })}</p>}
       </div>
       <div className="df">
         <Button variant="ghost" onClick={onClose} disabled={busy}>{t('common.cancel')}</Button>

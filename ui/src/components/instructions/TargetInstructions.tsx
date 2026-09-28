@@ -1,5 +1,5 @@
-import { Fragment, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Fragment, useId, useMemo, useState } from 'react';
+import { Link, useBeforeUnload, useBlocker, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FileX, Info, TriangleAlert, X } from 'lucide-react';
 import { api, ApiError } from '../../api/client';
@@ -40,9 +40,6 @@ export default function TargetInstructions({ name }: { name: string }) {
   const t = useT();
   const [params, setParams] = useSearchParams();
   const { data } = useQuery({ queryKey: queryKeys.instructions.target(name), queryFn: () => api.getTargetInstructions(name) });
-  // Switching tools remounts the panel, so an unsaved edit asks before it is dropped.
-  const dirty = useRef(false);
-  const [pending, setPending] = useState<string | null>(null);
   const [fillRef, height] = useFillHeight<HTMLDivElement>(PAGE_BOTTOM, MIN_TAB);
   const riders = data?.riders ?? [];
   if (!data?.supported || riders.length === 0) {
@@ -50,13 +47,13 @@ export default function TargetInstructions({ name }: { name: string }) {
   }
 
   const tool = riders.find((r) => r.name === params.get('tool'))?.name ?? name;
-  const go = (next: string) => setParams((prev) => {
+  // Switching tools is a navigation, so the editor's guard asks before an unsaved edit is dropped.
+  const pick = (next: string) => setParams((prev) => {
     const p = new URLSearchParams(prev);
     if (next === name) p.delete('tool');
     else p.set('tool', next);
     return p;
   }, { replace: true });
-  const pick = (next: string) => (dirty.current ? setPending(next) : go(next));
   // Tools by the name people know them by (Codex, not codex); the target itself keeps its own name.
   const items = [
     { id: name, label: name, path: data.path ?? '', exists: data.exists },
@@ -67,23 +64,14 @@ export default function TargetInstructions({ name }: { name: string }) {
     <div ref={fillRef} style={{ height }} className="grid grid-cols-[220px_minmax(0,1fr)] gap-7">
       <InstructionFileList items={items} selected={tool} onSelect={pick} divider={1} caption={t('instructions.files.caption', { name })} />
       <div className="flex min-h-0 min-w-0 flex-col">
-        <Panel key={tool} name={tool} onDirty={(d) => { dirty.current = d; }} />
+        <Panel key={tool} name={tool} />
       </div>
-      <ConfirmDialog
-        open={pending !== null}
-        title={t('config.discard.title')}
-        message={t('config.discard.message')}
-        confirmText={t('config.discard.confirmText')}
-        variant="danger"
-        onConfirm={() => { if (pending !== null) go(pending); setPending(null); }}
-        onCancel={() => setPending(null)}
-      />
     </div>
   );
 }
 
 /** The files a target (or rider) reads, in order, and an editor for its own file. */
-function Panel({ name, onDirty }: { name: string; onDirty?: (dirty: boolean) => void }) {
+function Panel({ name }: { name: string }) {
   const t = useT();
   const { data, error, isPending } = useQuery({ queryKey: queryKeys.instructions.target(name), queryFn: () => api.getTargetInstructions(name) });
   if (isPending) return <PageSkeleton />;
@@ -100,7 +88,7 @@ function Panel({ name, onDirty }: { name: string; onDirty?: (dirty: boolean) => 
     );
   }
   // Remount on a new file version so the draft starts from it.
-  return <Editor key={`${data.path}:${data.content}`} data={data} onDirty={onDirty} />;
+  return <Editor key={`${data.path}:${data.content}`} data={data} />;
 }
 
 /**
@@ -119,19 +107,22 @@ function useSetupForm(data: Data, onDone?: () => void) {
   const [imports, setImports] = useState(data.setup?.import ?? (data.supported && data.import));
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
+  // What the server said about the last save or reset, shown in the form as it came.
+  const [failure, setFailure] = useState('');
   const problem = setupPathProblem(path, data.project);
   const example = data.project ? `.${data.target}/AGENTS.md` : `~/.${data.target}/AGENTS.md`;
   const inUse = (err: unknown, key: string) => (err instanceof ApiError && err.code === 'instructions_in_use' ? t(key, { name: data.target }) : (err as Error).message);
 
   const save = async () => {
     setSaving(true);
+    setFailure('');
     try {
       await api.setTargetInstructionsSetup(data.target, { path: path.trim(), import: imports });
       refreshInstructions(queryClient);
       toast(t('instructions.setup.saved'), 'success');
       onDone?.();
     } catch (err) {
-      toast(inUse(err, 'instructions.setup.inUseChange'), 'error');
+      setFailure(inUse(err, 'instructions.setup.inUseChange'));
     } finally {
       setSaving(false);
     }
@@ -140,13 +131,14 @@ function useSetupForm(data: Data, onDone?: () => void) {
   // Back to the built-in file, or, for a tool skillshare does not know, no file.
   const reset = async () => {
     setResetting(true);
+    setFailure('');
     try {
       await api.removeTargetInstructionsSetup(data.target);
       refreshInstructions(queryClient);
       toast(t('instructions.setup.removed'), 'success');
       onDone?.();
     } catch (err) {
-      toast(inUse(err, 'instructions.setup.inUse'), 'error');
+      setFailure(inUse(err, 'instructions.setup.inUse'));
     } finally {
       setResetting(false);
     }
@@ -166,6 +158,7 @@ function useSetupForm(data: Data, onDone?: () => void) {
         </span>
       </div>
       <Checkbox label={t('instructions.setup.import')} checked={imports} onChange={setImports} size="sm" />
+      {failure && <div className="ss-note bad"><span className="flex-1">{failure}</span></div>}
     </>
   );
   const busy = saving || resetting;
@@ -215,7 +208,7 @@ function PathDialog({ data, onClose }: { data: Data; onClose: () => void }) {
   );
 }
 
-function Editor({ data, onDirty }: { data: Data; onDirty?: (dirty: boolean) => void }) {
+function Editor({ data }: { data: Data }) {
   const t = useT();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -231,6 +224,8 @@ function Editor({ data, onDirty }: { data: Data; onDirty?: (dirty: boolean) => v
   const shared = data.shared;
   const tooLong = Boolean(data.max_chars) && [...draft].length > (data.max_chars ?? 0);
   const importNote = !data.project && data.convert.includes('import') && shared.length === 0;
+  // The server refuses to move a file a shared AGENTS.md is written into.
+  const inUse = linked || shared.length > 0;
 
   // Says at the end of each @import line who expands it; the import-target
   // wording is about converting, so it drops that part once nothing is left to convert.
@@ -245,10 +240,11 @@ function Editor({ data, onDirty }: { data: Data; onDirty?: (dirty: boolean) => v
     });
   }, [shared, data.import, data.convert.length, data.target, file, t]);
 
-  useEffect(() => {
-    onDirty?.(draft !== data.content);
-    return () => onDirty?.(false);
-  }, [draft, data.content, onDirty]);
+  // Leaving with an unsaved edit asks first: links, the sidebar, other tools in the list, a reload.
+  const dirty = draft !== data.content;
+  const blocker = useBlocker(({ currentLocation, nextLocation }) => dirty
+    && (currentLocation.pathname !== nextLocation.pathname || currentLocation.search !== nextLocation.search));
+  useBeforeUnload((e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
 
   const save = async () => {
     setSaving(true);
@@ -290,8 +286,13 @@ function Editor({ data, onDirty }: { data: Data; onDirty?: (dirty: boolean) => v
           </span>
         )}
         <span className="flex-1" />
-        {/* A rider is not a target, so there is no setting to change for it. */}
-        {!data.rider_of && <Button variant="ghost" size="sm" onClick={() => setChangingPath(true)}>{t('instructions.setup.changeLocation')}</Button>}
+        {/* A rider is not a target, so there is no setting to change for it; one on a shared file moves only after it is off. */}
+        {/* A disabled button gets no hover, so the reason sits on a wrapper. */}
+        {!data.rider_of && (
+          <span title={inUse ? t('instructions.setup.locationLocked') : undefined}>
+            <Button variant="ghost" size="sm" onClick={() => setChangingPath(true)} disabled={inUse}>{t('instructions.setup.changeLocation')}</Button>
+          </span>
+        )}
         {data.convert.length > 0 && !linked && !importNote && (
           <Button variant="ghost" size="sm" onClick={() => setConverting(true)} disabled={draft !== data.content}>{t('instructions.convert.open')}</Button>
         )}
@@ -357,6 +358,15 @@ function Editor({ data, onDirty }: { data: Data; onDirty?: (dirty: boolean) => v
 
       {converting && <ConvertDialog data={{ ...data, content: draft }} onClose={() => setConverting(false)} />}
       {changingPath && <PathDialog data={data} onClose={() => setChangingPath(false)} />}
+      <ConfirmDialog
+        open={blocker.state === 'blocked'}
+        title={t('config.discard.title')}
+        message={t('config.discard.message')}
+        confirmText={t('config.discard.confirmText')}
+        variant="danger"
+        onConfirm={() => blocker.state === 'blocked' && blocker.proceed()}
+        onCancel={() => blocker.state === 'blocked' && blocker.reset()}
+      />
     </div>
   );
 }

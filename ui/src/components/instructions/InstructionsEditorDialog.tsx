@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { useBeforeUnload } from 'react-router-dom';
 import { TriangleAlert, X } from 'lucide-react';
 import AgentIcon from '../AgentIcon';
 import Button from '../Button';
@@ -33,6 +34,7 @@ export default function InstructionsEditorDialog({ title, path, content, note, r
   const [draft, setDraft] = useState(content);
   const [saving, setSaving] = useState(false);
   const [reverting, setReverting] = useState(false);
+  const [discarding, setDiscarding] = useState(false);
   // Preview shows the draft; the draft and ⌘S work the same in both views.
   const [view, setView] = useState<'edit' | 'preview'>('edit');
   const dirty = draft !== base;
@@ -50,16 +52,20 @@ export default function InstructionsEditorDialog({ title, path, content, note, r
       setSaving(false);
     }
   };
-  useSaveShortcut(() => void save());
+  const scope = useRef<HTMLDivElement>(null);
+  useSaveShortcut(() => void save(), true, scope);
+  useBeforeUnload((e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+  // ✕, Esc and the backdrop ask before an unsaved edit is dropped.
+  const close = () => (dirty ? setDiscarding(true) : onClose());
 
   return (
-    <DialogShell open onClose={onClose} maxWidth="full" padding="none" preventClose={saving || dirty || reverting} ariaLabel={title}>
-      <div className="dh">
+    <DialogShell open onClose={close} maxWidth="full" padding="none" preventClose={saving || reverting || discarding} ariaLabel={title}>
+      <div ref={scope} className="dh">
         <div className="flex min-w-0 flex-col gap-1">
           <h2 className="ss-h2 font-mono">{title}</h2>
           <span className="truncate font-mono text-[12.5px] text-ink-3">{shortenHome(path)}</span>
         </div>
-        <button type="button" className="ss-ib" aria-label={t('common.close')} onClick={onClose} disabled={saving}><X size={16} /></button>
+        <button type="button" className="ss-ib" aria-label={t('common.close')} onClick={close} disabled={saving}><X size={16} /></button>
       </div>
       <div className="db">
         <div className="grid grid-cols-[minmax(0,1fr)_300px] items-start gap-6">
@@ -104,6 +110,15 @@ export default function InstructionsEditorDialog({ title, path, content, note, r
         variant="danger"
         onCancel={() => setReverting(false)}
         onConfirm={() => { setDraft(base); setReverting(false); }}
+      />
+      <ConfirmDialog
+        open={discarding}
+        title={t('config.discard.title')}
+        message={t('config.discard.message')}
+        confirmText={t('config.discard.confirmText')}
+        variant="danger"
+        onCancel={() => setDiscarding(false)}
+        onConfirm={() => { setDiscarding(false); onClose(); }}
       />
     </DialogShell>
   );

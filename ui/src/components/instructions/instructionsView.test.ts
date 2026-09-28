@@ -106,6 +106,12 @@ describe('connect and restore plans', () => {
     expect(connectPlan([windsurf], general)[0]).toMatchObject({ note: 'tooLong', max: 6000 });
   });
 
+  // Its file is another shared file's source: an import line written there would land in that file.
+  it('skips a target whose file is another shared file, saying which', () => {
+    const linked = tg('claude-unno', { import: true, linked_shared: 'team', assigned: [{ name: 'team', mode: 'symlink', status: 'synced' }] });
+    expect(connectPlan([linked], general)).toEqual([{ target: 'claude-unno', extras: ['team', 'general'], note: 'held', other: 'team' }]);
+  });
+
   it('never includes targets that read another target\'s file', () => {
     expect(connectPlan([antigravity], general)).toEqual([]);
   });

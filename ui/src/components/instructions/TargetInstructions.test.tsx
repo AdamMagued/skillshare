@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '../../api/client';
 import type { TargetInstructions as Data } from '../../api/client';
@@ -28,31 +28,33 @@ const pickTool = async (user: ReturnType<typeof userEvent.setup>, name: RegExp) 
   await user.click(within(list).getByRole('button', { name }));
 };
 
-const renderTarget = (name: string) => render(
-  <MemoryRouter initialEntries={[`/targets/${name}?tab=instructions`]}>
-    <QueryClientProvider client={new QueryClient()}>
-      <I18nProvider><ToastProvider><TargetInstructions name={name} /></ToastProvider></I18nProvider>
-    </QueryClientProvider>
-  </MemoryRouter>,
-);
+// A data router, as the app uses: the editor guards unsaved edits with useBlocker.
+const renderAt = (name: string) => {
+  const router = createMemoryRouter([{
+    path: '*',
+    element: (
+      <QueryClientProvider client={new QueryClient()}>
+        <I18nProvider><ToastProvider><TargetInstructions name={name} /></ToastProvider></I18nProvider>
+      </QueryClientProvider>
+    ),
+  }], { initialEntries: [`/targets/${name}?tab=instructions`] });
+  render(<RouterProvider router={router} />);
+  return router;
+};
+const renderTarget = (name: string) => renderAt(name);
 
 const renderUniversal = () => {
   vi.mocked(api.getTargetInstructions).mockImplementation(async (name) => name === 'codex'
     ? file('codex', '~/.codex/AGENTS.md', { rider_of: 'universal' })
     : file('universal', '~/.agents/AGENTS.md', { riders: [{ name: 'codex', path: '~/.codex/AGENTS.md', exists: true }], read_by: ['cline', 'warp'] }));
-  render(
-    <MemoryRouter initialEntries={['/targets/universal?tab=instructions']}>
-      <QueryClientProvider client={new QueryClient()}>
-        <I18nProvider><ToastProvider><TargetInstructions name="universal" /></ToastProvider></I18nProvider>
-      </QueryClientProvider>
-    </MemoryRouter>,
-  );
+  return renderAt('universal');
 };
 
 describe('Target instructions tab', () => {
   // jsdom has no scrollIntoView, which the dropdown calls on its focused option.
   beforeEach(() => {
     HTMLElement.prototype.scrollIntoView = vi.fn();
+    vi.mocked(api.putTargetInstructions).mockClear();
   });
 
   // Codex reads skills from ~/.agents/skills but its own ~/.codex/AGENTS.md, so universal offers it.
@@ -138,6 +140,48 @@ describe('Target instructions tab', () => {
     renderUniversal();
 
     expect(await screen.findByText('Cline, Warp also read this file')).toBeInTheDocument();
+  });
+
+  it('does not save the page editor with Cmd+S while a dialog is open over it', async () => {
+    vi.mocked(api.getTargetInstructions).mockResolvedValue(file('codex', '~/.codex/AGENTS.md', { default_path: '~/.codex/AGENTS.md' }));
+    renderTarget('codex');
+    const user = userEvent.setup();
+
+    await user.type(await screen.findByRole('textbox', { name: 'AGENTS.md' }), 'draft');
+    await user.click(screen.getByRole('button', { name: 'Change location' }));
+    fireEvent.keyDown(document.body, { key: 's', metaKey: true });
+
+    expect(api.putTargetInstructions).not.toHaveBeenCalled();
+  });
+
+  it('asks before leaving the page with an unsaved edit', async () => {
+    vi.mocked(api.getTargetInstructions).mockResolvedValue(file('codex', '~/.codex/AGENTS.md'));
+    const router = renderTarget('codex');
+    const user = userEvent.setup();
+
+    await user.type(await screen.findByRole('textbox', { name: 'AGENTS.md' }), 'draft');
+    act(() => { void router.navigate('/skills'); });
+
+    expect(await screen.findByRole('dialog', { name: 'Unsaved Changes' })).toBeInTheDocument();
+  });
+
+  it('leaves without asking when nothing is unsaved', async () => {
+    vi.mocked(api.getTargetInstructions).mockResolvedValue(file('codex', '~/.codex/AGENTS.md'));
+    const router = renderTarget('codex');
+
+    await screen.findByRole('textbox', { name: 'AGENTS.md' });
+    act(() => { void router.navigate('/skills'); });
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/skills'));
+  });
+
+  it('cannot change the location while a shared file is connected', async () => {
+    vi.mocked(api.getTargetInstructions).mockResolvedValue(file('claude', '~/.claude/CLAUDE.md', {
+      import: true, default_path: '~/.claude/CLAUDE.md', shared: [{ name: 'personal', mode: 'import', status: 'synced' }],
+    }));
+    renderTarget('claude');
+
+    expect(await screen.findByRole('button', { name: 'Change location' })).toBeDisabled();
   });
 
   it('saves with Cmd+S from the Preview tab', async () => {

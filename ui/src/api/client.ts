@@ -275,6 +275,7 @@ export interface SharedInstructionsTarget {
   exists: boolean;
   same_as?: string;
   rider_of?: string; // not a target: reads this target's skills
+  linked_shared?: string; // the shared file whose source the target's path is (a link or a tracked copy)
   max_chars?: number;
   assigned: InstructionsAssignment[];
 }
@@ -761,7 +762,7 @@ export const api = {
     }),
   /** Sets exactly which shared files each target uses; [] restores their own files. */
   assignSharedInstructions: (targets: string[], extras: string[]) =>
-    apiFetch<{ success: boolean; errors: string[] }>('/instructions/assign', {
+    apiFetch<{ success: boolean; errors: string[]; warnings?: string[] }>('/instructions/assign', {
       method: 'POST',
       body: JSON.stringify({ targets, extras }),
     }),
@@ -771,7 +772,7 @@ export const api = {
       body: JSON.stringify({ target }),
     }),
   setSharedInstructionsMode: (name: string, target: string, mode: string) =>
-    apiFetch<{ success: boolean }>(`/instructions/${encodeURIComponent(name)}/targets/${encodeURIComponent(target)}/mode`, {
+    apiFetch<{ success: boolean; warnings?: string[] }>(`/instructions/${encodeURIComponent(name)}/targets/${encodeURIComponent(target)}/mode`, {
       method: 'PUT',
       body: JSON.stringify({ mode }),
     }),

@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronDown, ChevronUp, Copy, Ellipsis, FilePlus, Plus, Trash2, TriangleAlert, X } from 'lucide-react';
-import { api } from '../../api/client';
+import { api, ApiError } from '../../api/client';
 import type { SharedInstructionsFile, SharedInstructionsTarget } from '../../api/client';
 import AgentIcon from '../AgentIcon';
 import Button from '../Button';
@@ -37,12 +37,28 @@ export default function SharedInstructions({ creating, setCreating }: { creating
   const [params, setParams] = useSearchParams();
   const { data, error, isPending } = useQuery({ queryKey: queryKeys.instructions.shared, queryFn: () => api.listSharedInstructions() });
 
+  // A file just created: the dialog stays until the page shows it, since the list
+  // and the address reach the page in separate renders.
+  const created = useRef<string | null>(null);
   const pick = (name: string | null) => setParams((prev) => {
     const next = new URLSearchParams(prev);
     if (name) next.set('file', name);
     else next.delete('file');
     return next;
   }, { replace: true });
+
+  // A ?file= naming no shared file shows the first one, and the address says so.
+  const asked = params.get('file');
+  const unknown = Boolean(data && asked && !data.files.some((f) => f.name === asked));
+  useEffect(() => {
+    if (unknown && data) pick(data.files[0]?.name ?? null);
+  });
+  useEffect(() => {
+    if (created.current && asked === created.current && data?.files.some((f) => f.name === created.current)) {
+      created.current = null;
+      setCreating(false);
+    }
+  }, [asked, data, setCreating]);
 
   if (isPending) return <PageSkeleton />;
   if (error) return <div className="ss-note bad"><span className="flex-1">{error.message}</span></div>;
@@ -91,7 +107,13 @@ export default function SharedInstructions({ creating, setCreating }: { creating
         <NewSharedDialog
           targets={targets}
           onClose={() => setCreating(false)}
-          onCreated={(name) => { setCreating(false); pick(name); refreshInstructions(queryClient); }}
+          onCreated={async (name) => {
+            // The dialog closes once the page shows the file, so it does not show another one meanwhile.
+            refreshInstructions(queryClient);
+            await queryClient.refetchQueries({ queryKey: queryKeys.instructions.shared });
+            created.current = name;
+            pick(name);
+          }}
         />
       )}
     </>
@@ -120,6 +142,8 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
   const [restoring, setRestoring] = useState<string | null>(null);
+  // Refusals the server gave for one target (another shared file holds it), shown in its row.
+  const [held, setHeld] = useState<Record<string, string>>({});
 
   const connected = connectedTo(targets, name);
   const isOn = (tg: SharedInstructionsTarget) => !tg.same_as && usesOf(tg).includes(name);
@@ -134,6 +158,7 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
   // Runs one change with the page busy, reporting failures and refetching afterwards.
   const act = async (fn: () => Promise<void>) => {
     setBusy(true);
+    setHeld({});
     try {
       await fn();
     } catch (err) {
@@ -144,15 +169,28 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
     }
   };
   const ask = (p: Pending) => setPending(p);
+  // A target another shared file holds is refused (409); its row says why, and the rest go on.
+  const heldText = (err: unknown, target: string) => (err instanceof ApiError && err.code === 'instructions_target_held'
+    ? t('instructions.conflict.held', { target: String(err.params?.target ?? target), name: String(err.params?.name ?? '') }) : null);
+  const warn = (warnings?: string[]) => warnings?.forEach((w) => toast(w, 'warning'));
 
   const connect = async (steps: { target: string; extras: string[] }[]) => {
     const errors: string[] = [];
     const done: string[] = [];
+    const refused: Record<string, string> = {};
     for (const s of steps) {
-      const res = await api.assignSharedInstructions([s.target], s.extras);
-      if (res.success) done.push(s.target);
-      else errors.push(...res.errors);
+      try {
+        const res = await api.assignSharedInstructions([s.target], s.extras);
+        warn(res.warnings);
+        if (res.success) done.push(s.target);
+        else errors.push(...res.errors);
+      } catch (err) {
+        const why = heldText(err, s.target);
+        if (!why) throw err;
+        refused[s.target] = why;
+      }
     }
+    setHeld(refused);
     if (done.length) toast(t('instructions.shared.assigned', { targets: list(done), files: name }), 'success');
     if (errors.length) throw new Error(errors.join('; '));
   };
@@ -186,7 +224,14 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
   };
 
   const setMode = (tg: SharedInstructionsTarget, mode: string) => act(async () => {
-    await api.setSharedInstructionsMode(name, tg.name, mode);
+    try {
+      warn((await api.setSharedInstructionsMode(name, tg.name, mode)).warnings);
+    } catch (err) {
+      const why = heldText(err, tg.name);
+      if (!why) throw err;
+      setHeld({ [tg.name]: why });
+      return;
+    }
     toast(t('instructions.mode.changed', { target: tg.name, name, mode }), 'success');
   });
   const modeText = (o: ModeOption, tg: SharedInstructionsTarget) => {
@@ -196,6 +241,7 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
   };
 
   const connectNote = (s: ConnectStep) => (s.note === 'switch' ? t('instructions.plan.switch', { other: s.other ?? '', name })
+    : s.note === 'held' ? t('instructions.plan.held', { other: s.other ?? '' })
     : s.note === 'tooLong' ? t('instructions.plan.tooLong', { max: (s.max ?? 0).toLocaleString() })
       : t(`instructions.plan.${s.note}`));
   const restoreNote = (s: RestoreStep) => (s.note === 'importKeep' ? t('instructions.plan.importKeep', { name, others: list(s.others ?? []) })
@@ -215,15 +261,19 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
       <p className="text-[13px]">{footer}</p>
     </div>
   );
-  const askConnect = (steps: ConnectStep[], confirm: string) => ask({
-    title: t(steps.length === 1 ? 'instructions.connectAll.title.one' : 'instructions.connectAll.title.other', { count: steps.length, name }),
-    message: planList(steps.map((s) => ({ target: s.target, note: connectNote(s), warn: s.note === 'switch' || s.note === 'tooLong' })), t('instructions.connectAll.message')),
-    confirm,
-    run: () => connect(steps),
-  });
+  // Held targets are listed as skipped and left out of the run.
+  const askConnect = (steps: ConnectStep[], confirm: string) => {
+    const run = steps.filter((s) => s.note !== 'held');
+    ask({
+      title: t(run.length === 1 ? 'instructions.connectAll.title.one' : 'instructions.connectAll.title.other', { count: run.length, name }),
+      message: planList(steps.map((s) => ({ target: s.target, note: connectNote(s), warn: s.note !== 'import' && s.note !== 'link' })), t('instructions.connectAll.message')),
+      confirm,
+      run: () => connect(run),
+    });
+  };
   const askRestore = (steps: RestoreStep[], confirm: string) => ask({
     title: t(steps.length === 1 ? 'instructions.restoreAll.title.one' : 'instructions.restoreAll.title.other', { count: steps.length, name }),
-    message: planList(steps.map((s) => ({ target: s.target, note: restoreNote(s), warn: s.note === 'modified' })), t('instructions.restoreAll.message', { name })),
+    message: <RestorePlan name={name} steps={steps} note={restoreNote} planList={planList} footer={t('instructions.restoreAll.message', { name })} />,
     confirm,
     run: () => detach(steps.map((s) => s.target)),
   });
@@ -322,11 +372,11 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
         {content.error ? (
           <div className="px-[18px] py-3 text-[13px] text-bad">{content.error.message}</div>
         ) : view === 'preview' ? (
-          <InstructionsPreview content={text} names={[]} className={expanded ? '' : 'max-h-[230px] overflow-hidden'} />
+          <InstructionsPreview content={text} names={[]} className={expanded ? '' : 'max-h-[230px] overflow-y-auto'} />
         ) : (
-          <pre className="px-[18px] pt-3 pb-3.5 font-mono text-[12.5px] leading-[1.7] whitespace-pre-wrap text-ink" style={{ overflowWrap: 'anywhere' }}>
-            {(expanded ? lines : lines.slice(0, PREVIEW_LINES)).join('\n') || ' '}
-            {!expanded && lines.length > PREVIEW_LINES && <span className="text-ink-3">{'\n…'}</span>}
+          // Collapsed, both views scroll inside the same height; expanded shows everything.
+          <pre className={`px-[18px] pt-3 pb-3.5 font-mono text-[12.5px] leading-[1.7] whitespace-pre-wrap text-ink ${expanded ? '' : 'max-h-[230px] overflow-y-auto'}`} style={{ overflowWrap: 'anywhere' }}>
+            {lines.join('\n') || ' '}
           </pre>
         )}
       </div>
@@ -343,7 +393,7 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
             <Button variant="primary" size="sm" onClick={() => void sync()} loading={busy}>{t('extras.sync')}</Button>
           </>
         )}
-        {connectAll.length > 0 && <Button variant="ghost" size="sm" disabled={busy} onClick={() => askConnect(connectAll, t('instructions.shared.connectAll'))}>{t('instructions.shared.connectAll')}</Button>}
+        {connectAll.some((s) => s.note !== 'held') && <Button variant="ghost" size="sm" disabled={busy} onClick={() => askConnect(connectAll, t('instructions.shared.connectAll'))}>{t('instructions.shared.connectAll')}</Button>}
         {restoreAll.length > 0 && <Button variant="ghost" size="sm" disabled={busy} onClick={() => askRestore(restoreAll, t('instructions.shared.restoreAll'))}>{t('instructions.shared.restoreAll')}</Button>}
       </div>
 
@@ -375,6 +425,12 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
                 <button type="button" role="switch" aria-checked={on} aria-label={label} title={label}
                   className={`ss-sw ${on ? 'on' : ''} disabled:opacity-50`} disabled={busy || Boolean(tg.same_as)} onClick={() => toggle(tg)}><i /></button>
               </div>
+              {held[tg.name] && (
+                <div className="ss-note bad mr-4 mb-3 ml-[82px]" role="alert">
+                  <TriangleAlert size={16} />
+                  <span className="flex-1">{held[tg.name]}</span>
+                </div>
+              )}
               {on && a?.status === 'modified' && (
                 <div className="ss-note warn mr-4 mb-3 ml-[82px] !items-center">
                   <TriangleAlert size={16} className="!mt-0" />
@@ -406,7 +462,8 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
       )}
 
       {restoring && (
-        <RestorePreviewDialog name={name} target={restoring} label={targets.find((tg) => tg.name === restoring)?.rider_of ? targetLabel(restoring) : restoring} busy={busy} onClose={() => setRestoring(null)}
+        <RestorePreviewDialog name={name} target={restoring} label={targets.find((tg) => tg.name === restoring)?.rider_of ? targetLabel(restoring) : restoring}
+          mode={targets.find((tg) => tg.name === restoring)?.assigned.find((x) => x.name === name)?.mode ?? ''} busy={busy} onClose={() => setRestoring(null)}
           onConfirm={async () => { await act(() => detach([restoring])); setRestoring(null); }} />
       )}
       {editing && content.data && (
@@ -450,4 +507,32 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
       />
     </section>
   );
+}
+
+/**
+ * The restore plan's rows. A link or copy target goes back to what the record
+ * kept, which may be no file at all: the rows ask, as the one-target preview does.
+ */
+function RestorePlan({ name, steps, note, planList, footer }: {
+  name: string;
+  steps: RestoreStep[];
+  note: (s: RestoreStep) => string;
+  planList: (rows: { target: string; note: string; warn: boolean }[], footer: string) => ReactNode;
+  footer: string;
+}) {
+  const t = useT();
+  const previews = useQueries({
+    queries: steps.map((s) => ({
+      queryKey: queryKeys.instructions.restorePreview(name, s.target),
+      queryFn: () => api.getSharedRestorePreview(name, s.target),
+      enabled: s.note === 'link',
+      gcTime: 0,
+    })),
+  });
+  return planList(steps.map((s, i) => {
+    if (s.note !== 'link') return { target: s.target, note: note(s), warn: s.note === 'modified' };
+    const p = previews[i];
+    const text = p.data?.kind === 'delete' ? t('instructions.plan.delete') : p.data || p.error ? note(s) : '…';
+    return { target: s.target, note: text, warn: false };
+  }), footer);
 }

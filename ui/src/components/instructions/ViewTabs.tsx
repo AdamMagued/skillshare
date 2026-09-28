@@ -57,7 +57,7 @@ export function BoxHeader<V extends string>({ content, view, views, onChange, ch
     // Body font even inside a code box, so every box header reads the same.
     <div className="flex h-[38px] shrink-0 items-center gap-2 border-b border-line bg-sunken pr-2 pl-4" style={{ fontFamily: 'var(--f)' }}>
       <span className="flex-1 text-[12.5px] text-ink-2">
-        {content === undefined ? '…' : t('instructions.preview.stats', { lines: lineCount(content), size: formatSize(new TextEncoder().encode(content).length) })}
+        {content === undefined ? '…' : t(lineCount(content) === 1 ? 'instructions.preview.stats.one' : 'instructions.preview.stats.other', { lines: lineCount(content), size: formatSize(new TextEncoder().encode(content).length) })}
       </span>
       <ViewTabs view={view} views={views} onChange={onChange} className="mr-2 self-end" />
       {children}

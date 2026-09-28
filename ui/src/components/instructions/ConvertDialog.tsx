@@ -11,7 +11,7 @@ import { useToast } from '../Toast';
 import { useT } from '../../i18n';
 import { shortenHome } from '../../lib/paths';
 import { queryKeys } from '../../lib/queryKeys';
-import { defaultShareName, importLines, lineDiff, refreshInstructions, sharedNameProblem, takenName } from './instructionsView';
+import { defaultShareName, importLines, isFolderExtra, lineDiff, refreshInstructions, sharedNameProblem, takenName } from './instructionsView';
 
 const METHODS: ConvertMethod[] = ['import', 'rename', 'copy'];
 // The share picker's choice for a new shared file; real names are extras names.
@@ -37,12 +37,17 @@ export default function ConvertDialog({ data, onClose }: { data: TargetInstructi
   const sharedList = useQuery({ queryKey: queryKeys.instructions.shared, queryFn: () => api.listSharedInstructions(), enabled: !data.project });
   // Files the target already uses would be imported twice.
   const available = (sharedList.data?.files ?? []).filter((f) => !data.shared.some((a) => a.name === f.name));
-  const choice = picked ?? available[0]?.name ?? NEW;
+  // A new file named after the target unless the user picks one that exists.
+  const choice = picked ?? NEW;
   const shareReady = sharing && Boolean(sharedList.data) && Boolean(extras.data);
   const shareInto = shareReady && choice !== NEW ? choice : undefined;
   const names = (extras.data?.extras ?? []).map((e) => e.name);
   const shareName = typedName ?? defaultShareName(data.target, names);
   const nameProblem = choice === NEW ? sharedNameProblem(shareName, names) : null;
+  const taken = takenName(shareName, names) ?? shareName.trim();
+  const nameError = nameProblem === 'invalid' ? t('instructions.shared.nameInvalid')
+    : nameProblem === 'taken' ? t(isFolderExtra(taken, extras.data?.extras ?? []) ? 'instructions.shared.nameTakenFolder' : 'instructions.convert.nameTaken', { name: taken })
+      : '';
   const shareAs = shareReady && choice === NEW && !nameProblem ? shareName.trim() : undefined;
   const body = { method, keep_tool_lines: keep, ...(shareAs && { share_as: shareAs }), ...(shareInto && { share_into: shareInto }) };
   const shareMissing = sharing && !shareAs && !shareInto;
@@ -128,10 +133,9 @@ export default function ConvertDialog({ data, onClose }: { data: TargetInstructi
                 </div>
                 <span className={`text-[12px] ${nameProblem ? 'text-bad' : 'text-ink-3'}`}>
                   {choice !== NEW ? t('instructions.convert.shareIntoHint', { name: choice, file })
-                    : nameProblem === 'invalid' ? t('instructions.shared.nameInvalid')
-                      : nameProblem === 'taken' ? t('instructions.convert.nameTaken', { name: takenName(shareName, names) ?? shareName.trim() })
-                        : available.length > 0 ? t('instructions.convert.nameHint', { example: available[0].name })
-                          : t('instructions.convert.shareHint')}
+                    : nameError ? nameError
+                      : available.length > 0 ? t('instructions.convert.nameHint', { example: available[0].name })
+                        : t('instructions.convert.shareHint')}
                 </span>
               </div>
             )}
@@ -156,7 +160,8 @@ export default function ConvertDialog({ data, onClose }: { data: TargetInstructi
             {preview.error ? (
               <div className="ss-note bad"><span className="flex-1">{preview.error instanceof ApiError && preview.error.code === 'conflict' && shareAs ? t('instructions.convert.nameTaken', { name: shareAs }) : preview.error.message}</span></div>
             ) : shareMissing ? (
-              <p className="text-[13px] text-ink-3">{t('instructions.convert.nameFirst')}</p>
+              nameError ? <div className="ss-note bad"><span className="flex-1">{nameError}</span></div>
+                : <p className="text-[13px] text-ink-3">{t('instructions.convert.nameFirst')}</p>
             ) : (
               // The target's own file first, then the shared file it now imports.
               [...(preview.data?.changes ?? [])].sort((a, b) => Number(Boolean(sharedDest && isSharedPath(a.path, sharedDest))) - Number(Boolean(sharedDest && isSharedPath(b.path, sharedDest)))).map((c) => (

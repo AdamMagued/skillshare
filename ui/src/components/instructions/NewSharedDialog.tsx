@@ -12,14 +12,15 @@ import { useToast } from '../Toast';
 import { useT } from '../../i18n';
 import { shortenHome } from '../../lib/paths';
 import { queryKeys } from '../../lib/queryKeys';
-import { isImportLine, sharedNameProblem, takenName } from './instructionsView';
+import { isFolderExtra, isImportLine, sharedNameProblem, takenName } from './instructionsView';
 import { BoxHeader, InstructionsPreview } from './ViewTabs';
 
 /** Creates a shared instruction file, from content or by moving a target's current file into it. */
 export default function NewSharedDialog({ targets, onClose, onCreated }: {
   targets: SharedInstructionsTarget[];
   onClose: () => void;
-  onCreated: (name: string) => void;
+  /** Resolves once the new file can be shown. */
+  onCreated: (name: string) => Promise<void>;
 }) {
   const t = useT();
   const { toast } = useToast();
@@ -33,6 +34,7 @@ export default function NewSharedDialog({ targets, onClose, onCreated }: {
   const extras = useQuery({ queryKey: queryKeys.extras, queryFn: () => api.listExtras() });
   const names = (extras.data?.extras ?? []).map((e) => e.name);
   const problem = sharedNameProblem(name, names);
+  const taken = takenName(name, names) ?? name.trim();
   // A target already on a shared file has nothing of its own to move in.
   const sources = targets.filter((tg) => tg.exists && !tg.same_as && tg.assigned.length === 0);
 
@@ -40,8 +42,8 @@ export default function NewSharedDialog({ targets, onClose, onCreated }: {
     setSaving(true);
     try {
       await api.createSharedInstructions({ name: name.trim(), ...(from ? { from_target: from } : { content }) });
+      await onCreated(name.trim());
       toast(t('instructions.shared.created', { name: name.trim() }), 'success');
-      onCreated(name.trim());
     } catch (err) {
       toast((err as Error).message, 'error');
       setSaving(false);
@@ -64,7 +66,7 @@ export default function NewSharedDialog({ targets, onClose, onCreated }: {
             <span className={`ss-inp ${problem ? 'err' : ''}`}>
               <input id="shared-name" autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="personal" disabled={saving} />
             </span>
-            <span className={`hp ${problem ? 'text-bad' : ''}`}>{problem === 'invalid' ? t('instructions.shared.nameInvalid') : problem === 'taken' ? t('instructions.convert.nameTaken', { name: takenName(name, names) ?? name.trim() }) : t('instructions.shared.nameHint')}</span>
+            <span className={`hp ${problem ? 'text-bad' : ''}`}>{problem === 'invalid' ? t('instructions.shared.nameInvalid') : problem === 'taken' ? t(isFolderExtra(taken, extras.data?.extras ?? []) ? 'instructions.shared.nameTakenFolder' : 'instructions.convert.nameTaken', { name: taken }) : t('instructions.shared.nameHint')}</span>
           </div>
           <div className="ss-fld">
             <span className="text-[13px] font-semibold">{t('instructions.shared.startFrom')}</span>
