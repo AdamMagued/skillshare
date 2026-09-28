@@ -94,3 +94,34 @@ func TestTargetSkills_MergeAddsUnmanagedLocalSkills(t *testing.T) {
 		t.Errorf("want linked (source) + mine (local, measured), not copied; got %+v", got)
 	}
 }
+
+// With skills off nothing is synced, but links a sharing target keeps and
+// copies left from copy mode are still in the folder, so the tool loads them.
+func TestTargetSkills_SkillsOffCountsEverythingInTheFolder(t *testing.T) {
+	src, tgt := t.TempDir(), t.TempDir()
+	writeAnalyzeSkill(t, src, "linked", "body")
+	writeAnalyzeSkill(t, src, "unlinked", "body")
+	if err := os.Symlink(filepath.Join(src, "linked"), filepath.Join(tgt, "linked")); err != nil {
+		t.Skip("symlinks unavailable:", err)
+	}
+	writeAnalyzeSkill(t, tgt, "mine", "body")
+	writeAnalyzeSkill(t, tgt, "copied", "body")
+	if err := WriteManifest(tgt, &Manifest{Managed: map[string]string{"copied": "sha"}}); err != nil {
+		t.Fatal(err)
+	}
+
+	discovered, err := DiscoverSourceSkillsForAnalyze(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	off := false
+	target := config.TargetConfig{Skills: &config.ResourceTargetConfig{Path: tgt, Mode: "merge", Enabled: &off}}
+	got, err := TargetSkills("claude", target, "merge", src, discovered)
+	if err != nil {
+		t.Fatal(err)
+	}
+	byName := namesOf(got)
+	if len(byName) != 3 || byName["linked"].Local || byName["copied"].Local || !byName["mine"].Local {
+		t.Errorf("want linked + copied (managed) + mine (local), not unlinked; got %+v", got)
+	}
+}

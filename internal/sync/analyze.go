@@ -2,6 +2,7 @@ package sync
 
 import (
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -21,8 +22,8 @@ import (
 func TargetSkills(name string, target config.TargetConfig, defaultMode, sourcePath string, discovered []DiscoveredSkill) ([]DiscoveredSkill, error) {
 	sc := target.SkillsConfig()
 	if !sc.IsEnabled() {
-		// Nothing is synced; the tool loads only what already sits in its folder.
-		return localTargetSkills(sc.Path, sourcePath), nil
+		// Nothing is synced, but the tool still loads whatever the folder holds.
+		return folderSkills(sc.Path, sourcePath, discovered), nil
 	}
 	mode := sc.Mode
 	if mode == "" {
@@ -77,4 +78,58 @@ func localTargetSkills(targetPath, sourcePath string) []DiscoveredSkill {
 		local = append(local, s)
 	}
 	return local
+}
+
+// folderSkills lists every skill a target folder holds with skills off: links
+// into the source that another target sharing the folder keeps, copies left
+// from copy mode, and local skills. None of it is synced for this target, but
+// the tool loads it all.
+func folderSkills(targetPath, sourcePath string, discovered []DiscoveredSkill) []DiscoveredSkill {
+	if targetPath == "" || sourcePath == "" {
+		return nil
+	}
+	info, err := os.Stat(targetPath)
+	if err != nil || !info.IsDir() {
+		return nil
+	}
+	absSource, err := filepath.Abs(sourcePath)
+	if err != nil {
+		return nil
+	}
+	// The whole folder links to the source (symlink mode kept by another target).
+	if utils.ResolveSymlink(targetPath) == utils.ResolveSymlink(absSource) {
+		return discovered
+	}
+	byFlat := make(map[string]DiscoveredSkill, len(discovered))
+	for _, s := range discovered {
+		byFlat[s.FlatName] = s
+	}
+	var skills []DiscoveredSkill
+	entries, _ := os.ReadDir(targetPath)
+	for _, e := range entries {
+		path := filepath.Join(targetPath, e.Name())
+		if e.Type()&os.ModeSymlink == 0 || !linksIntoSource(path, absSource) {
+			continue
+		}
+		if s, ok := byFlat[e.Name()]; ok {
+			skills = append(skills, s)
+		}
+	}
+	// Real folders: copies and local skills alike (filepath.Walk skips the links above).
+	managedSet := map[string]string{}
+	if m, err := ReadManifest(targetPath); err == nil {
+		managedSet = m.Managed
+	}
+	found, _, _, err := discoverSourceSkillsInternal(targetPath, discoverOptions{collectContext: true})
+	if err != nil {
+		return skills
+	}
+	for _, s := range found {
+		top, _, _ := strings.Cut(s.RelPath, "/")
+		_, managed := managedSet[top]
+		s.Local = !managed
+		s.Targets = nil
+		skills = append(skills, s)
+	}
+	return skills
 }

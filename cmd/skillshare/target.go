@@ -614,6 +614,10 @@ func targetInfo(name string, args []string) error {
 	if err != nil {
 		return err
 	}
+	// Filters return before the skills switch is read, so it would be dropped silently.
+	if settings.Skills != nil && filterOpts.hasUpdates() {
+		return fmt.Errorf("--skills/--no-skills cannot be combined with include/exclude flags; run them as separate commands")
+	}
 
 	cfg, err := config.LoadWithoutProjects()
 	if err != nil {

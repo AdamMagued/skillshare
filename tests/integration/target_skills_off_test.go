@@ -64,6 +64,19 @@ func TestTargetSkillsOff_RemovesLinksKeepsLocal(t *testing.T) {
 	}
 }
 
+func TestTargetSkillsOff_RefusesFilterFlags(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	gemini := setupSkillsOffGlobal(t, sb)
+
+	result := sb.RunCLI("target", "gemini", "--add-exclude", "alpha", "--skills=false")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "cannot be combined with include/exclude flags")
+	if !sb.IsSymlink(filepath.Join(gemini, "alpha")) {
+		t.Error("nothing should change when the flags are refused")
+	}
+}
+
 func TestTargetSkillsOff_DryRunChangesNothing(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
