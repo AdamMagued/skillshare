@@ -13,6 +13,7 @@ skillshare target list                 # 列出所有 targets
 skillshare target <name>               # 顯示 target 資訊
 skillshare target <name> --mode merge  # 變更 sync 模式
 skillshare target <name> --target-naming standard  # 變更命名方式
+skillshare target <name> --skills=false    # 停止同步 skills
 ```
 
 ## 使用時機
@@ -23,6 +24,7 @@ skillshare target <name> --target-naming standard  # 變更命名方式
 - 變更某個 target 的命名方式（flat 或 standard）
 - 逐一調整各 target 的相容性，而非強制套用單一全域模式
 - 設定 include/exclude filters 以選擇性同步 skills
+- 某個工具已經會讀取另一個 target 的資料夾時，停止同步 skills 給它，但仍繼續管理它的 agents、MCP servers 與 instructions
 
 ## 子指令
 
@@ -38,6 +40,15 @@ skillshare target add windsurf ~/.windsurf/skills
 - 路徑存在，或父目錄存在
 - 路徑看起來像是一個 skills 目錄
 - target 名稱是唯一的
+
+加上 `--no-skills` 可新增一個不同步 skills 的 target。它的 agents、MCP servers 與 instructions 仍會受到管理，skills 資料夾也不必事先存在：
+
+```bash
+skillshare target add gemini ~/.gemini/skills --no-skills
+# Added target: gemini -> ~/.gemini/skills (skills off)
+```
+
+詳見 [Skills 開啟或關閉](#skills-off)。
 
 #### 某個 Agent 的另一個帳號 {#another-account}
 
@@ -73,6 +84,8 @@ skillshare target remove cursor --dry-run # 預覽
 3. 從設定中移除該 target
 
 如果還有其他 target 寫入同一個 skills 資料夾（例如 `codex` 和 `universal` 都用 `~/.agents/skills`），會略過第 2 步：skills 仍為那個 target 保持連結，只有被移除的 target 從設定中拿掉。
+
+[關閉 skills](#skills-off) 的 target 沒有任何同步內容，因此同樣會略過第 2 步，其資料夾維持原樣。
 
 ### target list
 
@@ -122,7 +135,8 @@ skillshare target list --json
       "mode": "merge",
       "targetNaming": "flat",
       "include": [],
-      "exclude": []
+      "exclude": [],
+      "skillsEnabled": true
     },
     {
       "name": "cursor",
@@ -130,7 +144,8 @@ skillshare target list --json
       "mode": "merge",
       "targetNaming": "standard",
       "include": [],
-      "exclude": []
+      "exclude": [],
+      "skillsEnabled": true
     }
   ]
 }
@@ -225,6 +240,41 @@ Agent filters 僅適用於有 agents 路徑的 targets，無論是來自內建�
 Target filters 是三層過濾機制之一。詳見 [Filtering Reference](/docs/reference/filtering) 了解它與 `.skillignore` 及 SKILL.md `targets` 的互動方式。
 :::
 
+## Skills 開啟或關閉 {#skills-off}
+
+有些工具除了自己的資料夾，也會從另一個 target 的資料夾讀取 skills。例如 Pi 會讀取 `~/.pi/agent/skills`，也會讀取 `universal` target 的資料夾 `~/.agents/skills`。兩邊都同步 skills 的話，每個 skill 都會出現兩次。為該 target 關閉 skills 後，skillshare 會繼續管理它的 agents、MCP servers 與 instructions，但不再動它的 skills 資料夾：
+
+```bash
+skillshare target pi --skills=false --dry-run   # 預覽
+skillshare target pi --skills=false
+```
+
+```
+✓ pi: skills off
+  removed 2 link(s): alpha, beta
+  kept 1: my-notes
+  Agents, MCP servers and instructions are still managed
+```
+
+關閉 skills 會在設定中儲存 `skills.enabled: false`，接著清理資料夾：
+
+- **Merge 模式：** 移除指向 source 的連結。你自己的 skills 會保留。
+- **Symlink 模式：** 移除資料夾指向 source 的連結，絕不會動到它所指向的內容。
+- **Copy 模式：** 保留複本（它們是真實資料夾，你可能改過），並另外列出。工具仍會載入這些複本，所以如果它也從別的資料夾讀取同樣的 skills，請自行刪除這些複本：
+
+  ```
+    kept 2 copied skill(s): alpha, beta
+    The tool still loads these copies; delete them if it reads the same skills elsewhere
+  ```
+
+- **共用資料夾：** 如果有已啟用的 target 寫入同一個資料夾，就不會移除任何東西。
+
+此後，`sync`、`diff`、`status` 與 `doctor` 都會略過該 target 的 skills；`status` 與 `sync` 會將它顯示為 `skills off`。用 `--skills=true` 重新開啟 skills，下次執行 `skillshare sync` 就會再次同步。
+
+`--skills` 不能與 include/exclude flags 在同一個指令中一起使用，請分開執行。在 project 模式（`-p`）下的運作方式相同。
+
+在 web dashboard 中，請在該 target 的 Skills 分頁使用 **停止同步 Skills**。移除任何東西之前，它會列出哪些會被移除、哪些會保留，並在其他工具也讀取同一個資料夾時提出警告。
+
 ## 選項
 
 ### target add
@@ -233,6 +283,7 @@ Target filters 是三層過濾機制之一。詳見 [Filtering Reference](/docs/
 |------|-------------|
 | `--agent <agent>` | 新增這個 Agent 的[另一個帳號](#another-account)，而不是指定路徑。需搭配 `--config-dir` |
 | `--config-dir <dir>` | 該帳號使用的 config 目錄 |
+| `--no-skills` | 以[關閉 skills](#skills-off) 的狀態新增 target |
 
 ### target remove
 
@@ -255,6 +306,8 @@ Target filters 是三層過濾機制之一。詳見 [Filtering Reference](/docs/
 | `--mode, -m <mode>` | 設定 sync 模式（merge、copy 或 symlink） |
 | `--agent-mode <mode>` | 設定 agents 的 sync 模式（merge、copy 或 symlink） |
 | `--target-naming <naming>` | 設定 target 命名方式（flat 或 standard） |
+| `--skills <true\|false>` | [開啟或關閉](#skills-off) skills 同步；也可寫成 `--skills=false` |
+| `--dry-run, -n` | 搭配 `--skills=false`，預覽會被移除的內容 |
 | `--add-include <pattern>` | 新增一個 include filter pattern |
 | `--add-exclude <pattern>` | 新增一個 exclude filter pattern |
 | `--remove-include <pattern>` | 移除一個 include filter pattern |

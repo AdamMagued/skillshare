@@ -13,6 +13,7 @@ skillshare target list                 # List all targets
 skillshare target <name>               # Show target info
 skillshare target <name> --mode merge  # Change sync mode
 skillshare target <name> --target-naming standard  # Change naming
+skillshare target <name> --skills=false    # Stop syncing skills
 ```
 
 ## 언제 사용하나요
@@ -23,6 +24,7 @@ skillshare target <name> --target-naming standard  # Change naming
 - target의 naming(flat 또는 standard)을 변경할 때
 - 하나의 global mode를 강제하는 대신 target별로 호환성을 조정할 때
 - 선택적 skill 동기화를 위한 include/exclude 필터를 설정할 때
+- 다른 target의 폴더를 이미 읽는 도구에 skill 동기화를 중지하면서, agents, MCP 서버, 지침은 계속 관리하고 싶을 때
 
 ## 하위 명령어
 
@@ -38,6 +40,15 @@ skillshare target add windsurf ~/.windsurf/skills
 - 경로가 존재하거나 상위 디렉터리가 존재함
 - 경로가 skill 디렉터리처럼 보임
 - target 이름이 고유함
+
+skill을 동기화하지 않고 target을 추가하려면 `--no-skills`를 붙이세요. agents, MCP 서버, 지침은 계속 관리되며, skills 폴더가 존재하지 않아도 됩니다.
+
+```bash
+skillshare target add gemini ~/.gemini/skills --no-skills
+# Added target: gemini -> ~/.gemini/skills (skills off)
+```
+
+[Skills 켜기/끄기](#skills-off)를 참조하세요.
 
 #### Another account of an Agent {#another-account}
 
@@ -73,6 +84,8 @@ skillshare target remove cursor --dry-run # Preview
 3. config에서 target을 제거합니다
 
 같은 skills 폴더에 쓰는 다른 target이 있으면(예: `codex`와 `universal`은 둘 다 `~/.agents/skills`를 사용) 2단계를 건너뜁니다. skills는 그 target을 위해 링크된 채 남고, 제거한 target만 config에서 빠집니다.
+
+[skills를 끈](#skills-off) target은 동기화된 것이 없으므로 이 경우에도 2단계를 건너뛰고 폴더를 그대로 둡니다.
 
 ### target list
 
@@ -122,7 +135,8 @@ skillshare target list --json
       "mode": "merge",
       "targetNaming": "flat",
       "include": [],
-      "exclude": []
+      "exclude": [],
+      "skillsEnabled": true
     },
     {
       "name": "cursor",
@@ -130,7 +144,8 @@ skillshare target list --json
       "mode": "merge",
       "targetNaming": "standard",
       "include": [],
-      "exclude": []
+      "exclude": [],
+      "skillsEnabled": true
     }
   ]
 }
@@ -225,6 +240,41 @@ Agent 필터는 빌트인 target 정의 또는 config의 명시적 `agents.path`
 Target 필터는 세 가지 필터링 계층 중 하나입니다. `.skillignore` 및 SKILL.md `targets`와 어떻게 상호작용하는지는 [Filtering Reference](/docs/reference/filtering)를 참조하세요.
 :::
 
+## Skills 켜기/끄기 {#skills-off}
+
+어떤 도구는 자체 폴더뿐 아니라 다른 target의 폴더에서도 skill을 읽습니다. 예를 들어 Pi는 `~/.pi/agent/skills`와 함께 `universal` target의 폴더인 `~/.agents/skills`도 읽습니다. 두 곳 모두에 skill을 동기화하면 각 skill이 두 번 나타납니다. 해당 target의 skills를 끄면, skillshare는 agents, MCP 서버, 지침은 계속 관리하되 skills 폴더는 건드리지 않습니다.
+
+```bash
+skillshare target pi --skills=false --dry-run   # Preview
+skillshare target pi --skills=false
+```
+
+```
+✓ pi: skills off
+  removed 2 link(s): alpha, beta
+  kept 1: my-notes
+  Agents, MCP servers and instructions are still managed
+```
+
+skills를 끄면 config에 `skills.enabled: false`가 저장되고, 이어서 폴더를 정리합니다.
+
+- **Merge mode:** source를 가리키는 링크를 제거합니다. 직접 만든 skill은 남습니다.
+- **Symlink mode:** 폴더에서 source로 향하는 링크만 제거하며, 링크가 가리키는 대상은 절대 제거하지 않습니다.
+- **Copy mode:** 복사본은 직접 편집했을 수도 있는 실제 폴더이므로 유지하고, 따로 나열합니다. 도구는 여전히 이 복사본을 읽으므로, 같은 skill을 다른 폴더에서도 읽는다면 복사본을 직접 삭제하세요.
+
+  ```
+    kept 2 copied skill(s): alpha, beta
+    The tool still loads these copies; delete them if it reads the same skills elsewhere
+  ```
+
+- **공유 폴더:** skills가 켜진 다른 target이 같은 폴더에 쓰고 있으면 아무것도 제거하지 않습니다.
+
+이후 `sync`, `diff`, `status`, `doctor`는 해당 target의 skills를 건너뛰며, `status`와 `sync`는 이를 `skills off`로 표시합니다. `--skills=true`로 skills를 다시 켜면 다음 `skillshare sync`에서 다시 동기화됩니다.
+
+`--skills`는 한 명령에서 include/exclude 플래그와 함께 사용할 수 없으므로 따로 실행하세요. project mode(`-p`)에서도 동일하게 동작합니다.
+
+웹 대시보드에서는 target의 Skills 탭에서 **Skills 동기화 중지**를 사용하세요. 제거하기 전에 무엇이 제거되고 무엇이 남는지 보여 주며, 다른 도구가 같은 폴더를 읽고 있으면 경고합니다.
+
 ## 옵션
 
 ### target add
@@ -233,6 +283,7 @@ Target 필터는 세 가지 필터링 계층 중 하나입니다. `.skillignore`
 |------|-------------|
 | `--agent <agent>` | 경로 대신 이 Agent의 [다른 계정](#another-account)을 추가합니다. `--config-dir`과 함께 사용 |
 | `--config-dir <dir>` | 해당 계정이 사용하는 config 디렉터리 |
+| `--no-skills` | [skills를 끈](#skills-off) 상태로 target 추가 |
 
 ### target remove
 
@@ -255,6 +306,8 @@ Target 필터는 세 가지 필터링 계층 중 하나입니다. `.skillignore`
 | `--mode, -m <mode>` | sync mode 설정(merge, copy, symlink) |
 | `--agent-mode <mode>` | agents sync mode 설정(merge, copy, symlink) |
 | `--target-naming <naming>` | target naming 설정(flat 또는 standard) |
+| `--skills <true\|false>` | skills 동기화 [켜기 또는 끄기](#skills-off). `--skills=false` 형식도 가능 |
+| `--dry-run, -n` | `--skills=false`와 함께 사용 시 제거될 항목 미리보기 |
 | `--add-include <pattern>` | include 필터 패턴 추가 |
 | `--add-exclude <pattern>` | exclude 필터 패턴 추가 |
 | `--remove-include <pattern>` | include 필터 패턴 제거 |

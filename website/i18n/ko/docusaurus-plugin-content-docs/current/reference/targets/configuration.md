@@ -255,6 +255,20 @@ targets:
 대시보드는 target을 추가할 때 **사용자 지정 대상** 대화 상자에서, 또는 나중에 target의 지침 탭에서 이 필드를 작성합니다. target이 공유 파일을 사용하는 동안에는
 변경하거나 제거하지 않습니다. 제거해도 파일은 삭제되지 않습니다.
 
+#### Skills 끄기 {#skills-enabled}
+
+`skills.enabled: false`는 target으로의 skill 동기화를 중지하고, skillshare는 agents, MCP 서버, 지침을 계속 관리합니다. 다른 target의 skills 폴더를 이미 읽는 도구에 사용하면 각 skill이 두 번 나타나지 않습니다.
+
+```yaml
+targets:
+  pi:
+    skills:
+      path: ~/.pi/agent/skills
+      enabled: false
+```
+
+경로, 모드, 필터는 나중에 skills를 다시 켤 때를 위해 config에 남아 있습니다. `skillshare target <name> --skills=false`로 설정하면 폴더에서 source로 향하는 링크도 함께 제거되며, `--no-skills`로 target을 추가할 수도 있습니다. [Skills 켜기/끄기](/docs/reference/commands/target#skills-off)를 참조하세요.
+
 ### `include` / `exclude` (target filters) {#include--exclude-target-filters}
 
 **merge 및 copy 모드**에서 어떤 skill이 동기화될지 제어하려면 Target별 필터를 사용하세요.

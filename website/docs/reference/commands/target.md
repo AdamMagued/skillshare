@@ -13,6 +13,7 @@ skillshare target list                 # List all targets
 skillshare target <name>               # Show target info
 skillshare target <name> --mode merge  # Change sync mode
 skillshare target <name> --target-naming standard  # Change naming
+skillshare target <name> --skills=false    # Stop syncing skills
 ```
 
 ## When to Use
@@ -23,6 +24,7 @@ skillshare target <name> --target-naming standard  # Change naming
 - Change target naming (flat or standard) for a target
 - Tune compatibility target-by-target instead of forcing one global mode
 - Set up include/exclude filters for selective skill syncing
+- Stop syncing skills to a tool that already reads another target's folder, while keeping its agents, MCP servers and instructions managed
 
 ## Subcommands
 
@@ -38,6 +40,15 @@ The command validates:
 - Path exists or parent directory exists
 - Path looks like a skills directory
 - Target name is unique
+
+Add `--no-skills` to add a target without syncing skills to it. Its agents, MCP servers and instructions are still managed, and the skills folder does not need to exist:
+
+```bash
+skillshare target add gemini ~/.gemini/skills --no-skills
+# Added target: gemini -> ~/.gemini/skills (skills off)
+```
+
+See [Skills on or off](#skills-off).
 
 #### Another account of an Agent {#another-account}
 
@@ -73,6 +84,8 @@ skillshare target remove cursor --dry-run # Preview
 3. Removes target from config
 
 If another target writes to the same skills folder, such as `codex` and `universal` in `~/.agents/skills`, step 2 is skipped: the skills stay linked for that target, and only the removed one leaves the config.
+
+A target with [skills off](#skills-off) has nothing synced, so step 2 is skipped for it too and its folder is left as is.
 
 ### target list
 
@@ -122,7 +135,8 @@ skillshare target list --json
       "mode": "merge",
       "targetNaming": "flat",
       "include": [],
-      "exclude": []
+      "exclude": [],
+      "skillsEnabled": true
     },
     {
       "name": "cursor",
@@ -130,7 +144,8 @@ skillshare target list --json
       "mode": "merge",
       "targetNaming": "standard",
       "include": [],
-      "exclude": []
+      "exclude": [],
+      "skillsEnabled": true
     }
   ]
 }
@@ -225,6 +240,41 @@ See [Configuration](/docs/reference/targets/configuration#include--exclude-targe
 Target filters are one of three filtering layers. See [Filtering Reference](/docs/reference/filtering) for how they interact with `.skillignore` and SKILL.md `targets`.
 :::
 
+## Skills On or Off {#skills-off}
+
+Some tools read skills from another target's folder as well as their own. Pi, for example, reads `~/.pi/agent/skills` and also `~/.agents/skills`, the folder of the `universal` target. Syncing skills into both makes each skill show up twice. Turn skills off for that target, and skillshare keeps managing its agents, MCP servers and instructions but leaves its skills folder alone:
+
+```bash
+skillshare target pi --skills=false --dry-run   # Preview
+skillshare target pi --skills=false
+```
+
+```
+✓ pi: skills off
+  removed 2 link(s): alpha, beta
+  kept 1: my-notes
+  Agents, MCP servers and instructions are still managed
+```
+
+Turning skills off saves `skills.enabled: false` in the config, then cleans the folder:
+
+- **Merge mode:** removes the links into the source. Your own skills stay.
+- **Symlink mode:** removes the folder's link to the source, never what it points to.
+- **Copy mode:** keeps the copies, since they are real folders you may have edited, and lists them apart. The tool still loads them, so if it reads the same skills from another folder, delete the copies yourself:
+
+  ```
+    kept 2 copied skill(s): alpha, beta
+    The tool still loads these copies; delete them if it reads the same skills elsewhere
+  ```
+
+- **Shared folder:** if an enabled target writes to the same folder, nothing is removed.
+
+From then on, `sync`, `diff`, `status` and `doctor` skip the target's skills; `status` and `sync` show it as `skills off`. Turn skills back on with `--skills=true`; the next `skillshare sync` syncs them again.
+
+`--skills` cannot be combined with include/exclude flags in one command; run them separately. It works the same in project mode (`-p`).
+
+In the web dashboard, use **Stop syncing skills** on the target's Skills tab. Before anything is removed, it lists what goes and what stays, and warns when other tools read the same folder.
+
 ## Options
 
 ### target add
@@ -233,6 +283,7 @@ Target filters are one of three filtering layers. See [Filtering Reference](/doc
 |------|-------------|
 | `--agent <agent>` | Add [another account](#another-account) of this Agent instead of a path. Goes with `--config-dir` |
 | `--config-dir <dir>` | The config directory that account uses |
+| `--no-skills` | Add the target with [skills off](#skills-off) |
 
 ### target remove
 
@@ -255,6 +306,8 @@ Target filters are one of three filtering layers. See [Filtering Reference](/doc
 | `--mode, -m <mode>` | Set sync mode (merge, copy, or symlink) |
 | `--agent-mode <mode>` | Set agents sync mode (merge, copy, or symlink) |
 | `--target-naming <naming>` | Set target naming (flat or standard) |
+| `--skills <true\|false>` | Turn skills sync [on or off](#skills-off); also `--skills=false` |
+| `--dry-run, -n` | With `--skills=false`, preview what would be removed |
 | `--add-include <pattern>` | Add an include filter pattern |
 | `--add-exclude <pattern>` | Add an exclude filter pattern |
 | `--remove-include <pattern>` | Remove an include filter pattern |

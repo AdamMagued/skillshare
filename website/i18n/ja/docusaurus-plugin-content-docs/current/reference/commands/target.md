@@ -13,6 +13,7 @@ skillshare target list                 # すべての Target を一覧表示
 skillshare target <name>               # Target の情報を表示
 skillshare target <name> --mode merge  # sync モードを変更
 skillshare target <name> --target-naming standard  # 命名方式を変更
+skillshare target <name> --skills=false    # Skill の同期を停止
 ```
 
 ## 使うタイミング
@@ -23,6 +24,7 @@ skillshare target <name> --target-naming standard  # 命名方式を変更
 - Target の命名方式（flat または standard）を変更する
 - 1 つのグローバルモードを強制するのではなく、Target ごとに互換性を調整する
 - 選択的な Skill 同期のための include/exclude フィルタを設定する
+- 別の Target のフォルダーをすでに読んでいるツールへの Skill 同期を停止し、その agents、MCP サーバー、instructions は引き続き管理する
 
 ## サブコマンド
 
@@ -38,6 +40,15 @@ skillshare target add windsurf ~/.windsurf/skills
 - パスが存在するか、親ディレクトリが存在すること
 - パスが Skill ディレクトリらしいこと
 - Target 名が一意であること
+
+`--no-skills` を付けると、Skill を同期しない Target として追加します。agents、MCP サーバー、instructions は引き続き管理され、skills フォルダーが存在する必要もありません。
+
+```bash
+skillshare target add gemini ~/.gemini/skills --no-skills
+# Added target: gemini -> ~/.gemini/skills (skills off)
+```
+
+[Skill のオン／オフ](#skills-off) を参照してください。
 
 #### Agent の別のアカウント {#another-account}
 
@@ -73,6 +84,8 @@ skillshare target remove cursor --dry-run # プレビュー
 3. Target を config から削除
 
 同じ skills フォルダーに書き込む別の Target がある場合（たとえば `codex` と `universal` はどちらも `~/.agents/skills` を使う）、手順 2 はスキップされます。skills はその Target 用にリンクされたまま残り、削除した Target だけが config から外れます。
+
+[Skill がオフ](#skills-off) の Target には何も同期されていないため、手順 2 は同様にスキップされ、そのフォルダーはそのまま残ります。
 
 ### target list
 
@@ -122,7 +135,8 @@ skillshare target list --json
       "mode": "merge",
       "targetNaming": "flat",
       "include": [],
-      "exclude": []
+      "exclude": [],
+      "skillsEnabled": true
     },
     {
       "name": "cursor",
@@ -130,7 +144,8 @@ skillshare target list --json
       "mode": "merge",
       "targetNaming": "standard",
       "include": [],
-      "exclude": []
+      "exclude": [],
+      "skillsEnabled": true
     }
   ]
 }
@@ -225,6 +240,41 @@ Agent フィルタは、組み込みの Target 定義、または config の明�
 Target フィルタは 3 つのフィルタリング階層の 1 つです。`.skillignore` や SKILL.md の `targets` とどのように連携するかは [Filtering Reference](/docs/reference/filtering) を参照してください。
 :::
 
+## Skill のオン／オフ {#skills-off}
+
+一部のツールは、自身のフォルダーに加えて別の Target のフォルダーからも Skill を読み込みます。たとえば Pi は `~/.pi/agent/skills` に加えて、`universal` Target のフォルダーである `~/.agents/skills` も読み込みます。両方に Skill を同期すると、各 Skill が 2 回表示されます。その Target の Skill をオフにすると、skillshare は agents、MCP サーバー、instructions の管理を続けつつ、skills フォルダーには手を触れません。
+
+```bash
+skillshare target pi --skills=false --dry-run   # プレビュー
+skillshare target pi --skills=false
+```
+
+```
+✓ pi: skills off
+  removed 2 link(s): alpha, beta
+  kept 1: my-notes
+  Agents, MCP servers and instructions are still managed
+```
+
+Skill をオフにすると、config に `skills.enabled: false` が保存され、その後フォルダーが整理されます。
+
+- **Merge モード:** source を指すリンクを削除する。自分の Skill は残る。
+- **Symlink モード:** フォルダーから source へのリンクを削除する。リンク先の内容は削除しない。
+- **Copy モード:** コピーは編集済みかもしれない実フォルダーなので保持し、別枠で一覧表示する。ツールはこれらを引き続き読み込むため、同じ Skill を別のフォルダーからも読む場合は、コピーを自分で削除する:
+
+  ```
+    kept 2 copied skill(s): alpha, beta
+    The tool still loads these copies; delete them if it reads the same skills elsewhere
+  ```
+
+- **共有フォルダー:** 有効な Target が同じフォルダーに書き込んでいる場合は、何も削除しない。
+
+以降、`sync`、`diff`、`status`、`doctor` はその Target の Skill をスキップし、`status` と `sync` では `skills off` と表示されます。`--skills=true` で Skill を再びオンにすると、次の `skillshare sync` で再び同期されます。
+
+`--skills` は 1 つのコマンド内で include/exclude フラグと組み合わせられません。別々に実行してください。project モード（`-p`）でも同じように動作します。
+
+Web ダッシュボードでは、Target の Skills タブにある **Skills の同期を停止** を使います。何かを削除する前に、削除されるものと残るものを一覧表示し、他のツールが同じフォルダーを読んでいる場合は警告します。
+
 ## オプション
 
 ### target add
@@ -233,6 +283,7 @@ Target フィルタは 3 つのフィルタリング階層の 1 つです。`.sk
 |------|-------------|
 | `--agent <agent>` | パスの代わりに、この Agent の[別のアカウント](#another-account)を追加する。`--config-dir` と併用 |
 | `--config-dir <dir>` | そのアカウントが使う config ディレクトリ |
+| `--no-skills` | [Skill をオフ](#skills-off)にして Target を追加 |
 
 ### target remove
 
@@ -255,6 +306,8 @@ Target フィルタは 3 つのフィルタリング階層の 1 つです。`.sk
 | `--mode, -m <mode>` | sync モードを設定（merge、copy、または symlink） |
 | `--agent-mode <mode>` | agent の sync モードを設定（merge、copy、または symlink） |
 | `--target-naming <naming>` | Target の命名方式を設定（flat または standard） |
+| `--skills <true\|false>` | Skill の同期を[オンまたはオフ](#skills-off)にする。`--skills=false` の形でも指定可能 |
+| `--dry-run, -n` | `--skills=false` と併用し、削除される内容をプレビュー |
 | `--add-include <pattern>` | include フィルタパターンを追加 |
 | `--add-exclude <pattern>` | exclude フィルタパターンを追加 |
 | `--remove-include <pattern>` | include フィルタパターンを削除 |

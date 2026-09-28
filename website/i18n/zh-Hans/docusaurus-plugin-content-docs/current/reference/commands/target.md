@@ -13,6 +13,7 @@ skillshare target list                 # List all targets
 skillshare target <name>               # Show target info
 skillshare target <name> --mode merge  # Change sync mode
 skillshare target <name> --target-naming standard  # Change naming
+skillshare target <name> --skills=false    # Stop syncing skills
 ```
 
 ## 何时使用
@@ -23,6 +24,7 @@ skillshare target <name> --target-naming standard  # Change naming
 - 更改某个 target 的命名方式（flat 或 standard）
 - 逐个 target 调整兼容性，而不是强制使用单一全局模式
 - 为选择性的 skill 同步设置 include/exclude 过滤器
+- 某个工具已经会读取另一个 target 的文件夹时，停止向它同步 skills，同时继续管理它的 agents、MCP server 和指示文件
 
 ## 子命令
 
@@ -38,6 +40,15 @@ skillshare target add windsurf ~/.windsurf/skills
 - 路径存在，或父目录存在
 - 路径看起来像一个 skills 目录
 - Target 名称唯一
+
+加上 `--no-skills` 可以添加一个不同步 skills 的 target。它的 agents、MCP server 和指示文件仍会被管理，而且 skills 文件夹不需要存在：
+
+```bash
+skillshare target add gemini ~/.gemini/skills --no-skills
+# Added target: gemini -> ~/.gemini/skills (skills off)
+```
+
+参见 [开启或关闭 Skills](#skills-off)。
 
 #### 某个 Agent 的另一个账号 {#another-account}
 
@@ -73,6 +84,8 @@ skillshare target remove cursor --dry-run # Preview
 3. 从配置中移除该 target
 
 如果还有其他 target 写入同一个 skills 文件夹（例如 `codex` 和 `universal` 都使用 `~/.agents/skills`），会跳过第 2 步：skills 仍为那个 target 保持链接，只有被移除的 target 从配置中删除。
+
+[关闭 skills](#skills-off) 的 target 没有同步任何内容，因此同样会跳过第 2 步，其文件夹保持原样。
 
 ### target list
 
@@ -122,7 +135,8 @@ skillshare target list --json
       "mode": "merge",
       "targetNaming": "flat",
       "include": [],
-      "exclude": []
+      "exclude": [],
+      "skillsEnabled": true
     },
     {
       "name": "cursor",
@@ -130,7 +144,8 @@ skillshare target list --json
       "mode": "merge",
       "targetNaming": "standard",
       "include": [],
-      "exclude": []
+      "exclude": [],
+      "skillsEnabled": true
     }
   ]
 }
@@ -228,6 +243,41 @@ Agent 过滤器仅适用于拥有 agents 路径的 targets，该路径可以来�
 Target filters 是三层过滤机制之一。参见 [Filtering Reference](/docs/reference/filtering) 了解它们如何与 `.skillignore` 及 SKILL.md 的 `targets` 相互作用。
 :::
 
+## 开启或关闭 Skills {#skills-off}
+
+有些工具除了读取自己的文件夹，还会读取另一个 target 的 skills 文件夹。例如 Pi 会读取 `~/.pi/agent/skills`，同时也读取 `universal` target 的文件夹 `~/.agents/skills`。如果两边都同步 skills，每个 skill 都会出现两次。为该 target 关闭 skills 后，skillshare 会继续管理它的 agents、MCP server 和指示文件，但不再动它的 skills 文件夹：
+
+```bash
+skillshare target pi --skills=false --dry-run   # Preview
+skillshare target pi --skills=false
+```
+
+```
+✓ pi: skills off
+  removed 2 link(s): alpha, beta
+  kept 1: my-notes
+  Agents, MCP servers and instructions are still managed
+```
+
+关闭 skills 会在配置中保存 `skills.enabled: false`，然后清理该文件夹：
+
+- **Merge 模式：**移除指向 source 的链接。你自己的 skills 会保留。
+- **Symlink 模式：**移除该文件夹指向 source 的链接，绝不会删除它所指向的内容。
+- **Copy 模式：**保留副本（它们是你可能编辑过的真实文件夹），并单独列出。工具仍会加载这些副本，因此如果它还会从另一个文件夹读取相同的 skills，请自行删除这些副本：
+
+  ```
+    kept 2 copied skill(s): alpha, beta
+    The tool still loads these copies; delete them if it reads the same skills elsewhere
+  ```
+
+- **共享文件夹：**如果有已启用的 target 写入同一个文件夹，则不会移除任何内容。
+
+此后，`sync`、`diff`、`status` 和 `doctor` 都会跳过该 target 的 skills；`status` 和 `sync` 会将它显示为 `skills off`。使用 `--skills=true` 重新开启 skills，下一次 `skillshare sync` 会再次同步它们。
+
+`--skills` 不能与 include/exclude 标志在同一条命令中组合使用，请分开运行。它在项目模式（`-p`）下的行为相同。
+
+在 Web 控制台中，在 target 的 Skills 标签页使用 **停止同步 Skills**。在移除任何内容之前，它会列出哪些会被移除、哪些会保留，并在有其他工具读取同一文件夹时发出警告。
+
 ## 选项
 
 ### target add
@@ -236,6 +286,7 @@ Target filters 是三层过滤机制之一。参见 [Filtering Reference](/docs/
 |------|-------------|
 | `--agent <agent>` | Add [another account](#another-account) of this Agent instead of a path. Goes with `--config-dir` |
 | `--config-dir <dir>` | The config directory that account uses |
+| `--no-skills` | Add the target with [skills off](#skills-off) |
 
 ### target remove
 
@@ -258,6 +309,8 @@ Target filters 是三层过滤机制之一。参见 [Filtering Reference](/docs/
 | `--mode, -m <mode>` | Set sync mode (merge, copy, or symlink) |
 | `--agent-mode <mode>` | Set agents sync mode (merge, copy, or symlink) |
 | `--target-naming <naming>` | Set target naming (flat or standard) |
+| `--skills <true\|false>` | Turn skills sync [on or off](#skills-off); also `--skills=false` |
+| `--dry-run, -n` | With `--skills=false`, preview what would be removed |
 | `--add-include <pattern>` | Add an include filter pattern |
 | `--add-exclude <pattern>` | Add an exclude filter pattern |
 | `--remove-include <pattern>` | Remove an include filter pattern |

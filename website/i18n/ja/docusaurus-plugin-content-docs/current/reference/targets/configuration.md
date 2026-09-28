@@ -257,6 +257,20 @@ targets:
 ダッシュボードは、Target を追加するときの **カスタムターゲット** ダイアログ、または後から Target のファイルのタブでこのフィールドを書き込みます。Target が共有ファイルを
 使っている間は、変更や削除を拒否します。このフィールドを削除してもファイルは削除されません。
 
+#### Skill のオフ {#skills-enabled}
+
+`skills.enabled: false` にすると、その Target への Skill の Sync を停止し、skillshare は agents、MCP サーバー、instructions の管理を続けます。別の Target の skills フォルダーをすでに読んでいるツールに使うと、各 Skill が 2 回表示されるのを防げます。
+
+```yaml
+targets:
+  pi:
+    skills:
+      path: ~/.pi/agent/skills
+      enabled: false
+```
+
+パス、モード、フィルターは、Skill を再びオンにするときのために Config に残ります。設定するには `skillshare target <name> --skills=false` を使います（フォルダー内の source を指すリンクも削除されます）。または `--no-skills` を付けて Target を追加します。[Skill のオン／オフ](/docs/reference/commands/target#skills-off) を参照してください。
+
 ### `include` / `exclude`（Target フィルター） {#include--exclude-target-filters}
 
 **merge および copy モード** でどの Skill を Sync するかを制御するには、Target 単位のフィルターを

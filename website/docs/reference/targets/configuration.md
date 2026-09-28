@@ -258,6 +258,20 @@ target, or later from the target's instruction tab. It refuses to change or remo
 it while the target uses shared files. Removing it doesn't delete
 the file.
 
+#### Skills off {#skills-enabled}
+
+`skills.enabled: false` stops syncing skills to a target while skillshare keeps managing its agents, MCP servers and instructions. Use it for a tool that already reads another target's skills folder, so each skill does not show up twice.
+
+```yaml
+targets:
+  pi:
+    skills:
+      path: ~/.pi/agent/skills
+      enabled: false
+```
+
+The path, mode and filters stay in the config for when you turn skills back on. Set it with `skillshare target <name> --skills=false`, which also removes the folder's links into the source, or add the target with `--no-skills`. See [Skills on or off](/docs/reference/commands/target#skills-off).
+
 ### `include` / `exclude` (target filters) {#include--exclude-target-filters}
 
 Use per-target filters to control which skills are synced in **merge and copy modes**.

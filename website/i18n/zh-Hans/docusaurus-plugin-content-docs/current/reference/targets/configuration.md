@@ -254,6 +254,20 @@ targets:
 控制台会在添加 target 时从 **自定义目标** 对话框写入这个字段，之后也可以在 target 的文件标签页中修改。当 target 正在使用共享文件时，控制台会拒绝更改或移除它。
 移除它不会删除文件。
 
+#### 关闭 Skills {#skills-enabled}
+
+`skills.enabled: false` 会停止向某个 target 同步 skills，同时 skillshare 仍继续管理它的 agents、MCP server 和指示文件。适用于已经会读取另一个 target 的 skills 文件夹的工具，避免每个 skill 出现两次。
+
+```yaml
+targets:
+  pi:
+    skills:
+      path: ~/.pi/agent/skills
+      enabled: false
+```
+
+路径、模式和过滤器都会保留在配置中，以便之后重新开启 skills。可以用 `skillshare target <name> --skills=false` 设置它（这也会移除该文件夹中指向 source 的链接），或在添加 target 时使用 `--no-skills`。参见 [开启或关闭 Skills](/docs/reference/commands/target#skills-off)。
+
 ### `include` / `exclude`（Target 过滤器） {#include--exclude-target-filters}
 
 使用逐 Target 的过滤器，控制在 **merge 和 copy 模式**下哪些 Skill 会被 sync。

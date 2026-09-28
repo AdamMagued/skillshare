@@ -254,6 +254,20 @@ targets:
 Dashboard 會在新增 Target 時從 **自訂目標** 對話框寫入這個欄位，之後也可以在 Target 的檔案分頁修改。當 Target 正在使用共用檔案時，
 它會拒絕變更或移除此欄位。移除它不會刪除該檔案。
 
+#### 關閉 Skills {#skills-enabled}
+
+`skills.enabled: false` 會停止同步 Skill 到某個 Target，同時 skillshare 仍繼續管理它的 agents、MCP servers 與指示檔案。適用於已經會讀取另一個 Target 之 Skill 資料夾的工具，避免每個 Skill 出現兩次。
+
+```yaml
+targets:
+  pi:
+    skills:
+      path: ~/.pi/agent/skills
+      enabled: false
+```
+
+路徑、模式與篩選條件都會保留在設定中，供你之後重新開啟 Skills 時使用。可以用 `skillshare target <name> --skills=false` 設定（同時會移除資料夾中指向 source 的連結），或以 `--no-skills` 新增 Target。詳見 [Skills 開啟或關閉](/docs/reference/commands/target#skills-off)。
+
 ### `include` / `exclude`（Target 篩選條件） {#include--exclude-target-filters}
 
 使用每個 Target 各自的篩選條件，控制在 **merge 與 copy 模式**下要同步哪些 Skill。
