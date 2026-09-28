@@ -3,6 +3,7 @@ package sync
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -235,5 +236,58 @@ func TestSyncedAgentCopies_CountsOnlyCurrentCopies(t *testing.T) {
 
 	if n := SyncedAgentCopies(tgt, agents); n != 0 {
 		t.Errorf("stale copy counted: %d, want 0", n)
+	}
+}
+
+func TestSyncAgents_MergeWithoutFileLinksPreservesIdenticalLocalFile(t *testing.T) {
+	withoutFileLinks(t)
+	src, tgt, agents := agentFixture(t)
+	p := filepath.Join(tgt, "tutor.md")
+	os.WriteFile(p, []byte("v1"), 0644)
+	if _, err := SyncAgents(agents, src, tgt, "merge", false, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PruneOrphanAgentLinks(tgt, nil, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(p); err != nil {
+		t.Fatalf("pre-existing local file deleted: %v", err)
+	}
+}
+
+func TestSyncExtra_MergeWithoutFileLinksPreservesIdenticalLocalFile(t *testing.T) {
+	withoutFileLinks(t)
+	src, tgt := t.TempDir(), t.TempDir()
+	os.WriteFile(filepath.Join(src, "a.md"), []byte("local"), 0644)
+	p := filepath.Join(tgt, "a.md")
+	os.WriteFile(p, []byte("local"), 0644)
+	if _, err := SyncExtra(src, tgt, "merge", false, false, false, "", nil); err != nil {
+		t.Fatal(err)
+	}
+	os.Remove(filepath.Join(src, "a.md"))
+	if _, err := SyncExtra(src, tgt, "merge", false, false, false, "", nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(p); err != nil {
+		t.Fatalf("pre-existing local file deleted: %v", err)
+	}
+}
+
+func TestCopyTracker_PruneOrphansPreservesOwnershipOnRemoveFailure(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("requires a read-only proc file")
+	}
+	tracker := loadCopyTracker("/proc")
+	tracker.record("version")
+	if !tracker.owns("version") {
+		t.Fatal("expected readable proc file")
+	}
+	tracker.changed = false
+	removed, err := tracker.pruneOrphans(nil, false)
+	if err == nil || !strings.Contains(err.Error(), "failed to remove orphaned copy version") {
+		t.Fatalf("expected removal error, got %v", err)
+	}
+	if len(removed) != 0 || !tracker.owns("version") || tracker.changed {
+		t.Fatalf("failed removal lost ownership or reported success: removed=%v changed=%v", removed, tracker.changed)
 	}
 }

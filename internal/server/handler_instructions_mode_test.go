@@ -2,10 +2,12 @@ package server
 
 import (
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"skillshare/internal/config"
 	ssync "skillshare/internal/sync"
 )
 
@@ -149,5 +151,42 @@ func TestSharedInstructionsSave_BacksUpEditedCopy(t *testing.T) {
 	got := readFile(t, filepath.Join(home, ".codex", "AGENTS.md"))
 	if got != "new\n" || len(res.Copies) != 1 || len(res.Copies[0].Warnings) != 1 || !strings.Contains(res.Copies[0].Warnings[0], "backed up") {
 		t.Errorf("codex copy = %q, copies = %+v; want the edit backed up, then replaced", got, res.Copies)
+	}
+}
+
+func TestSharedInstructionsMode_DirectoryConflictPreservesModeAndAllowsRetry(t *testing.T) {
+	s, home := newInstructionsServer(t, "claude")
+	attachShared(t, s, "claude")
+	p := filepath.Join(home, ".claude", "CLAUDE.md")
+	if err := os.Remove(p); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(p, 0755); err != nil {
+		t.Fatal(err)
+	}
+	rr := instructionsRequest(t, s, http.MethodPut, "/api/instructions/team/targets/claude/mode", `{"mode":"copy"}`)
+	if rr.Code != http.StatusConflict {
+		t.Fatalf("status = %d, body = %s; want 409", rr.Code, rr.Body.String())
+	}
+	body := decodeBody[map[string]any](t, rr)
+	if diagnostic, ok := body["error"].(string); !ok || !strings.Contains(diagnostic, "is a directory; not replaced") {
+		t.Fatalf("missing conflict diagnostic: %v", body)
+	}
+	if s.cfg.Extras[0].Targets[0].Mode != "import" {
+		t.Fatal("failed transition changed in-memory mode")
+	}
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Extras[0].Targets[0].Mode != "import" {
+		t.Fatal("failed transition persisted mode")
+	}
+	if err := os.Remove(p); err != nil {
+		t.Fatal(err)
+	}
+	rr = instructionsRequest(t, s, http.MethodPut, "/api/instructions/team/targets/claude/mode", `{"mode":"copy"}`)
+	if rr.Code != http.StatusOK || readFile(t, p) != "team\n" || s.cfg.Extras[0].Targets[0].Mode != "copy" {
+		t.Fatalf("retry failed: %d %s", rr.Code, rr.Body.String())
 	}
 }

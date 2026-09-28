@@ -139,8 +139,9 @@ func syncExtraFileReplace(f ExtraFile, dryRun bool, projectRoot string) (*ExtraR
 	default:
 		// A file leaving import mode: keep its own lines for switching back.
 		leavingImport := ""
+		hadImport := false
 		if data, err := os.ReadFile(f.Target); err == nil && hasImportLine(string(data), f.importLine()) {
-			leavingImport, _ = removeImportLine(string(data), f.importLine())
+			leavingImport, hadImport = removeImportLine(string(data), f.importLine())
 		}
 		same := contentEqual(f.Source, f.Target)
 		if copyMode && same {
@@ -170,7 +171,7 @@ func syncExtraFileReplace(f ExtraFile, dryRun bool, projectRoot string) (*ExtraR
 			if edited {
 				result.Warnings = append(result.Warnings, fmt.Sprintf("backed up %s before replacing it", f.Target))
 			}
-			if leavingImport != "" {
+			if hadImport {
 				if err := recordExtraImportBase(f.Target, leavingImport); err != nil {
 					return nil, fmt.Errorf("back up %s: %w", f.Target, err)
 				}
@@ -472,15 +473,16 @@ func RestoreExtraTarget(f ExtraFile) (bool, error) {
 	}
 
 	info, err := os.Lstat(f.Target)
+	owned, drift := extraRestoreOwnership(f, info)
 	switch {
 	case os.IsNotExist(err):
 	case err != nil:
 		return false, fmt.Errorf("failed to inspect target: %w", err)
-	case f.isOurLink(), f.Mode == "copy" && info.Mode().IsRegular() && (contentEqual(f.Source, f.Target) || isOurExtraCopy(f.Target)):
+	case owned:
 		if err := os.Remove(f.Target); err != nil {
 			return false, fmt.Errorf("failed to remove target: %w", err)
 		}
-	case info.Mode().IsRegular() && extraAttached(f.Target):
+	case drift:
 		if err := backupExtraDrift(f.Target); err != nil {
 			return false, err
 		}
@@ -494,6 +496,15 @@ func RestoreExtraTarget(f ExtraFile) (bool, error) {
 	}
 
 	return true, putBackExtraRestorePoint(f.Target)
+}
+
+// extraRestoreOwnership shares restore's removal and drift decisions with preview.
+func extraRestoreOwnership(f ExtraFile, info os.FileInfo) (owned, drift bool) {
+	if info == nil {
+		return false, false
+	}
+	owned = f.isOurLink() || f.Mode == "copy" && info.Mode().IsRegular() && (contentEqual(f.Source, f.Target) || isOurExtraCopy(f.Target))
+	return owned, !owned && info.Mode().IsRegular() && extraAttached(f.Target)
 }
 
 func restoreExtraImport(f ExtraFile) (bool, error) {

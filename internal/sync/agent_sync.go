@@ -199,9 +199,6 @@ func syncAgentsMergeCopy(agents []resource.DiscoveredResource, targetDir string,
 			result.Skipped = append(result.Skipped, name)
 			continue
 		case contentEqual(agent.AbsPath, targetPath):
-			if !dryRun {
-				copies.record(name)
-			}
 			result.Linked = append(result.Linked, name)
 			continue
 		case !force && !copies.owns(name):
@@ -484,7 +481,10 @@ func PruneOrphanAgentLinks(targetDir string, agents []resource.DiscoveredResourc
 
 	// Copies stand in for links when file links are unavailable.
 	copies := loadCopyTracker(targetDir)
-	removed = copies.pruneOrphans(expected, dryRun)
+	removed, err = copies.pruneOrphans(expected, dryRun)
+	if err != nil {
+		return removed, err
+	}
 	if !dryRun {
 		if err := copies.save(); err != nil {
 			return removed, fmt.Errorf("failed to update agent manifest: %w", err)

@@ -374,7 +374,11 @@ func syncExtraPerFile(sourcePath, targetPath, mode string, dryRun, force, flatte
 			result.Errors = append(result.Errors, pruneErrors...)
 		}
 		if copies != nil {
-			for _, rel := range copies.pruneOrphans(sourceSet, false) {
+			removed, err := copies.pruneOrphans(sourceSet, false)
+			if err != nil {
+				result.Errors = append(result.Errors, err.Error())
+			}
+			for _, rel := range removed {
 				cleanEmptyParents(filepath.Dir(filepath.Join(targetPath, rel)), targetPath)
 				result.Pruned++
 			}
@@ -425,9 +429,6 @@ func syncOneExtraFile(srcFile, tgtFile, mode string, dryRun, force, relative boo
 		if mode == "copy" && !isSymlink && !info.IsDir() {
 			srcInfo, srcErr := os.Stat(srcFile)
 			if srcErr == nil && srcInfo.Size() == info.Size() && contentEqual(srcFile, tgtFile) {
-				if copies != nil && !dryRun {
-					copies.record(tgtRel)
-				}
 				return 1, 0, nil
 			}
 		}

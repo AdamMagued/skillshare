@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -97,7 +98,7 @@ func (t *copyTracker) forget(rel string) {
 
 // pruneOrphans removes tracked copies whose name is not in expected, keeping
 // edited ones, and forgets them. It returns the removed names.
-func (t *copyTracker) pruneOrphans(expected map[string]bool, dryRun bool) []string {
+func (t *copyTracker) pruneOrphans(expected map[string]bool, dryRun bool) ([]string, error) {
 	var removed []string
 	for key := range t.m.Managed {
 		rel := filepath.FromSlash(key)
@@ -106,7 +107,9 @@ func (t *copyTracker) pruneOrphans(expected map[string]bool, dryRun bool) []stri
 		}
 		if t.owns(rel) {
 			if !dryRun {
-				os.Remove(filepath.Join(t.dir, rel))
+				if err := os.Remove(filepath.Join(t.dir, rel)); err != nil {
+					return removed, fmt.Errorf("failed to remove orphaned copy %s: %w", rel, err)
+				}
 			}
 			removed = append(removed, rel)
 		}
@@ -114,7 +117,7 @@ func (t *copyTracker) pruneOrphans(expected map[string]bool, dryRun bool) []stri
 			t.forget(rel)
 		}
 	}
-	return removed
+	return removed, nil
 }
 
 func (t *copyTracker) save() error {

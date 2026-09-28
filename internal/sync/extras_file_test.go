@@ -545,3 +545,25 @@ func TestSyncExtraFile_SwitchBackToImportKeepsEditsMadeInImportMode(t *testing.T
 		})
 	}
 }
+
+func TestSyncExtraFile_ModeSwitchPreservesEmptyImportBase(t *testing.T) {
+	src, tgt := setupExtraFileTest(t, "shared")
+	f := NewExtraFile(src, "AGENTS.md", tgt, "CLAUDE.md", "copy")
+	os.WriteFile(f.Target, []byte("old local content"), 0644)
+	run := func(mode string) {
+		t.Helper()
+		f.Mode = mode
+		if _, err := SyncExtraFile(f, false, ""); err != nil {
+			t.Fatal(err)
+		}
+	}
+	run("copy")
+	run("import")
+	only, _ := addImportLine("", f.importLine())
+	os.WriteFile(f.Target, []byte(only), 0644)
+	run("copy")
+	run("import")
+	if got := readFile(t, f.Target); strings.Contains(got, "old local content") {
+		t.Fatalf("deleted import content resurrected: %q", got)
+	}
+}

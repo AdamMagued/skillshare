@@ -40,3 +40,17 @@ func TestPreviewRestoreExtraTarget_NoFileBefore(t *testing.T) {
 		t.Errorf("preview = %+v, want delete with the attach time", p)
 	}
 }
+
+func TestPreviewRestoreExtraTarget_PreservesUnmanagedFile(t *testing.T) {
+	src, tgt := setupExtraFileTest(t, "shared")
+	f := NewExtraFile(src, "AGENTS.md", tgt, "CLAUDE.md", "copy")
+	os.WriteFile(f.Target, []byte("mine"), 0644)
+	p := PreviewRestoreExtraTarget(f)
+	changed, err := RestoreExtraTarget(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Kind != RestoreKindContent || p.Content != "mine" || p.Drift || changed {
+		t.Fatalf("preview=%+v, restore changed=%v, actual=%q", p, changed, readFile(t, f.Target))
+	}
+}

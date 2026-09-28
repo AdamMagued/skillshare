@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"slices"
+	"strings"
 	"time"
 
 	"skillshare/internal/config"
@@ -85,9 +86,17 @@ func (s *Server) handlePutSharedInstructionsMode(w http.ResponseWriter, r *http.
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if _, err := syncpkg.SyncExtraFile(instructions.ExtraFile(s.cfg.Extras[i], j, res), false, ""); err != nil {
+	result, err := syncpkg.SyncExtraFile(instructions.ExtraFile(s.cfg.Extras[i], j, res), false, "")
+	if err != nil {
 		tc.Mode = prev
 		fail(err)
+		return
+	}
+	if result.Skipped > 0 {
+		tc.Mode = prev
+		diagnostic := strings.Join(result.Warnings, "; ")
+		s.writeOpsLog("instructions-mode", "error", start, args, diagnostic)
+		writeError(w, http.StatusConflict, diagnostic)
 		return
 	}
 	if err := s.saveAndReloadConfig(); err != nil {

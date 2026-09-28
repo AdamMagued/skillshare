@@ -42,9 +42,20 @@ func PreviewRestoreExtraTarget(f ExtraFile) ExtraRestorePreview {
 			p.Kind, p.Content = RestoreKindContent, stripped
 			return p
 		}
-	} else if info, err := os.Lstat(f.Target); err == nil && info.Mode().IsRegular() && !contentEqual(f.Source, f.Target) && !isOurExtraCopy(f.Target) {
-		// An edited target is saved as a drift backup when restored.
-		p.Drift = true
+	} else if info, err := os.Lstat(f.Target); err == nil {
+		owned, drift := extraRestoreOwnership(f, info)
+		if !owned && !drift {
+			// Restore leaves a target it does not own unchanged.
+			if info.Mode()&os.ModeSymlink != 0 {
+				p.Kind = RestoreKindLink
+				p.LinkTo, _ = os.Readlink(f.Target)
+			} else {
+				data, _ := os.ReadFile(f.Target)
+				p.Kind, p.Content = RestoreKindContent, string(data)
+			}
+			return p
+		}
+		p.Drift = p.Drift || drift
 	}
 
 	switch record {
