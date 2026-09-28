@@ -1,5 +1,51 @@
 # Changelog
 
+## [0.21.13] - 2026-09-28
+
+### New Features
+
+#### Dashboard
+
+- **Choose how each tool gets a shared AGENTS.md** — on **Extras → AGENTS.md**, every connected tool now has a mode dropdown: `import` adds one `@import` line and keeps your own lines, `symlink` links the file, and `copy` writes a copy. Saving the shared file in the dashboard updates the copies right away. Switching back to `import` brings back your own content, including edits you made while in `import` mode. Refs: #299.
+  ```bash
+  skillshare ui
+  ```
+- **See what a restore puts back before it happens** — turning a tool off, or **Restore all**, first shows the file the tool will have afterwards, with a diff against what it has now.
+- **Move a tool's instruction file** — **Change location** on a target's AGENTS.md tab sets a custom path and file name for any supported tool, not only custom targets. A folder is refused, and the option is off while a shared file is connected.
+- **Put a shared AGENTS.md in any folder** — under **Other locations**, **Add location** writes the shared file into a folder that is not in the targets list, under its own name or another one such as `instructions.md`, as `symlink`, `copy` or `import`. Each location has its own mode, and **Remove** shows the restore preview first. On a project's **Extras** page, a single-file extra's new target takes a file name too. Refs: #299.
+- **Preview everywhere, and Cmd/Ctrl+S on the target page** — every box that shows an AGENTS.md has **Preview** and **Source** (or **Edit**) tabs, long lines wrap, and the shared file's card opens in **Preview**. The target page editor saves with Cmd/Ctrl+S and asks before you leave with unsaved edits.
+- **Update progress** — the **Updates** tab on **Skills** and **Agents** shows a progress bar, marks the row being updated, and moves blocked or failed updates into their own section with a one-line reason.
+
+#### Extras
+
+- **Attach a single-file extra under another name** — `--add-target` takes `--as` to pick the file name in the target folder, such as `GEMINI.md` for Gemini CLI. `skillshare extras <name> --help` now prints that extra's options.
+  ```bash
+  skillshare extras personal --add-target ~/.gemini --as GEMINI.md --mode symlink
+  ```
+
+### Bug Fixes
+
+#### Windows
+
+- **AGENTS.md no longer shows up as a folder** — single files were linked with directory junctions, which tools read as a folder. Files are now linked with file symlinks, and when Windows can't create them (Developer Mode off and not an administrator), skillshare writes copies and keeps them up to date instead. The dashboard marks `symlink` as unavailable and explains why. Refs: #299.
+- **Junctions are recognized as links again** — since Go 1.23, a junction is no longer reported as a symlink, so skills synced as junctions could be reported as local folders by `status`, `doctor`, `sync` and the dashboard.
+
+#### Extras
+
+- **One shared file per linked or copied tool** — a tool whose file is a link to, or a copy of, one shared file could also be connected to another shared file. The import line was then written through the link into the other shared file, and every tool reading it picked it up. The dashboard, **Connect all**, `--add-target`, `--mode` and `sync extras` now refuse this and name the file that holds the tool.
+- **Your files are kept in more cases** — an instruction file that is a link into your dotfiles is left as it was after restore; a missing end marker no longer duplicates the managed block; replacing a link you pointed elsewhere is reported and recorded; and the managed block follows the file's CRLF line endings.
+- **Project imports use relative paths** — in project mode the `@import` line written into a committed `CLAUDE.md` pointed at an absolute path in your home folder. It is now relative to the file, so it works for everyone and after the project moves.
+- **Clearer status for single-file extras** — `extras list -p` no longer reports correctly synced relative links as drift; an edited copy shows `modified` and can be collected from the dashboard; an invalid `mode` in `config.yaml` is no longer shown as healthy; and `sync extras --dry-run` says when an edit would be backed up and replaced.
+- **`sync extras --json` exits with an error when a target fails** — it used to exit 0 while the plain output exited 1.
+
+#### Dashboard
+
+- **Messages about shared AGENTS.md files are translated** — warnings and errors from mode changes, connecting, moving and restoring used to appear in English in every language.
+
+#### CLI
+
+- **`NO_COLOR` is honored everywhere** — `status`, `doctor`, `extras list` and about twenty other commands still printed colors with `NO_COLOR` set.
+
 ## [0.21.12] - 2026-09-28
 
 ### New Features
