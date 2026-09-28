@@ -166,7 +166,7 @@ func TestExtraFileImportCRLFAndCleanup(t *testing.T) {
 	other.Mode = "copy"
 	SyncExtraFile(other, false, "")
 	SyncExtraFile(f, false, "")
-	backupExtraDrift(f.Target)
+	backupExtraDrift(f.Target, "")
 	if _, err := RestoreExtraTarget(f); err != nil {
 		t.Fatal(err)
 	}

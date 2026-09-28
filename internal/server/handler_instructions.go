@@ -266,7 +266,7 @@ func (s *Server) handlePutTargetInstructions(w http.ResponseWriter, r *http.Requ
 // writeInstructionsFile backs up an existing file, then writes content.
 func writeInstructionsFile(path, content string) error {
 	if _, err := os.Stat(path); err == nil {
-		if err := syncpkg.BackupFile(path); err != nil {
+		if err := syncpkg.BackupFile(path, syncpkg.BackupReasonEdit); err != nil {
 			return err
 		}
 	}

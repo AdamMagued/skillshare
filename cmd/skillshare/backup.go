@@ -24,6 +24,24 @@ func cmdBackup(args []string) error {
 		return err
 	}
 
+	if len(args) > 0 && args[0] == "files" {
+		return cmdBackupFiles(mode, args[1:])
+	}
+
+	cwd, _ := os.Getwd()
+
+	// --delete works on either mode's snapshot folders, so it is handled
+	// before the project-mode restriction below.
+	for i := 0; i < len(args); i++ {
+		if args[i] == "--delete" {
+			if i+1 >= len(args) || strings.HasPrefix(args[i+1], "-") {
+				return fmt.Errorf("--delete requires a backup timestamp (see backup --list)")
+			}
+			applyModeLabel(mode)
+			return backupDelete(mode, cwd, args[i+1], hasFlag(args, "--dry-run") || hasFlag(args, "-n"))
+		}
+	}
+
 	// Extract kind filter (e.g. "skillshare backup agents" or "--all").
 	kind, args := parseKindArgWithAll(args)
 
@@ -32,7 +50,6 @@ func cmdBackup(args []string) error {
 		return fmt.Errorf("backup is not supported in project mode (except for agents)")
 	}
 
-	cwd, _ := os.Getwd()
 	if mode == modeAuto && kind == kindAgents && projectConfigExists(cwd) {
 		mode = modeProject
 	}
@@ -237,6 +254,41 @@ func backupList() error {
 			b.Path)
 	}
 
+	return nil
+}
+
+// backupDelete removes one snapshot folder: the global one, or the project's
+// (agents only) with -p.
+func backupDelete(mode runMode, cwd, timestamp string, dryRun bool) error {
+	start := time.Now()
+	backupDir := backup.BackupDir()
+	if mode == modeProject {
+		backupDir = backup.ProjectBackupDir(cwd)
+	}
+	if !backup.ValidTimestamp(timestamp) {
+		return fmt.Errorf("invalid backup timestamp %q (expected e.g. 2024-01-15_14-30-45)", timestamp)
+	}
+	info, err := backup.GetBackupByTimestampInDir(backupDir, timestamp)
+	if err != nil {
+		return err
+	}
+	size := backup.Size(info.Path)
+	if dryRun {
+		ui.Warning("Dry run - would delete backup %s (%s, %s)", timestamp, strings.Join(info.Targets, ", "), formatBytes(size))
+		return nil
+	}
+
+	err = backup.DeleteInDir(backupDir, timestamp)
+	e := oplog.NewEntry("backup", statusFromErr(err), time.Since(start))
+	e.Args = map[string]any{"action": "delete", "timestamp": timestamp}
+	if err != nil {
+		e.Message = err.Error()
+	}
+	oplog.WriteWithLimit(config.ConfigPath(), oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
+	if err != nil {
+		return err
+	}
+	ui.Success("Deleted backup %s (freed %s)", timestamp, formatBytes(size))
 	return nil
 }
 
@@ -616,6 +668,7 @@ func previewRestoreFromLatest(targetName, targetPath string, opts backup.Restore
 
 func printBackupHelp() {
 	fmt.Println(`Usage: skillshare backup [agents] [target] [options]
+       skillshare backup files [list|show|restore] ...
 
 Create a snapshot of target skill directories.
 Without arguments, backs up all targets.
@@ -629,7 +682,9 @@ Options:
   --global, -g         Use global mode (default for skills)
   --list, -l           List all existing backups
   --cleanup, -c        Remove old backups based on retention policy
-  --dry-run, -n        Preview what would be backed up or cleaned up
+  --delete <ts>        Delete one backup (timestamp from --list); with -p,
+                       from the project's .skillshare/backups/
+  --dry-run, -n        Preview what would be backed up, cleaned up, or deleted
   --target, -t <name>  Specify target name (alternative to positional arg)
   --help, -h           Show this help
 
@@ -639,6 +694,8 @@ Examples:
   skillshare backup --list                  # List all backups
   skillshare backup --cleanup               # Remove old backups
   skillshare backup --cleanup --dry-run     # Preview cleanup
+  skillshare backup --delete 2024-01-15_14-30-45
+  skillshare backup files                   # Files skillshare saved before rewriting them
   skillshare backup agents                  # Backup all agent targets
   skillshare backup agents -p               # Backup project agent targets
   skillshare backup --all                   # Backup skills + agents`)

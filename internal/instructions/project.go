@@ -123,7 +123,7 @@ func ApplyShim(root string, it config.InstructionsTarget, shim string) error {
 			if importsAgents(own, agents) {
 				return nil
 			}
-			if err := syncpkg.BackupFile(own); err != nil {
+			if err := syncpkg.BackupFile(own, syncpkg.BackupReasonShim); err != nil {
 				return err
 			}
 		}

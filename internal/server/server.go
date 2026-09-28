@@ -510,10 +510,17 @@ func (s *Server) registerRoutes() {
 
 	// Backups
 	s.mux.HandleFunc("GET /api/backups", s.handleListBackups)
+	s.mux.HandleFunc("DELETE /api/backups/{timestamp}", s.handleDeleteBackup)
 	s.mux.HandleFunc("POST /api/backup", s.handleCreateBackup)
 	s.mux.HandleFunc("POST /api/backup/cleanup", s.handleCleanupBackups)
 	s.mux.HandleFunc("POST /api/restore", s.handleRestore)
 	s.mux.HandleFunc("POST /api/restore/validate", s.handleValidateRestore)
+
+	// File history (backups of single files skillshare rewrote)
+	s.mux.HandleFunc("GET /api/file-backups", s.handleListFileBackups)
+	s.mux.HandleFunc("GET /api/file-backups/versions", s.handleFileBackupVersions)
+	s.mux.HandleFunc("GET /api/file-backups/version", s.handleFileBackupVersion)
+	s.mux.HandleFunc("POST /api/file-backups/restore", s.handleRestoreFileBackup)
 
 	// Trash
 	s.mux.HandleFunc("GET /api/trash", s.handleListTrash)

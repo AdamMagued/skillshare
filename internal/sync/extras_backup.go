@@ -18,7 +18,8 @@ import (
 const keepExtraBackups = 10
 
 // extraBackupDir holds the backup history of one file, keyed by a digest of
-// its absolute path: <state>/extras/backups/<digest>/<unix-nano>.bak, plus a
+// its absolute path: <state>/extras/backups/<digest>/<unix-nano>[.<reason>].bak
+// (the fixed-width time prefix keeps name order time order), plus a
 // "path" file naming the original. The state at attach time is recorded as a
 // "created" marker (no file existed), a "restore" copy of the file that was
 // replaced, or a "restore-link" naming the target of a replaced symlink;
@@ -28,34 +29,67 @@ func extraBackupDir(path string) string {
 	return filepath.Join(config.StateDir(), "extras", "backups", fmt.Sprintf("%x", sum[:8]))
 }
 
+// Why a history backup was taken; stored in its file name.
+const (
+	BackupReasonConvert = "convert" // before a file is converted to or renamed as AGENTS.md
+	BackupReasonShim    = "shim"    // before @AGENTS.md is added to a project file
+	BackupReasonImport  = "import"  // before an @import line is added
+	BackupReasonEdit    = "edit"    // before a dashboard edit
+	BackupReasonCollect = "collect" // before a target's edit is collected into the shared file
+	BackupReasonAttach  = "attach"  // the file replaced when a target was first attached
+	BackupReasonRestore = "restore" // before an older version is restored
+)
+
+// Why a drift backup (an edit skillshare replaced) was taken.
+const (
+	DriftReasonOverwrite = "overwrite" // the edit was overwritten from the dashboard
+	DriftReasonMode      = "mode"      // the edit was replaced by a mode switch
+	DriftReasonRestore   = "restore"   // the edit was replaced by restoring the target
+)
+
+// extraBackupName returns a new backup file name recording reason.
+func extraBackupName(reason string) string {
+	if reason == "" {
+		return fmt.Sprintf("%019d.bak", time.Now().UnixNano())
+	}
+	return fmt.Sprintf("%019d.%s.bak", time.Now().UnixNano(), reason)
+}
+
 // backupExtraFile saves the current content of path before skillshare replaces
 // it. A copy identical to the latest backup is not stored again.
-func backupExtraFile(path string) error {
+func backupExtraFile(path, reason string) error {
+	_, err := storeExtraBackup(path, reason)
+	return err
+}
+
+// storeExtraBackup is backupExtraFile returning the new backup's file name,
+// or "" when the content matched the latest backup.
+func storeExtraBackup(path, reason string) (string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return fmt.Errorf("back up %s: %w", path, err)
+		return "", fmt.Errorf("back up %s: %w", path, err)
 	}
 	if latest, ok, _ := latestExtraBackup(path); ok && bytes.Equal(latest, data) {
-		return nil
+		return "", nil
 	}
 	dir := extraBackupDir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("back up %s: %w", path, err)
+		return "", fmt.Errorf("back up %s: %w", path, err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "path"), []byte(filepath.Clean(path)), 0644); err != nil {
-		return fmt.Errorf("back up %s: %w", path, err)
+		return "", fmt.Errorf("back up %s: %w", path, err)
 	}
-	name := fmt.Sprintf("%019d.bak", time.Now().UnixNano())
+	name := extraBackupName(reason)
 	if err := os.WriteFile(filepath.Join(dir, name), data, 0600); err != nil {
-		return fmt.Errorf("back up %s: %w", path, err)
+		return "", fmt.Errorf("back up %s: %w", path, err)
 	}
 	pruneExtraBackups(dir)
-	return nil
+	return name, nil
 }
 
 // backupExtraDrift saves an edited target that skillshare is about to relink.
 // It lives apart from the regular backups so restore never picks it.
-func backupExtraDrift(path string) error {
+func backupExtraDrift(path, reason string) error {
 	data, err := os.ReadFile(path)
 	// Preserve link identity even for a dangling link; never read its destination
 	// as if it were an edited regular file.
@@ -73,7 +107,11 @@ func backupExtraDrift(path string) error {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("back up %s: %w", path, err)
 	}
-	name := fmt.Sprintf("%019d.bak", time.Now().UnixNano())
+	// The path file lets the file history find a target that has only drift backups.
+	if err := os.WriteFile(filepath.Join(extraBackupDir(path), "path"), []byte(filepath.Clean(path)), 0644); err != nil {
+		return fmt.Errorf("back up %s: %w", path, err)
+	}
+	name := extraBackupName(reason)
 	if err := os.WriteFile(filepath.Join(dir, name), data, 0600); err != nil {
 		return fmt.Errorf("back up %s: %w", path, err)
 	}
@@ -90,7 +128,7 @@ func extraBackupNames(dir string) []string {
 			names = append(names, e.Name())
 		}
 	}
-	sort.Strings(names) // zero-padded nanosecond names sort by time
+	sort.Strings(names) // zero-padded nanosecond prefixes sort by time
 	return names
 }
 
@@ -148,7 +186,7 @@ func recordExtraAttach(path, name string, data []byte, perm os.FileMode) error {
 // in the file by an earlier import mode, is not part of the user's file and is
 // dropped from the record.
 func recordExtraRestorePoint(path, importLine string) error {
-	if err := backupExtraFile(path); err != nil {
+	if err := backupExtraFile(path, BackupReasonAttach); err != nil {
 		return err
 	}
 	data, err := os.ReadFile(path)

@@ -350,7 +350,7 @@ func TestRestoreExtraTarget_NoFileAtAttachIgnoresOlderBackup(t *testing.T) {
 	src, tgt := setupExtraFileTest(t, "# agents")
 	target := filepath.Join(tgt, "AGENTS.md")
 	os.WriteFile(target, []byte("old content"), 0644)
-	if err := BackupFile(target); err != nil {
+	if err := BackupFile(target, BackupReasonEdit); err != nil {
 		t.Fatal(err)
 	}
 	os.Remove(target)

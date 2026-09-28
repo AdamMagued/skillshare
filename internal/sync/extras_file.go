@@ -161,7 +161,7 @@ func syncExtraFileReplace(f ExtraFile, dryRun bool, projectRoot string) (*ExtraR
 			}
 		}
 		if !dryRun && drift {
-			if err := backupExtraDrift(f.Target); err != nil {
+			if err := backupExtraDrift(f.Target, ""); err != nil {
 				return nil, err
 			}
 		}
@@ -214,7 +214,12 @@ func syncExtraFileReplace(f ExtraFile, dryRun bool, projectRoot string) (*ExtraR
 				}
 				attached = true
 			} else if edited {
-				if err := backupExtraDrift(f.Target); err != nil {
+				// A copy left by copy mode, now replaced by a link, is a mode switch.
+				reason := ""
+				if !copyMode && hasExtraWritten(f.Target) {
+					reason = DriftReasonMode
+				}
+				if err := backupExtraDrift(f.Target, reason); err != nil {
 					return nil, err
 				}
 			}
@@ -322,7 +327,8 @@ func ManagedImportLines(content string) []int {
 
 // BackupFile saves the current content of path to the extras backup history
 // before skillshare rewrites or removes it.
-func BackupFile(path string) error { return backupExtraFile(path) }
+// reason is one of the BackupReason constants.
+func BackupFile(path, reason string) error { return backupExtraFile(path, reason) }
 
 func syncExtraImport(f ExtraFile, dryRun bool) (*ExtraResult, error) {
 	result := &ExtraResult{Synced: 1}
@@ -385,7 +391,7 @@ func syncExtraImport(f ExtraFile, dryRun bool) (*ExtraResult, error) {
 	}
 
 	if editedCopy {
-		if err := backupExtraDrift(f.Target); err != nil {
+		if err := backupExtraDrift(f.Target, DriftReasonMode); err != nil {
 			return nil, err
 		}
 	}
@@ -619,7 +625,7 @@ func RestoreExtraTarget(f ExtraFile) (bool, error) {
 			return false, fmt.Errorf("failed to remove target: %w", err)
 		}
 	case drift:
-		if err := backupExtraDrift(f.Target); err != nil {
+		if err := backupExtraDrift(f.Target, DriftReasonRestore); err != nil {
 			return false, err
 		}
 		if err := os.Remove(f.Target); err != nil {
@@ -709,7 +715,7 @@ func CollectBackExtraFile(f ExtraFile, projectRoot string) error {
 	if srcInfo, statErr := os.Stat(f.Source); statErr == nil {
 		existing, _ := os.ReadFile(f.Source)
 		if !bytes.Equal(existing, data) {
-			if err := backupExtraFile(f.Source); err != nil {
+			if err := backupExtraFile(f.Source, BackupReasonCollect); err != nil {
 				return err
 			}
 		}
@@ -735,7 +741,7 @@ func ReapplyExtraFile(f ExtraFile, projectRoot string) error {
 // back what was there before the target was attached, not the edit.
 func replaceDriftedTarget(f ExtraFile, projectRoot string) error {
 	if info, err := os.Lstat(f.Target); err == nil && info.Mode().IsRegular() {
-		if err := backupExtraDrift(f.Target); err != nil {
+		if err := backupExtraDrift(f.Target, DriftReasonOverwrite); err != nil {
 			return err
 		}
 		if err := os.Remove(f.Target); err != nil {

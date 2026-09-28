@@ -94,7 +94,7 @@ func extraAttachRecord(path string) (string, time.Time) {
 // after since (any, when since is zero).
 func hasExtraDriftSince(dir string, since time.Time) bool {
 	for _, name := range extraBackupNames(filepath.Join(dir, "drift")) {
-		n, err := strconv.ParseInt(strings.TrimSuffix(name, ".bak"), 10, 64)
+		n, err := strconv.ParseInt(extraBackupStamp(name), 10, 64)
 		if err == nil && (since.IsZero() || n >= since.UnixNano()) {
 			return true
 		}
