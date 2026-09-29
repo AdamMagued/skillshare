@@ -141,8 +141,9 @@ func looksLikeShellGlob(names []string, warnings []string) bool {
 
 // resolveUninstallTarget resolves skill name to path and checks existence.
 // Supports short names for nested skills (e.g. "react-best-practices" resolves
-// to "frontend/react/react-best-practices").
-func resolveUninstallTarget(skillName string, cfg *config.Config) (*uninstallTarget, error) {
+// to "frontend/react/react-best-practices"). sourceLabel names sourceDir in
+// not-found errors.
+func resolveUninstallTarget(skillName, sourceDir, sourceLabel string) (*uninstallTarget, error) {
 	skillName = strings.TrimRight(strings.TrimSpace(skillName), `/\`)
 	skillName = normalizeUninstallName(skillName)
 	if skillName == "" || skillName == "." {
@@ -151,23 +152,23 @@ func resolveUninstallTarget(skillName string, cfg *config.Config) (*uninstallTar
 
 	// Normalize _ prefix for tracked repos
 	if !strings.HasPrefix(skillName, "_") {
-		prefixedPath := filepath.Join(cfg.EffectiveSkillsSource(), "_"+skillName)
+		prefixedPath := filepath.Join(sourceDir, "_"+skillName)
 		if install.IsGitRepo(prefixedPath) {
 			skillName = "_" + skillName
 		}
 	}
 
-	skillPath := filepath.Join(cfg.EffectiveSkillsSource(), skillName)
+	skillPath := filepath.Join(sourceDir, skillName)
 	info, err := os.Stat(skillPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			// Fallback: search by basename in nested directories
-			resolved, resolveErr := resolveNestedSkillDir(cfg.EffectiveSkillsSource(), skillName)
+			resolved, resolveErr := resolveNestedSkillDir(sourceDir, skillName, sourceLabel)
 			if resolveErr != nil {
 				return nil, resolveErr
 			}
 			skillName = resolved
-			skillPath = filepath.Join(cfg.EffectiveSkillsSource(), resolved)
+			skillPath = filepath.Join(sourceDir, resolved)
 		} else {
 			return nil, fmt.Errorf("cannot access skill: %w", err)
 		}
@@ -277,7 +278,7 @@ func resolveGroupSkills(group, sourceDir string) ([]*uninstallTarget, error) {
 // nested organizational folders. Also matches _name variant for tracked repos.
 // Returns the relative path from sourceDir, or an error listing all matches
 // when the name is ambiguous.
-func resolveNestedSkillDir(sourceDir, name string) (string, error) {
+func resolveNestedSkillDir(sourceDir, name, sourceLabel string) (string, error) {
 	var matches []string
 
 	walkRoot := utils.ResolveSymlink(sourceDir)
@@ -304,7 +305,7 @@ func resolveNestedSkillDir(sourceDir, name string) (string, error) {
 
 	switch len(matches) {
 	case 0:
-		return "", fmt.Errorf("skill '%s' not found in source", name)
+		return "", fmt.Errorf("skill '%s' not found in %s", name, sourceLabel)
 	case 1:
 		return matches[0], nil
 	default:
@@ -696,7 +697,7 @@ func cmdUninstall(args []string) error {
 			continue
 		}
 
-		t, err := resolveUninstallTarget(name, cfg)
+		t, err := resolveUninstallTarget(name, cfg.EffectiveSkillsSource(), "source")
 		if err != nil {
 			resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s: %v", name, err))
 			continue

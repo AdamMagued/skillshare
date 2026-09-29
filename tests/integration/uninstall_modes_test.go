@@ -232,7 +232,24 @@ func TestUninstallModes_AmbiguousNestedName(t *testing.T) {
 
 	project := sb.RunCLIInDir(projectRoot, "uninstall", "dup", "--force", "-p")
 	project.AssertFailure(t)
-	project.AssertAnyOutputContains(t, "skill 'dup' not found in .skillshare/skills")
+	project.AssertAnyOutputContains(t, "'dup' matches multiple skills")
+}
+
+func TestUninstallModes_FileNameIsNotADirectory(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	setupGlobalUninstall(sb)
+	projectRoot := sb.SetupProjectDir("claude")
+	sb.WriteFile(filepath.Join(sb.SourcePath, "notes.txt"), "x")
+	sb.WriteFile(filepath.Join(projectRoot, ".skillshare", "skills", "notes.txt"), "x")
+
+	global := sb.RunCLI("uninstall", "notes.txt", "--force", "-g")
+	global.AssertFailure(t)
+	global.AssertAnyOutputContains(t, "'notes.txt' is not a directory")
+
+	project := sb.RunCLIInDir(projectRoot, "uninstall", "notes.txt", "--force", "-p")
+	project.AssertFailure(t)
+	project.AssertAnyOutputContains(t, "'notes.txt' is not a directory")
 }
 
 func TestUninstallModes_AllWithEmptySource(t *testing.T) {

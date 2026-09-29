@@ -16,41 +16,6 @@ import (
 	"skillshare/internal/ui"
 )
 
-// resolveProjectUninstallTarget resolves a skill name to an uninstallTarget
-// within a project's .skillshare/skills directory.
-func resolveProjectUninstallTarget(skillName, sourceDir string) (*uninstallTarget, error) {
-	skillName = strings.TrimRight(strings.TrimSpace(skillName), `/\`)
-	skillName = normalizeUninstallName(skillName)
-	if skillName == "" || skillName == "." {
-		return nil, fmt.Errorf("invalid skill name: %q", skillName)
-	}
-
-	// Normalize _ prefix for tracked repos
-	if !strings.HasPrefix(skillName, "_") {
-		prefixed := filepath.Join(sourceDir, "_"+skillName)
-		if install.IsGitRepo(prefixed) {
-			skillName = "_" + skillName
-		}
-	}
-
-	skillPath := filepath.Join(sourceDir, skillName)
-	if info, err := os.Stat(skillPath); err != nil || !info.IsDir() {
-		// Fallback: search by basename in nested directories
-		resolved, resolveErr := resolveNestedSkillDir(sourceDir, skillName)
-		if resolveErr != nil {
-			return nil, fmt.Errorf("skill '%s' not found in .skillshare/skills", skillName)
-		}
-		skillName = resolved
-		skillPath = filepath.Join(sourceDir, resolved)
-	}
-
-	return &uninstallTarget{
-		name:          skillName,
-		path:          skillPath,
-		isTrackedRepo: install.IsGitRepo(skillPath),
-	}, nil
-}
-
 // performProjectUninstallQuiet moves a project skill to trash without printing output.
 // Used by batch mode; returns the type label for StepDone display.
 // Note: .gitignore cleanup is handled in batch by the caller.
@@ -136,7 +101,7 @@ func cmdUninstallProject(args []string, root string) error {
 	}
 
 	for _, name := range opts.skillNames {
-		t, err := resolveProjectUninstallTarget(name, sourceDir)
+		t, err := resolveUninstallTarget(name, sourceDir, ".skillshare/skills")
 		if err != nil {
 			resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s: %v", name, err))
 			continue
