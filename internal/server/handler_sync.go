@@ -14,6 +14,7 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/skillignore"
 	ssync "skillshare/internal/sync"
+	"skillshare/internal/utils"
 )
 
 // ignorePayload builds the common ignored-skills fields for JSON responses.
@@ -262,6 +263,20 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 				}
 
 			default:
+				// A symlink pointing elsewhere is replaced only with force, as in the CLI.
+				if ssync.CheckStatus(sc.Path, s.cfg.EffectiveSkillsSource()) == ssync.StatusConflict {
+					if !force {
+						link, err := utils.ResolveLinkTarget(sc.Path)
+						if err != nil {
+							link = "(unable to resolve target)"
+						}
+						failTarget(name, fmt.Errorf("conflict - symlink points to %s (use --force to override)", link))
+						continue
+					}
+					if !dryRun {
+						os.Remove(sc.Path)
+					}
+				}
 				err := ssync.SyncTarget(name, target, s.cfg.EffectiveSkillsSource(), dryRun, s.projectRoot)
 				if err != nil {
 					failTarget(name, err)

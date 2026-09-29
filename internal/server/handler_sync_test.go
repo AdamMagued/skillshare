@@ -638,3 +638,79 @@ func TestHandleSync_SkillPruneWarningsAreReported(t *testing.T) {
 		t.Fatalf("expected external symlink prune warning, got %v", resp.Warnings)
 	}
 }
+
+// newSymlinkConflictServer sets up a symlink-mode target whose path links to
+// another folder, next to a merge target that syncs fine.
+func newSymlinkConflictServer(t *testing.T) (s *Server, src, linkPath, elsewhere string) {
+	t.Helper()
+	s, src = newTestServer(t)
+	addSkill(t, src, "alpha")
+	elsewhere = t.TempDir()
+	linkPath = filepath.Join(t.TempDir(), "linked-skills")
+	if err := os.Symlink(elsewhere, linkPath); err != nil {
+		t.Fatal(err)
+	}
+	s.cfg.Targets["linked"] = config.TargetConfig{
+		Skills: &config.ResourceTargetConfig{Path: linkPath, Mode: "symlink"},
+	}
+	s.cfg.Targets["claude"] = config.TargetConfig{
+		Skills: &config.ResourceTargetConfig{Path: filepath.Join(t.TempDir(), "claude-skills")},
+	}
+	if err := s.cfg.Save(); err != nil {
+		t.Fatal(err)
+	}
+	return s, src, linkPath, elsewhere
+}
+
+func TestHandleSync_SymlinkConflictFailsTargetWithoutForce(t *testing.T) {
+	s, _, linkPath, elsewhere := newSymlinkConflictServer(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/sync", strings.NewReader(`{}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Results  []syncTargetResult `json:"results"`
+		Warnings []string           `json:"warnings"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	want := "linked: sync failed: conflict - symlink points to " + elsewhere + " (use --force to override)"
+	if !slices.Contains(resp.Warnings, want) {
+		t.Fatalf("expected %q, got %v", want, resp.Warnings)
+	}
+	if len(resp.Results) != 1 || resp.Results[0].Target != "claude" {
+		t.Fatalf("expected only the claude row, got %+v", resp.Results)
+	}
+	if got, _ := os.Readlink(linkPath); got != elsewhere {
+		t.Fatalf("expected the conflicting symlink kept, points to %q", got)
+	}
+}
+
+func TestHandleSync_SymlinkConflictReplacedWithForce(t *testing.T) {
+	s, src, linkPath, _ := newSymlinkConflictServer(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/sync", strings.NewReader(`{"force":true}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Results []syncTargetResult `json:"results"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if len(resp.Results) != 2 {
+		t.Fatalf("expected rows for both targets, got %+v", resp.Results)
+	}
+	if ssync.CheckStatus(linkPath, src) != ssync.StatusLinked {
+		t.Fatalf("expected %s linked to the source after force", linkPath)
+	}
+}
