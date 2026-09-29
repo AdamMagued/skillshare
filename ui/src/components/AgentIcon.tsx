@@ -34,7 +34,6 @@ import kimiMono from '@lobehub/icons-static-svg/icons/kimi.svg?url';
 import nousresearchMono from '@lobehub/icons-static-svg/icons/nousresearch.svg?url';
 import opencodeMono from '@lobehub/icons-static-svg/icons/opencode.svg?url';
 import openhandsMono from '@lobehub/icons-static-svg/icons/openhands.svg?url';
-import piMono from '@lobehub/icons-static-svg/icons/pi.svg?url';
 import qoderMono from '@lobehub/icons-static-svg/icons/qoder.svg?url';
 import roocodeMono from '@lobehub/icons-static-svg/icons/roocode.svg?url';
 import windsurfMono from '@lobehub/icons-static-svg/icons/windsurf.svg?url';
@@ -52,6 +51,9 @@ import reasonixColor from '../assets/agents/reasonix-color.svg?url';
 import jazzColor from '../assets/agents/jazz-color.svg?url';
 // mcpjam: Apache-2.0 (LICENSE excludes only /server/services), https://github.com/MCPJam/inspector/blob/main/mcpjam-inspector/client/public/mcp_jam.svg
 import mcpjamColor from '../assets/agents/mcpjam-color.svg?url';
+// pi: https://pi.dev/logo-auto.svg, cropped to the mark; its colors are the brand's in the MIT repo,
+// https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/src/modes/interactive/components/pi-logo.ts
+import piColor from '../assets/agents/pi-color.svg?url';
 // pochi: Apache-2.0, https://github.com/TabbyML/pochi/blob/main/packages/vscode/assets/icons/pochi-logo.svg
 import pochiMono from '../assets/agents/pochi.svg?url';
 import coderMono from '../assets/agents/coder.svg?url';
@@ -85,6 +87,7 @@ const colored: Record<string, string> = {
   mcpjam: mcpjamColor,
   omp: ompColor,
   openclaw: openclawColor,
+  pi: piColor,
   'posit-assistant': positColor,
   'qoder-cn': qoderColor,
   qwen: qwenColor,
@@ -117,7 +120,6 @@ const mono: Record<string, string> = {
   mux: coderMono,
   opencode: opencodeMono,
   openhands: openhandsMono,
-  pi: piMono,
   pochi: pochiMono,
   qoder: qoderMono,
   roo: roocodeMono,
