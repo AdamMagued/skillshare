@@ -184,5 +184,5 @@ func (g urlBranchGroup) remoteHash() (string, error) {
 	if g.branch != "" {
 		return git.GetRemoteRefHashWithAuth(g.url, g.branch)
 	}
-	return git.GetRemoteHeadHash(g.url)
+	return git.GetRemoteHeadHashWithAuth(g.url)
 }
