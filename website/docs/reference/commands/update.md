@@ -395,6 +395,8 @@ skillshare update _team-skills
 skillshare update _team-skills --force
 ```
 
+If skillshare cannot read the repo's git status, the update fails for that repo with `failed to check git status`; `--force` skips the check.
+
 ## After Updating
 
 Run `skillshare sync` to distribute changes to all targets:
@@ -446,6 +448,8 @@ skillshare update team-skills -p
 # Option 2: Discard and force update
 skillshare update team-skills -p --force
 ```
+
+If skillshare cannot read the repo's git status, the update fails for that repo with `failed to check git status`; `--force` skips the check.
 
 ### Typical Workflow
 

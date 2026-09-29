@@ -153,7 +153,7 @@ skillshare update _repo --force -p  # Discard local changes
 | `--json` | JSON output |
 | `--diff` | Show file-level change summary after update |
 
-**Safety:** Tracked repos with uncommitted changes are skipped. Use `--force` to override.
+**Safety:** Tracked repos with uncommitted changes are skipped, and repos whose git status cannot be read fail. Use `--force` to override both.
 
 **Security:** Updates roll back when findings reach the configured block threshold.
 `--audit-threshold` / `--threshold` / `-T` overrides the threshold for the run.

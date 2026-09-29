@@ -122,7 +122,13 @@ func updateTrackedRepo(uc *updateContext, repoName string) (updateResult, error)
 	// Check for uncommitted changes
 	spinner := ui.StartSpinner("Checking status...")
 
-	isDirty, _ := git.IsDirty(repoPath)
+	isDirty, dirtyErr := git.IsDirty(repoPath)
+	if dirtyErr != nil && !uc.opts.force {
+		spinner.Stop()
+		statusErr := &gitStatusError{err: dirtyErr}
+		ui.StepResult("error", statusErr.Error(), 0)
+		return updateResult{skipped: 1}, statusErr
+	}
 	if isDirty {
 		spinner.Stop()
 		files, _ := git.GetDirtyFiles(repoPath)
@@ -336,7 +342,11 @@ func updateRegularSkill(uc *updateContext, skillName string) (updateResult, erro
 // Returns (updated, auditResult, error).
 func updateTrackedRepoQuick(uc *updateContext, repoPath string) (bool, *audit.Result, error) {
 	// Check for uncommitted changes
-	if isDirty, _ := git.IsDirty(repoPath); isDirty {
+	isDirty, err := git.IsDirty(repoPath)
+	if err != nil && !uc.opts.force {
+		return false, nil, &gitStatusError{err: err}
+	}
+	if isDirty {
 		if !uc.opts.force {
 			return false, nil, nil
 		}
@@ -352,7 +362,6 @@ func updateTrackedRepoQuick(uc *updateContext, repoPath string) (bool, *audit.Re
 	}
 
 	var info *git.UpdateInfo
-	var err error
 	if uc.opts.force {
 		info, err = git.ForcePullWithProgress(repoPath, git.AuthEnvForRepo(repoPath), nil)
 	} else {

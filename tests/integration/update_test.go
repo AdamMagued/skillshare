@@ -932,3 +932,48 @@ func TestUpdate_BatchAll_HonoursAcceptedFindings(t *testing.T) {
 		t.Error("new finding must still block and roll back")
 	}
 }
+
+// corruptGitIndex makes `git status` fail in repoPath by truncating its index.
+func corruptGitIndex(t *testing.T, repoPath string) {
+	t.Helper()
+	if err := os.WriteFile(filepath.Join(repoPath, ".git", "index"), []byte("garbage"), 0644); err != nil {
+		t.Fatalf("failed to corrupt git index: %v", err)
+	}
+}
+
+func TestUpdate_TrackedRepo_GitStatusErrorFailsUpdate(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	setupGlobalConfig(sb)
+
+	repoName := setupCleanTrackedRepo(t, sb, "status-broken")
+	corruptGitIndex(t, filepath.Join(sb.SourcePath, repoName))
+
+	result := sb.RunCLI("update", repoName)
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "failed to check git status")
+}
+
+func TestUpdate_BatchGitStatusErrorFailsRepo(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	setupGlobalConfig(sb)
+
+	cleanName := setupCleanTrackedRepo(t, sb, "batch-status-clean")
+	brokenName := setupCleanTrackedRepo(t, sb, "batch-status-broken")
+	corruptGitIndex(t, filepath.Join(sb.SourcePath, brokenName))
+
+	result := sb.RunCLI("update", cleanName, brokenName)
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, brokenName+": failed to check git status")
+
+	cleanContent := sb.ReadFile(filepath.Join(sb.SourcePath, cleanName, "my-skill", "SKILL.md"))
+	if !contains(cleanContent, "Updated clean") {
+		t.Error("clean repo should still be updated")
+	}
+
+	jsonResult := sb.RunCLI("update", cleanName, brokenName, "--json")
+	jsonResult.AssertFailure(t)
+	jsonResult.AssertOutputContains(t, `"status": "failed"`)
+	jsonResult.AssertOutputContains(t, "failed to check git status")
+}

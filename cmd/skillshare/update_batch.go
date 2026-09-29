@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -64,6 +65,7 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 	var staleNames []string
 	var prunedNames []string
 	var missingRepoNames []string
+	var statusFailedEntries []batchBlockedEntry
 
 	// Group skills by RepoURL to optimize updates
 	repoGroups := make(map[string][]updateTarget)
@@ -121,11 +123,15 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 			continue
 		}
 		updated, auditResult, err := updateTrackedRepoQuick(uc, t.path)
+		var statusErr *gitStatusError
 		if err != nil {
 			if isSecurityError(err) {
 				result.securityFailed++
 				blockedEntries = append(blockedEntries, batchBlockedEntry{name: t.name, errMsg: err.Error()})
 				result.items = append(result.items, updateJSONItem{Name: t.name, Type: "repo", Status: "security_blocked", Error: err.Error()})
+			} else if errors.As(err, &statusErr) {
+				statusFailedEntries = append(statusFailedEntries, batchBlockedEntry{name: t.name, errMsg: err.Error()})
+				result.items = append(result.items, updateJSONItem{Name: t.name, Type: "repo", Status: "failed", Error: err.Error()})
 			} else {
 				result.skipped++
 				result.items = append(result.items, updateJSONItem{Name: t.name, Type: "repo", Status: "skipped", Error: updateTrackedRepoErrorMessage(t, err)})
@@ -291,6 +297,9 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 	// Render results
 	if !uc.opts.dryRun {
 		displayUpdateBlockedSection(blockedEntries)
+		for _, e := range statusFailedEntries {
+			ui.Error("%s: %s", e.name, e.errMsg)
+		}
 		displayPrunedSection(prunedNames)
 		displayStaleWarning(staleNames)
 		displayMissingTrackedReposWarning(missingRepoNames)
@@ -309,10 +318,14 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 		ui.Info("Run 'skillshare sync' to distribute changes")
 	}
 
+	var errs []error
 	if result.securityFailed > 0 {
-		return result, fmt.Errorf("%d repo(s) blocked by security audit", result.securityFailed)
+		errs = append(errs, fmt.Errorf("%d repo(s) blocked by security audit", result.securityFailed))
 	}
-	return result, nil
+	if len(statusFailedEntries) > 0 {
+		errs = append(errs, fmt.Errorf("%d repo(s) failed to check git status", len(statusFailedEntries)))
+	}
+	return result, errors.Join(errs...)
 }
 
 func handleGroupedBatchProgress(progressBar *ui.ProgressBar, line string) bool {
