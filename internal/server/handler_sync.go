@@ -38,6 +38,17 @@ func ignorePayload(stats *skillignore.IgnoreStats) map[string]any {
 	}
 }
 
+// syncFailure is a target that failed to sync while the others went ahead.
+// Message is the same text the failure adds to warnings, so a client can show
+// failures apart from the other warnings.
+type syncFailure struct {
+	Target   string `json:"target"`
+	Part     string `json:"part"` // "skill" or "agent"
+	Error    string `json:"error"`
+	Message  string `json:"message"`
+	Conflict bool   `json:"conflict,omitempty"` // a symlink points elsewhere; force replaces it
+}
+
 type syncTargetResult struct {
 	Target     string   `json:"target"`
 	Linked     []string `json:"linked"`
@@ -87,6 +98,7 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 	resp := map[string]any{
 		"results":          out.results,
 		"warnings":         out.warnings,
+		"failed":           out.failed,
 		"folder_conflicts": out.folderConflicts,
 		"path_overlap":     out.pathOverlap,
 	}
@@ -103,6 +115,7 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 type syncOutcome struct {
 	results         []syncTargetResult
 	warnings        []string
+	failed          []syncFailure
 	folderConflicts []config.SkillsFolderConflict
 	pathOverlap     int // targets whose path overlap the folder conflicts don't explain
 	skills          []ssync.DiscoveredSkill
@@ -171,6 +184,7 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 	}
 
 	results := make([]syncTargetResult, 0)
+	failed := make([]syncFailure, 0)
 	skillFailed := 0
 
 	var ignoreStats *skillignore.IgnoreStats
@@ -201,7 +215,9 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 			if firstErr == nil {
 				firstErr, firstFailed = fmt.Errorf("sync failed for %s: %w", name, err), name
 			}
-			warnings = append(warnings, name+": sync failed: "+err.Error())
+			msg := name + ": sync failed: " + err.Error()
+			warnings = append(warnings, msg)
+			failed = append(failed, syncFailure{Target: name, Part: "skill", Error: err.Error(), Message: msg, Conflict: errors.Is(err, ssync.ErrSymlinkConflict)})
 		}
 		runOpts := ssync.SkillRunOptions{
 			Source: s.cfg.EffectiveSkillsSource(), ProjectRoot: s.projectRoot, IgnorePatterns: ignorePatterns,
@@ -301,13 +317,18 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 				if run.Path == "" {
 					continue
 				}
+				failAgent := func(err error) {
+					msg := "agent sync failed for " + name + ": " + err.Error()
+					warnings = append(warnings, msg)
+					failed = append(failed, syncFailure{Target: name, Part: "agent", Error: err.Error(), Message: msg})
+				}
 				if run.Err != nil {
-					warnings = append(warnings, "agent sync failed for "+name+": "+run.Err.Error())
+					failAgent(run.Err)
 					continue
 				}
 				warnings = append(warnings, run.Warnings...)
 				if run.SyncErr != nil {
-					warnings = append(warnings, "agent sync failed for "+name+": "+run.SyncErr.Error())
+					failAgent(run.SyncErr)
 				}
 				if !run.Synced {
 					continue
@@ -360,7 +381,7 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 	}
 	s.writeOpsLog("sync", status, start, logArgs, "")
 
-	return &syncOutcome{results: results, warnings: warnings, folderConflicts: conflicts, pathOverlap: overlap, skills: allSkills, ignoreStats: ignoreStats}, 0, nil
+	return &syncOutcome{results: results, warnings: warnings, failed: failed, folderConflicts: conflicts, pathOverlap: overlap, skills: allSkills, ignoreStats: ignoreStats}, 0, nil
 }
 
 // backupBeforeSync snapshots the target folders a sync may overwrite, as the

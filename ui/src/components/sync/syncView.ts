@@ -169,11 +169,19 @@ export interface SyncRun {
 /** A target that failed to sync; the rest of the run still went ahead. */
 export interface SyncFailure {
   target: string;
-  part: 'extra';
-  /** The extra's name */
-  extra: string;
+  part: 'skill' | 'agent' | 'extra';
+  /** The extra's name, for an extras target */
+  extra?: string;
   error: string;
+  /** A symlink points elsewhere; Force replaces it */
+  conflict?: boolean;
 }
+
+/** The sync warnings that are not also reported as a failed target. */
+export const otherWarnings = (res: SyncResponse | null | undefined) => {
+  const failed = new Set((res?.failed ?? []).map((f) => f.message));
+  return (res?.warnings ?? []).filter((w) => !failed.has(w));
+};
 
 /**
  * Writes each included part in order. MCP is checked before anything is written and again right before it applies.
@@ -193,7 +201,7 @@ export async function runSync(run: SyncRun) {
   if (run.resources) {
     resources = await api.sync({ force: run.force, ...(run.resources !== 'both' && { kind: run.resources }), ...(run.project && { project: run.project.root }) });
   }
-  const failures: SyncFailure[] = [];
+  const failures: SyncFailure[] = (resources?.failed ?? []).map(({ target, part, error, conflict }) => ({ target, part, error, conflict }));
   if (run.extras) {
     const extras = await api.syncExtras({ force: run.force });
     for (const e of extras.extras) {

@@ -1,12 +1,17 @@
 package sync
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
 	"skillshare/internal/config"
 	"skillshare/internal/utils"
 )
+
+// ErrSymlinkConflict marks a symlink-mode target whose link points somewhere
+// other than the source. Force replaces the link.
+var ErrSymlinkConflict = errors.New("conflict")
 
 // SkillTarget is one target a skill sync visits.
 type SkillTarget struct {
@@ -86,7 +91,7 @@ func SyncSkillTarget(t SkillTarget, skills []DiscoveredSkill, opts SkillRunOptio
 				if err != nil {
 					link = "(unable to resolve target)"
 				}
-				res.Err = fmt.Errorf("conflict - symlink points to %s (use --force to override)", link)
+				res.Err = fmt.Errorf("%w - symlink points to %s (use --force to override)", ErrSymlinkConflict, link)
 				return res
 			}
 			if !opts.DryRun {

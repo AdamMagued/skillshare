@@ -11,7 +11,8 @@ import PageHeader from '../components/PageHeader';
 import Spinner from '../components/Spinner';
 import { useToast } from '../components/Toast';
 import { describeMessage, mcpClient, targetLabel } from '../components/mcp/mcpView';
-import { countChanges, countEdited, extraGroups, groupByFolder, groupInSync, MCP_CHANGED, mcpGroups, resourceGroups, runSync, type ChangeGroup, type Part, type RowIcon, type SyncFailure } from '../components/sync/syncView';
+import { countChanges, countEdited, extraGroups, groupByFolder, groupInSync, MCP_CHANGED, mcpGroups, otherWarnings, resourceGroups, runSync, type ChangeGroup, type Part, type RowIcon, type SyncFailure } from '../components/sync/syncView';
+import SyncResult from '../components/sync/SyncResult';
 import SkillsOffDialog from '../components/targets/SkillsOffDialog';
 import { joinList, refreshTargets } from '../components/targets/targetView';
 import { formatDateTime, formatRelativeTime, useI18n, useT } from '../i18n';
@@ -118,7 +119,8 @@ export default function SyncPage() {
       });
       setOutcome(result ?? null);
       setFailures(failed);
-      toast(t('sync.toast.done'), 'success');
+      if (failed.length > 0) toast(t(failed.length === 1 ? 'sync.toast.failed.one' : 'sync.toast.failed.other', { count: failed.length }), 'warning');
+      else toast(t('sync.toast.done'), 'success');
     } catch (err) {
       const message = (err as Error).message;
       setRunError(message === MCP_CHANGED ? t('sync.mcpChanged') : message);
@@ -129,6 +131,9 @@ export default function SyncPage() {
     }
   };
 
+  const failedTargets = new Set(failures.filter((f) => f.part !== 'extra').map((f) => f.target));
+  const syncedTargets = new Set((outcome?.results ?? []).map((r) => r.target).filter((name) => !failedTargets.has(name))).size;
+
   const groupHead = (g: ChangeGroup) => {
     const n = countChanges([g]);
     return (
@@ -137,6 +142,7 @@ export default function SyncPage() {
         <span className="font-semibold">{g.part === 'mcp' ? targetLabel(g.name) : g.name}</span>
         <span className="ss-tag">{g.part === 'mcp' ? 'MCP' : g.mode}</span>
         {g.path && <span className="min-w-0 truncate font-mono text-[12px] text-ink-3" title={g.path}>{shortenHome(g.path)}</span>}
+        {g.part === 'target' && failedTargets.has(g.name) && <span className="ss-tag bad shrink-0">{t('sync.result.lastFailed')}</span>}
         {g.project && <span className="ss-tag shrink-0" title={g.project}>{t('sync.mcp.offList', { project: shortenHome(g.project) })}</span>}
         <span className="flex-1" />
         {n > 0 && <span className="shrink-0 text-[12px] text-ink-2">{t(n === 1 ? 'sync.changes.one' : 'sync.changes.other', { count: n })}</span>}
@@ -190,8 +196,7 @@ export default function SyncPage() {
             </div>
           )}
           {parts.has('mcp') && mcp.data?.previewError && <div className="ss-note bad"><AlertCircle size={16} /><span className="flex-1">{mcp.data.previewError}</span></div>}
-          {failures.map((f) => <div key={`${f.extra}/${f.target}`} className="ss-note bad"><AlertCircle size={16} /><span className="flex-1">{f.extra} → {f.target}: {f.error}</span></div>)}
-          {outcome?.warnings?.map((w) => <div key={w} className="ss-note warn"><TriangleAlert size={16} /><span className="flex-1">{w}</span></div>)}
+          <SyncResult failures={failures} warnings={otherWarnings(outcome)} synced={syncedTargets} force={force} onForce={() => setForce(true)} />
           {!!outcome?.path_overlap && (
             <div className="ss-note warn !items-center">
               <TriangleAlert size={16} />

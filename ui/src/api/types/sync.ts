@@ -56,9 +56,21 @@ export function formatTokenK(n: number): string {
   return (n / 1000).toFixed(1) + 'K';
 }
 
+/** A target that failed to sync while the others went ahead. */
+export interface SyncTargetFailure {
+  target: string;
+  part: 'skill' | 'agent';
+  error: string;
+  /** The same text as its entry in warnings */
+  message: string;
+  /** A symlink points elsewhere; Force replaces it */
+  conflict?: boolean;
+}
+
 export interface SyncResponse extends IgnoreSources {
   results: SyncResult[];
   warnings?: string[];
+  failed?: SyncTargetFailure[];
   folder_conflicts?: FolderConflict[];
   /** Targets whose skills path overlaps another's in a way folder_conflicts doesn't explain. */
   path_overlap?: number;

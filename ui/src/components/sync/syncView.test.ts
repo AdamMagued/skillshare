@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api, type DiffTarget, type Target } from '../../api/client';
 import { mcpApi, type MCPPlan } from '../../api/mcp';
-import { countChanges, countEdited, extraGroups, groupByFolder, groupInSync, MCP_CHANGED, mcpGroups, pendingCount, resourceGroups, runSync } from './syncView';
+import { countChanges, countEdited, extraGroups, groupByFolder, groupInSync, MCP_CHANGED, mcpGroups, otherWarnings, pendingCount, resourceGroups, runSync } from './syncView';
 
 vi.mock('../../api/client', async (load) => ({ ...await load<typeof import('../../api/client')>(), api: { sync: vi.fn(), syncExtras: vi.fn() } }));
 vi.mock('../../api/mcp', async (load) => ({ ...await load<typeof import('../../api/mcp')>(), mcpApi: { preview: vi.fn(), configure: vi.fn() } }));
@@ -91,6 +91,14 @@ describe('runSync', () => {
     expect(mcpApi.configure).toHaveBeenCalled();
   });
 
+  it('reports the targets the server failed to sync', async () => {
+    vi.mocked(mcpApi.preview).mockResolvedValue(plan);
+    vi.mocked(api.sync).mockResolvedValueOnce({ results: [], ignored_count: 0, ignored_skills: [], ignore_root: '', ignore_repos: [],
+      failed: [{ target: 'codex', part: 'skill', error: 'conflict - symlink points to /x', message: 'codex: sync failed: conflict - symlink points to /x', conflict: true }] });
+    const { failures } = await runSync(run);
+    expect(failures).toEqual([{ target: 'codex', part: 'skill', error: 'conflict - symlink points to /x', conflict: true }]);
+  });
+
   it('stops before MCP when its changes differ after syncing resources', async () => {
     vi.mocked(mcpApi.preview).mockResolvedValueOnce(plan).mockResolvedValueOnce({ ...plan, revision: 'after', changes: [{ ...change, action: 'remove' }] });
     await expect(runSync(run)).rejects.toThrow(MCP_CHANGED);
@@ -132,5 +140,14 @@ describe('groupInSync', () => {
 describe('groupByFolder', () => {
   it('writes a shared folder once', () => {
     expect(groupByFolder(['security/a', 'security/b', 'top'])).toEqual([{ folder: 'security/', items: ['a', 'b'] }, { folder: '', items: ['top'] }]);
+  });
+});
+
+describe('otherWarnings', () => {
+  it('leaves out warnings that a failed target already reports', () => {
+    const res = { results: [], ignored_count: 0, ignored_skills: [], ignore_root: '', ignore_repos: [],
+      warnings: ['codex: sync failed: denied', 'backup skipped'],
+      failed: [{ target: 'codex', part: 'skill' as const, error: 'denied', message: 'codex: sync failed: denied' }] };
+    expect(otherWarnings(res)).toEqual(['backup skipped']);
   });
 });

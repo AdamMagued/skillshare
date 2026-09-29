@@ -691,6 +691,26 @@ func TestHandleSync_SymlinkConflictFailsTargetWithoutForce(t *testing.T) {
 	}
 }
 
+func TestHandleSync_ReportsFailedTargetsApartFromWarnings(t *testing.T) {
+	s, _, _, elsewhere := newSymlinkConflictServer(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/sync", strings.NewReader(`{}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	var resp struct {
+		Failed []syncFailure `json:"failed"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	errText := "conflict - symlink points to " + elsewhere + " (use --force to override)"
+	want := []syncFailure{{Target: "linked", Part: "skill", Error: errText, Message: "linked: sync failed: " + errText, Conflict: true}}
+	if !slices.Equal(resp.Failed, want) {
+		t.Fatalf("expected %+v, got %+v", want, resp.Failed)
+	}
+}
+
 func TestHandleSync_SymlinkConflictReplacedWithForce(t *testing.T) {
 	s, src, linkPath, _ := newSymlinkConflictServer(t)
 
