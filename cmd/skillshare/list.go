@@ -578,6 +578,7 @@ func displayTrackedRepos(trackedRepos []string, discovered []sync.DiscoveredSkil
 	const maxDirtyWorkers = 8
 	type repoStatus struct {
 		dirty bool
+		err   error
 	}
 	results := make([]repoStatus, len(trackedRepos))
 	sem := make(chan struct{}, maxDirtyWorkers)
@@ -590,15 +591,18 @@ func displayTrackedRepos(trackedRepos []string, discovered []sync.DiscoveredSkil
 			defer wg.Done()
 			defer func() { <-sem }()
 			repoPath := filepath.Join(sourcePath, name)
-			dirty, _ := git.IsDirty(repoPath)
-			results[idx] = repoStatus{dirty: dirty}
+			dirty, err := git.IsDirty(repoPath)
+			results[idx] = repoStatus{dirty: dirty, err: err}
 		}(i, repoName)
 	}
 	wg.Wait()
 
 	for i, repoName := range trackedRepos {
 		skillCount := countRepoSkills(repoName, discovered)
-		if results[i].dirty {
+		if err := results[i].err; err != nil {
+			ui.ListItem("warning", repoName, fmt.Sprintf("%d skills, git status unknown", skillCount))
+			ui.Warning("%s: %v", repoName, &gitStatusError{err: err})
+		} else if results[i].dirty {
 			ui.ListItem("warning", repoName, fmt.Sprintf("%d skills, has changes", skillCount))
 		} else {
 			ui.ListItem("success", repoName, fmt.Sprintf("%d skills, up-to-date", skillCount))

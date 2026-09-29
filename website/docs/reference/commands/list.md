@@ -311,6 +311,7 @@ For more details, see [Organizing Skills with Folders](/docs/how-to/daily-tasks/
 |------|---------|
 | `✓` | Up-to-date, no local changes |
 | `!` | Has uncommitted changes |
+| `!` + warning | Git status unknown (could not be read); a warning line names the repo and error |
 
 ## Agent Support
 

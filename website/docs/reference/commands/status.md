@@ -76,7 +76,7 @@ Shows the source directory location, skill count, and last modified time. When a
 
 Lists git repositories installed with `--track`. Shows:
 - Skill count per repository
-- Git status (up-to-date or has changes)
+- Git status (up-to-date, has changes, or unknown when git status cannot be read; a warning names the repo and error)
 
 ### Targets
 
@@ -196,6 +196,8 @@ skillshare status --json
   "version": "0.17.0"
 }
 ```
+
+A tracked repo whose git status cannot be read has `"status": "unknown"` and `message` holding the error; `dirty` is then false and not meaningful.
 
 The `source.skillignore` field is present only when at least one `.skillignore` or `.skillignore.local` file exists. When absent: `"skillignore": { "active": false }`. The `files` array includes `.skillignore.local` paths when present. In text mode, the source line shows `.local active` when any `.skillignore.local` is in effect.
 

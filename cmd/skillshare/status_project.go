@@ -208,7 +208,11 @@ func printProjectTrackedReposStatus(sourcePath string, discovered []sync.Discove
 
 		statusStr := "up-to-date"
 		statusIcon := "✓"
-		if isDirty, _ := git.IsDirty(repoPath); isDirty {
+		if isDirty, err := git.IsDirty(repoPath); err != nil {
+			statusStr = "git status unknown"
+			statusIcon = "?"
+			ui.Warning("%s: %v", repoName, &gitStatusError{err: err})
+		} else if isDirty {
 			statusStr = "has uncommitted changes"
 			statusIcon = "!"
 		}

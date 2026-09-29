@@ -3,6 +3,7 @@
 package integration
 
 import (
+	"path/filepath"
 	"testing"
 
 	"skillshare/internal/testutil"
@@ -44,4 +45,15 @@ func TestStatusProject_ShowsSourceAndTargets(t *testing.T) {
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "Source")
 	result.AssertOutputContains(t, "Targets")
+}
+
+func TestStatusProject_TrackedRepoGitStatusError_ShowsUnknown(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	projectRoot := sb.SetupProjectDir("claude")
+	makeTrackedRepoWithBrokenStatus(t, filepath.Join(projectRoot, ".skillshare", "skills"), "_broken-repo")
+
+	result := sb.RunCLIInDir(projectRoot, "status", "-p")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "_broken-repo: failed to check git status")
 }

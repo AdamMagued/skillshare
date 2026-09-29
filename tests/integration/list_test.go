@@ -728,3 +728,14 @@ func writeListMeta(t *testing.T, sourceDir, skillName string, entry *install.Met
 		t.Fatalf("writeListMeta: save: %v", err)
 	}
 }
+
+func TestList_TrackedRepoGitStatusError_ShowsUnknown(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	makeTrackedRepoWithBrokenStatus(t, sb.SourcePath, "_broken-repo")
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	result := sb.RunCLI("list", "--no-tui")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "_broken-repo: failed to check git status")
+}

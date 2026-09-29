@@ -202,3 +202,55 @@ targets: {}
 		t.Errorf("expected patterns=[test-*], got %v", output.Source.Skillignore.Patterns)
 	}
 }
+
+// makeTrackedRepoWithBrokenStatus creates a committed tracked repo under
+// sourceDir whose `git status` fails because its index is corrupt.
+func makeTrackedRepoWithBrokenStatus(t *testing.T, sourceDir, name string) {
+	t.Helper()
+	repoPath := filepath.Join(sourceDir, name)
+	if err := os.MkdirAll(filepath.Join(repoPath, "my-skill"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repoPath, "my-skill", "SKILL.md"), []byte("---\nname: my-skill\n---\n# My Skill"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	run(t, repoPath, "git", "init")
+	run(t, repoPath, "git", "add", "-A")
+	run(t, repoPath, "git", "commit", "-m", "init")
+	corruptGitIndex(t, repoPath)
+}
+
+func TestStatus_TrackedRepoGitStatusError_ShowsUnknown(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	makeTrackedRepoWithBrokenStatus(t, sb.SourcePath, "_broken-repo")
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	result := sb.RunCLI("status")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "_broken-repo: failed to check git status")
+}
+
+func TestStatus_JSON_TrackedRepoGitStatusError_ShowsUnknown(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	makeTrackedRepoWithBrokenStatus(t, sb.SourcePath, "_broken-repo")
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	result := sb.RunCLI("status", "--json")
+	result.AssertSuccess(t)
+
+	var output struct {
+		TrackedRepos []struct {
+			Name    string `json:"name"`
+			Status  string `json:"status"`
+			Message string `json:"message"`
+		} `json:"tracked_repos"`
+	}
+	if err := json.Unmarshal([]byte(result.Stdout), &output); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, result.Stdout)
+	}
+	if len(output.TrackedRepos) != 1 || output.TrackedRepos[0].Status != "unknown" {
+		t.Fatalf("expected one tracked repo with status unknown, got %+v", output.TrackedRepos)
+	}
+}

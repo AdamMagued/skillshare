@@ -297,7 +297,11 @@ func printTrackedReposStatus(cfg *config.Config, discovered []sync.DiscoveredSki
 
 		statusStr := "up-to-date"
 		statusIcon := "✓"
-		if isDirty, _ := git.IsDirty(repoPath); isDirty {
+		if isDirty, err := git.IsDirty(repoPath); err != nil {
+			statusStr = "git status unknown"
+			statusIcon = "?"
+			ui.Warning("%s: %v", repoName, &gitStatusError{err: err})
+		} else if isDirty {
 			statusStr = "has uncommitted changes"
 			statusIcon = "!"
 		}
@@ -347,11 +351,15 @@ func buildTrackedRepoJSON(sourcePath string, trackedRepos []string, discovered [
 		go func(idx int, name string) {
 			defer wg.Done()
 			repoPath := filepath.Join(sourcePath, name)
-			dirty, _ := git.IsDirty(repoPath)
+			dirty, err := git.IsDirty(repoPath)
 			results[idx] = statusJSONRepo{
 				Name:       name,
 				SkillCount: repoSkillCount[name],
 				Dirty:      dirty,
+			}
+			if err != nil {
+				results[idx].Status = "unknown"
+				results[idx].Message = (&gitStatusError{err: err}).Error()
 			}
 		}(i, repoName)
 	}
