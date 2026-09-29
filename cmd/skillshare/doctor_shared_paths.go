@@ -23,6 +23,16 @@ func sharedTargetPathsSuggestion(path string, targets []string, isProject bool) 
 		path, targetRemoveDryRunCommand(isProject), strings.Join(targets, ", "))
 }
 
+// folderConflictSuggestion says which targets to stop syncing skills for when
+// targets share a folder with different settings.
+func folderConflictSuggestion(c config.SkillsFolderConflict, isProject bool) string {
+	cmds := make([]string, 0, len(c.Stop))
+	for _, name := range c.Stop {
+		cmds = append(cmds, "`"+skillsOffCommand(name, isProject)+"`")
+	}
+	return fmt.Sprintf("Keep %s syncing skills to %s and stop the rest with %s.", c.Keep, c.Path, strings.Join(cmds, ", "))
+}
+
 func crossTargetDiscoverySuggestion(scanner string, writers []string, isProject bool) string {
 	// Point at the scanner first: removing it only affects that runtime, while
 	// removing a writer also hides skills from every other tool reading its path.
@@ -71,12 +81,22 @@ func checkSharedTargetPaths(cfg *config.Config, result *doctorResult, isProject 
 		return collisions[i].path < collisions[j].path
 	})
 
+	conflicts := make(map[string]config.SkillsFolderConflict)
+	for _, c := range config.SkillsFolderConflicts(cfg.Targets) {
+		conflicts[c.Path] = c
+	}
+
 	details := make([]string, 0, len(collisions))
 	suggestions := make([]string, 0, len(collisions))
 	for _, c := range collisions {
-		ui.Warning("Shared path %s ← %s", c.path, strings.Join(c.targets, ", "))
-		details = append(details, fmt.Sprintf("%s ← %s", c.path, strings.Join(c.targets, ", ")))
+		detail := fmt.Sprintf("%s ← %s", c.path, strings.Join(c.targets, ", "))
 		suggestion := sharedTargetPathsSuggestion(c.path, c.targets, isProject)
+		if conflict, ok := conflicts[c.path]; ok {
+			detail += " (different filters, so they undo each other on every sync)"
+			suggestion = folderConflictSuggestion(conflict, isProject)
+		}
+		ui.Warning("Shared path %s", detail)
+		details = append(details, detail)
 		fmt.Println(ui.DimText("    suggestion: " + suggestion))
 		suggestions = append(suggestions, suggestion)
 		result.addWarning()

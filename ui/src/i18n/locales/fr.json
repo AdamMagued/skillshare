@@ -1651,6 +1651,8 @@
   "sync.local.hint": "La synchronisation n'y touche pas. Collecter les ramène dans votre source.",
   "sync.local.collect": "Collecter",
   "sync.forceHint": "Remplacer les fichiers modifiés dans une cible",
+  "sync.folderConflict.text": "{names} synchronisent les skills dans le même dossier {path} avec des filtres différents : chaque synchronisation annule l’autre.",
+  "sync.folderConflict.stop": "Arrêter de synchroniser les skills vers {name}",
   "sync.last.title": "Dernière synchronisation",
   "sync.last.when": "Quand",
   "sync.last.targets": "Cibles",

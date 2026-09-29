@@ -150,6 +150,15 @@ Doctor 会在两类重复 skill 风险到达运行时选择器之前将其标记
 
 解决方法：禁用其中一个重叠的 target，或用 `skillshare target <name> --path <dir>` 设置一个独立的路径。
 
+如果共用路径的 targets 的 `include` 或 `exclude` 筛选不同，每次同步都会加入一个 target 需要的内容、再删掉另一个 target 过滤掉的内容，文件夹永远不会稳定，`sync` 也会一直显示同样的待同步变更。Doctor 会标出这种情况，并建议只保留一个 target（如果其中有 `universal` 就保留它）、其余的关闭 skills 同步，而不是移除 target：
+
+```text
+! Shared path ~/.agents/skills ← codex, universal (different filters, so they undo each other on every sync)
+    suggestion: Keep universal syncing skills to ~/.agents/skills and stop the rest with `skillshare target codex --skills=false`.
+```
+
+`sync` 也会列出相同的 targets 和要执行的命令，dashboard 的同步页面则提供按钮，可直接停止同步该 target 的 skills。设置完全相同的共用路径 targets 仍适用上面的解决方法。
+
 **`cross_target_discovery`** —— 当某个已启用 target 的运行时文档说明它也会扫描
 另一个已启用 target 写入的目录时触发。例如，沿用旧设置的配置仍让 `codex` 指向旧版的
 `~/.codex/skills`，而 `universal` 写入 `~/.agents/skills` —— Codex 同样会读取这个目录。
@@ -316,7 +325,7 @@ skillshare doctor --json
     { "name": "source", "status": "pass", "message": "Source: ~/.config/skillshare/skills (12 skills)" },
     { "name": "skillignore", "status": "pass", "message": ".skillignore: 3 patterns, 2 skills ignored", "details": ["test-*", "vendor/", "!important", "---", "test-draft", "vendor/lib"] },
     { "name": "sync_drift", "status": "warning", "message": "claude: 1 skill(s) not synced (7/8 linked)", "details": ["new-skill"] },
-    { "name": "shared_target_paths", "status": "warning", "message": "1 shared target path(s) — enabled targets writing to the same directory may produce duplicate skills in runtime pickers", "details": ["~/.agents/skills ← universal, warp"], "suggestions": ["Choose one authoritative target for ~/.agents/skills and disable or reconfigure the rest (currently: universal, warp)"] },
+    { "name": "shared_target_paths", "status": "warning", "message": "1 shared target path(s) — enabled targets writing to the same directory may produce duplicate skills in runtime pickers", "details": ["~/.agents/skills ← universal, warp"], "suggestions": ["Choose one authoritative target for ~/.agents/skills; preview removing duplicate targets with `skillshare target remove <name> --global --dry-run` (currently: universal, warp)."] },
     { "name": "broken_symlinks", "status": "error", "message": "cursor: 1 broken symlink(s)", "details": ["old-skill"] }
   ],
   "summary": { "total": 14, "pass": 12, "warnings": 1, "errors": 1, "info": 0 },

@@ -1651,6 +1651,8 @@
   "sync.local.hint": "同步不會動到它們，收集可以將其納入來源。",
   "sync.local.collect": "收集",
   "sync.forceHint": "取代在目標中修改過的檔案",
+  "sync.folderConflict.text": "{names} 同步到同一個資料夾 {path}，但篩選不同，每次同步都會互相加回、刪掉。",
+  "sync.folderConflict.stop": "停止同步 {name} 的 Skills",
   "sync.last.title": "上次同步",
   "sync.last.when": "時間",
   "sync.last.targets": "目標",

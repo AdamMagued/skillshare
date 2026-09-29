@@ -11,9 +11,10 @@ import { Checkbox } from '../components/Input';
 import PageHeader from '../components/PageHeader';
 import Spinner from '../components/Spinner';
 import { useToast } from '../components/Toast';
-import { describeMessage, targetLabel } from '../components/mcp/mcpView';
+import { describeMessage, mcpClient, targetLabel } from '../components/mcp/mcpView';
 import { countChanges, countEdited, extraGroups, MCP_CHANGED, mcpGroups, resourceGroups, runSync, type ChangeGroup, type Part, type RowIcon } from '../components/sync/syncView';
-import { refreshTargets } from '../components/targets/targetView';
+import SkillsOffDialog from '../components/targets/SkillsOffDialog';
+import { joinList, refreshTargets } from '../components/targets/targetView';
 import { formatDateTime, formatRelativeTime, useI18n, useT } from '../i18n';
 import { shortenHome } from '../lib/paths';
 import { formatAgentDisplayName } from '../lib/resourceNames';
@@ -48,6 +49,7 @@ export default function SyncPage() {
   const [running, setRunning] = useState(false);
   const [runError, setRunError] = useState('');
   const [outcome, setOutcome] = useState<SyncResponse | null>(null);
+  const [stopping, setStopping] = useState('');
 
   const plan = mcp.data?.plan;
   const parts = new Set(PARTS.filter((p) => !off.has(p)));
@@ -64,6 +66,10 @@ export default function SyncPage() {
   const ignored = [...(parts.has('skill') ? diff.data?.ignored_skills ?? [] : []), ...(parts.has('agent') ? diff.data?.agent_ignored_skills ?? [] : [])];
   const skipped = parts.has('skill') ? diffs.filter((d) => (d.skippedCount ?? 0) > 0) : [];
   const last = log.data?.entries.find((e) => !e.args?.dry_run);
+  const targetList = targets.data?.targets ?? [];
+  const conflicts = diff.data?.folder_conflicts ?? [];
+  const stopTarget = targetList.find((x) => x.name === stopping);
+  const stopConflict = conflicts.find((c) => c.stop.includes(stopping));
 
   const toggle = (set: Set<string>, key: string) => { const next = new Set(set); if (next.has(key)) next.delete(key); else next.add(key); return next; };
 
@@ -152,6 +158,17 @@ export default function SyncPage() {
           )}
           {parts.has('mcp') && mcp.data?.previewError && <div className="ss-note bad"><AlertCircle size={16} /><span className="flex-1">{mcp.data.previewError}</span></div>}
           {outcome?.warnings?.map((w) => <div key={w} className="ss-note warn"><TriangleAlert size={16} /><span className="flex-1">{w}</span></div>)}
+          {conflicts.map((c) => (
+            <div key={c.path} className="ss-note warn !items-center">
+              <TriangleAlert size={16} />
+              <span className="flex-1">{t('sync.folderConflict.text', { names: joinList(c.targets, locale), path: shortenHome(c.path) })}</span>
+              {c.stop.map((name) => (
+                <Button key={name} variant="secondary" size="sm" onClick={() => setStopping(name)}>
+                  {t('sync.folderConflict.stop', { name })}
+                </Button>
+              ))}
+            </div>
+          ))}
 
           <div className="ss-list">
             {loading ? (
@@ -276,6 +293,19 @@ export default function SyncPage() {
       </div>
 
       {collecting && <CollectDialog onClose={() => setCollecting(false)} />}
+      {stopTarget && (
+        <SkillsOffDialog
+          target={stopTarget}
+          readFrom={targetList.find((x) => x.name === stopConflict?.keep)}
+          managed={[...(stopTarget.agentPath ? ['Agents'] : []), ...(mcp.data?.paths[mcpClient(stopTarget.name)] ? ['MCP'] : [])]}
+          onClose={() => setStopping('')}
+          onStopped={(removed) => {
+            setStopping('');
+            refreshTargets(queryClient);
+            toast(t(removed === 1 ? 'targetDetail.skillsOff.stopped.one' : 'targetDetail.skillsOff.stopped.other', { name: stopTarget.name, count: removed }), 'success');
+          }}
+        />
+      )}
     </div>
   );
 }

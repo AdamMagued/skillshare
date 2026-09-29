@@ -328,3 +328,42 @@ func TestHandleSync_UnknownProjectIsRejected(t *testing.T) {
 		t.Fatalf("expected 400, got %d: %s", rr.Code, rr.Body.String())
 	}
 }
+
+func TestHandleSync_ReportsFolderConflicts(t *testing.T) {
+	shared := filepath.Join(t.TempDir(), "agents-skills")
+	s, src := newTestServerWithTargets(t, map[string]string{"universal": shared, "codex": shared})
+	addSkill(t, src, "alpha")
+	s.cfg.Targets["universal"] = config.TargetConfig{Skills: &config.ResourceTargetConfig{Path: shared, Exclude: []string{"feature-radar*"}}}
+	if err := s.cfg.Save(); err != nil {
+		t.Fatalf("failed to save config: %v", err)
+	}
+
+	for _, tc := range []struct{ method, url, body string }{
+		{http.MethodPost, "/api/sync", `{"dryRun":true}`},
+		{http.MethodGet, "/api/diff", ""},
+	} {
+		req := httptest.NewRequest(tc.method, tc.url, strings.NewReader(tc.body))
+		rr := httptest.NewRecorder()
+		s.handler.ServeHTTP(rr, req)
+		if rr.Code != http.StatusOK {
+			t.Fatalf("%s: expected 200, got %d: %s", tc.url, rr.Code, rr.Body.String())
+		}
+		var resp struct {
+			Warnings        []string                      `json:"warnings"`
+			FolderConflicts []config.SkillsFolderConflict `json:"folder_conflicts"`
+		}
+		json.Unmarshal(rr.Body.Bytes(), &resp)
+		if len(resp.FolderConflicts) != 1 {
+			t.Fatalf("%s: expected 1 folder conflict, got %+v", tc.url, resp.FolderConflicts)
+		}
+		c := resp.FolderConflicts[0]
+		if c.Keep != "universal" || len(c.Stop) != 1 || c.Stop[0] != "codex" {
+			t.Errorf("%s: conflict = %+v, want keep universal, stop codex", tc.url, c)
+		}
+		for _, w := range resp.Warnings {
+			if strings.Contains(w, "Skill path overlap") {
+				t.Errorf("%s: overlap fully explained by the conflict, got warning %q", tc.url, w)
+			}
+		}
+	}
+}

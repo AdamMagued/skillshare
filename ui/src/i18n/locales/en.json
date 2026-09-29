@@ -1651,6 +1651,8 @@
   "sync.local.hint": "Sync leaves them alone. Collect brings them into your source.",
   "sync.local.collect": "Collect",
   "sync.forceHint": "Replace files that were edited inside a target",
+  "sync.folderConflict.text": "{names} sync skills to the same folder {path} with different filters, so each sync undoes the other.",
+  "sync.folderConflict.stop": "Stop syncing skills for {name}",
   "sync.last.title": "Last sync",
   "sync.last.when": "When",
   "sync.last.targets": "Targets",

@@ -1651,6 +1651,8 @@
   "sync.local.hint": "Die Synchronisierung lässt sie unberührt. Sammeln holt sie in deine Quelle.",
   "sync.local.collect": "Sammeln",
   "sync.forceHint": "Dateien ersetzen, die in einem Ziel bearbeitet wurden",
+  "sync.folderConflict.text": "{names} synchronisieren Skills mit unterschiedlichen Filtern in denselben Ordner {path}, sodass jede Synchronisierung die andere rückgängig macht.",
+  "sync.folderConflict.stop": "Skills für {name} nicht mehr synchronisieren",
   "sync.last.title": "Letzte Synchronisierung",
   "sync.last.when": "Wann",
   "sync.last.targets": "Ziele",

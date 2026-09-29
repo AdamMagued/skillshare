@@ -1651,6 +1651,8 @@
   "sync.local.hint": "همگام‌سازی به آن‌ها دست نمی‌زند. جمع‌آوری آن‌ها را به منبع شما می‌آورد.",
   "sync.local.collect": "جمع‌آوری",
   "sync.forceHint": "فایل‌هایی را که داخل هدف ویرایش شده‌اند جایگزین کن",
+  "sync.folderConflict.text": "{names} Skills را با فیلترهای متفاوت در یک پوشه ({path}) همگام‌سازی می‌کنند، بنابراین هر همگام‌سازی کار دیگری را خنثی می‌کند.",
+  "sync.folderConflict.stop": "توقف همگام‌سازی Skills برای {name}",
   "sync.last.title": "آخرین همگام‌سازی",
   "sync.last.when": "زمان",
   "sync.last.targets": "هدف‌ها",

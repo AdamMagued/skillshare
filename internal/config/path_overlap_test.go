@@ -60,3 +60,51 @@ func TestDetectPathOverlap_IgnoresScannerOwnPath(t *testing.T) {
 		t.Errorf("expected no overlap, got %v", involved)
 	}
 }
+
+func TestSkillsFolderConflicts_DifferentFilters(t *testing.T) {
+	got := SkillsFolderConflicts(map[string]TargetConfig{
+		"universal": {Skills: &ResourceTargetConfig{Path: "/tmp/agents/skills", Exclude: []string{"feature-radar*"}}},
+		"codex":     {Skills: &ResourceTargetConfig{Path: "/tmp/agents/skills/"}},
+		"claude":    {Skills: &ResourceTargetConfig{Path: "/tmp/claude/skills"}},
+	})
+	want := []SkillsFolderConflict{{Path: "/tmp/agents/skills", Targets: []string{"codex", "universal"}, Keep: "universal", Stop: []string{"codex"}}}
+	if !slices.EqualFunc(got, want, conflictEqual) {
+		t.Errorf("SkillsFolderConflicts = %+v, want %+v", got, want)
+	}
+}
+
+func TestSkillsFolderConflicts_SameSettingsNoConflict(t *testing.T) {
+	got := SkillsFolderConflicts(map[string]TargetConfig{
+		"universal": {Skills: &ResourceTargetConfig{Path: "/tmp/agents/skills", Include: []string{"a", "b"}}},
+		"codex":     {Skills: &ResourceTargetConfig{Path: "/tmp/agents/skills", Include: []string{"b", "a"}}},
+	})
+	if len(got) != 0 {
+		t.Errorf("expected no conflict, got %+v", got)
+	}
+}
+
+func TestSkillsFolderConflicts_DifferentFiltersKeepsFirstName(t *testing.T) {
+	got := SkillsFolderConflicts(map[string]TargetConfig{
+		"warp":  {Skills: &ResourceTargetConfig{Path: "/tmp/agents/skills", Include: []string{"x*"}}},
+		"amp":   {Skills: &ResourceTargetConfig{Path: "/tmp/agents/skills"}},
+		"witsy": {Skills: &ResourceTargetConfig{Path: "/tmp/agents/skills"}},
+	})
+	want := []SkillsFolderConflict{{Path: "/tmp/agents/skills", Targets: []string{"amp", "warp", "witsy"}, Keep: "amp", Stop: []string{"warp", "witsy"}}}
+	if !slices.EqualFunc(got, want, conflictEqual) {
+		t.Errorf("SkillsFolderConflicts = %+v, want %+v", got, want)
+	}
+}
+
+func TestSkillsFolderConflicts_IgnoresSkillsOff(t *testing.T) {
+	got := SkillsFolderConflicts(map[string]TargetConfig{
+		"universal": {Skills: &ResourceTargetConfig{Path: "/tmp/agents/skills", Exclude: []string{"x"}}},
+		"codex":     disabledAt("/tmp/agents/skills"),
+	})
+	if len(got) != 0 {
+		t.Errorf("expected no conflict with skills off, got %+v", got)
+	}
+}
+
+func conflictEqual(a, b SkillsFolderConflict) bool {
+	return a.Path == b.Path && a.Keep == b.Keep && slices.Equal(a.Targets, b.Targets) && slices.Equal(a.Stop, b.Stop)
+}

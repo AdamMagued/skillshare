@@ -467,7 +467,7 @@ export const api = {
       body: JSON.stringify(opts),
     }),
   diff: (target?: string) =>
-    apiFetch<{ diffs: DiffTarget[] } & IgnoreSources>(`/diff${target ? '?target=' + encodeURIComponent(target) : ''}`),
+    apiFetch<{ diffs: DiffTarget[]; folder_conflicts?: FolderConflict[] } & IgnoreSources>(`/diff${target ? '?target=' + encodeURIComponent(target) : ''}`),
   diffStream: (
     onDiscovering: () => void,
     onStart: (total: number) => void,
@@ -1204,7 +1204,18 @@ export function formatTokenK(n: number): string {
 export interface SyncResponse extends IgnoreSources {
   results: SyncResult[];
   warnings?: string[];
+  folder_conflicts?: FolderConflict[];
   context_cost?: ContextCost;
+}
+
+/** A skills folder two or more targets sync into with different settings, so each sync undoes the other. */
+export interface FolderConflict {
+  path: string;
+  targets: string[];
+  /** The target to keep syncing skills */
+  keep: string;
+  /** The targets to stop syncing skills for */
+  stop: string[];
 }
 
 export interface ConfigSaveResponse {

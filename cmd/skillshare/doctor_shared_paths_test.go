@@ -271,3 +271,28 @@ func TestDoctorPathChecks_IgnoreSkillsOffTargets(t *testing.T) {
 		t.Errorf("targets with skills off should not overlap, got %d warning(s): %+v", r.warnings, r.checks)
 	}
 }
+
+func TestCheckSharedTargetPaths_DifferentFiltersSuggestsSkillsOff(t *testing.T) {
+	cfg := &config.Config{
+		Targets: map[string]config.TargetConfig{
+			"universal": {Skills: &config.ResourceTargetConfig{Path: "/tmp/.agents/skills", Exclude: []string{"feature-radar*"}}},
+			"codex":     {Skills: &config.ResourceTargetConfig{Path: "/tmp/.agents/skills"}},
+		},
+	}
+	r := &doctorResult{}
+	checkSharedTargetPaths(cfg, r, true)
+
+	if len(r.checks) != 1 || r.checks[0].Status != checkWarning {
+		t.Fatalf("expected single warning check, got %+v", r.checks)
+	}
+	if detail := r.checks[0].Details[0]; !strings.Contains(detail, "undo each other") {
+		t.Errorf("detail %q should say the targets undo each other", detail)
+	}
+	suggestion := r.checks[0].Suggestions[0]
+	if !strings.Contains(suggestion, "skillshare target codex --skills=false -p") {
+		t.Errorf("suggestion %q should turn skills off for codex", suggestion)
+	}
+	if strings.Contains(suggestion, "target remove") {
+		t.Errorf("suggestion %q should not suggest removing a target", suggestion)
+	}
+}

@@ -149,6 +149,15 @@ Doctor flags two classes of duplicate-skill risk before they reach the runtime p
 
 Resolution: disable one of the overlapping targets, or set a distinct path with `skillshare target <name> --path <dir>`.
 
+When the targets sharing a path have different `include` or `exclude` filters, each sync adds what one target wants and prunes what another filters out, so the folder never settles and `sync` keeps showing the same pending changes. Doctor marks these and suggests turning skills off for all but one target (`universal` when it is one of them) instead of removing a target:
+
+```text
+! Shared path ~/.agents/skills ← codex, universal (different filters, so they undo each other on every sync)
+    suggestion: Keep universal syncing skills to ~/.agents/skills and stop the rest with `skillshare target codex --skills=false`.
+```
+
+`sync` prints the same targets with the command to run, and the dashboard's Sync page has a button that stops syncing skills for the target to drop. Targets sharing a path with identical settings keep the resolution above.
+
 **`cross_target_discovery`** — fires when an enabled target's runtime is documented to also scan a directory another enabled target writes to. For example, a config left over from an older setup still points `codex` at the legacy `~/.codex/skills`, while `universal` writes to `~/.agents/skills` — which Codex also reads. Enabling both makes Codex see universal's content on top of its own.
 
 ```text
@@ -312,7 +321,7 @@ skillshare doctor --json
     { "name": "source", "status": "pass", "message": "Source: ~/.config/skillshare/skills (12 skills)" },
     { "name": "skillignore", "status": "pass", "message": ".skillignore: 3 patterns, 2 skills ignored", "details": ["test-*", "vendor/", "!important", "---", "test-draft", "vendor/lib"] },
     { "name": "sync_drift", "status": "warning", "message": "claude: 1 skill(s) not synced (7/8 linked)", "details": ["new-skill"] },
-    { "name": "shared_target_paths", "status": "warning", "message": "1 shared target path(s) — enabled targets writing to the same directory may produce duplicate skills in runtime pickers", "details": ["~/.agents/skills ← universal, warp"], "suggestions": ["Choose one authoritative target for ~/.agents/skills and disable or reconfigure the rest (currently: universal, warp)"] },
+    { "name": "shared_target_paths", "status": "warning", "message": "1 shared target path(s) — enabled targets writing to the same directory may produce duplicate skills in runtime pickers", "details": ["~/.agents/skills ← universal, warp"], "suggestions": ["Choose one authoritative target for ~/.agents/skills; preview removing duplicate targets with `skillshare target remove <name> --global --dry-run` (currently: universal, warp)."] },
     { "name": "broken_symlinks", "status": "error", "message": "cursor: 1 broken symlink(s)", "details": ["old-skill"] }
   ],
   "summary": { "total": 14, "pass": 12, "warnings": 1, "errors": 1, "info": 0 },

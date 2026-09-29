@@ -1,6 +1,10 @@
 package config
 
-import "path/filepath"
+import (
+	"path/filepath"
+	"slices"
+	"sort"
+)
 
 // DetectPathOverlap returns the set of target names whose configured skill
 // paths overlap with another enabled target — either by sharing the same
@@ -90,4 +94,74 @@ func SkillsPathKeptBy(targets map[string]TargetConfig, name string, leaving map[
 		}
 	}
 	return ""
+}
+
+// SkillsFolderConflict is a skills folder that two or more targets with skills
+// on sync into with different include or exclude filters, so each sync
+// undoes the others' links. Keep is the target to leave on; Stop the rest.
+type SkillsFolderConflict struct {
+	Path    string   `json:"path"`
+	Targets []string `json:"targets"`
+	Keep    string   `json:"keep"`
+	Stop    []string `json:"stop"`
+}
+
+// SkillsFolderConflicts returns the shared skills folders whose targets'
+// filters differ, sorted by path. Targets with identical settings agree on
+// the folder's contents and are not a conflict. universal is kept when it is
+// in the group, otherwise the alphabetically first target.
+func SkillsFolderConflicts(targets map[string]TargetConfig) []SkillsFolderConflict {
+	byFolder := make(map[string][]string)
+	for name, tc := range targets {
+		if !tc.SkillsConfig().IsEnabled() {
+			continue
+		}
+		if folder := skillsFolder(tc); folder != "" {
+			byFolder[folder] = append(byFolder[folder], name)
+		}
+	}
+
+	var out []SkillsFolderConflict
+	for folder, names := range byFolder {
+		if len(names) < 2 {
+			continue
+		}
+		sort.Strings(names)
+		first := targets[names[0]]
+		differ := false
+		for _, n := range names[1:] {
+			other := targets[n]
+			if !sameSkillsSettings(first.SkillsConfig(), other.SkillsConfig()) {
+				differ = true
+				break
+			}
+		}
+		if !differ {
+			continue
+		}
+		keep := names[0]
+		if slices.Contains(names, "universal") {
+			keep = "universal"
+		}
+		var stop []string
+		for _, n := range names {
+			if n != keep {
+				stop = append(stop, n)
+			}
+		}
+		out = append(out, SkillsFolderConflict{Path: folder, Targets: names, Keep: keep, Stop: stop})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Path < out[j].Path })
+	return out
+}
+
+func sameSkillsSettings(a, b ResourceTargetConfig) bool {
+	return sameSet(a.Include, b.Include) && sameSet(a.Exclude, b.Exclude)
+}
+
+func sameSet(a, b []string) bool {
+	a, b = slices.Clone(a), slices.Clone(b)
+	slices.Sort(a)
+	slices.Sort(b)
+	return slices.Equal(a, b)
 }

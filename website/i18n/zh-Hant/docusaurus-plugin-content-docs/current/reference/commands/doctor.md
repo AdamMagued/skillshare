@@ -149,6 +149,15 @@ Doctor 會在兩類重複 skill 風險到達 runtime picker 之前先標示出�
 
 解決方式：停用其中一個重疊的 target，或使用 `skillshare target <name> --path <dir>` 設定不同的路徑。
 
+若共用路徑的 targets 其 `include` 或 `exclude` 篩選不同，每次同步都會加入一個 target 要的內容、再刪掉另一個 target 過濾掉的內容，資料夾永遠不會穩定，`sync` 也會一直顯示同樣的待同步變更。Doctor 會標出這種情況，並建議只保留一個 target（若其中有 `universal` 就保留它）、其他的關閉 skills 同步，而不是移除 target：
+
+```text
+! Shared path ~/.agents/skills ← codex, universal (different filters, so they undo each other on every sync)
+    suggestion: Keep universal syncing skills to ~/.agents/skills and stop the rest with `skillshare target codex --skills=false`.
+```
+
+`sync` 也會列出相同的 targets 與要執行的指令，dashboard 的同步頁面則提供按鈕，可直接停止同步該 target 的 skills。設定完全相同的共用路徑 targets 仍適用上方的解決方式。
+
 **`cross_target_discovery`**——當某個已啟用 target 的 runtime 文件說明它也會掃描另一個已啟用 target 寫入的目錄時觸發。例如，從舊設定沿用下來的 config 仍將 `codex` 指向舊的 `~/.codex/skills`，而 `universal` 則寫入 `~/.agents/skills`——這個目錄 Codex 同樣會讀取。兩者都啟用時，Codex 就會在自己的內容之外，額外看到 universal 的內容。
 
 ```text
@@ -312,7 +321,7 @@ skillshare doctor --json
     { "name": "source", "status": "pass", "message": "Source: ~/.config/skillshare/skills (12 skills)" },
     { "name": "skillignore", "status": "pass", "message": ".skillignore: 3 patterns, 2 skills ignored", "details": ["test-*", "vendor/", "!important", "---", "test-draft", "vendor/lib"] },
     { "name": "sync_drift", "status": "warning", "message": "claude: 1 skill(s) not synced (7/8 linked)", "details": ["new-skill"] },
-    { "name": "shared_target_paths", "status": "warning", "message": "1 shared target path(s) — enabled targets writing to the same directory may produce duplicate skills in runtime pickers", "details": ["~/.agents/skills ← universal, warp"], "suggestions": ["Choose one authoritative target for ~/.agents/skills and disable or reconfigure the rest (currently: universal, warp)"] },
+    { "name": "shared_target_paths", "status": "warning", "message": "1 shared target path(s) — enabled targets writing to the same directory may produce duplicate skills in runtime pickers", "details": ["~/.agents/skills ← universal, warp"], "suggestions": ["Choose one authoritative target for ~/.agents/skills; preview removing duplicate targets with `skillshare target remove <name> --global --dry-run` (currently: universal, warp)."] },
     { "name": "broken_symlinks", "status": "error", "message": "cursor: 1 broken symlink(s)", "details": ["old-skill"] }
   ],
   "summary": { "total": 14, "pass": 12, "warnings": 1, "errors": 1, "info": 0 },
