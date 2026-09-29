@@ -130,6 +130,24 @@ skillshare restore <target>
 
 **予防策:** 手動で削除する代わりに `skillshare target remove` を使用してください。
 
+### `sync` が同じ変更を表示し続ける {#sync-keeps-showing-the-same-changes}
+
+**原因:** 2 つの Target が、異なる `include` または `exclude` フィルターで同じフォルダに Skill を Sync している。各 Sync が一方の Target の必要な Skill を追加し、もう一方のフィルターで除外される Skill を削除するため、フォルダの状態が安定しません。`sync` は該当する Target を表示します:
+
+```
+! codex and universal sync skills to ~/.agents/skills with different filters, so each sync undoes the other
+  keep one: skillshare target codex --skills=false
+```
+
+**解決策:** 一方の Target にフォルダへの書き込みを任せ、もう一方の Skill をオフにしてください。その Target の agents、MCP サーバー、instructions は引き続き管理され、ツールは共有フォルダ内の Skill を引き続き読み込みます:
+
+```bash
+skillshare target codex --skills=false --dry-run
+skillshare target codex --skills=false
+```
+
+ダッシュボードの **Sync** ページにも同じ警告が表示され、その Target の Skill の Sync を停止するボタンがあります。両方の Target に同じフィルターを設定する方法でも解決できます。
+
 ### `sync seems stuck or slow`
 
 **原因:** skills ディレクトリ内に大きなファイルがある。

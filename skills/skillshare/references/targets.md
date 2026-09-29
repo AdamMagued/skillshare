@@ -51,6 +51,9 @@ a folder an enabled target also writes to is left alone. `sync`/`diff`/`status`/
 skip the target's skills. `--skills` cannot be combined with include/exclude flags in one
 command. Works with `-p`.
 
+When `sync` warns that two targets "sync skills to <folder> with different filters, so each
+sync undoes the other", run the `skillshare target <name> --skills=false` it prints.
+
 ## Project Targets (`-p`)
 
 ```bash

@@ -121,6 +121,24 @@ skillshare restore <target>
 
 **預防方法：** 使用 `skillshare target remove` 而非手動刪除。
 
+### `sync` 一直顯示相同的變更 {#sync-keeps-showing-the-same-changes}
+
+**原因：** 兩個 Target 把 Skill 同步到同一個資料夾，但 `include` 或 `exclude` filters 不同。每次同步都會加入其中一個 Target 要的 Skill，同時移除另一個 Target 過濾掉的 Skill，所以資料夾永遠不會穩定下來。`sync` 會指出是哪兩個 Target：
+
+```
+! codex and universal sync skills to ~/.agents/skills with different filters, so each sync undoes the other
+  keep one: skillshare target codex --skills=false
+```
+
+**解決方法：** 讓其中一個 Target 負責寫入這個資料夾，並關閉另一個 Target 的 Skill 同步。它的 agents、MCP servers 與 instructions 仍由 skillshare 管理，而且該工具仍會讀取共用資料夾中的 Skill：
+
+```bash
+skillshare target codex --skills=false --dry-run
+skillshare target codex --skills=false
+```
+
+在 dashboard 中，**Sync** 頁面會顯示相同的警告，並附上一個按鈕，可停止該 Target 的 Skill 同步。讓兩個 Target 使用相同的 filters 也可以解決。
+
 ### `sync seems stuck or slow`
 
 **原因：** Skill 目錄中有大型檔案。
