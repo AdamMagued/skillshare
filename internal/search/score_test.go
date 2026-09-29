@@ -332,6 +332,28 @@ This is a generic markdown page that happens to use this filename.
 			wantValid: false,
 		},
 		{
+			desc: "mixed-case name that install accepts is discoverable",
+			content: `---
+name: MySkill
+description: Name with capitals is still installable
+---
+# MySkill
+`,
+			wantValid: true,
+			wantName:  "MySkill",
+			wantDesc:  "Name with capitals is still installable",
+		},
+		{
+			desc: "leading underscore name that install rejects is not discoverable",
+			content: `---
+name: _private
+description: Bare names starting with underscore are not installable
+---
+# Private
+`,
+			wantValid: false,
+		},
+		{
 			desc: "invalid skill name is rejected",
 			content: `---
 name: "Sword Fighting"

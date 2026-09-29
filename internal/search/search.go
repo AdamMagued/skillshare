@@ -15,6 +15,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	ghclient "skillshare/internal/github"
+	"skillshare/internal/validate"
 )
 
 // SearchResult represents a skill found via search
@@ -970,7 +971,8 @@ func inlineFrontmatterFieldPositions(raw string) []inlineFrontmatterField {
 }
 
 func isDiscoverableSkillFrontmatter(fm map[string]any, name, desc string) bool {
-	if !isValidSkillName(name) {
+	// Same rule install applies, so search never hides an installable skill.
+	if validate.SkillName(name) != nil {
 		return false
 	}
 	if desc != "" {
@@ -984,22 +986,6 @@ func isDiscoverableSkillFrontmatter(fm map[string]any, name, desc string) bool {
 	}
 
 	return false
-}
-
-func isValidSkillName(name string) bool {
-	if name == "" {
-		return false
-	}
-	for i, c := range name {
-		if (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') {
-			continue
-		}
-		if (c == '-' || c == '_') && i > 0 {
-			continue
-		}
-		return false
-	}
-	return true
 }
 
 func yamlScalarString(v any) string {
