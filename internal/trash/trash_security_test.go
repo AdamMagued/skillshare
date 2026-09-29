@@ -65,113 +65,40 @@ func assertNothingWrittenOutside(t *testing.T, root, base string) {
 
 // --- Adversarial Tests: MoveToTrash ---
 
-func TestMoveToTrash_RejectsTraversal_DotDotSlash(t *testing.T) {
-	_, base, _, canary := setupTraversalTree(t)
-	srcDir := filepath.Join(base, "src")
-	os.MkdirAll(srcDir, 0755)
-	os.WriteFile(filepath.Join(srcDir, "SKILL.md"), []byte("content"), 0644)
+func TestMoveToTrash_RejectsTraversal(t *testing.T) {
+	for _, tt := range []struct {
+		caseName string
+		name     string
+	}{
+		{"DotDotSlash", "../outside/pwn"},
+		{"DoubleDot", "../../outside/pwn"},
+		{"Backslash", `..\outside\pwn`},
+		{"AbsolutePath", "/absolute/path"},
+		{"Empty", ""},
+		{"DotAlone", "."},
+		{"DotDotAlone", ".."},
+		{"NulByte", "skill\x00/../../etc"},
+		{"EmbeddedDotDot", "a/../../outside"},
+	} {
+		t.Run(tt.caseName, func(t *testing.T) {
+			_, base, _, canary := setupTraversalTree(t)
+			srcDir := filepath.Join(base, "src")
+			os.MkdirAll(srcDir, 0755)
+			os.WriteFile(filepath.Join(srcDir, "SKILL.md"), []byte("content"), 0644)
 
-	_, err := MoveToTrash(srcDir, "../outside/pwn", base)
-	if err == nil {
-		t.Fatal("expected error for traversal name")
+			source := srcDir
+			if tt.caseName == "Empty" || tt.caseName == "DotAlone" || tt.caseName == "DotDotAlone" || tt.caseName == "NulByte" {
+				source = base
+			}
+			_, err := MoveToTrash(source, tt.name, base)
+			if err == nil {
+				t.Fatal("expected error for traversal name")
+			}
+
+			assertCanaryUntouched(t, canary)
+			assertNothingWrittenOutside(t, filepath.Dir(base), base)
+		})
 	}
-
-	assertCanaryUntouched(t, canary)
-	assertNothingWrittenOutside(t, filepath.Dir(base), base)
-}
-
-func TestMoveToTrash_RejectsTraversal_DoubleDot(t *testing.T) {
-	_, base, _, canary := setupTraversalTree(t)
-	srcDir := filepath.Join(base, "src")
-	os.MkdirAll(srcDir, 0755)
-	os.WriteFile(filepath.Join(srcDir, "SKILL.md"), []byte("content"), 0644)
-
-	_, err := MoveToTrash(srcDir, "../../outside/pwn", base)
-	if err == nil {
-		t.Fatal("expected error for traversal name")
-	}
-
-	assertCanaryUntouched(t, canary)
-	assertNothingWrittenOutside(t, filepath.Dir(base), base)
-}
-
-func TestMoveToTrash_RejectsTraversal_Backslash(t *testing.T) {
-	_, base, _, canary := setupTraversalTree(t)
-	srcDir := filepath.Join(base, "src")
-	os.MkdirAll(srcDir, 0755)
-	os.WriteFile(filepath.Join(srcDir, "SKILL.md"), []byte("content"), 0644)
-
-	_, err := MoveToTrash(srcDir, `..\outside\pwn`, base)
-	if err == nil {
-		t.Fatal("expected error for backslash traversal name")
-	}
-
-	assertCanaryUntouched(t, canary)
-}
-
-func TestMoveToTrash_RejectsTraversal_AbsolutePath(t *testing.T) {
-	_, base, _, canary := setupTraversalTree(t)
-	srcDir := filepath.Join(base, "src")
-	os.MkdirAll(srcDir, 0755)
-	os.WriteFile(filepath.Join(srcDir, "SKILL.md"), []byte("content"), 0644)
-
-	_, err := MoveToTrash(srcDir, "/absolute/path", base)
-	if err == nil {
-		t.Fatal("expected error for absolute name")
-	}
-
-	assertCanaryUntouched(t, canary)
-}
-
-func TestMoveToTrash_RejectsTraversal_Empty(t *testing.T) {
-	_, base, _, _ := setupTraversalTree(t)
-
-	_, err := MoveToTrash(base, "", base)
-	if err == nil {
-		t.Fatal("expected error for empty name")
-	}
-}
-
-func TestMoveToTrash_RejectsTraversal_DotAlone(t *testing.T) {
-	_, base, _, _ := setupTraversalTree(t)
-
-	_, err := MoveToTrash(base, ".", base)
-	if err == nil {
-		t.Fatal("expected error for '.' name")
-	}
-}
-
-func TestMoveToTrash_RejectsTraversal_DotDotAlone(t *testing.T) {
-	_, base, _, _ := setupTraversalTree(t)
-
-	_, err := MoveToTrash(base, "..", base)
-	if err == nil {
-		t.Fatal("expected error for '..' name")
-	}
-}
-
-func TestMoveToTrash_RejectsTraversal_NulByte(t *testing.T) {
-	_, base, _, _ := setupTraversalTree(t)
-
-	_, err := MoveToTrash(base, "skill\x00/../../etc", base)
-	if err == nil {
-		t.Fatal("expected error for NUL byte in name")
-	}
-}
-
-func TestMoveToTrash_RejectsTraversal_EmbeddedDotDot(t *testing.T) {
-	_, base, _, canary := setupTraversalTree(t)
-	srcDir := filepath.Join(base, "src")
-	os.MkdirAll(srcDir, 0755)
-	os.WriteFile(filepath.Join(srcDir, "SKILL.md"), []byte("content"), 0644)
-
-	_, err := MoveToTrash(srcDir, "a/../../outside", base)
-	if err == nil {
-		t.Fatal("expected error for embedded traversal name")
-	}
-
-	assertCanaryUntouched(t, canary)
-	assertNothingWrittenOutside(t, filepath.Dir(base), base)
 }
 
 func TestEnsureStrictlyUnderBase_RejectsCandidateEqualsBase(t *testing.T) {
@@ -224,37 +151,26 @@ func TestMoveToTrash_AllowsNestedName(t *testing.T) {
 
 // --- Adversarial Tests: MoveAgentToTrash ---
 
-func TestMoveAgentToTrash_RejectsTraversal_DotDotSlash(t *testing.T) {
-	_, base, _, canary := setupTraversalTree(t)
+func TestMoveAgentToTrash_RejectsTraversal(t *testing.T) {
+	for _, tt := range []struct {
+		caseName string
+		name     string
+	}{
+		{"DotDotSlash", "../outside/pwn"},
+		{"Backslash", `..\outside\pwn`},
+		{"AbsolutePath", "/absolute/path"},
+	} {
+		t.Run(tt.caseName, func(t *testing.T) {
+			_, base, _, canary := setupTraversalTree(t)
 
-	_, err := MoveAgentToTrash("dummy.md", "", "../outside/pwn", base)
-	if err == nil {
-		t.Fatal("expected error for traversal name")
+			_, err := MoveAgentToTrash("dummy.md", "", tt.name, base)
+			if err == nil {
+				t.Fatal("expected error for traversal name")
+			}
+
+			assertCanaryUntouched(t, canary)
+		})
 	}
-
-	assertCanaryUntouched(t, canary)
-}
-
-func TestMoveAgentToTrash_RejectsTraversal_Backslash(t *testing.T) {
-	_, base, _, canary := setupTraversalTree(t)
-
-	_, err := MoveAgentToTrash("dummy.md", "", `..\outside\pwn`, base)
-	if err == nil {
-		t.Fatal("expected error for backslash traversal name")
-	}
-
-	assertCanaryUntouched(t, canary)
-}
-
-func TestMoveAgentToTrash_RejectsTraversal_AbsolutePath(t *testing.T) {
-	_, base, _, canary := setupTraversalTree(t)
-
-	_, err := MoveAgentToTrash("dummy.md", "", "/absolute/path", base)
-	if err == nil {
-		t.Fatal("expected error for absolute name")
-	}
-
-	assertCanaryUntouched(t, canary)
 }
 
 func TestMoveAgentToTrash_AllowsNestedName(t *testing.T) {
@@ -278,64 +194,35 @@ func TestMoveAgentToTrash_AllowsNestedName(t *testing.T) {
 
 // --- Adversarial Tests: Restore ---
 
-func TestRestore_RejectsTraversal_DotDotSlash(t *testing.T) {
-	_, base, _, canary := setupTraversalTree(t)
-	destDir := filepath.Join(filepath.Dir(base), "dest")
-	os.MkdirAll(destDir, 0755)
+func TestRestore_RejectsTraversal(t *testing.T) {
+	for _, tt := range []struct {
+		caseName string
+		name     string
+	}{
+		{"DotDotSlash", "../../outside/pwn"},
+		{"Backslash", `..\outside\pwn`},
+		{"AbsolutePath", "/absolute/path"},
+	} {
+		t.Run(tt.caseName, func(t *testing.T) {
+			_, base, _, canary := setupTraversalTree(t)
+			destDir := filepath.Join(filepath.Dir(base), "dest")
+			os.MkdirAll(destDir, 0755)
 
-	entry := &TrashEntry{
-		Name:      "../../outside/pwn",
-		Path:      filepath.Join(base, "fake_2026-01-01_10-00-00"),
-		Timestamp: "2026-01-01_10-00-00",
-		Date:      time.Now(),
+			entry := &TrashEntry{
+				Name:      tt.name,
+				Path:      filepath.Join(base, "fake_2026-01-01_10-00-00"),
+				Timestamp: "2026-01-01_10-00-00",
+				Date:      time.Now(),
+			}
+
+			err := Restore(entry, destDir)
+			if err == nil {
+				t.Fatal("expected error for traversal entry name")
+			}
+
+			assertCanaryUntouched(t, canary)
+		})
 	}
-
-	err := Restore(entry, destDir)
-	if err == nil {
-		t.Fatal("expected error for traversal entry name")
-	}
-
-	assertCanaryUntouched(t, canary)
-}
-
-func TestRestore_RejectsTraversal_Backslash(t *testing.T) {
-	_, base, _, canary := setupTraversalTree(t)
-	destDir := filepath.Join(filepath.Dir(base), "dest")
-	os.MkdirAll(destDir, 0755)
-
-	entry := &TrashEntry{
-		Name:      `..\outside\pwn`,
-		Path:      filepath.Join(base, "fake_2026-01-01_10-00-00"),
-		Timestamp: "2026-01-01_10-00-00",
-		Date:      time.Now(),
-	}
-
-	err := Restore(entry, destDir)
-	if err == nil {
-		t.Fatal("expected error for backslash traversal entry name")
-	}
-
-	assertCanaryUntouched(t, canary)
-}
-
-func TestRestore_RejectsTraversal_AbsolutePath(t *testing.T) {
-	_, base, _, canary := setupTraversalTree(t)
-	destDir := filepath.Join(filepath.Dir(base), "dest")
-	os.MkdirAll(destDir, 0755)
-
-	entry := &TrashEntry{
-		Name:      "/absolute/path",
-		Path:      filepath.Join(base, "fake_2026-01-01_10-00-00"),
-		Timestamp: "2026-01-01_10-00-00",
-		Date:      time.Now(),
-	}
-
-	err := Restore(entry, destDir)
-	if err == nil {
-		t.Fatal("expected error for absolute entry name")
-	}
-
-	assertCanaryUntouched(t, canary)
 }
 
 func TestRestore_AllowsNestedName(t *testing.T) {
@@ -368,72 +255,39 @@ func TestRestore_AllowsNestedName(t *testing.T) {
 
 // --- Adversarial Tests: RestoreAgent ---
 
-func TestRestoreAgent_RejectsTraversal_DotDotSlash(t *testing.T) {
-	_, base, _, canary := setupTraversalTree(t)
-	destDir := filepath.Join(filepath.Dir(base), "dest")
-	os.MkdirAll(destDir, 0755)
+func TestRestoreAgent_RejectsTraversal(t *testing.T) {
+	for _, tt := range []struct {
+		caseName string
+		name     string
+	}{
+		{"DotDotSlash", "../../outside/pwn"},
+		{"Backslash", `..\outside\pwn`},
+		{"AbsolutePath", "/absolute/path"},
+	} {
+		t.Run(tt.caseName, func(t *testing.T) {
+			_, base, _, canary := setupTraversalTree(t)
+			destDir := filepath.Join(filepath.Dir(base), "dest")
+			os.MkdirAll(destDir, 0755)
 
-	trashDir := filepath.Join(base, "agent_2026-01-01_10-00-00")
-	os.MkdirAll(trashDir, 0755)
-	os.WriteFile(filepath.Join(trashDir, "helper.md"), []byte("content"), 0644)
+			trashDir := filepath.Join(base, "agent_2026-01-01_10-00-00")
+			os.MkdirAll(trashDir, 0755)
+			os.WriteFile(filepath.Join(trashDir, "helper.md"), []byte("content"), 0644)
 
-	entry := &TrashEntry{
-		Name:      "../../outside/pwn",
-		Path:      trashDir,
-		Timestamp: "2026-01-01_10-00-00",
-		Date:      time.Now(),
+			entry := &TrashEntry{
+				Name:      tt.name,
+				Path:      trashDir,
+				Timestamp: "2026-01-01_10-00-00",
+				Date:      time.Now(),
+			}
+
+			err := RestoreAgent(entry, destDir)
+			if err == nil {
+				t.Fatal("expected error for traversal entry name")
+			}
+
+			assertCanaryUntouched(t, canary)
+		})
 	}
-
-	err := RestoreAgent(entry, destDir)
-	if err == nil {
-		t.Fatal("expected error for traversal entry name")
-	}
-
-	assertCanaryUntouched(t, canary)
-}
-
-func TestRestoreAgent_RejectsTraversal_Backslash(t *testing.T) {
-	_, base, _, canary := setupTraversalTree(t)
-	destDir := filepath.Join(filepath.Dir(base), "dest")
-	os.MkdirAll(destDir, 0755)
-
-	trashDir := filepath.Join(base, "agent_2026-01-01_10-00-00")
-	os.MkdirAll(trashDir, 0755)
-	os.WriteFile(filepath.Join(trashDir, "helper.md"), []byte("content"), 0644)
-
-	entry := &TrashEntry{
-		Name:      `..\outside\pwn`,
-		Path:      trashDir,
-		Timestamp: "2026-01-01_10-00-00",
-		Date:      time.Now(),
-	}
-
-	err := RestoreAgent(entry, destDir)
-	if err == nil {
-		t.Fatal("expected error for backslash traversal entry name")
-	}
-
-	assertCanaryUntouched(t, canary)
-}
-
-func TestRestoreAgent_RejectsTraversal_AbsolutePath(t *testing.T) {
-	_, base, _, canary := setupTraversalTree(t)
-	destDir := filepath.Join(filepath.Dir(base), "dest")
-	os.MkdirAll(destDir, 0755)
-
-	entry := &TrashEntry{
-		Name:      "/absolute/path",
-		Path:      filepath.Join(base, "agent_2026-01-01_10-00-00"),
-		Timestamp: "2026-01-01_10-00-00",
-		Date:      time.Now(),
-	}
-
-	err := RestoreAgent(entry, destDir)
-	if err == nil {
-		t.Fatal("expected error for absolute entry name")
-	}
-
-	assertCanaryUntouched(t, canary)
 }
 
 func TestRestoreAgent_AllowsNestedName(t *testing.T) {

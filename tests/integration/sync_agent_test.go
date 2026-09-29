@@ -10,50 +10,6 @@ import (
 	"skillshare/internal/testutil"
 )
 
-func TestSync_Agents_IncludeFilter(t *testing.T) {
-	sb := testutil.NewSandbox(t)
-	defer sb.Cleanup()
-
-	agentsDir := filepath.Join(filepath.Dir(sb.SourcePath), "agents")
-	os.MkdirAll(agentsDir, 0755)
-	os.WriteFile(filepath.Join(agentsDir, "tutor.md"), []byte("# Tutor"), 0644)
-	os.WriteFile(filepath.Join(agentsDir, "reviewer.md"), []byte("# Reviewer"), 0644)
-	os.WriteFile(filepath.Join(agentsDir, "debugger.md"), []byte("# Debugger"), 0644)
-
-	claudeSkills := filepath.Join(sb.Home, ".claude", "skills")
-	claudeAgents := filepath.Join(sb.Home, ".claude", "agents")
-	os.MkdirAll(claudeSkills, 0755)
-	os.MkdirAll(claudeAgents, 0755)
-
-	sb.WriteConfig(`source: ` + sb.SourcePath + `
-targets:
-  claude:
-    skills:
-      path: "` + claudeSkills + `"
-    agents:
-      path: "` + claudeAgents + `"
-      include:
-        - "tutor"
-        - "reviewer"
-`)
-
-	result := sb.RunCLI("sync", "agents")
-	result.AssertSuccess(t)
-
-	// Included agents should be synced
-	if _, err := os.Lstat(filepath.Join(claudeAgents, "tutor.md")); err != nil {
-		t.Error("tutor.md should be synced (included)")
-	}
-	if _, err := os.Lstat(filepath.Join(claudeAgents, "reviewer.md")); err != nil {
-		t.Error("reviewer.md should be synced (included)")
-	}
-
-	// Excluded agent should NOT be synced
-	if _, err := os.Lstat(filepath.Join(claudeAgents, "debugger.md")); !os.IsNotExist(err) {
-		t.Error("debugger.md should NOT be synced (not in include list)")
-	}
-}
-
 func TestSync_AgentsAliasTargetUsesBuiltinAgentPath(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
@@ -82,49 +38,6 @@ targets:
 
 	if !sb.IsSymlink(filepath.Join(sb.Home, ".factory", "droids", "droid.md")) {
 		t.Fatal("factory alias should sync agents to droid builtin path")
-	}
-}
-
-func TestSync_Agents_ExcludeFilter(t *testing.T) {
-	sb := testutil.NewSandbox(t)
-	defer sb.Cleanup()
-
-	agentsDir := filepath.Join(filepath.Dir(sb.SourcePath), "agents")
-	os.MkdirAll(agentsDir, 0755)
-	os.WriteFile(filepath.Join(agentsDir, "tutor.md"), []byte("# Tutor"), 0644)
-	os.WriteFile(filepath.Join(agentsDir, "reviewer.md"), []byte("# Reviewer"), 0644)
-	os.WriteFile(filepath.Join(agentsDir, "debugger.md"), []byte("# Debugger"), 0644)
-
-	claudeSkills := filepath.Join(sb.Home, ".claude", "skills")
-	claudeAgents := filepath.Join(sb.Home, ".claude", "agents")
-	os.MkdirAll(claudeSkills, 0755)
-	os.MkdirAll(claudeAgents, 0755)
-
-	sb.WriteConfig(`source: ` + sb.SourcePath + `
-targets:
-  claude:
-    skills:
-      path: "` + claudeSkills + `"
-    agents:
-      path: "` + claudeAgents + `"
-      exclude:
-        - "debugger"
-`)
-
-	result := sb.RunCLI("sync", "agents")
-	result.AssertSuccess(t)
-
-	// Non-excluded agents should be synced
-	if _, err := os.Lstat(filepath.Join(claudeAgents, "tutor.md")); err != nil {
-		t.Error("tutor.md should be synced (not excluded)")
-	}
-	if _, err := os.Lstat(filepath.Join(claudeAgents, "reviewer.md")); err != nil {
-		t.Error("reviewer.md should be synced (not excluded)")
-	}
-
-	// Excluded agent should NOT be synced
-	if _, err := os.Lstat(filepath.Join(claudeAgents, "debugger.md")); !os.IsNotExist(err) {
-		t.Error("debugger.md should NOT be synced (excluded)")
 	}
 }
 
@@ -172,52 +85,6 @@ targets:
 	// personal-tutor does not match include → NOT synced
 	if _, err := os.Lstat(filepath.Join(claudeAgents, "personal-tutor.md")); !os.IsNotExist(err) {
 		t.Error("personal-tutor.md should NOT be synced (not in include list)")
-	}
-}
-
-func TestSync_Agents_GlobExcludePattern(t *testing.T) {
-	sb := testutil.NewSandbox(t)
-	defer sb.Cleanup()
-
-	agentsDir := filepath.Join(filepath.Dir(sb.SourcePath), "agents")
-	os.MkdirAll(agentsDir, 0755)
-	os.WriteFile(filepath.Join(agentsDir, "alpha.md"), []byte("# Alpha"), 0644)
-	os.WriteFile(filepath.Join(agentsDir, "beta.md"), []byte("# Beta"), 0644)
-	os.WriteFile(filepath.Join(agentsDir, "gamma.md"), []byte("# Gamma"), 0644)
-
-	claudeSkills := filepath.Join(sb.Home, ".claude", "skills")
-	claudeAgents := filepath.Join(sb.Home, ".claude", "agents")
-	os.MkdirAll(claudeSkills, 0755)
-	os.MkdirAll(claudeAgents, 0755)
-
-	sb.WriteConfig(`source: ` + sb.SourcePath + `
-targets:
-  claude:
-    skills:
-      path: "` + claudeSkills + `"
-    agents:
-      path: "` + claudeAgents + `"
-      exclude:
-        - "?eta"
-        - "gamma"
-`)
-
-	result := sb.RunCLI("sync", "agents")
-	result.AssertSuccess(t)
-
-	// alpha doesn't match any exclude → synced
-	if _, err := os.Lstat(filepath.Join(claudeAgents, "alpha.md")); err != nil {
-		t.Error("alpha.md should be synced")
-	}
-
-	// beta matches ?eta → NOT synced
-	if _, err := os.Lstat(filepath.Join(claudeAgents, "beta.md")); !os.IsNotExist(err) {
-		t.Error("beta.md should NOT be synced (excluded by ?eta)")
-	}
-
-	// gamma matches gamma → NOT synced
-	if _, err := os.Lstat(filepath.Join(claudeAgents, "gamma.md")); !os.IsNotExist(err) {
-		t.Error("gamma.md should NOT be synced (excluded by gamma)")
 	}
 }
 

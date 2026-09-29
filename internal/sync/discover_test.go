@@ -520,154 +520,51 @@ func TestDiscoverSourceSkills_EmptyRootSkillIgnore(t *testing.T) {
 
 // --- Gitignore syntax integration tests ---
 
-func TestDiscoverSourceSkills_DoubleStarPattern(t *testing.T) {
-	src := t.TempDir()
-
-	repoDir := filepath.Join(src, "_team")
-	os.MkdirAll(filepath.Join(repoDir, ".git"), 0755)
-	// ** should match at any depth
-	os.WriteFile(filepath.Join(repoDir, ".skillignore"), []byte("**/temp\n"), 0644)
-
-	writeSkillMD(t, filepath.Join(repoDir, "temp"), "ignored")
-	writeSkillMD(t, filepath.Join(repoDir, "sub", "temp"), "deep ignored")
-	writeSkillMD(t, filepath.Join(repoDir, "real-skill"), "# Real")
-
-	skills, err := DiscoverSourceSkills(src)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, s := range skills {
-		if strings.Contains(s.RelPath, "temp") {
-			t.Errorf("temp skill should be ignored by **/temp, got %s", s.RelPath)
-		}
-	}
-	if len(skills) != 1 {
-		t.Errorf("expected 1 skill (real-skill), got %d: %v", len(skills), skills)
-	}
-}
-
-func TestDiscoverSourceSkills_NegationPattern(t *testing.T) {
-	src := t.TempDir()
-
-	repoDir := filepath.Join(src, "_team")
-	os.MkdirAll(filepath.Join(repoDir, ".git"), 0755)
-	// Ignore all test-* but keep test-important
-	os.WriteFile(filepath.Join(repoDir, ".skillignore"), []byte("test-*\n!test-important\n"), 0644)
-
-	writeSkillMD(t, filepath.Join(repoDir, "test-alpha"), "ignored")
-	writeSkillMD(t, filepath.Join(repoDir, "test-beta"), "ignored")
-	writeSkillMD(t, filepath.Join(repoDir, "test-important"), "kept")
-	writeSkillMD(t, filepath.Join(repoDir, "prod-skill"), "kept")
-
-	skills, err := DiscoverSourceSkills(src)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	nameSet := map[string]bool{}
-	for _, s := range skills {
-		nameSet[s.FlatName] = true
-	}
-
-	if nameSet["_team__test-alpha"] {
-		t.Error("test-alpha should be ignored")
-	}
-	if nameSet["_team__test-beta"] {
-		t.Error("test-beta should be ignored")
-	}
-	if !nameSet["_team__test-important"] {
-		t.Error("test-important should be kept (negation)")
-	}
-	if !nameSet["_team__prod-skill"] {
-		t.Error("prod-skill should be kept")
-	}
-}
-
-func TestDiscoverSourceSkills_DirOnlyPattern(t *testing.T) {
-	src := t.TempDir()
-
-	repoDir := filepath.Join(src, "_team")
-	os.MkdirAll(filepath.Join(repoDir, ".git"), 0755)
-	// demo/ with trailing slash — should ignore the demo directory
-	os.WriteFile(filepath.Join(repoDir, ".skillignore"), []byte("demo/\n"), 0644)
-
-	writeSkillMD(t, filepath.Join(repoDir, "demo"), "ignored dir")
-	writeSkillMD(t, filepath.Join(repoDir, "demo-skill"), "NOT ignored — different name")
-	writeSkillMD(t, filepath.Join(repoDir, "real"), "kept")
-
-	skills, err := DiscoverSourceSkills(src)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	nameSet := map[string]bool{}
-	for _, s := range skills {
-		nameSet[s.FlatName] = true
-	}
-
-	if nameSet["_team__demo"] {
-		t.Error("demo should be ignored by demo/ pattern")
-	}
-	if !nameSet["_team__demo-skill"] {
-		t.Error("demo-skill should NOT be ignored (different from demo/)")
-	}
-	if !nameSet["_team__real"] {
-		t.Error("real should be kept")
-	}
-}
-
-func TestDiscoverSourceSkills_QuestionMarkPattern(t *testing.T) {
-	src := t.TempDir()
-
-	repoDir := filepath.Join(src, "_team")
-	os.MkdirAll(filepath.Join(repoDir, ".git"), 0755)
-	os.WriteFile(filepath.Join(repoDir, ".skillignore"), []byte("?.md-test\n"), 0644)
-
-	writeSkillMD(t, filepath.Join(repoDir, "a.md-test"), "ignored")
-	writeSkillMD(t, filepath.Join(repoDir, "ab.md-test"), "kept")
-	writeSkillMD(t, filepath.Join(repoDir, "real-skill"), "kept")
-
-	skills, err := DiscoverSourceSkills(src)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for _, s := range skills {
-		if s.FlatName == "_team__a.md-test" {
-			t.Error("a.md-test should be ignored by ?.md-test pattern")
-		}
-	}
-}
-
-func TestDiscoverSourceSkills_CharClassPattern(t *testing.T) {
-	src := t.TempDir()
-
-	repoDir := filepath.Join(src, "_team")
-	os.MkdirAll(filepath.Join(repoDir, ".git"), 0755)
-	os.WriteFile(filepath.Join(repoDir, ".skillignore"), []byte("[Tt]emp\n"), 0644)
-
-	writeSkillMD(t, filepath.Join(repoDir, "Temp"), "ignored")
-	writeSkillMD(t, filepath.Join(repoDir, "temp"), "ignored")
-	writeSkillMD(t, filepath.Join(repoDir, "hemp"), "kept")
-
-	skills, err := DiscoverSourceSkills(src)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	nameSet := map[string]bool{}
-	for _, s := range skills {
-		nameSet[s.FlatName] = true
-	}
-
-	if nameSet["_team__Temp"] {
-		t.Error("Temp should be ignored by [Tt]emp")
-	}
-	if nameSet["_team__temp"] {
-		t.Error("temp should be ignored by [Tt]emp")
-	}
-	if !nameSet["_team__hemp"] {
-		t.Error("hemp should be kept")
+// Exercise discovery wiring here; exhaustive pattern semantics live in internal/skillignore.
+func TestDiscoverSourceSkills_IgnorePatterns(t *testing.T) {
+	for _, tt := range []struct {
+		name     string
+		patterns string
+		ignored  []string
+		kept     []string
+	}{
+		{"DoubleStarPattern", "**/temp\n", []string{"temp", "sub/temp"}, []string{"real-skill"}},
+		{"NegationPattern", "test-*\n!test-important\n", []string{"test-alpha", "test-beta"}, []string{"test-important", "prod-skill"}},
+		{"DirOnlyPattern", "demo/\n", []string{"demo"}, []string{"demo-skill", "real"}},
+		{"QuestionMarkPattern", "?.md-test\n", []string{"a.md-test"}, []string{"ab.md-test", "real-skill"}},
+		{"CharClassPattern", "[Tt]emp\n", []string{"Temp", "temp"}, []string{"hemp"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			src := t.TempDir()
+			repoDir := filepath.Join(src, "_team")
+			if err := os.MkdirAll(filepath.Join(repoDir, ".git"), 0755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(repoDir, ".skillignore"), []byte(tt.patterns), 0644); err != nil {
+				t.Fatal(err)
+			}
+			for _, paths := range [][]string{tt.ignored, tt.kept} {
+				for _, path := range paths {
+					writeSkillMD(t, filepath.Join(repoDir, path), "# Skill")
+				}
+			}
+			skills, err := DiscoverSourceSkills(src)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(skills) != len(tt.kept) {
+				t.Fatalf("expected %d skills, got %v", len(tt.kept), skills)
+			}
+			found := map[string]bool{}
+			for _, skill := range skills {
+				found[skill.FlatName] = true
+			}
+			for _, path := range tt.kept {
+				if !found["_team__"+strings.ReplaceAll(path, "/", "__")] {
+					t.Errorf("missing kept skill %q", path)
+				}
+			}
+		})
 	}
 }
 

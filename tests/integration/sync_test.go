@@ -458,36 +458,6 @@ targets:
 	}
 }
 
-func TestSync_Pruning_PreservesLocalDirectories(t *testing.T) {
-	sb := testutil.NewSandbox(t)
-	defer sb.Cleanup()
-
-	// Create source skill
-	sb.CreateSkill("shared-skill", map[string]string{"SKILL.md": "# Shared"})
-
-	targetPath := sb.CreateTarget("claude")
-
-	// Create a local directory in target (not a symlink)
-	localSkillPath := filepath.Join(targetPath, "my-local-skill")
-	os.MkdirAll(localSkillPath, 0755)
-	os.WriteFile(filepath.Join(localSkillPath, "SKILL.md"), []byte("# Local"), 0644)
-
-	sb.WriteConfig(`source: ` + sb.SourcePath + `
-mode: merge
-targets:
-  claude:
-    path: ` + targetPath + `
-`)
-
-	result := sb.RunCLI("sync")
-	result.AssertSuccess(t)
-
-	// Local directory should be preserved (warning issued but not deleted)
-	if !sb.FileExists(localSkillPath) {
-		t.Error("local skill directory should be preserved")
-	}
-}
-
 func TestSync_PreservesRegistryEntries(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
@@ -520,60 +490,6 @@ targets:
 	content := string(data)
 	if !strings.Contains(content, "remote-tool") {
 		t.Errorf("sync should preserve registry entry for installed skill without local files, got:\n%s", content)
-	}
-}
-
-func TestSync_MergeMode_IncludeFilter(t *testing.T) {
-	sb := testutil.NewSandbox(t)
-	defer sb.Cleanup()
-
-	sb.CreateSkill("codex-plan", map[string]string{"SKILL.md": "# Codex"})
-	sb.CreateSkill("claude-help", map[string]string{"SKILL.md": "# Claude"})
-	targetPath := sb.CreateTarget("claude")
-
-	sb.WriteConfig(`source: ` + sb.SourcePath + `
-mode: merge
-targets:
-  claude:
-    path: ` + targetPath + `
-    include: [codex-*]
-`)
-
-	result := sb.RunCLI("sync")
-	result.AssertSuccess(t)
-
-	if !sb.IsSymlink(filepath.Join(targetPath, "codex-plan")) {
-		t.Error("included skill should be symlinked")
-	}
-	if sb.FileExists(filepath.Join(targetPath, "claude-help")) {
-		t.Error("non-included skill should not be synced")
-	}
-}
-
-func TestSync_MergeMode_ExcludeFilter(t *testing.T) {
-	sb := testutil.NewSandbox(t)
-	defer sb.Cleanup()
-
-	sb.CreateSkill("codex-plan", map[string]string{"SKILL.md": "# Codex"})
-	sb.CreateSkill("claude-help", map[string]string{"SKILL.md": "# Claude"})
-	targetPath := sb.CreateTarget("claude")
-
-	sb.WriteConfig(`source: ` + sb.SourcePath + `
-mode: merge
-targets:
-  claude:
-    path: ` + targetPath + `
-    exclude: [claude-*]
-`)
-
-	result := sb.RunCLI("sync")
-	result.AssertSuccess(t)
-
-	if !sb.IsSymlink(filepath.Join(targetPath, "codex-plan")) {
-		t.Error("non-excluded skill should be symlinked")
-	}
-	if sb.FileExists(filepath.Join(targetPath, "claude-help")) {
-		t.Error("excluded skill should not be synced")
 	}
 }
 

@@ -11,109 +11,6 @@ import (
 	"skillshare/internal/testutil"
 )
 
-func TestInstall_SkillIgnore_ExcludesMatchedSkills(t *testing.T) {
-	sb := testutil.NewSandbox(t)
-	defer sb.Cleanup()
-
-	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
-
-	// Create a git repo with multiple skills and a .skillignore
-	gitRepoPath := filepath.Join(sb.Root, "ignore-repo")
-	for _, name := range []string{"skill-a", "skill-b", "internal-tool"} {
-		p := filepath.Join(gitRepoPath, name)
-		os.MkdirAll(p, 0755)
-		os.WriteFile(filepath.Join(p, "SKILL.md"), []byte("# "+name), 0644)
-	}
-	os.WriteFile(filepath.Join(gitRepoPath, ".skillignore"), []byte("# Exclude internal tools\ninternal-tool\n"), 0644)
-
-	initGitRepo(t, gitRepoPath)
-
-	// Discover — internal-tool should be excluded
-	source, _ := install.ParseSource("file://" + gitRepoPath)
-	discovery, err := install.DiscoverFromGit(source)
-	if err != nil {
-		t.Fatalf("DiscoverFromGit() error = %v", err)
-	}
-	defer install.CleanupDiscovery(discovery)
-
-	for _, sk := range discovery.Skills {
-		if sk.Name == "internal-tool" {
-			t.Error("internal-tool should be excluded by .skillignore")
-		}
-	}
-	if len(discovery.Skills) != 2 {
-		t.Errorf("expected 2 skills, got %d", len(discovery.Skills))
-	}
-}
-
-func TestInstall_SkillIgnore_GroupPattern(t *testing.T) {
-	sb := testutil.NewSandbox(t)
-	defer sb.Cleanup()
-
-	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
-
-	// Create a grouped repo: internal/ has 3 skills, plus 1 top-level skill
-	gitRepoPath := filepath.Join(sb.Root, "group-repo")
-	for _, rel := range []string{"internal/tool-a", "internal/tool-b", "internal/internal", "public-skill"} {
-		p := filepath.Join(gitRepoPath, rel)
-		os.MkdirAll(p, 0755)
-		os.WriteFile(filepath.Join(p, "SKILL.md"), []byte("# "+filepath.Base(rel)), 0644)
-	}
-	// "internal" excludes the entire internal/ group (including same-named internal/internal)
-	os.WriteFile(filepath.Join(gitRepoPath, ".skillignore"), []byte("internal\n"), 0644)
-
-	initGitRepo(t, gitRepoPath)
-
-	source, _ := install.ParseSource("file://" + gitRepoPath)
-	discovery, err := install.DiscoverFromGit(source)
-	if err != nil {
-		t.Fatalf("DiscoverFromGit() error = %v", err)
-	}
-	defer install.CleanupDiscovery(discovery)
-
-	if len(discovery.Skills) != 1 {
-		t.Errorf("expected 1 skill (public-skill), got %d: %+v", len(discovery.Skills), discovery.Skills)
-	}
-	if len(discovery.Skills) == 1 && discovery.Skills[0].Name != "public-skill" {
-		t.Errorf("expected public-skill, got %s", discovery.Skills[0].Name)
-	}
-}
-
-func TestInstall_SkillIgnore_PrecisePathInGroup(t *testing.T) {
-	sb := testutil.NewSandbox(t)
-	defer sb.Cleanup()
-
-	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
-
-	// Same-name edge case: group "radar" contains skill "radar" and "helper"
-	gitRepoPath := filepath.Join(sb.Root, "precise-repo")
-	for _, rel := range []string{"radar/radar", "radar/helper", "other-skill"} {
-		p := filepath.Join(gitRepoPath, rel)
-		os.MkdirAll(p, 0755)
-		os.WriteFile(filepath.Join(p, "SKILL.md"), []byte("# "+filepath.Base(rel)), 0644)
-	}
-	// Exclude only radar/radar, NOT the entire group
-	os.WriteFile(filepath.Join(gitRepoPath, ".skillignore"), []byte("radar/radar\n"), 0644)
-
-	initGitRepo(t, gitRepoPath)
-
-	source, _ := install.ParseSource("file://" + gitRepoPath)
-	discovery, err := install.DiscoverFromGit(source)
-	if err != nil {
-		t.Fatalf("DiscoverFromGit() error = %v", err)
-	}
-	defer install.CleanupDiscovery(discovery)
-
-	if len(discovery.Skills) != 2 {
-		t.Errorf("expected 2 skills (helper + other-skill), got %d: %+v", len(discovery.Skills), discovery.Skills)
-	}
-	for _, sk := range discovery.Skills {
-		if sk.Name == "radar" && sk.Path == "radar/radar" {
-			t.Error("radar/radar should be excluded by precise path pattern")
-		}
-	}
-}
-
 func TestInstall_SkillIgnore_WildcardPattern(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
@@ -121,12 +18,12 @@ func TestInstall_SkillIgnore_WildcardPattern(t *testing.T) {
 	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
 
 	gitRepoPath := filepath.Join(sb.Root, "wildcard-repo")
-	for _, name := range []string{"prod-skill", "test-one", "test-two"} {
+	for _, name := range []string{"radar/radar", "radar/helper", "test-one", "test-two"} {
 		p := filepath.Join(gitRepoPath, name)
 		os.MkdirAll(p, 0755)
 		os.WriteFile(filepath.Join(p, "SKILL.md"), []byte("# "+name), 0644)
 	}
-	os.WriteFile(filepath.Join(gitRepoPath, ".skillignore"), []byte("test-*\n"), 0644)
+	os.WriteFile(filepath.Join(gitRepoPath, ".skillignore"), []byte("test-*\nradar/radar\n"), 0644)
 
 	initGitRepo(t, gitRepoPath)
 
@@ -138,47 +35,14 @@ func TestInstall_SkillIgnore_WildcardPattern(t *testing.T) {
 	defer install.CleanupDiscovery(discovery)
 
 	if len(discovery.Skills) != 1 {
-		t.Errorf("expected 1 skill (prod-skill), got %d: %+v", len(discovery.Skills), discovery.Skills)
+		t.Errorf("expected 1 skill (helper), got %d: %+v", len(discovery.Skills), discovery.Skills)
 	}
-	if len(discovery.Skills) == 1 && discovery.Skills[0].Name != "prod-skill" {
-		t.Errorf("expected prod-skill, got %s", discovery.Skills[0].Name)
-	}
-}
-
-// --- Gitignore syntax in .skillignore ---
-
-func TestInstall_SkillIgnore_DoubleStarPattern(t *testing.T) {
-	sb := testutil.NewSandbox(t)
-	defer sb.Cleanup()
-
-	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
-
-	gitRepoPath := filepath.Join(sb.Root, "doublestar-repo")
-	for _, rel := range []string{"temp", "sub/temp", "prod-skill"} {
-		p := filepath.Join(gitRepoPath, rel)
-		os.MkdirAll(p, 0755)
-		os.WriteFile(filepath.Join(p, "SKILL.md"), []byte("# "+filepath.Base(rel)), 0644)
-	}
-	os.WriteFile(filepath.Join(gitRepoPath, ".skillignore"), []byte("**/temp\n"), 0644)
-
-	initGitRepo(t, gitRepoPath)
-
-	source, _ := install.ParseSource("file://" + gitRepoPath)
-	discovery, err := install.DiscoverFromGit(source)
-	if err != nil {
-		t.Fatalf("DiscoverFromGit() error = %v", err)
-	}
-	defer install.CleanupDiscovery(discovery)
-
-	for _, sk := range discovery.Skills {
-		if sk.Name == "temp" {
-			t.Errorf("skill 'temp' at path %s should be excluded by **/temp", sk.Path)
-		}
-	}
-	if len(discovery.Skills) != 1 {
-		t.Errorf("expected 1 skill (prod-skill), got %d: %+v", len(discovery.Skills), discovery.Skills)
+	if len(discovery.Skills) == 1 && discovery.Skills[0].Name != "helper" {
+		t.Errorf("expected helper, got %s", discovery.Skills[0].Name)
 	}
 }
+
+// Pattern semantics are covered in internal/skillignore; keep Git discovery wiring here.
 
 func TestInstall_SkillIgnore_NegationPattern(t *testing.T) {
 	sb := testutil.NewSandbox(t)
@@ -187,13 +51,13 @@ func TestInstall_SkillIgnore_NegationPattern(t *testing.T) {
 	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
 
 	gitRepoPath := filepath.Join(sb.Root, "negation-repo")
-	for _, name := range []string{"test-a", "test-b", "test-important", "prod"} {
+	for _, name := range []string{"vendor/test-a", "vendor/test-b", "vendor/test-important", "prod"} {
 		p := filepath.Join(gitRepoPath, name)
 		os.MkdirAll(p, 0755)
 		os.WriteFile(filepath.Join(p, "SKILL.md"), []byte("# "+name), 0644)
 	}
-	// Ignore all test-*, but keep test-important
-	os.WriteFile(filepath.Join(gitRepoPath, ".skillignore"), []byte("test-*\n!test-important\n"), 0644)
+	// Keep walking the ignored parent to discover the negated child.
+	os.WriteFile(filepath.Join(gitRepoPath, ".skillignore"), []byte("vendor/\n!vendor/test-important\n"), 0644)
 
 	initGitRepo(t, gitRepoPath)
 
@@ -209,134 +73,16 @@ func TestInstall_SkillIgnore_NegationPattern(t *testing.T) {
 		nameSet[sk.Name] = true
 	}
 	if nameSet["test-a"] {
-		t.Error("test-a should be excluded by test-*")
+		t.Error("test-a should be excluded by vendor/")
 	}
 	if nameSet["test-b"] {
-		t.Error("test-b should be excluded by test-*")
+		t.Error("test-b should be excluded by vendor/")
 	}
 	if !nameSet["test-important"] {
-		t.Error("test-important should be kept by !test-important negation")
+		t.Error("test-important should be kept by !vendor/test-important negation")
 	}
 	if !nameSet["prod"] {
 		t.Error("prod should be kept")
-	}
-}
-
-func TestInstall_SkillIgnore_DirOnlyPattern(t *testing.T) {
-	sb := testutil.NewSandbox(t)
-	defer sb.Cleanup()
-
-	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
-
-	gitRepoPath := filepath.Join(sb.Root, "dironly-repo")
-	for _, name := range []string{"demo", "demo-tool", "prod"} {
-		p := filepath.Join(gitRepoPath, name)
-		os.MkdirAll(p, 0755)
-		os.WriteFile(filepath.Join(p, "SKILL.md"), []byte("# "+name), 0644)
-	}
-	// demo/ with trailing slash — only matches directory named "demo"
-	os.WriteFile(filepath.Join(gitRepoPath, ".skillignore"), []byte("demo/\n"), 0644)
-
-	initGitRepo(t, gitRepoPath)
-
-	source, _ := install.ParseSource("file://" + gitRepoPath)
-	discovery, err := install.DiscoverFromGit(source)
-	if err != nil {
-		t.Fatalf("DiscoverFromGit() error = %v", err)
-	}
-	defer install.CleanupDiscovery(discovery)
-
-	nameSet := map[string]bool{}
-	for _, sk := range discovery.Skills {
-		nameSet[sk.Name] = true
-	}
-	if nameSet["demo"] {
-		t.Error("demo should be excluded by demo/ pattern")
-	}
-	if !nameSet["demo-tool"] {
-		t.Error("demo-tool should NOT be excluded (different name)")
-	}
-	if !nameSet["prod"] {
-		t.Error("prod should be kept")
-	}
-}
-
-func TestInstall_SkillIgnore_CharClassPattern(t *testing.T) {
-	sb := testutil.NewSandbox(t)
-	defer sb.Cleanup()
-
-	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
-
-	gitRepoPath := filepath.Join(sb.Root, "charclass-repo")
-	for _, name := range []string{"Test-skill", "test-skill", "best-skill"} {
-		p := filepath.Join(gitRepoPath, name)
-		os.MkdirAll(p, 0755)
-		os.WriteFile(filepath.Join(p, "SKILL.md"), []byte("# "+name), 0644)
-	}
-	os.WriteFile(filepath.Join(gitRepoPath, ".skillignore"), []byte("[Tt]est-skill\n"), 0644)
-
-	initGitRepo(t, gitRepoPath)
-
-	source, _ := install.ParseSource("file://" + gitRepoPath)
-	discovery, err := install.DiscoverFromGit(source)
-	if err != nil {
-		t.Fatalf("DiscoverFromGit() error = %v", err)
-	}
-	defer install.CleanupDiscovery(discovery)
-
-	if len(discovery.Skills) != 1 {
-		t.Errorf("expected 1 skill (best-skill), got %d: %+v", len(discovery.Skills), discovery.Skills)
-	}
-	for _, sk := range discovery.Skills {
-		if sk.Name == "Test-skill" || sk.Name == "test-skill" {
-			t.Errorf("%s should be excluded by [Tt]est-skill", sk.Name)
-		}
-	}
-}
-
-func TestInstall_SkillIgnore_CombinedPatterns(t *testing.T) {
-	sb := testutil.NewSandbox(t)
-	defer sb.Cleanup()
-
-	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
-
-	gitRepoPath := filepath.Join(sb.Root, "combined-repo")
-	for _, name := range []string{"debug-tool", "test-alpha", "test-beta", "test-keep", "prod-skill"} {
-		p := filepath.Join(gitRepoPath, name)
-		os.MkdirAll(p, 0755)
-		os.WriteFile(filepath.Join(p, "SKILL.md"), []byte("# "+name), 0644)
-	}
-	// Multiple patterns: exact match, wildcard with negation
-	content := "# Exclude debug tools\ndebug-tool\n\n# Exclude tests but keep test-keep\ntest-*\n!test-keep\n"
-	os.WriteFile(filepath.Join(gitRepoPath, ".skillignore"), []byte(content), 0644)
-
-	initGitRepo(t, gitRepoPath)
-
-	source, _ := install.ParseSource("file://" + gitRepoPath)
-	discovery, err := install.DiscoverFromGit(source)
-	if err != nil {
-		t.Fatalf("DiscoverFromGit() error = %v", err)
-	}
-	defer install.CleanupDiscovery(discovery)
-
-	nameSet := map[string]bool{}
-	for _, sk := range discovery.Skills {
-		nameSet[sk.Name] = true
-	}
-	if nameSet["debug-tool"] {
-		t.Error("debug-tool should be excluded")
-	}
-	if nameSet["test-alpha"] {
-		t.Error("test-alpha should be excluded")
-	}
-	if nameSet["test-beta"] {
-		t.Error("test-beta should be excluded")
-	}
-	if !nameSet["test-keep"] {
-		t.Error("test-keep should be kept by negation")
-	}
-	if !nameSet["prod-skill"] {
-		t.Error("prod-skill should be kept")
 	}
 }
 
