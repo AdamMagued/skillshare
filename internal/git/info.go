@@ -228,11 +228,6 @@ func scanGitProgress(data []byte, atEOF bool) (advance int, token []byte, err er
 	return 0, nil, nil
 }
 
-// Pull runs git pull and returns update info (quiet mode)
-func Pull(repoPath string) (*UpdateInfo, error) {
-	return PullWithEnv(repoPath, nil)
-}
-
 // PullWithAuth runs git pull with token auth env inferred from origin remote.
 func PullWithAuth(repoPath string) (*UpdateInfo, error) {
 	return PullWithEnv(repoPath, AuthEnvForRepo(repoPath))
@@ -601,11 +596,6 @@ func Commit(dir, msg string) error {
 		return fmt.Errorf("git commit failed: %s", strings.TrimSpace(string(out)))
 	}
 	return nil
-}
-
-// PushRemote pushes to the default remote
-func PushRemote(dir string) error {
-	return PushRemoteWithEnv(dir, nil)
 }
 
 // PushRemoteWithAuth pushes to the default remote with token auth env inferred
@@ -1009,11 +999,6 @@ func abbrevHash(hash string) string {
 		return hash[:7]
 	}
 	return hash
-}
-
-// ForcePull fetches and resets to origin (handles force push)
-func ForcePull(repoPath string) (*UpdateInfo, error) {
-	return ForcePullWithEnv(repoPath, nil)
 }
 
 // ForcePullWithAuth runs force-pull flow with token auth env inferred from origin remote.
