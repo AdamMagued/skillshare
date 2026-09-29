@@ -782,6 +782,41 @@ func TestHandleExtrasSync_SkipsAgentOverlapTarget(t *testing.T) {
 	}
 }
 
+// In project mode, a relative agents target path resolves against the project
+// root, so the "agents" extra target at the same relative path is skipped.
+func TestHandleExtrasSync_SkipsAgentOverlapTarget_ProjectMode(t *testing.T) {
+	extras := []config.ExtraConfig{{
+		Name:    "agents",
+		Targets: []config.ExtraTargetConfig{{Path: ".claude/agents", Mode: "copy"}},
+	}}
+	s, projectRoot := newTestProjectServerWithExtras(t, extras)
+
+	agentsSource := s.projectCfg.EffectiveAgentsSource(projectRoot)
+	os.MkdirAll(agentsSource, 0755)
+	os.WriteFile(filepath.Join(agentsSource, "helper.md"), []byte("# Helper"), 0644)
+	s.projectCfg.Targets = []config.ProjectTargetEntry{{
+		Name:   "claude",
+		Agents: &config.ResourceTargetConfig{Path: ".claude/agents"},
+	}}
+	s.mu.Lock()
+	err := s.saveAndReloadConfig()
+	s.mu.Unlock()
+	if err != nil {
+		t.Fatal(err)
+	}
+	srcDir := config.ResolveExtrasSourceDirProject(extras[0], s.projectCfg.EffectiveExtrasSource(projectRoot), projectRoot)
+	os.WriteFile(filepath.Join(srcDir, "extra-agent.md"), []byte("# Extra"), 0644)
+
+	targets := postExtrasSync(t, s, `{"name":"agents"}`)
+
+	if got := targets[0]["skipped_by"]; got != "agents" {
+		t.Errorf("skipped_by = %v, want %q (full entry %v)", got, "agents", targets[0])
+	}
+	if _, err := os.Stat(filepath.Join(projectRoot, ".claude", "agents", "extra-agent.md")); !os.IsNotExist(err) {
+		t.Errorf("extra-agent.md must not be synced into the agents target, stat err = %v", err)
+	}
+}
+
 // The server skips an extra whose source directory is missing, with a hint in
 // the extra's warnings, instead of creating it.
 func TestHandleExtrasSync_SkipsMissingSource(t *testing.T) {
