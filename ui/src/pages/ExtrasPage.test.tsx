@@ -100,7 +100,6 @@ describe('Extras page in a project', () => {
     await user.type(fileInput, 'review.md');
     await user.type(within(dialog).getByRole('textbox', { name: 'Source folder' }), 'prompts');
     await user.type(within(dialog).getByRole('textbox', { name: 'Folder' }), '.claude/commands');
-    expect(within(dialog).getByText(/\/extras\/prompts\/review\.md/)).toBeInTheDocument();
     await user.click(within(dialog).getByRole('button', { name: 'Create' }));
 
     expect(api.createExtra).toHaveBeenCalledWith({

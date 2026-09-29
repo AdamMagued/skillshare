@@ -219,7 +219,8 @@ function AddExtraDialog({ onClose, onCreated, extensions, known, sharedDir, fold
   const fileOk = !single || (fileName !== '' && !isPathLike(fileName) && !isPathLike(folderName) && valid.every((d) => !isPathLike(d.as.trim())));
   const canCreate = name.trim() !== '' && valid.length > 0 && (!custom || source.trim() !== '') && fileOk && !saving;
   const agents = single && isAgentsExtra({ file: fileName });
-  const sourceFile = joinFile(custom ? source.trim() || '…' : joinFile(shortenHome(sharedDir), folderName || name.trim() || '…'), fileName || '…');
+  // The separator between the source folder and the file name, a backslash on Windows.
+  const sourceSep = joinFile(custom ? source : sharedDir, '').slice(-1);
 
   // Keep each target's mode valid for the chosen kind.
   const switchKind = (toSingle: boolean) => {
@@ -265,7 +266,7 @@ function AddExtraDialog({ onClose, onCreated, extensions, known, sharedDir, fold
             <span className="ss-inp">
               <input id="extra-name" autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder={t('extras.modal.namePlaceholder')} disabled={saving} />
             </span>
-            <span className="hp">{t(custom ? 'extras.modal.nameHintCustom' : 'extras.modal.nameHint')}</span>
+            <span className="hp">{t(custom || single ? 'extras.modal.nameHintCustom' : 'extras.modal.nameHint')}</span>
           </div>
           <div className="ss-fld">
             <span id="extra-kind" className="text-[13px] font-semibold">{t('extras.modal.sync')}</span>
@@ -289,41 +290,49 @@ function AddExtraDialog({ onClose, onCreated, extensions, known, sharedDir, fold
               ]}
               disabled={saving}
             />
-            {custom ? (
+            {single ? null : custom ? (
               <span className="ss-inp">
                 <input value={source} onChange={(e) => setSource(e.target.value)} placeholder={t('extras.modal.sourcePathPlaceholder')} aria-label={t('extras.sourceType.custom')} disabled={saving} />
               </span>
-            ) : single ? (
-              <>
-                <span className={`ss-inp ${isPathLike(folderName) ? 'err' : ''}`}>
-                  <input value={folder} onChange={(e) => setFolder(e.target.value)} placeholder={name.trim() || t('extras.modal.namePlaceholder')} aria-label={t('extras.modal.sourceFolder')} aria-invalid={isPathLike(folderName)} disabled={saving} />
-                </span>
-                {/* Folders other single-file extras use, one click to share one. */}
-                {folders.length > 0 && (
-                  <span className="flex flex-wrap items-center gap-1.5 text-[12.5px] text-ink-3">
-                    {t('extras.modal.existingFolders')}
-                    {folders.map((f) => (
-                      <button key={f} type="button" className={`ss-tag font-mono hover:text-ink ${folderName === f ? '!text-ink' : ''}`} aria-pressed={folderName === f} onClick={() => setFolder(f)} disabled={saving}>{f}</button>
-                    ))}
-                  </span>
-                )}
-                <span className={`hp ${isPathLike(folderName) ? 'text-bad' : ''}`}>{t(isPathLike(folderName) ? 'extras.modal.sourceFolderInvalid' : 'extras.modal.sourceFolderHint')}</span>
-              </>
             ) : (
               <span className="hp truncate font-mono">{joinFile(shortenHome(sharedDir), name.trim() || '…')}</span>
             )}
           </div>
           {single && (
-            <div className="ss-fld">
-              <label htmlFor="extra-file">{t('extras.modal.fileName')}</label>
-              <span className={`ss-inp ${isPathLike(fileName) ? 'err' : ''}`}>
-                <input id="extra-file" value={file} onChange={(e) => setFile(e.target.value)} placeholder="CONVENTIONS.md" aria-invalid={isPathLike(fileName)} disabled={saving} />
-              </span>
-              {isPathLike(fileName) && <span className="hp text-bad">{t('extras.modal.fileNameInvalid')}</span>}
+            <div className="ss-fld col-span-2">
+              <span className="text-[13px] font-semibold">{t('extras.modal.sourceFile')}</span>
+              {/* The source file as one path: <folder> <sep> <file name>. */}
+              <div className="flex min-w-0 items-center gap-1.5">
+                {custom ? (
+                  <span className="ss-inp flex-[3]">
+                    <input value={source} onChange={(e) => setSource(e.target.value)} placeholder={t('extras.modal.sourcePathPlaceholder')} aria-label={t('extras.sourceType.custom')} disabled={saving} />
+                  </span>
+                ) : (
+                  <>
+                    <span className="max-w-[40%] shrink-0 truncate font-mono text-[12.5px] text-ink-3" title={sharedDir}>{joinFile(shortenHome(sharedDir), '')}</span>
+                    <span className={`ss-inp flex-1 ${isPathLike(folderName) ? 'err' : ''}`}>
+                      <input value={folder} onChange={(e) => setFolder(e.target.value)} placeholder={name.trim() || t('extras.modal.sourceFolder')} aria-label={t('extras.modal.sourceFolder')} aria-invalid={isPathLike(folderName)} disabled={saving} />
+                    </span>
+                  </>
+                )}
+                <span className="font-mono text-ink-3">{sourceSep}</span>
+                <span className={`ss-inp flex-[2] ${isPathLike(fileName) ? 'err' : ''}`}>
+                  <input value={file} onChange={(e) => setFile(e.target.value)} placeholder="CONVENTIONS.md" aria-label={t('extras.modal.fileName')} aria-invalid={isPathLike(fileName)} disabled={saving} />
+                </span>
+              </div>
+              {/* Folders other single-file extras use, one click to share one. */}
+              {!custom && folders.length > 0 && (
+                <span className="flex flex-wrap items-center gap-1.5 text-[12.5px] text-ink-3">
+                  {t('extras.modal.existingFolders')}
+                  {folders.map((f) => (
+                    <button key={f} type="button" className={`ss-tag font-mono hover:text-ink ${folderName === f ? '!text-ink' : ''}`} aria-pressed={folderName === f} onClick={() => setFolder(f)} disabled={saving}>{f}</button>
+                  ))}
+                </span>
+              )}
+              {isPathLike(folderName) ? <span className="hp text-bad">{t('extras.modal.sourceFolderInvalid')}</span>
+                : isPathLike(fileName) ? <span className="hp text-bad">{t('extras.modal.fileNameInvalid')}</span>
+                : !custom && <span className="hp">{t('extras.modal.sourceFolderHint')}</span>}
             </div>
-          )}
-          {single && (
-            <p className="col-span-2 min-w-0 break-all text-[12.5px] text-ink-3">{t('extras.modal.fileSyncs', { path: sourceFile })}</p>
           )}
           {agents && <div className="ss-note inf col-span-2"><span className="flex-1">{t('extras.modal.agentsNote')}</span></div>}
         </div>
