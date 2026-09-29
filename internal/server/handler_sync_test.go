@@ -14,6 +14,7 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/install"
 	"skillshare/internal/oplog"
+	ssync "skillshare/internal/sync"
 )
 
 func TestHandleSync_MergeMode(t *testing.T) {
@@ -564,5 +565,76 @@ func TestHandleSync_EverySkillTargetFailingIsAnError(t *testing.T) {
 	}
 	if e := entries[0]; e.Status != "error" || e.Args["targets_failed"] != float64(1) {
 		t.Fatalf("expected error sync with targets_failed 1, got status %q args %v", e.Status, e.Args)
+	}
+}
+
+func TestHandleSync_SkillPruneFailureIsWarning(t *testing.T) {
+	s, src := newTestServer(t)
+	addSkill(t, src, "alpha")
+	tgtPath := filepath.Join(t.TempDir(), "copy-skills")
+	// The manifest lives inside the orphan it lists, so pruning the orphan
+	// leaves the manifest write nowhere to go.
+	if err := os.MkdirAll(filepath.Join(tgtPath, "orphan"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tgtPath, "orphan", "manifest.json"), []byte(`{"managed":{"orphan":"x"}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join("orphan", "manifest.json"), filepath.Join(tgtPath, ssync.ManifestFile)); err != nil {
+		t.Fatal(err)
+	}
+	s.cfg.Targets["copier"] = config.TargetConfig{
+		Skills: &config.ResourceTargetConfig{Path: tgtPath, Mode: "copy"},
+	}
+	if err := s.cfg.Save(); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/sync", strings.NewReader(`{}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Warnings []string `json:"warnings"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.ContainsFunc(resp.Warnings, func(w string) bool {
+		return strings.HasPrefix(w, "copier: prune failed: failed to write manifest: ")
+	}) {
+		t.Fatalf("expected prune failed warning, got %v", resp.Warnings)
+	}
+}
+
+func TestHandleSync_SkillPruneWarningsAreReported(t *testing.T) {
+	tgtPath := filepath.Join(t.TempDir(), "claude-skills")
+	s, src := newTestServerWithTargets(t, map[string]string{"claude": tgtPath})
+	addSkill(t, src, "alpha")
+	external := t.TempDir()
+	if err := os.Symlink(external, filepath.Join(tgtPath, "outside")); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/sync", strings.NewReader(`{}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Warnings []string `json:"warnings"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.ContainsFunc(resp.Warnings, func(w string) bool {
+		return strings.HasPrefix(w, "outside: symlink to external location")
+	}) {
+		t.Fatalf("expected external symlink prune warning, got %v", resp.Warnings)
 	}
 }

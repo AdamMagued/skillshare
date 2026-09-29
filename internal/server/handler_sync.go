@@ -239,7 +239,8 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 					Include: sc.Include, Exclude: sc.Exclude, TargetNaming: sc.TargetNaming, TargetName: name,
 					DryRun: dryRun, Force: force,
 				})
-				if err == nil {
+				warnings = append(warnings, skillPruneWarnings(name, pruneResult, err)...)
+				if pruneResult != nil {
 					res.Pruned = pruneResult.Removed
 				}
 
@@ -255,7 +256,8 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 				res.DirCreated = copyResult.DirCreated
 
 				pruneResult, err := ssync.PruneOrphanCopiesWithSkills(sc.Path, allSkills, sc.Include, sc.Exclude, name, sc.TargetNaming, dryRun)
-				if err == nil {
+				warnings = append(warnings, skillPruneWarnings(name, pruneResult, err)...)
+				if pruneResult != nil {
 					res.Pruned = pruneResult.Removed
 				}
 
@@ -386,6 +388,19 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 	s.writeOpsLog("sync", status, start, logArgs, "")
 
 	return &syncOutcome{results: results, warnings: warnings, folderConflicts: conflicts, pathOverlap: overlap, skills: allSkills, ignoreStats: ignoreStats}, 0, nil
+}
+
+// skillPruneWarnings reports a skills prune the way the CLI does: a failure
+// as "<target>: prune failed: <err>", then the prune's own warnings.
+func skillPruneWarnings(name string, pruneResult *ssync.PruneResult, err error) []string {
+	var warnings []string
+	if err != nil {
+		warnings = append(warnings, fmt.Sprintf("%s: prune failed: %v", name, err))
+	}
+	if pruneResult != nil {
+		warnings = append(warnings, pruneResult.Warnings...)
+	}
+	return warnings
 }
 
 // backupBeforeSync snapshots the target folders a sync may overwrite, as the
