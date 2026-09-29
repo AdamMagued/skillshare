@@ -256,7 +256,7 @@ targets:
 
 #### 关闭 Skills {#skills-enabled}
 
-`skills.enabled: false` 会停止向某个 target 同步 skills，同时 skillshare 仍继续管理它的 agents、MCP server 和指示文件。适用于已经会读取另一个 target 的 skills 文件夹的工具，避免每个 skill 出现两次。
+`skills.enabled: false` 会停止向某个 target 同步 skills，同时 skillshare 仍继续管理它的 agents、MCP server 和指示文件。适用于已经会读取另一个 target 的 skills 文件夹的工具，避免它找到每个 skill 两次。
 
 ```yaml
 targets:

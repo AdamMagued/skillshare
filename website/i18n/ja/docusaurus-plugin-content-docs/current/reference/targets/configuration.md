@@ -259,7 +259,7 @@ targets:
 
 #### Skill のオフ {#skills-enabled}
 
-`skills.enabled: false` にすると、その Target への Skill の Sync を停止し、skillshare は agents、MCP サーバー、instructions の管理を続けます。別の Target の skills フォルダーをすでに読んでいるツールに使うと、各 Skill が 2 回表示されるのを防げます。
+`skills.enabled: false` にすると、その Target への Skill の Sync を停止し、skillshare は agents、MCP サーバー、instructions の管理を続けます。別の Target の skills フォルダーをすでに読んでいるツールに使うと、各 Skill を 2 回見つけるのを防げます。
 
 ```yaml
 targets:

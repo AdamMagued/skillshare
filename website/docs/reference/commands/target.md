@@ -242,7 +242,7 @@ Target filters are one of three filtering layers. See [Filtering Reference](/doc
 
 ## Skills On or Off {#skills-off}
 
-Some tools read skills from another target's folder as well as their own. Pi, for example, reads `~/.pi/agent/skills` and also `~/.agents/skills`, the folder of the `universal` target. Syncing skills into both makes each skill show up twice. Turn skills off for that target, and skillshare keeps managing its agents, MCP servers and instructions but leaves its skills folder alone:
+Some tools read skills from another target's folder as well as their own. Pi, for example, reads `~/.pi/agent/skills` and also `~/.agents/skills`, the folder of the `universal` target. Syncing skills into both makes Pi find each skill twice: Pi keeps the first and warns about the other, and some tools list both. Turn skills off for that target, and skillshare keeps managing its agents, MCP servers and instructions but leaves its skills folder alone:
 
 ```bash
 skillshare target pi --skills=false --dry-run   # Preview

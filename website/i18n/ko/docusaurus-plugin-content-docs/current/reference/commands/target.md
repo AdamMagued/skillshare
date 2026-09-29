@@ -242,7 +242,7 @@ Target 필터는 세 가지 필터링 계층 중 하나입니다. `.skillignore`
 
 ## Skills 켜기/끄기 {#skills-off}
 
-어떤 도구는 자체 폴더뿐 아니라 다른 target의 폴더에서도 skill을 읽습니다. 예를 들어 Pi는 `~/.pi/agent/skills`와 함께 `universal` target의 폴더인 `~/.agents/skills`도 읽습니다. 두 곳 모두에 skill을 동기화하면 각 skill이 두 번 나타납니다. 해당 target의 skills를 끄면, skillshare는 agents, MCP 서버, 지침은 계속 관리하되 skills 폴더는 건드리지 않습니다.
+어떤 도구는 자체 폴더뿐 아니라 다른 target의 폴더에서도 skill을 읽습니다. 예를 들어 Pi는 `~/.pi/agent/skills`와 함께 `universal` target의 폴더인 `~/.agents/skills`도 읽습니다. 두 곳 모두에 skill을 동기화하면 Pi가 각 skill을 두 번 찾게 됩니다. Pi는 먼저 찾은 것을 유지하고 다른 하나에 대해 경고하며, 일부 도구는 둘 다 표시합니다. 해당 target의 skills를 끄면, skillshare는 agents, MCP 서버, 지침은 계속 관리하되 skills 폴더는 건드리지 않습니다.
 
 ```bash
 skillshare target pi --skills=false --dry-run   # Preview

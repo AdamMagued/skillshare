@@ -242,7 +242,7 @@ Target フィルタは 3 つのフィルタリング階層の 1 つです。`.sk
 
 ## Skill のオン／オフ {#skills-off}
 
-一部のツールは、自身のフォルダーに加えて別の Target のフォルダーからも Skill を読み込みます。たとえば Pi は `~/.pi/agent/skills` に加えて、`universal` Target のフォルダーである `~/.agents/skills` も読み込みます。両方に Skill を同期すると、各 Skill が 2 回表示されます。その Target の Skill をオフにすると、skillshare は agents、MCP サーバー、instructions の管理を続けつつ、skills フォルダーには手を触れません。
+一部のツールは、自身のフォルダーに加えて別の Target のフォルダーからも Skill を読み込みます。たとえば Pi は `~/.pi/agent/skills` に加えて、`universal` Target のフォルダーである `~/.agents/skills` も読み込みます。両方に Skill を同期すると、Pi は各 Skill を 2 回見つけます。Pi は最初に見つけたものを残してもう一方について警告し、両方を一覧表示するツールもあります。その Target の Skill をオフにすると、skillshare は agents、MCP サーバー、instructions の管理を続けつつ、skills フォルダーには手を触れません。
 
 ```bash
 skillshare target pi --skills=false --dry-run   # プレビュー

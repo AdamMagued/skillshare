@@ -257,7 +257,7 @@ targets:
 
 #### Skills 끄기 {#skills-enabled}
 
-`skills.enabled: false`는 target으로의 skill 동기화를 중지하고, skillshare는 agents, MCP 서버, 지침을 계속 관리합니다. 다른 target의 skills 폴더를 이미 읽는 도구에 사용하면 각 skill이 두 번 나타나지 않습니다.
+`skills.enabled: false`는 target으로의 skill 동기화를 중지하고, skillshare는 agents, MCP 서버, 지침을 계속 관리합니다. 다른 target의 skills 폴더를 이미 읽는 도구에 사용하면 그 도구가 각 skill을 두 번 찾지 않게 됩니다.
 
 ```yaml
 targets:

@@ -260,7 +260,7 @@ the file.
 
 #### Skills off {#skills-enabled}
 
-`skills.enabled: false` stops syncing skills to a target while skillshare keeps managing its agents, MCP servers and instructions. Use it for a tool that already reads another target's skills folder, so each skill does not show up twice.
+`skills.enabled: false` stops syncing skills to a target while skillshare keeps managing its agents, MCP servers and instructions. Use it for a tool that already reads another target's skills folder, so it does not find each skill twice.
 
 ```yaml
 targets:

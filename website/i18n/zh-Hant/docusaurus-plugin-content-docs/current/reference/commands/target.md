@@ -242,7 +242,7 @@ Target filters 是三層過濾機制之一。詳見 [Filtering Reference](/docs/
 
 ## Skills 開啟或關閉 {#skills-off}
 
-有些工具除了自己的資料夾，也會從另一個 target 的資料夾讀取 skills。例如 Pi 會讀取 `~/.pi/agent/skills`，也會讀取 `universal` target 的資料夾 `~/.agents/skills`。兩邊都同步 skills 的話，每個 skill 都會出現兩次。為該 target 關閉 skills 後，skillshare 會繼續管理它的 agents、MCP servers 與 instructions，但不再動它的 skills 資料夾：
+有些工具除了自己的資料夾，也會從另一個 target 的資料夾讀取 skills。例如 Pi 會讀取 `~/.pi/agent/skills`，也會讀取 `universal` target 的資料夾 `~/.agents/skills`。兩邊都同步 skills 的話，Pi 會找到每個 skill 兩次：Pi 會保留先找到的那個，並對另一個發出警告，有些工具則會兩個都列出來。為該 target 關閉 skills 後，skillshare 會繼續管理它的 agents、MCP servers 與 instructions，但不再動它的 skills 資料夾：
 
 ```bash
 skillshare target pi --skills=false --dry-run   # 預覽

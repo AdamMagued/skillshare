@@ -256,7 +256,7 @@ Dashboard 會在新增 Target 時從 **自訂目標** 對話框寫入這個欄�
 
 #### 關閉 Skills {#skills-enabled}
 
-`skills.enabled: false` 會停止同步 Skill 到某個 Target，同時 skillshare 仍繼續管理它的 agents、MCP servers 與指示檔案。適用於已經會讀取另一個 Target 之 Skill 資料夾的工具，避免每個 Skill 出現兩次。
+`skills.enabled: false` 會停止同步 Skill 到某個 Target，同時 skillshare 仍繼續管理它的 agents、MCP servers 與指示檔案。適用於已經會讀取另一個 Target 之 Skill 資料夾的工具，避免它找到每個 Skill 兩次。
 
 ```yaml
 targets:

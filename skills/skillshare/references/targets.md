@@ -35,7 +35,7 @@ targets:
 ## Skills Off
 
 For a tool that already reads another target's folder (Pi also reads `~/.agents/skills`
-of `universal`), stop syncing skills to it so each skill does not load twice. Agents, MCP
+of `universal`), stop syncing skills to it so it does not find each skill twice. Agents, MCP
 servers and instructions stay managed.
 
 ```bash
