@@ -1,7 +1,7 @@
 package server
 
 import (
-	"encoding/json"
+	"errors"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -65,8 +65,10 @@ func (s *Server) handlePutProjectInstructions(w http.ResponseWriter, r *http.Req
 	var body struct {
 		Content string `json:"content"`
 	}
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxInstructionsBytes+4096)).Decode(&body); err != nil {
-		writeCodedError(w, http.StatusBadRequest, "instructions_invalid_json", "invalid JSON body", map[string]string{})
+	if err := decodeJSON(w, r, &body, maxInstructionsBytes+4096); err != nil {
+		if !errors.Is(err, errBodyTooLarge) {
+			writeCodedError(w, http.StatusBadRequest, "instructions_invalid_json", "invalid JSON body", map[string]string{})
+		}
 		return
 	}
 	s.mu.Lock()
@@ -88,7 +90,11 @@ func (s *Server) handleProjectInstructionsShim(w http.ResponseWriter, r *http.Re
 	var body struct {
 		Target string `json:"target"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Target == "" {
+	decodeErr := decodeJSON(w, r, &body, defaultJSONBodyLimit)
+	if errors.Is(decodeErr, errBodyTooLarge) {
+		return
+	}
+	if decodeErr != nil || body.Target == "" {
 		writeCodedError(w, http.StatusBadRequest, "instructions_target_required", "target is required", map[string]string{})
 		return
 	}

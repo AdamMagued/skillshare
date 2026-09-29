@@ -1,7 +1,6 @@
 package server
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 	"os"
@@ -110,7 +109,9 @@ func (s *Server) handleCreateBackup(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Target string `json:"target"` // empty = all targets
 	}
-	json.NewDecoder(r.Body).Decode(&body)
+	if err := decodeJSON(w, r, &body, defaultJSONBodyLimit); errors.Is(err, errBodyTooLarge) {
+		return
+	}
 
 	targets := make(map[string]string)
 	if s.IsProjectMode() {
@@ -208,8 +209,10 @@ func (s *Server) handleRestore(w http.ResponseWriter, r *http.Request) {
 		Target    string `json:"target"`
 		Force     bool   `json:"force"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON body")
+	if err := decodeJSON(w, r, &body, defaultJSONBodyLimit); err != nil {
+		if !errors.Is(err, errBodyTooLarge) {
+			writeError(w, http.StatusBadRequest, "invalid JSON body")
+		}
 		return
 	}
 
@@ -271,8 +274,10 @@ func (s *Server) handleValidateRestore(w http.ResponseWriter, r *http.Request) {
 		Timestamp string `json:"timestamp"`
 		Target    string `json:"target"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON body")
+	if err := decodeJSON(w, r, &body, defaultJSONBodyLimit); err != nil {
+		if !errors.Is(err, errBodyTooLarge) {
+			writeError(w, http.StatusBadRequest, "invalid JSON body")
+		}
 		return
 	}
 

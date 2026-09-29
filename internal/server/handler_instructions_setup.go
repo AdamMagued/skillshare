@@ -1,7 +1,7 @@
 package server
 
 import (
-	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -60,8 +60,10 @@ func (s *Server) handlePutTargetInstructionsSetup(w http.ResponseWriter, r *http
 		Path   string `json:"path"`
 		Import bool   `json:"import"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeCodedError(w, http.StatusBadRequest, "instructions_invalid_json", "invalid JSON body", map[string]string{})
+	if err := decodeJSON(w, r, &body, defaultJSONBodyLimit); err != nil {
+		if !errors.Is(err, errBodyTooLarge) {
+			writeCodedError(w, http.StatusBadRequest, "instructions_invalid_json", "invalid JSON body", map[string]string{})
+		}
 		return
 	}
 	ic := &config.TargetInstructionsConfig{Path: strings.TrimSpace(body.Path), Import: body.Import}

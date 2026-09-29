@@ -1,7 +1,7 @@
 package server
 
 import (
-	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"net/http"
@@ -59,9 +59,10 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 		// Project limits the sync to one declared project's targets.
 		Project string `json:"project"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		// Default to non-dry-run, non-force, empty kind (both)
+	if err := decodeJSON(w, r, &body, defaultJSONBodyLimit); errors.Is(err, errBodyTooLarge) {
+		return
 	}
+	// Any other decode error keeps the defaults: non-dry-run, non-force, empty kind (both)
 
 	if body.Kind != "" && body.Kind != kindSkill && body.Kind != kindAgent {
 		writeError(w, http.StatusBadRequest, "invalid kind: must be 'skill', 'agent', or empty")

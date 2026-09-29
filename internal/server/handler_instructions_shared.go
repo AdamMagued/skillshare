@@ -1,7 +1,7 @@
 package server
 
 import (
-	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -148,8 +148,10 @@ func (s *Server) handleCreateSharedInstructions(w http.ResponseWriter, r *http.R
 		Content    string `json:"content"`
 		FromTarget string `json:"from_target,omitempty"`
 	}
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxInstructionsBytes+4096)).Decode(&body); err != nil {
-		writeCodedError(w, http.StatusBadRequest, "instructions_invalid_json", "invalid JSON body", map[string]string{})
+	if err := decodeJSON(w, r, &body, maxInstructionsBytes+4096); err != nil {
+		if !errors.Is(err, errBodyTooLarge) {
+			writeCodedError(w, http.StatusBadRequest, "instructions_invalid_json", "invalid JSON body", map[string]string{})
+		}
 		return
 	}
 	if err := config.ValidateExtraName(body.Name); err != nil {
@@ -285,8 +287,10 @@ func (s *Server) handlePutSharedInstructionsContent(w http.ResponseWriter, r *ht
 	var body struct {
 		Content string `json:"content"`
 	}
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxInstructionsBytes+4096)).Decode(&body); err != nil {
-		writeCodedError(w, http.StatusBadRequest, "instructions_invalid_json", "invalid JSON body", map[string]string{})
+	if err := decodeJSON(w, r, &body, maxInstructionsBytes+4096); err != nil {
+		if !errors.Is(err, errBodyTooLarge) {
+			writeCodedError(w, http.StatusBadRequest, "instructions_invalid_json", "invalid JSON body", map[string]string{})
+		}
 		return
 	}
 	s.mu.Lock()
@@ -379,8 +383,10 @@ func (s *Server) handleAssignSharedInstructions(w http.ResponseWriter, r *http.R
 		Targets []string `json:"targets"`
 		Extras  []string `json:"extras"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeCodedError(w, http.StatusBadRequest, "instructions_invalid_json", "invalid JSON body", map[string]string{})
+	if err := decodeJSON(w, r, &body, defaultJSONBodyLimit); err != nil {
+		if !errors.Is(err, errBodyTooLarge) {
+			writeCodedError(w, http.StatusBadRequest, "instructions_invalid_json", "invalid JSON body", map[string]string{})
+		}
 		return
 	}
 	if len(body.Targets) == 0 {
@@ -473,7 +479,11 @@ func (s *Server) handleRestoreSharedInstructions(w http.ResponseWriter, r *http.
 	var body struct {
 		Target string `json:"target"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Target == "" {
+	decodeErr := decodeJSON(w, r, &body, defaultJSONBodyLimit)
+	if errors.Is(decodeErr, errBodyTooLarge) {
+		return
+	}
+	if decodeErr != nil || body.Target == "" {
 		writeCodedError(w, http.StatusBadRequest, "instructions_target_required", "target is required", map[string]string{})
 		return
 	}
@@ -509,7 +519,11 @@ func (s *Server) handleResolveSharedInstructions(w http.ResponseWriter, r *http.
 		Path   string `json:"path"` // a location (see sharedLocations) instead of a target
 		Action string `json:"action"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || (body.Target == "" && body.Path == "") {
+	decodeErr := decodeJSON(w, r, &body, defaultJSONBodyLimit)
+	if errors.Is(decodeErr, errBodyTooLarge) {
+		return
+	}
+	if decodeErr != nil || (body.Target == "" && body.Path == "") {
 		writeCodedError(w, http.StatusBadRequest, "instructions_target_required", "target is required", map[string]string{})
 		return
 	}

@@ -1,7 +1,7 @@
 package server
 
 import (
-	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -77,8 +77,10 @@ func (s *Server) handleAddSharedInstructionsLocation(w http.ResponseWriter, r *h
 		As   string `json:"as"`
 		Mode string `json:"mode"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeCodedError(w, http.StatusBadRequest, "instructions_invalid_json", "invalid JSON body", map[string]string{})
+	if err := decodeJSON(w, r, &body, defaultJSONBodyLimit); err != nil {
+		if !errors.Is(err, errBodyTooLarge) {
+			writeCodedError(w, http.StatusBadRequest, "instructions_invalid_json", "invalid JSON body", map[string]string{})
+		}
 		return
 	}
 	if body.Path == "" {
@@ -234,8 +236,10 @@ func (s *Server) handlePutSharedInstructionsLocationMode(w http.ResponseWriter, 
 		Path string `json:"path"`
 		Mode string `json:"mode"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeCodedError(w, http.StatusBadRequest, "instructions_invalid_json", "invalid JSON body", map[string]string{})
+	if err := decodeJSON(w, r, &body, defaultJSONBodyLimit); err != nil {
+		if !errors.Is(err, errBodyTooLarge) {
+			writeCodedError(w, http.StatusBadRequest, "instructions_invalid_json", "invalid JSON body", map[string]string{})
+		}
 		return
 	}
 	if !checkSharedMode(w, body.Mode) {

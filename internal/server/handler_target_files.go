@@ -1,7 +1,6 @@
 package server
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 	"os"
@@ -196,8 +195,10 @@ func (s *Server) handlePutTargetFileContent(w http.ResponseWriter, r *http.Reque
 	var body struct {
 		Content string `json:"content"`
 	}
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxInstructionsBytes+4096)).Decode(&body); err != nil {
-		writeCodedError(w, http.StatusBadRequest, "target_file_invalid_json", "invalid JSON body", map[string]string{})
+	if err := decodeJSON(w, r, &body, maxInstructionsBytes+4096); err != nil {
+		if !errors.Is(err, errBodyTooLarge) {
+			writeCodedError(w, http.StatusBadRequest, "target_file_invalid_json", "invalid JSON body", map[string]string{})
+		}
 		return
 	}
 
@@ -234,8 +235,10 @@ func (s *Server) handleAddTargetFile(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Path string `json:"path"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeCodedError(w, http.StatusBadRequest, "target_file_invalid_json", "invalid JSON body", map[string]string{})
+	if err := decodeJSON(w, r, &body, defaultJSONBodyLimit); err != nil {
+		if !errors.Is(err, errBodyTooLarge) {
+			writeCodedError(w, http.StatusBadRequest, "target_file_invalid_json", "invalid JSON body", map[string]string{})
+		}
 		return
 	}
 

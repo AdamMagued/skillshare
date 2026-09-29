@@ -1,7 +1,7 @@
 package server
 
 import (
-	"encoding/json"
+	"errors"
 	"maps"
 	"net/http"
 	"os"
@@ -166,8 +166,10 @@ func (s *Server) handleCollect(w http.ResponseWriter, r *http.Request) {
 		Skills []collectSkillRef `json:"skills"`
 		Force  bool              `json:"force"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
+	if err := decodeJSON(w, r, &body, defaultJSONBodyLimit); err != nil {
+		if !errors.Is(err, errBodyTooLarge) {
+			writeError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
+		}
 		return
 	}
 

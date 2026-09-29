@@ -148,8 +148,10 @@ func (s *Server) handleSetGitRoot(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var body setGitRootRequest
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON body")
+	if err := decodeJSON(w, r, &body, defaultJSONBodyLimit); err != nil {
+		if !errors.Is(err, errBodyTooLarge) {
+			writeError(w, http.StatusBadRequest, "invalid JSON body")
+		}
 		return
 	}
 	if !config.ValidGitRoot(body.Scope) || body.Scope == "" {
@@ -275,8 +277,10 @@ func (s *Server) handleGitCheckout(w http.ResponseWriter, r *http.Request) {
 	defer s.mu.Unlock()
 
 	var body checkoutRequest
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON body")
+	if err := decodeJSON(w, r, &body, defaultJSONBodyLimit); err != nil {
+		if !errors.Is(err, errBodyTooLarge) {
+			writeError(w, http.StatusBadRequest, "invalid JSON body")
+		}
 		return
 	}
 	if body.Branch == "" {
@@ -365,8 +369,10 @@ func (s *Server) handleGitCommit(w http.ResponseWriter, r *http.Request) {
 	defer s.mu.Unlock()
 
 	var body pushRequest
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON body")
+	if err := decodeJSON(w, r, &body, defaultJSONBodyLimit); err != nil {
+		if !errors.Is(err, errBodyTooLarge) {
+			writeError(w, http.StatusBadRequest, "invalid JSON body")
+		}
 		return
 	}
 
@@ -440,8 +446,10 @@ func (s *Server) handlePush(w http.ResponseWriter, r *http.Request) {
 	defer s.mu.Unlock()
 
 	var body pushRequest
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON body")
+	if err := decodeJSON(w, r, &body, defaultJSONBodyLimit); err != nil {
+		if !errors.Is(err, errBodyTooLarge) {
+			writeError(w, http.StatusBadRequest, "invalid JSON body")
+		}
 		return
 	}
 
@@ -585,8 +593,10 @@ func (s *Server) handleAbsorbNested(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var body absorbNestedRequest
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON body")
+	if err := decodeJSON(w, r, &body, defaultJSONBodyLimit); err != nil {
+		if !errors.Is(err, errBodyTooLarge) {
+			writeError(w, http.StatusBadRequest, "invalid JSON body")
+		}
 		return
 	}
 	if len(body.Subdirs) == 0 {
@@ -650,7 +660,9 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 		// Force replaces local files with the remote on a first pull instead of merging.
 		Force bool `json:"force"`
 	}
-	json.NewDecoder(r.Body).Decode(&body)
+	if err := decodeJSON(w, r, &body, defaultJSONBodyLimit); errors.Is(err, errBodyTooLarge) {
+		return
+	}
 
 	src, ok := s.gitSource(w)
 	if !ok {

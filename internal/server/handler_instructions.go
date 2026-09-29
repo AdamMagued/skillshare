@@ -1,7 +1,7 @@
 package server
 
 import (
-	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -234,8 +234,10 @@ func (s *Server) handlePutTargetInstructions(w http.ResponseWriter, r *http.Requ
 	var body struct {
 		Content string `json:"content"`
 	}
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxInstructionsBytes+4096)).Decode(&body); err != nil {
-		writeCodedError(w, http.StatusBadRequest, "instructions_invalid_json", "invalid JSON body", map[string]string{})
+	if err := decodeJSON(w, r, &body, maxInstructionsBytes+4096); err != nil {
+		if !errors.Is(err, errBodyTooLarge) {
+			writeCodedError(w, http.StatusBadRequest, "instructions_invalid_json", "invalid JSON body", map[string]string{})
+		}
 		return
 	}
 
@@ -288,8 +290,10 @@ func (s *Server) handleConvertTargetInstructions(w http.ResponseWriter, r *http.
 		ShareInto     string `json:"share_into,omitempty"`
 		Apply         bool   `json:"apply"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeCodedError(w, http.StatusBadRequest, "instructions_invalid_json", "invalid JSON body", map[string]string{})
+	if err := decodeJSON(w, r, &body, defaultJSONBodyLimit); err != nil {
+		if !errors.Is(err, errBodyTooLarge) {
+			writeCodedError(w, http.StatusBadRequest, "instructions_invalid_json", "invalid JSON body", map[string]string{})
+		}
 		return
 	}
 

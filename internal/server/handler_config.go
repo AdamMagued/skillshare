@@ -1,7 +1,7 @@
 package server
 
 import (
-	"encoding/json"
+	"errors"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -48,8 +48,10 @@ func (s *Server) handlePatchConfig(w http.ResponseWriter, r *http.Request) {
 		Mode          *string `json:"mode"`
 		LogMaxEntries *int    `json:"logMaxEntries"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON body")
+	if err := decodeJSON(w, r, &body, defaultJSONBodyLimit); err != nil {
+		if !errors.Is(err, errBodyTooLarge) {
+			writeError(w, http.StatusBadRequest, "invalid JSON body")
+		}
 		return
 	}
 	if body.Mode == nil && body.LogMaxEntries == nil {
@@ -99,8 +101,10 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Raw string `json:"raw"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON body")
+	if err := decodeJSON(w, r, &body, defaultJSONBodyLimit); err != nil {
+		if !errors.Is(err, errBodyTooLarge) {
+			writeError(w, http.StatusBadRequest, "invalid JSON body")
+		}
 		return
 	}
 

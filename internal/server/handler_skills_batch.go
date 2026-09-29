@@ -1,7 +1,7 @@
 package server
 
 import (
-	"encoding/json"
+	"errors"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -45,8 +45,10 @@ func (s *Server) handleBatchSetTargets(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 
 	var req batchSetTargetsRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
+	if err := decodeJSON(w, r, &req, defaultJSONBodyLimit); err != nil {
+		if !errors.Is(err, errBodyTooLarge) {
+			writeError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
+		}
 		return
 	}
 
@@ -183,8 +185,10 @@ func (s *Server) handleSetSkillTargets(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
 
 	var req setSkillTargetsRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
+	if err := decodeJSON(w, r, &req, defaultJSONBodyLimit); err != nil {
+		if !errors.Is(err, errBodyTooLarge) {
+			writeError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
+		}
 		return
 	}
 

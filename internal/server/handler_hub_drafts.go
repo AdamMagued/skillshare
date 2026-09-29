@@ -17,6 +17,9 @@ func (s *Server) hubDraftStore() hub.DraftStore {
 }
 
 func draftError(w http.ResponseWriter, err error) {
+	if errors.Is(err, errBodyTooLarge) {
+		return
+	}
 	status := http.StatusBadRequest
 	if errors.Is(err, hub.ErrDraftConflict) {
 		status = http.StatusConflict
@@ -38,15 +41,15 @@ func (s *Server) writeDraft(w http.ResponseWriter, d hub.Draft) {
 }
 
 func decodeDraftBody(w http.ResponseWriter, r *http.Request, dst any) error {
-	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<20))
-	if err := decoder.Decode(dst); err != nil {
-		return err
-	}
-	var extra any
-	if err := decoder.Decode(&extra); err != io.EOF {
-		return errors.New("expected a single JSON document")
-	}
-	return nil
+	return decodeJSONWith(w, r, 4<<20, func(d *json.Decoder) error {
+		if err := d.Decode(dst); err != nil {
+			return err
+		}
+		if err := d.Decode(new(any)); err != io.EOF {
+			return errors.New("expected a single JSON document")
+		}
+		return nil
+	})
 }
 
 func (s *Server) handleHubDraftCandidates(w http.ResponseWriter, r *http.Request) {

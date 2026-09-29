@@ -1,7 +1,7 @@
 package server
 
 import (
-	"encoding/json"
+	"errors"
 	"net/http"
 
 	"skillshare/internal/install"
@@ -27,8 +27,10 @@ func (s *Server) handleHubRefs(w http.ResponseWriter, r *http.Request) {
 		Source string  `json:"source"`
 		Ref    *string `json:"ref"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON body")
+	if err := decodeJSON(w, r, &body, defaultJSONBodyLimit); err != nil {
+		if !errors.Is(err, errBodyTooLarge) {
+			writeError(w, http.StatusBadRequest, "invalid JSON body")
+		}
 		return
 	}
 	if body.Source == "" {

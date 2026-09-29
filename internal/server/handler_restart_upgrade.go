@@ -3,7 +3,7 @@ package server
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -91,8 +91,10 @@ func (s *Server) handleRestart(w http.ResponseWriter, r *http.Request) {
 		ClearCache *bool `json:"clearCache"`
 	}{}
 	if r.Body != nil && r.ContentLength != 0 {
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			writeError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
+		if err := decodeJSON(w, r, &body, defaultJSONBodyLimit); err != nil {
+			if !errors.Is(err, errBodyTooLarge) {
+				writeError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
+			}
 			return
 		}
 	}

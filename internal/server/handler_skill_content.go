@@ -1,7 +1,7 @@
 package server
 
 import (
-	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -47,8 +47,10 @@ func (s *Server) handlePutSkillContent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req skillContentRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON body: "+err.Error())
+	if err := decodeJSON(w, r, &req, defaultJSONBodyLimit); err != nil {
+		if !errors.Is(err, errBodyTooLarge) {
+			writeError(w, http.StatusBadRequest, "invalid JSON body: "+err.Error())
+		}
 		return
 	}
 
@@ -99,8 +101,10 @@ func (s *Server) handlePatchSkillSource(w http.ResponseWriter, r *http.Request) 
 	kind := r.URL.Query().Get("kind") // optional: "skill" or "agent"
 
 	var req patchSourceRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON body: "+err.Error())
+	if err := decodeJSON(w, r, &req, defaultJSONBodyLimit); err != nil {
+		if !errors.Is(err, errBodyTooLarge) {
+			writeError(w, http.StatusBadRequest, "invalid JSON body: "+err.Error())
+		}
 		return
 	}
 	req.Source = strings.TrimSpace(req.Source)

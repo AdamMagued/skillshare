@@ -33,14 +33,22 @@ type mcpRequest struct {
 }
 
 func decodeMCPRequest(w http.ResponseWriter, r *http.Request, value any) bool {
-	r.Body = http.MaxBytesReader(w, r.Body, 1024*1024)
-	d := json.NewDecoder(r.Body)
-	d.DisallowUnknownFields()
-	if err := d.Decode(value); err != nil {
+	var extra bool
+	err := decodeJSONWith(w, r, defaultJSONBodyLimit, func(d *json.Decoder) error {
+		d.DisallowUnknownFields()
+		if err := d.Decode(value); err != nil {
+			return err
+		}
+		extra = d.Decode(new(any)) != io.EOF
+		return nil
+	})
+	switch {
+	case errors.Is(err, errBodyTooLarge):
+		return false
+	case err != nil:
 		writeError(w, 400, "invalid MCP request")
 		return false
-	}
-	if d.Decode(new(any)) != io.EOF {
+	case extra:
 		writeError(w, 400, "expected one MCP request")
 		return false
 	}

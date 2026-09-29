@@ -2,7 +2,6 @@ package server
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -435,8 +434,10 @@ func (s *Server) handleExtrasCreate(w http.ResponseWriter, r *http.Request) {
 			As        string `json:"as,omitempty"` // single-file extra: target filename
 		} `json:"targets"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON body")
+	if err := decodeJSON(w, r, &body, defaultJSONBodyLimit); err != nil {
+		if !errors.Is(err, errBodyTooLarge) {
+			writeError(w, http.StatusBadRequest, "invalid JSON body")
+		}
 		return
 	}
 
@@ -596,7 +597,9 @@ func (s *Server) handleExtrasSync(w http.ResponseWriter, r *http.Request) {
 		DryRun bool   `json:"dry_run"`
 		Force  bool   `json:"force"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil && r.ContentLength > 0 {
+	if err := decodeJSON(w, r, &body, defaultJSONBodyLimit); errors.Is(err, errBodyTooLarge) {
+		return
+	} else if err != nil && r.ContentLength > 0 {
 		writeError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
 		return
 	}
@@ -784,8 +787,10 @@ func (s *Server) handleExtrasMode(w http.ResponseWriter, r *http.Request) {
 		Flatten   *bool   `json:"flatten,omitempty"`
 		Extension *string `json:"extension,omitempty"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON body")
+	if err := decodeJSON(w, r, &body, defaultJSONBodyLimit); err != nil {
+		if !errors.Is(err, errBodyTooLarge) {
+			writeError(w, http.StatusBadRequest, "invalid JSON body")
+		}
 		return
 	}
 
@@ -961,8 +966,10 @@ func (s *Server) handleExtrasAddTarget(w http.ResponseWriter, r *http.Request) {
 		Flatten bool   `json:"flatten"`
 		As      string `json:"as"` // single-file extra: target filename
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON body")
+	if err := decodeJSON(w, r, &body, defaultJSONBodyLimit); err != nil {
+		if !errors.Is(err, errBodyTooLarge) {
+			writeError(w, http.StatusBadRequest, "invalid JSON body")
+		}
 		return
 	}
 	if body.Path == "" {
@@ -1054,8 +1061,10 @@ func (s *Server) handleExtrasRemoveTarget(w http.ResponseWriter, r *http.Request
 	var body struct {
 		Path string `json:"path"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON body")
+	if err := decodeJSON(w, r, &body, defaultJSONBodyLimit); err != nil {
+		if !errors.Is(err, errBodyTooLarge) {
+			writeError(w, http.StatusBadRequest, "invalid JSON body")
+		}
 		return
 	}
 	if body.Path == "" {

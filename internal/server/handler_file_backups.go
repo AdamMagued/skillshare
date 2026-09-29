@@ -1,7 +1,6 @@
 package server
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 	"path/filepath"
@@ -201,8 +200,10 @@ func (s *Server) handleRestoreFileBackup(w http.ResponseWriter, r *http.Request)
 		ID     string `json:"id"`
 		Unlink bool   `json:"unlink"`
 	}
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64*1024)).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON body")
+	if err := decodeJSON(w, r, &body, 64*1024); err != nil {
+		if !errors.Is(err, errBodyTooLarge) {
+			writeError(w, http.StatusBadRequest, "invalid JSON body")
+		}
 		return
 	}
 	path, ok := s.fileBackupPath(w, body.Path)

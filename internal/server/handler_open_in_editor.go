@@ -1,7 +1,7 @@
 package server
 
 import (
-	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -78,7 +78,9 @@ func (s *Server) handleOpenSkillInEditor(w http.ResponseWriter, r *http.Request)
 	var req openInEditorRequest
 	// Body is optional; silently ignore decode errors when empty.
 	if r.Body != nil {
-		_ = json.NewDecoder(r.Body).Decode(&req)
+		if err := decodeJSON(w, r, &req, defaultJSONBodyLimit); errors.Is(err, errBodyTooLarge) {
+			return
+		}
 	}
 
 	targetPath, resolvedKind, err := s.resolveEditableSkillPath(source, agentsSource, name, kind)

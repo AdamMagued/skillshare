@@ -1,7 +1,7 @@
 package server
 
 import (
-	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -227,8 +227,10 @@ func (s *Server) handleAddTarget(w http.ResponseWriter, r *http.Request) {
 		// SkillsEnabled false adds the target with skills off (default true).
 		SkillsEnabled *bool `json:"skills_enabled"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON body")
+	if err := decodeJSON(w, r, &body, defaultJSONBodyLimit); err != nil {
+		if !errors.Is(err, errBodyTooLarge) {
+			writeError(w, http.StatusBadRequest, "invalid JSON body")
+		}
 		return
 	}
 
@@ -427,8 +429,10 @@ func (s *Server) handleUpdateTarget(w http.ResponseWriter, r *http.Request) {
 		AgentExtension *string   `json:"agent_extension"` // "" = clear
 		SkillsEnabled  *bool     `json:"skills_enabled"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON body")
+	if err := decodeJSON(w, r, &body, defaultJSONBodyLimit); err != nil {
+		if !errors.Is(err, errBodyTooLarge) {
+			writeError(w, http.StatusBadRequest, "invalid JSON body")
+		}
 		return
 	}
 

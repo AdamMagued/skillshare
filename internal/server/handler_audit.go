@@ -1,7 +1,7 @@
 package server
 
 import (
-	"encoding/json"
+	"errors"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -512,8 +512,10 @@ func (s *Server) handleAuditPolicy(w http.ResponseWriter, r *http.Request) {
 		BlockThreshold string `json:"blockThreshold"`
 		Profile        string `json:"profile"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
+	if err := decodeJSON(w, r, &body, defaultJSONBodyLimit); err != nil {
+		if !errors.Is(err, errBodyTooLarge) {
+			writeError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
+		}
 		return
 	}
 	if body.BlockThreshold == "" && body.Profile == "" {
@@ -629,8 +631,10 @@ func (s *Server) handlePutAuditRules(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Raw string `json:"raw"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON body")
+	if err := decodeJSON(w, r, &body, defaultJSONBodyLimit); err != nil {
+		if !errors.Is(err, errBodyTooLarge) {
+			writeError(w, http.StatusBadRequest, "invalid JSON body")
+		}
 		return
 	}
 
@@ -721,8 +725,10 @@ func (s *Server) handleToggleRule(w http.ResponseWriter, r *http.Request) {
 		Enabled  bool   `json:"enabled"`
 		Severity string `json:"severity,omitempty"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+	if err := decodeJSON(w, r, &req, defaultJSONBodyLimit); err != nil {
+		if !errors.Is(err, errBodyTooLarge) {
+			writeError(w, http.StatusBadRequest, "invalid request body")
+		}
 		return
 	}
 
