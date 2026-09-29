@@ -4,12 +4,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -642,7 +644,17 @@ func startProjectUI(addr, url, basePath string, noOpen bool) error {
 		return fmt.Errorf("project not initialized: run 'skillshare init -p' first")
 	}
 
-	rt, err := loadProjectRuntime(cwd)
+	projCfg, err := config.LoadProject(cwd)
+	if err != nil {
+		return err
+	}
+	// A target that cannot resolve (no path) must not keep the dashboard from
+	// starting; its sync reports it as failed.
+	_, unresolved := config.ResolveValidProjectTargets(cwd, projCfg)
+	for _, name := range slices.Sorted(maps.Keys(unresolved)) {
+		ui.Warning("%s: %v", name, unresolved[name])
+	}
+	rt, err := newProjectRuntime(cwd, projCfg, unresolved)
 	if err != nil {
 		return err
 	}

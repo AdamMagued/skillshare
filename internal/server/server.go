@@ -32,6 +32,9 @@ type Server struct {
 	// Project mode fields (empty/nil for global mode)
 	projectRoot string
 	projectCfg  *config.ProjectConfig
+	// unresolvedTargets are project targets left out of cfg.Targets because
+	// they cannot resolve (no path); sync reports them as failed.
+	unresolvedTargets map[string]error
 
 	// uiDistDir, when non-empty, serves UI from this disk directory
 	// instead of the embedded SPA. Used for runtime-downloaded UI assets.
@@ -130,6 +133,7 @@ func NewProject(cfg *config.Config, projectCfg *config.ProjectConfig, projectRoo
 		projectCfg:  projectCfg,
 		uiDistDir:   uiDistDir,
 	}
+	_, s.unresolvedTargets = config.ResolveValidProjectTargets(projectRoot, projectCfg)
 	s.registerRoutes()
 	s.handler = s.withConfigAutoReload(s.mux)
 	s.wrapBasePath()
@@ -266,11 +270,7 @@ func (s *Server) reloadConfig() error {
 			return err
 		}
 		s.projectCfg = pcfg
-		targets, err := config.ResolveProjectTargets(s.projectRoot, pcfg)
-		if err != nil {
-			return err
-		}
-		s.cfg.Targets = targets
+		s.cfg.Targets, s.unresolvedTargets = config.ResolveValidProjectTargets(s.projectRoot, pcfg)
 		skillsDir := pcfg.EffectiveSkillsSource(s.projectRoot)
 		agentsDir := pcfg.EffectiveAgentsSource(s.projectRoot)
 		s.cfg.Source = skillsDir

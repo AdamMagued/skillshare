@@ -179,6 +179,11 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 		return nil, http.StatusBadRequest, validErr
 	}
 
+	// A project target that cannot resolve (no path) is not in s.cfg.Targets;
+	// it fails like one with invalid settings.
+	maps.Copy(invalid, s.unresolvedTargets)
+	total := len(targets) + len(s.unresolvedTargets)
+
 	conflicts, overlap := folderConflicts(s.cfg.Targets, s.IsProjectMode())
 
 	results := make([]syncTargetResult, 0)
@@ -187,7 +192,7 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 	// A target with invalid settings fails alone: it is skipped for skills and agents.
 	runTargets := maps.Clone(targets)
 	for _, name := range slices.Sorted(maps.Keys(invalid)) {
-		if _, ok := targets[name]; !ok {
+		if _, ok := targets[name]; !ok && s.unresolvedTargets[name] == nil {
 			continue
 		}
 		delete(runTargets, name)
@@ -354,7 +359,7 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 	// Log the sync operation. A target counts once however many parts failed.
 	failedNames := failedTargetNames(failed)
 	logArgs := map[string]any{
-		"targets_total":  len(targets),
+		"targets_total":  total,
 		"targets_failed": len(failedNames),
 		"dry_run":        dryRun,
 		"force":          force,
@@ -369,7 +374,7 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 	}
 	status := "ok"
 	switch {
-	case len(failedNames) >= len(targets) && len(failedNames) > 0:
+	case len(failedNames) >= total && len(failedNames) > 0:
 		status = "error"
 	case len(failedNames) > 0:
 		status = "partial"

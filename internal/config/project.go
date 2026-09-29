@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -500,8 +501,23 @@ func (c *ProjectConfig) SaveIn(projectDir string) error {
 // target format by re-parsing targets and checking for flat fields.
 
 // ResolveProjectTargets converts project config targets into absolute target paths.
+// It fails on the first target that cannot resolve.
 func ResolveProjectTargets(projectRoot string, cfg *ProjectConfig) (map[string]TargetConfig, error) {
-	resolved := make(map[string]TargetConfig)
+	resolved, unresolved := ResolveValidProjectTargets(projectRoot, cfg)
+	for _, entry := range cfg.Targets {
+		if name := strings.TrimSpace(entry.Name); unresolved[name] != nil {
+			return nil, fmt.Errorf("unknown target '%s' (missing path)", name)
+		}
+	}
+	return resolved, nil
+}
+
+// ResolveValidProjectTargets is ResolveProjectTargets for callers that keep
+// working when a target cannot resolve: a custom target without a path is left
+// out of resolved and returned in unresolved with the reason.
+func ResolveValidProjectTargets(projectRoot string, cfg *ProjectConfig) (resolved map[string]TargetConfig, unresolved map[string]error) {
+	resolved = make(map[string]TargetConfig)
+	unresolved = make(map[string]error)
 	for _, entry := range cfg.Targets {
 		name := strings.TrimSpace(entry.Name)
 		if name == "" {
@@ -516,7 +532,8 @@ func ResolveProjectTargets(projectRoot string, cfg *ProjectConfig) (map[string]T
 		} else if known, ok := LookupProjectTarget(name); ok {
 			targetPath = known.Path
 		} else {
-			return nil, fmt.Errorf("unknown target '%s' (missing path)", name)
+			unresolved[name] = errors.New("missing path (custom targets require skills.path)")
+			continue
 		}
 
 		absPath := targetPath
@@ -572,5 +589,5 @@ func ResolveProjectTargets(projectRoot string, cfg *ProjectConfig) (map[string]T
 		resolved[name] = tc
 	}
 
-	return resolved, nil
+	return resolved, unresolved
 }

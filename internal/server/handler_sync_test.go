@@ -844,3 +844,35 @@ func TestHandleSync_InvalidTargetConfigFailsOnlyThatTarget(t *testing.T) {
 		t.Fatalf("expected partial sync with broken failed, got status %q args %v", e.Status, e.Args)
 	}
 }
+
+func TestHandleSync_ProjectTargetWithoutPathFailsAlone(t *testing.T) {
+	projectRoot := t.TempDir()
+	src := filepath.Join(projectRoot, ".skillshare", "skills")
+	addSkill(t, src, "alpha")
+	projectCfg := &config.ProjectConfig{Targets: []config.ProjectTargetEntry{{Name: "claude"}, {Name: "custom"}}}
+	if err := projectCfg.Save(projectRoot); err != nil {
+		t.Fatal(err)
+	}
+	s := NewProject(&config.Config{Source: src, Mode: "merge"}, projectCfg, projectRoot, "127.0.0.1:0", "", "")
+
+	req := httptest.NewRequest(http.MethodPost, "/api/sync", strings.NewReader(`{}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Results []syncTargetResult `json:"results"`
+		Failed  []syncFailure      `json:"failed"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if len(resp.Results) != 1 || resp.Results[0].Target != "claude" {
+		t.Fatalf("expected claude to sync, got %+v", resp.Results)
+	}
+	if len(resp.Failed) != 1 || resp.Failed[0].Target != "custom" || resp.Failed[0].Part != "config" || !strings.Contains(resp.Failed[0].Error, "missing path") {
+		t.Fatalf("expected one config failure for custom, got %+v", resp.Failed)
+	}
+}
