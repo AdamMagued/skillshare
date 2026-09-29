@@ -260,10 +260,7 @@ func newDiffTUIModel(results []targetDiffResult, extrasSlice ...[]extraDiffResul
 	tl.SetShowPagination(false)
 	skipDiffSeparator(&tl, 1)
 
-	fi := textinput.New()
-	fi.Prompt = "/ "
-	fi.PromptStyle = theme.Accent()
-	fi.Cursor.Style = theme.Accent()
+	fi := newTUIFilterInput("")
 
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
@@ -358,24 +355,7 @@ func (m diffTUIModel) handleDiffKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	// Filter mode
 	if m.filtering {
-		switch key {
-		case "esc":
-			m.filtering = false
-			m.filterText = ""
-			m.filterInput.SetValue("")
-			m.applyDiffFilter()
-			return m, nil
-		case "enter":
-			m.filtering = false
-			return m, nil
-		}
-		var cmd tea.Cmd
-		m.filterInput, cmd = m.filterInput.Update(msg)
-		newVal := m.filterInput.Value()
-		if newVal != m.filterText {
-			m.filterText = newVal
-			m.applyDiffFilter()
-		}
+		cmd := handleTUIFilterKey(msg, &m.filtering, &m.filterText, &m.filterInput, m.applyDiffFilter)
 		return m, cmd
 	}
 

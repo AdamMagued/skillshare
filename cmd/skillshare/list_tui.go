@@ -207,11 +207,7 @@ func newListTUIModel(loadFn listLoadFn, skills []skillItem, totalCount int, mode
 	sp.Style = theme.Accent()
 
 	// Filter text input
-	fi := textinput.New()
-	fi.Prompt = "/ "
-	fi.PromptStyle = theme.Accent()
-	fi.Cursor.Style = theme.Accent()
-	fi.Placeholder = "filter or t:type g:group r:repo k:kind"
+	fi := newTUIFilterInput("filter or t:type g:group r:repo k:kind")
 
 	m := listTUIModel{
 		list:             l,
@@ -445,25 +441,7 @@ func (m listTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// --- Filter mode: route keys to filterInput ---
 		if m.filtering {
-			switch msg.String() {
-			case "esc":
-				m.filtering = false
-				m.filterText = ""
-				m.filterInput.SetValue("")
-				m.applyFilter()
-				return m, nil
-			case "enter":
-				// Lock in filter, return focus to list
-				m.filtering = false
-				return m, nil
-			}
-			var cmd tea.Cmd
-			m.filterInput, cmd = m.filterInput.Update(msg)
-			newVal := m.filterInput.Value()
-			if newVal != m.filterText {
-				m.filterText = newVal
-				m.applyFilter()
-			}
+			cmd := handleTUIFilterKey(msg, &m.filtering, &m.filterText, &m.filterInput, m.applyFilter)
 			return m, cmd
 		}
 
@@ -938,32 +916,6 @@ func (m listTUIModel) renderSummaryFooter() string {
 		theme.Warning().Render(formatNumber(remoteCount)) + theme.Dim().Render(" remote"),
 	}
 	return theme.Dim().MarginLeft(2).Render(strings.Join(parts, theme.Dim().Render(" | "))) + "\n"
-}
-
-// renderTUIFilterBar renders a unified filter + status line shared by all TUIs.
-// inputView is filterInput.View(). maxShown is the item cap (0 = no cap).
-func renderTUIFilterBar(inputView string, filtering bool, filterText string, matchCount, totalCount, maxShown int, noun, pageInfo string) string {
-	if filtering {
-		if filterText == "" {
-			status := fmt.Sprintf("  %s %s%s", formatNumber(totalCount), noun, pageInfo)
-			return "  " + inputView + theme.Dim().MarginLeft(2).Render(status) + "\n"
-		}
-		status := fmt.Sprintf("  %s/%s %s", formatNumber(matchCount), formatNumber(totalCount), noun)
-		if maxShown > 0 && matchCount > maxShown {
-			status += fmt.Sprintf(" (first %s shown)", formatNumber(maxShown))
-		}
-		status += pageInfo
-		return "  " + inputView + theme.Dim().MarginLeft(2).Render(status) + "\n"
-	}
-	if filterText != "" {
-		status := fmt.Sprintf("filter: %s — %s/%s %s", filterText, formatNumber(matchCount), formatNumber(totalCount), noun)
-		if maxShown > 0 && matchCount > maxShown {
-			status += fmt.Sprintf(" (first %s shown)", formatNumber(maxShown))
-		}
-		status += pageInfo
-		return theme.Dim().MarginLeft(2).Render(status) + "\n"
-	}
-	return theme.Dim().MarginLeft(2).Render(fmt.Sprintf("%s %s%s", formatNumber(totalCount), noun, pageInfo)) + "\n"
 }
 
 // renderPageInfo returns page indicator like " · Page 2 of 4,729" or "" if single page.

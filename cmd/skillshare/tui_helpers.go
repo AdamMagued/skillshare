@@ -5,6 +5,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/bubbles/textinput"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"skillshare/internal/config"
 	"skillshare/internal/theme"
@@ -150,4 +152,66 @@ func truncateStr(s string, maxLen int) string {
 		return s[:maxLen]
 	}
 	return s[:maxLen-3] + "..."
+}
+
+// newTUIFilterInput builds the "/ " filter input shared by all TUIs.
+// Pass "" for no placeholder.
+func newTUIFilterInput(placeholder string) textinput.Model {
+	fi := textinput.New()
+	fi.Prompt = "/ "
+	fi.PromptStyle = theme.Accent()
+	fi.Cursor.Style = theme.Accent()
+	fi.Placeholder = placeholder
+	return fi
+}
+
+// handleTUIFilterKey handles a key press while the filter input is focused.
+// esc clears the filter and re-applies it; enter locks the filter in without
+// re-applying; any other key goes to the input and re-applies only when the
+// value changed.
+func handleTUIFilterKey(msg tea.KeyMsg, filtering *bool, text *string, input *textinput.Model, apply func()) tea.Cmd {
+	switch msg.String() {
+	case "esc":
+		*filtering = false
+		*text = ""
+		input.SetValue("")
+		apply()
+		return nil
+	case "enter":
+		*filtering = false
+		return nil
+	}
+	var cmd tea.Cmd
+	*input, cmd = input.Update(msg)
+	if newVal := input.Value(); newVal != *text {
+		*text = newVal
+		apply()
+	}
+	return cmd
+}
+
+// renderTUIFilterBar renders a unified filter + status line shared by all TUIs.
+// inputView is filterInput.View(). maxShown is the item cap (0 = no cap).
+func renderTUIFilterBar(inputView string, filtering bool, filterText string, matchCount, totalCount, maxShown int, noun, pageInfo string) string {
+	if filtering {
+		if filterText == "" {
+			status := fmt.Sprintf("  %s %s%s", formatNumber(totalCount), noun, pageInfo)
+			return "  " + inputView + theme.Dim().MarginLeft(2).Render(status) + "\n"
+		}
+		status := fmt.Sprintf("  %s/%s %s", formatNumber(matchCount), formatNumber(totalCount), noun)
+		if maxShown > 0 && matchCount > maxShown {
+			status += fmt.Sprintf(" (first %s shown)", formatNumber(maxShown))
+		}
+		status += pageInfo
+		return "  " + inputView + theme.Dim().MarginLeft(2).Render(status) + "\n"
+	}
+	if filterText != "" {
+		status := fmt.Sprintf("filter: %s — %s/%s %s", filterText, formatNumber(matchCount), formatNumber(totalCount), noun)
+		if maxShown > 0 && matchCount > maxShown {
+			status += fmt.Sprintf(" (first %s shown)", formatNumber(maxShown))
+		}
+		status += pageInfo
+		return theme.Dim().MarginLeft(2).Render(status) + "\n"
+	}
+	return theme.Dim().MarginLeft(2).Render(fmt.Sprintf("%s %s%s", formatNumber(totalCount), noun, pageInfo)) + "\n"
 }

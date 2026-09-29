@@ -64,11 +64,7 @@ func newAnalyzeTUIModel(loadFn func() analyzeLoadResult, modeLabel string, initi
 	sp.Spinner = spinner.Dot
 	sp.Style = theme.Accent()
 
-	fi := textinput.New()
-	fi.Prompt = "/ "
-	fi.PromptStyle = theme.Accent()
-	fi.Cursor.Style = theme.Accent()
-	fi.Placeholder = "filter skills"
+	fi := newTUIFilterInput("filter skills")
 
 	return analyzeTUIModel{
 		loading:       true,
@@ -313,24 +309,7 @@ func (m analyzeTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		if m.filtering {
-			switch msg.String() {
-			case "esc":
-				m.filtering = false
-				m.filterText = ""
-				m.filterInput.SetValue("")
-				m.applyFilter()
-				return m, nil
-			case "enter":
-				m.filtering = false
-				return m, nil
-			}
-			var cmd tea.Cmd
-			m.filterInput, cmd = m.filterInput.Update(msg)
-			newVal := m.filterInput.Value()
-			if newVal != m.filterText {
-				m.filterText = newVal
-				m.applyFilter()
-			}
+			cmd := handleTUIFilterKey(msg, &m.filtering, &m.filterText, &m.filterInput, m.applyFilter)
 			return m, cmd
 		}
 

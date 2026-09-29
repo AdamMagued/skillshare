@@ -178,10 +178,7 @@ func newRestoreTUIModel(summaries []backup.TargetBackupSummary, backupDir string
 	sp.Spinner = spinner.Dot
 	sp.Style = theme.Accent()
 
-	fi := textinput.New()
-	fi.Prompt = "/ "
-	fi.PromptStyle = theme.Accent()
-	fi.Cursor.Style = theme.Accent()
+	fi := newTUIFilterInput("")
 
 	return restoreTUIModel{
 		phase:            phaseTargetList,
@@ -313,24 +310,7 @@ func (m restoreTUIModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	// Filter mode
 	if m.filtering {
-		switch key {
-		case "esc":
-			m.filtering = false
-			m.filterText = ""
-			m.filterInput.SetValue("")
-			m.applyRestoreFilter()
-			return m, nil
-		case "enter":
-			m.filtering = false
-			return m, nil
-		}
-		var cmd tea.Cmd
-		m.filterInput, cmd = m.filterInput.Update(msg)
-		newVal := m.filterInput.Value()
-		if newVal != m.filterText {
-			m.filterText = newVal
-			m.applyRestoreFilter()
-		}
+		cmd := handleTUIFilterKey(msg, &m.filtering, &m.filterText, &m.filterInput, m.applyRestoreFilter)
 		return m, cmd
 	}
 

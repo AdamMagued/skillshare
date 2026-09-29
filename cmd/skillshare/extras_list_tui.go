@@ -119,11 +119,7 @@ func newExtrasListTUIModel(
 	sp.Spinner = spinner.Dot
 	sp.Style = theme.Accent()
 
-	fi := textinput.New()
-	fi.Prompt = "/ "
-	fi.PromptStyle = theme.Accent()
-	fi.Cursor.Style = theme.Accent()
-	fi.Placeholder = "filter by name"
+	fi := newTUIFilterInput("filter by name")
 
 	return extrasListTUIModel{
 		list:        l,
@@ -243,24 +239,7 @@ func (m extrasListTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		if m.filtering {
-			switch msg.String() {
-			case "esc":
-				m.filtering = false
-				m.filterText = ""
-				m.filterInput.SetValue("")
-				m.applyExtrasFilter()
-				return m, nil
-			case "enter":
-				m.filtering = false
-				return m, nil
-			}
-			var cmd tea.Cmd
-			m.filterInput, cmd = m.filterInput.Update(msg)
-			newVal := m.filterInput.Value()
-			if newVal != m.filterText {
-				m.filterText = newVal
-				m.applyExtrasFilter()
-			}
+			cmd := handleTUIFilterKey(msg, &m.filtering, &m.filterText, &m.filterInput, m.applyExtrasFilter)
 			return m, cmd
 		}
 

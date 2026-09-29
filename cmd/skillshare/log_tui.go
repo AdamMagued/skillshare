@@ -99,10 +99,7 @@ func newLogTUIModel(loadFn logLoadFn, items []logItem, logLabel, modeLabel, conf
 	sp.Style = theme.Accent()
 
 	// Filter text input
-	fi := textinput.New()
-	fi.Prompt = "/ "
-	fi.PromptStyle = theme.Accent()
-	fi.Cursor.Style = theme.Accent()
+	fi := newTUIFilterInput("")
 
 	return logTUIModel{
 		list:        l,
@@ -245,24 +242,7 @@ func (m logTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// --- Filter mode: route keys to filterInput ---
 		if m.filtering {
-			switch msg.String() {
-			case "esc":
-				m.filtering = false
-				m.filterText = ""
-				m.filterInput.SetValue("")
-				m.applyLogFilter()
-				return m, nil
-			case "enter":
-				m.filtering = false
-				return m, nil
-			}
-			var cmd tea.Cmd
-			m.filterInput, cmd = m.filterInput.Update(msg)
-			newVal := m.filterInput.Value()
-			if newVal != m.filterText {
-				m.filterText = newVal
-				m.applyLogFilter()
-			}
+			cmd := handleTUIFilterKey(msg, &m.filtering, &m.filterText, &m.filterInput, m.applyLogFilter)
 			return m, cmd
 		}
 

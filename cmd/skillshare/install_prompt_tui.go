@@ -94,10 +94,7 @@ func newDirPickerModel(skills []install.SkillInfo) dirPickerModel {
 	l.SetShowPagination(false)
 
 	// Filter text input
-	fi := textinput.New()
-	fi.Prompt = "/ "
-	fi.PromptStyle = theme.Accent()
-	fi.Cursor.Style = theme.Accent()
+	fi := newTUIFilterInput("")
 
 	m.list = l
 	m.allItems = items
@@ -148,24 +145,7 @@ func (m dirPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		// --- Filter mode: only handle filter input + esc/enter ---
 		if m.filtering {
-			switch msg.String() {
-			case "esc":
-				m.filtering = false
-				m.filterText = ""
-				m.filterInput.SetValue("")
-				m.applyDirFilter()
-				return m, nil
-			case "enter":
-				m.filtering = false
-				return m, nil
-			}
-			var cmd tea.Cmd
-			m.filterInput, cmd = m.filterInput.Update(msg)
-			newVal := m.filterInput.Value()
-			if newVal != m.filterText {
-				m.filterText = newVal
-				m.applyDirFilter()
-			}
+			cmd := handleTUIFilterKey(msg, &m.filtering, &m.filterText, &m.filterInput, m.applyDirFilter)
 			return m, cmd
 		}
 
@@ -418,10 +398,7 @@ func newSkillSelectModel(skills []install.SkillInfo) skillSelectModel {
 	l.SetShowPagination(false)
 
 	// Filter text input
-	fi := textinput.New()
-	fi.Prompt = "/ "
-	fi.PromptStyle = theme.Accent()
-	fi.Cursor.Style = theme.Accent()
+	fi := newTUIFilterInput("")
 
 	return skillSelectModel{
 		list:        l,
@@ -465,24 +442,7 @@ func (m skillSelectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		// --- Filter mode: only handle filter input + esc/enter ---
 		if m.filtering {
-			switch msg.String() {
-			case "esc":
-				m.filtering = false
-				m.filterText = ""
-				m.filterInput.SetValue("")
-				m.applySkillFilter()
-				return m, nil
-			case "enter":
-				m.filtering = false
-				return m, nil
-			}
-			var cmd tea.Cmd
-			m.filterInput, cmd = m.filterInput.Update(msg)
-			newVal := m.filterInput.Value()
-			if newVal != m.filterText {
-				m.filterText = newVal
-				m.applySkillFilter()
-			}
+			cmd := handleTUIFilterKey(msg, &m.filtering, &m.filterText, &m.filterInput, m.applySkillFilter)
 			return m, cmd
 		}
 

@@ -122,11 +122,7 @@ func newTargetListTUIModel(
 	sp.Spinner = spinner.Dot
 	sp.Style = theme.Accent()
 
-	fi := textinput.New()
-	fi.Prompt = "/ "
-	fi.PromptStyle = theme.Accent()
-	fi.Cursor.Style = theme.Accent()
-	fi.Placeholder = "filter by name"
+	fi := newTUIFilterInput("filter by name")
 
 	ei := textinput.New()
 	ei.Prompt = "> pattern: "
