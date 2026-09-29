@@ -12,6 +12,7 @@ import type { ValidationError } from '../hooks/useYamlValidation';
 import { useYamlValidation } from '../hooks/useYamlValidation';
 import { useLineDiff, computeSimpleChangeCount } from '../hooks/useLineDiff';
 import { useCursorField } from '../hooks/useCursorField';
+import { useEditableFile } from '../hooks/useEditableFile';
 import Button from '../components/Button';
 import PageHeader from '../components/PageHeader';
 import { PageSkeleton } from '../components/Skeleton';
@@ -52,6 +53,8 @@ export default function ConfigPage() {
   });
   const overview = useQuery({ queryKey: queryKeys.overview, queryFn: () => api.getOverview(), staleTime: staleTimes.overview });
   const configDir = overview.data?.configDir;
+  // Expanded editing: the same editor and panel, in a near-fullscreen dialog
+  const [expanded, setExpanded] = useState(false);
   const urlTab = searchParams.get('tab');
   useEffect(() => {
     setTab(urlTab === 'extensions' || urlTab === 'skillignore' || urlTab === 'agentignore' ? urlTab : 'config');
@@ -65,8 +68,6 @@ export default function ConfigPage() {
   const [showDiscardDialog, setShowDiscardDialog] = useState(false);
   const [pendingTab, setPendingTab] = useState<ConfigTab | null>(null);
   const [showRevertDialog, setShowRevertDialog] = useState(false);
-  // Expanded editing: the same editor and panel, in a near-fullscreen dialog
-  const [expanded, setExpanded] = useState(false);
 
   // --- config.yaml state ---
   const { data: configData, isPending: configPending, error: configError } = useQuery({
@@ -74,22 +75,35 @@ export default function ConfigPage() {
     queryFn: () => api.getConfig(),
     staleTime: staleTimes.config,
   });
-  const [raw, setRaw] = useState('');
-  const [dirty, setDirty] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (configData?.raw) {
-      setRaw(configData.raw);
-      setDirty(false);
-    }
-  }, [configData]);
+  const configFile = useEditableFile(configData, {
+    skipEmpty: true,
+    save: async (value) => {
+      const formatted = formatYaml(value);
+      const res = await api.putConfig(formatted);
+      if (res.warnings?.length) {
+        toast(t('config.toast.savedWithWarnings', { warnings: res.warnings.join('; ') }), 'warning');
+      } else {
+        toast(t('config.toast.savedSuccess'), 'success');
+      }
+      setShowSyncBanner(true);
+      // Invalidate all data that depends on config
+      queryClient.invalidateQueries({ queryKey: queryKeys.config });
+      queryClient.invalidateQueries({ queryKey: queryKeys.mcp });
+      queryClient.invalidateQueries({ queryKey: queryKeys.overview });
+      queryClient.invalidateQueries({ queryKey: queryKeys.targets.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.extras });
+      queryClient.invalidateQueries({ queryKey: queryKeys.extrasDiff() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.diff() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.syncMatrix() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.doctor });
+      return formatted;
+    },
+  });
+  const raw = configFile.value;
 
   const handleConfigChange = (value: string) => {
-    setRaw(value);
-    const changed = value !== (configData?.raw ?? '');
-    setDirty(changed);
-    if (changed) setShowSyncBanner(false);
+    if (configFile.change(value)) setShowSyncBanner(false);
   };
 
   // Run the same normalizer save applies, but leave the result in the editor so
@@ -107,37 +121,6 @@ export default function ConfigPage() {
       // The parser appends a multi-line caret excerpt; the side panel already
       // lists every error in full, so the toast keeps just the headline.
       toast(t('config.beautify.invalid', { error: (e as Error).message.split('\n')[0] }), 'error');
-    }
-  };
-
-  const handleConfigSave = async () => {
-    setSaving(true);
-    try {
-      const formatted = formatYaml(raw);
-      const res = await api.putConfig(formatted);
-      setRaw(formatted);
-      if (res.warnings?.length) {
-        toast(t('config.toast.savedWithWarnings', { warnings: res.warnings.join('; ') }), 'warning');
-      } else {
-        toast(t('config.toast.savedSuccess'), 'success');
-      }
-      setShowSyncBanner(true);
-      setDirty(false);
-      // Invalidate all data that depends on config
-      queryClient.invalidateQueries({ queryKey: queryKeys.config });
-      queryClient.invalidateQueries({ queryKey: queryKeys.mcp });
-      queryClient.invalidateQueries({ queryKey: queryKeys.overview });
-      queryClient.invalidateQueries({ queryKey: queryKeys.targets.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.extras });
-      queryClient.invalidateQueries({ queryKey: queryKeys.extrasDiff() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.diff() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.syncMatrix() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.doctor });
-    } catch (e: unknown) {
-      toast((e as Error).message, 'error');
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -190,47 +173,27 @@ export default function ConfigPage() {
     staleTime: staleTimes.skillignore,
     enabled: tab === 'skillignore',
   });
-  const [ignoreRaw, setIgnoreRaw] = useState('');
-  const [ignoreDirty, setIgnoreDirty] = useState(false);
-  const [ignoreSaving, setIgnoreSaving] = useState(false);
-
-  const ignoreExtensions = useMemo(() => [EditorView.lineWrapping, ...handTheme, saveKeymap], [saveKeymap]);
-
-  const ignoreChangeCount = useMemo(
-    () => computeSimpleChangeCount(ignoreData?.raw ?? '', ignoreRaw),
-    [ignoreRaw, ignoreData],
-  );
-
-  useEffect(() => {
-    if (ignoreData) {
-      setIgnoreRaw(ignoreData.raw ?? '');
-      setIgnoreDirty(false);
-    }
-  }, [ignoreData]);
-
-  const handleIgnoreChange = (value: string) => {
-    setIgnoreRaw(value);
-    const changed = value !== (ignoreData?.raw ?? '');
-    setIgnoreDirty(changed);
-    if (changed) setShowSyncBanner(false);
-  };
-
-  const handleIgnoreSave = async () => {
-    setIgnoreSaving(true);
-    try {
-      await api.putSkillignore(ignoreRaw);
+  const ignoreFile = useEditableFile(ignoreData, {
+    save: async (value) => {
+      await api.putSkillignore(value);
       toast(t('config.skillignore.savedSuccess'), 'success');
-      setIgnoreDirty(false);
       queryClient.invalidateQueries({ queryKey: queryKeys.skillignore });
       queryClient.invalidateQueries({ queryKey: queryKeys.diff() });
       queryClient.invalidateQueries({ queryKey: queryKeys.overview });
       queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.doctor });
-    } catch (e: unknown) {
-      toast((e as Error).message, 'error');
-    } finally {
-      setIgnoreSaving(false);
-    }
+    },
+  });
+
+  const ignoreExtensions = useMemo(() => [EditorView.lineWrapping, ...handTheme, saveKeymap], [saveKeymap]);
+
+  const ignoreChangeCount = useMemo(
+    () => computeSimpleChangeCount(ignoreData?.raw ?? '', ignoreFile.value),
+    [ignoreFile.value, ignoreData],
+  );
+
+  const handleIgnoreChange = (value: string) => {
+    if (ignoreFile.change(value)) setShowSyncBanner(false);
   };
 
   // --- .agentignore state ---
@@ -240,62 +203,44 @@ export default function ConfigPage() {
     staleTime: staleTimes.agentignore,
     enabled: tab === 'agentignore',
   });
-  const [agentIgnoreRaw, setAgentIgnoreRaw] = useState('');
-  const [agentIgnoreDirty, setAgentIgnoreDirty] = useState(false);
-  const [agentIgnoreSaving, setAgentIgnoreSaving] = useState(false);
-
-  const agentIgnoreChangeCount = useMemo(
-    () => computeSimpleChangeCount(agentIgnoreData?.raw ?? '', agentIgnoreRaw),
-    [agentIgnoreRaw, agentIgnoreData],
-  );
-
-  useEffect(() => {
-    if (agentIgnoreData) {
-      setAgentIgnoreRaw(agentIgnoreData.raw ?? '');
-      setAgentIgnoreDirty(false);
-    }
-  }, [agentIgnoreData]);
-
-  const handleAgentIgnoreChange = (value: string) => {
-    setAgentIgnoreRaw(value);
-    const changed = value !== (agentIgnoreData?.raw ?? '');
-    setAgentIgnoreDirty(changed);
-    if (changed) setShowSyncBanner(false);
-  };
-
-  const handleAgentIgnoreSave = async () => {
-    setAgentIgnoreSaving(true);
-    try {
-      await api.putAgentignore(agentIgnoreRaw);
+  const agentIgnoreFile = useEditableFile(agentIgnoreData, {
+    save: async (value) => {
+      await api.putAgentignore(value);
       toast(t('config.agentignore.savedSuccess'), 'success');
-      setAgentIgnoreDirty(false);
       queryClient.invalidateQueries({ queryKey: queryKeys.agentignore });
       queryClient.invalidateQueries({ queryKey: queryKeys.diff() });
       queryClient.invalidateQueries({ queryKey: queryKeys.overview });
       queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.doctor });
-    } catch (e: unknown) {
-      toast((e as Error).message, 'error');
-    } finally {
-      setAgentIgnoreSaving(false);
-    }
+    },
+  });
+
+  const agentIgnoreChangeCount = useMemo(
+    () => computeSimpleChangeCount(agentIgnoreData?.raw ?? '', agentIgnoreFile.value),
+    [agentIgnoreFile.value, agentIgnoreData],
+  );
+
+  const handleAgentIgnoreChange = (value: string) => {
+    if (agentIgnoreFile.change(value)) setShowSyncBanner(false);
   };
 
   // --- active tab dirty/saving state ---
-  const activeDirty = tab === 'config' ? dirty : tab === 'skillignore' ? ignoreDirty : tab === 'agentignore' ? agentIgnoreDirty : false;
-  const activeSaving = tab === 'config' ? saving : tab === 'skillignore' ? ignoreSaving : tab === 'agentignore' ? agentIgnoreSaving : false;
-  const handleSave = tab === 'config' ? handleConfigSave : tab === 'skillignore' ? handleIgnoreSave : tab === 'agentignore' ? handleAgentIgnoreSave : () => {};
+  const fileOf = (file: ConfigTab) => (file === 'config' ? configFile : file === 'skillignore' ? ignoreFile : file === 'agentignore' ? agentIgnoreFile : null);
+  const activeFile = fileOf(tab);
+  const activeDirty = activeFile?.dirty ?? false;
+  const activeSaving = activeFile?.saving ?? false;
+  const handleSave = activeFile?.save ?? (() => {});
   saveRef.current = handleSave;
   const activeChangeCount = tab === 'config' ? changeCount : tab === 'skillignore' ? ignoreChangeCount : agentIgnoreChangeCount;
-  const dirtyOf = (file: ConfigTab) => (file === 'config' ? dirty : file === 'skillignore' ? ignoreDirty : agentIgnoreDirty);
+  const dirtyOf = (file: ConfigTab) => fileOf(file)?.dirty ?? false;
 
   // What the editor edits, and the line under it that says what the side panel is for.
   const ignoreHint = (data?: { exists: boolean }, fileName?: string, itemLabel?: string) =>
     data && !data.exists ? t('config.ignore.createHint', { fileName, itemLabel }) : t('config.panel.ignoreHint');
   const editor = tab === 'skillignore'
-    ? { value: ignoreRaw, onChange: handleIgnoreChange, extensions: ignoreExtensions, hint: ignoreHint(ignoreData, '.skillignore', 'skill') }
+    ? { value: ignoreFile.value, onChange: handleIgnoreChange, extensions: ignoreExtensions, hint: ignoreHint(ignoreData, '.skillignore', 'skill') }
     : tab === 'agentignore'
-      ? { value: agentIgnoreRaw, onChange: handleAgentIgnoreChange, extensions: ignoreExtensions, hint: ignoreHint(agentIgnoreData, '.agentignore', 'agent') }
+      ? { value: agentIgnoreFile.value, onChange: handleAgentIgnoreChange, extensions: ignoreExtensions, hint: ignoreHint(agentIgnoreData, '.agentignore', 'agent') }
       : { value: raw, onChange: handleConfigChange, extensions: yamlExtensions, hint: t('config.saveShortcutHint') };
 
   // --- dirty state guard for tab switch ---
@@ -310,9 +255,9 @@ export default function ConfigPage() {
 
   const handleDiscard = () => {
     if (pendingTab) {
-      if (tab === 'config') { setRaw(configData?.raw ?? ''); setDirty(false); }
-      else if (tab === 'skillignore') { setIgnoreRaw(ignoreData?.raw ?? ''); setIgnoreDirty(false); }
-      else { setAgentIgnoreRaw(agentIgnoreData?.raw ?? ''); setAgentIgnoreDirty(false); }
+      if (tab === 'config') configFile.reset();
+      else if (tab === 'skillignore') ignoreFile.reset();
+      else agentIgnoreFile.reset();
       setTab(pendingTab);
     }
     setShowDiscardDialog(false);
@@ -320,8 +265,7 @@ export default function ConfigPage() {
   };
 
   const handleRevert = () => {
-    setRaw(configData?.raw ?? '');
-    setDirty(false);
+    configFile.reset();
     setShowRevertDialog(false);
   };
 
