@@ -1,17 +1,17 @@
 import { useEffect, useState } from 'react';
 import { AlertCircle, CircleCheck, RefreshCw, TriangleAlert } from 'lucide-react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 
 import { api } from '../api/client';
 import { invalidateAfterSync } from '../lib/sync';
-import { queryKeys, staleTimes } from '../lib/queryKeys';
 import Button from './Button';
 import DialogShell from './DialogShell';
 import Spinner from './Spinner';
 import SyncResultList, { SyncUpToDate } from './SyncResultList';
 import { countChanges, resourceGroups, type Part } from './sync/syncView';
 import { useT } from '../i18n';
+import { useDiffQuery, useSyncedTargetsQuery } from '../hooks/useSharedQueries';
 
 interface SyncPreviewModalProps {
   open: boolean;
@@ -28,8 +28,8 @@ export default function SyncPreviewModal({ open, onClose, kind }: SyncPreviewMod
   const t = useT();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const diff = useQuery({ queryKey: queryKeys.diff(), queryFn: () => api.diff(), staleTime: staleTimes.diff, enabled: open });
-  const targets = useQuery({ queryKey: queryKeys.targets.synced, queryFn: () => api.listTargets('all'), staleTime: staleTimes.targets, enabled: open });
+  const diff = useDiffQuery({ enabled: open });
+  const targets = useSyncedTargetsQuery({ enabled: open });
 
   const [syncing, setSyncing] = useState(false);
   const [synced, setSynced] = useState(false);

@@ -21,6 +21,7 @@ import { refreshTargets } from '../components/targets/targetView';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { shortenHome } from '../lib/paths';
 import { useT } from '../i18n';
+import { useAvailableTargetsQuery, useMcpQuery } from '../hooks/useSharedQueries';
 
 type MCPList = Awaited<ReturnType<typeof mcpApi.list>>;
 type Tab = 'skills' | 'agents' | 'mcp';
@@ -32,7 +33,7 @@ export default function ProjectDetailPage() {
   const { root = '' } = useParams();
   const t = useT();
   const list = useQuery({ queryKey: queryKeys.projects, queryFn: () => api.listProjects(), staleTime: staleTimes.targets });
-  const mcp = useQuery({ queryKey: queryKeys.mcp, queryFn: mcpApi.list });
+  const mcp = useMcpQuery();
   const project = projectRows(list.data, mcp.data).find((p) => p.path === root);
 
   if (list.isPending || mcp.isPending) return <PageSkeleton />;
@@ -57,7 +58,7 @@ function ProjectEditor({ project, tools, mcp }: { project: ProjectRow; tools: Pr
   const [params] = useSearchParams();
   const tab = TABS.find((x) => x === params.get('tab')) ?? 'skills';
   const targets = useQuery({ queryKey: queryKeys.targets.projects, queryFn: () => api.listTargets('projects'), staleTime: staleTimes.targets });
-  const available = useQuery({ queryKey: queryKeys.targets.available, queryFn: () => api.availableTargets(), staleTime: staleTimes.targets });
+  const available = useAvailableTargetsQuery();
   const common = (available.data?.targets ?? []).filter((a) => a.installed || a.detected).map((a) => a.name);
 
   const saved = { targets: project.targets, skills: project.skills, agents: project.agents };

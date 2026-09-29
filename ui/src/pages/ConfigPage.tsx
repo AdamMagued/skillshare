@@ -28,6 +28,7 @@ import SyncPreviewModal from '../components/SyncPreviewModal';
 import { SettingsTabs } from './SettingsPage';
 import { formatYaml } from '../lib/formatYaml';
 import { shortenHome } from '../lib/paths';
+import { useOverviewQuery } from '../hooks/useSharedQueries';
 
 type ConfigTab = 'config' | 'skillignore' | 'agentignore' | 'extensions';
 
@@ -51,7 +52,7 @@ export default function ConfigPage() {
       ? requested
       : 'config';
   });
-  const overview = useQuery({ queryKey: queryKeys.overview, queryFn: () => api.getOverview(), staleTime: staleTimes.overview });
+  const overview = useOverviewQuery();
   const configDir = overview.data?.configDir;
   // Expanded editing: the same editor and panel, in a near-fullscreen dialog
   const [expanded, setExpanded] = useState(false);

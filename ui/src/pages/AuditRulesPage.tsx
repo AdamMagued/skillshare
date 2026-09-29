@@ -14,6 +14,7 @@ import { useT } from '../i18n';
 import { getCachedAuditResult } from '../lib/auditCache';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import AuditRulesYaml from './AuditRulesYaml';
+import { useOverviewQuery } from '../hooks/useSharedQueries';
 
 const PROFILES = ['default', 'strict', 'permissive'];
 const SEVERITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'];
@@ -27,7 +28,7 @@ export default function AuditRulesPage() {
   const queryClient = useQueryClient();
 
   const compiled = useQuery({ queryKey: queryKeys.audit.compiled, queryFn: () => api.getCompiledRules(), staleTime: staleTimes.auditRules });
-  const overview = useQuery({ queryKey: queryKeys.overview, queryFn: () => api.getOverview(), staleTime: staleTimes.overview });
+  const overview = useOverviewQuery();
 
   const [yamlView, setYamlView] = useState(false);
   const [search, setSearch] = useState('');

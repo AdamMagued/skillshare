@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronRight, Plus, Target as TargetIcon } from 'lucide-react';
 import { api, type Target } from '../api/client';
-import { mcpApi } from '../api/mcp';
 import AgentIcon from '../components/AgentIcon';
 import Button from '../components/Button';
 import EmptyState from '../components/EmptyState';
@@ -16,6 +15,7 @@ import { refreshTargets, targetHealth, type TargetState } from '../components/ta
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { shortenHome } from '../lib/paths';
 import { useT } from '../i18n';
+import { useAvailableTargetsQuery, useMcpQuery } from '../hooks/useSharedQueries';
 
 const TONE = { synced: 'ok', pending: 'warn', missing: 'warn', migrate: 'warn', problem: 'bad', unknown: 'off' } as const;
 const PROBLEM_TEXT: Record<string, string> = { 'not exist': 'targets.syncing.missing', conflict: 'targets.syncing.conflict', broken: 'targets.syncing.broken' };
@@ -25,8 +25,8 @@ export default function TargetsPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { data, isPending, error } = useQuery({ queryKey: queryKeys.targets.all, queryFn: () => api.listTargets(), staleTime: staleTimes.targets });
-  const available = useQuery({ queryKey: queryKeys.targets.available, queryFn: () => api.availableTargets(), staleTime: staleTimes.targets });
-  const mcp = useQuery({ queryKey: queryKeys.mcp, queryFn: mcpApi.list });
+  const available = useAvailableTargetsQuery();
+  const mcp = useMcpQuery();
   const [adding, setAdding] = useState<{ initial?: string } | null>(null);
 
   // The API walks a map, so the order changes between requests.

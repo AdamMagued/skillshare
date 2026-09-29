@@ -1,7 +1,6 @@
 import { Fragment, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { Plug } from 'lucide-react';
-import { mcpApi } from '../../api/mcp';
 import type { MCPBackup } from '../../api/mcp';
 import AgentIcon from '../AgentIcon';
 import Button from '../Button';
@@ -14,13 +13,14 @@ import { formatDateTime, formatRelativeTime, useI18n } from '../../i18n';
 import { shortenHome } from '../../lib/paths';
 import { queryKeys } from '../../lib/queryKeys';
 import { mcpChanges } from './backupView';
+import { useMcpQuery } from '../../hooks/useSharedQueries';
 
 /** MCP config backups, grouped by the Agent file they were taken of. */
 export default function MCPBackups() {
   const { t, locale } = useI18n();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { data, isPending, error } = useQuery({ queryKey: queryKeys.mcp, queryFn: mcpApi.list });
+  const { data, isPending, error } = useMcpQuery();
   const [restoring, setRestoring] = useState<{ group: MCPBackup[]; id: string } | null>(null);
 
   // Newest first, so each group lists newest first and groups follow their newest backup.

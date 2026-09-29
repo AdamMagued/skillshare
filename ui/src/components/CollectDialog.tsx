@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowDownToLine, Bot, CircleCheck, CircleMinus, CircleX, Puzzle, RefreshCw, X } from 'lucide-react';
 import { api, type LocalSkillInfo } from '../api/client';
-import { queryKeys, staleTimes } from '../lib/queryKeys';
+import { queryKeys } from '../lib/queryKeys';
 import { formatSize } from '../lib/format';
 import { formatAgentDisplayName } from '../lib/resourceNames';
 import { useT } from '../i18n';
@@ -13,6 +13,7 @@ import { Checkbox } from './Input';
 import SegmentedControl from './SegmentedControl';
 import Spinner from './Spinner';
 import SyncPreviewModal from './SyncPreviewModal';
+import { useSkillsQuery } from '../hooks/useSharedQueries';
 
 type Kind = 'skill' | 'agent';
 type Outcome = { item: LocalSkillInfo; outcome: 'pulled' | 'skipped' | 'failed'; error?: string };
@@ -39,7 +40,7 @@ export default function CollectDialog({ target, kind, onClose }: { target?: stri
     queryFn: () => api.collectScan(target, scope === 'both' ? undefined : scope),
     staleTime: 0,
   });
-  const source = useQuery({ queryKey: queryKeys.skills.all, queryFn: () => api.listSkills(), staleTime: staleTimes.skills });
+  const source = useSkillsQuery();
   const taken = useMemo(() => new Set((source.data?.resources ?? []).map((r) => `${r.kind}/${r.relPath}`)), [source.data]);
   const conflict = (i: LocalSkillInfo) => taken.has(`${i.kind ?? 'skill'}/${i.name}`);
 

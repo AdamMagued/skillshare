@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, ArrowDownToLine, Bot, ChevronDown, ChevronRight, CircleCheck, CircleMinus, EyeOff, Folder, FolderPlus, Gauge, Globe, Import, Minus, Plug, Plus, Puzzle, RefreshCw, TriangleAlert } from 'lucide-react';
 import { api, formatTokenK, type SyncResponse } from '../api/client';
-import { mcpApi } from '../api/mcp';
 import AgentIcon from '../components/AgentIcon';
 import Button from '../components/Button';
 import CollectDialog from '../components/CollectDialog';
@@ -19,6 +18,7 @@ import { formatDateTime, formatRelativeTime, useI18n, useT } from '../i18n';
 import { shortenHome } from '../lib/paths';
 import { formatAgentDisplayName } from '../lib/resourceNames';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
+import { useDiffQuery, useMcpQuery, useSyncedTargetsQuery } from '../hooks/useSharedQueries';
 
 const ROW_ICON: Record<RowIcon, React.ReactNode> = {
   add: <Plus size={16} className="shrink-0 text-ok" />,
@@ -60,10 +60,10 @@ export default function SyncPage() {
   const { locale } = useI18n();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const targets = useQuery({ queryKey: queryKeys.targets.synced, queryFn: () => api.listTargets('all'), staleTime: staleTimes.targets });
-  const diff = useQuery({ queryKey: queryKeys.diff(), queryFn: () => api.diff(), staleTime: staleTimes.diff });
+  const targets = useSyncedTargetsQuery();
+  const diff = useDiffQuery();
   const extras = useQuery({ queryKey: queryKeys.extrasDiff(), queryFn: () => api.diffExtras(), staleTime: staleTimes.extras });
-  const mcp = useQuery({ queryKey: queryKeys.mcp, queryFn: () => mcpApi.list(), staleTime: staleTimes.extras });
+  const mcp = useMcpQuery({ staleTime: staleTimes.extras });
   const log = useQuery({ queryKey: queryKeys.log('ops', 20, { cmd: 'sync' }), queryFn: () => api.listLog('ops', 20, { cmd: 'sync' }), staleTime: staleTimes.log });
 
   const [off, setOff] = useState<Set<Part>>(new Set());

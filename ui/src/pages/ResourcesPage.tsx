@@ -68,6 +68,7 @@ import type { TargetSummary, TreeRow } from '../components/resources/tree';
 import { useToast } from '../components/Toast';
 import TrashPage from './TrashPage';
 import UpdatePage, { countUpdates, updateUnits, useCheckStatuses } from './UpdatePage';
+import { useDiffQuery, useSkillsQuery, useSyncedTargetsQuery } from '../hooks/useSharedQueries';
 
 type Kind = Skill['kind'];
 type StatusFilter = 'all' | 'enabled' | 'disabled';
@@ -182,19 +183,15 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
   const { toast } = useToast();
   const isAgent = kind === 'agent';
 
-  const { data, isPending, error } = useQuery({
-    queryKey: queryKeys.skills.all,
-    queryFn: () => api.listSkills(),
-    staleTime: staleTimes.skills,
-  });
+  const { data, isPending, error } = useSkillsQuery();
   const { data: trashData } = useQuery({
     queryKey: queryKeys.trash,
     queryFn: () => api.listTrash(),
     staleTime: staleTimes.trash,
   });
   // Same queries as the sidebar Sync badge, so the dot costs no extra requests.
-  const { data: diffData } = useQuery({ queryKey: queryKeys.diff(), queryFn: () => api.diff(), staleTime: staleTimes.diff });
-  const { data: targetsData } = useQuery({ queryKey: queryKeys.targets.synced, queryFn: () => api.listTargets('all'), staleTime: staleTimes.targets });
+  const { data: diffData } = useDiffQuery();
+  const { data: targetsData } = useSyncedTargetsQuery();
   const syncPending = diffData ? countChanges(resourceGroups(diffData.diffs, targetsData?.targets ?? [], new Set([kind]), false).groups) > 0 : false;
   const [syncOpen, setSyncOpen] = useState(false);
   const { matrix, getSkillTargets } = useSyncMatrix();

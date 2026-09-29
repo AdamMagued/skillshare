@@ -19,6 +19,7 @@ Use when changing React components, pages, CSS, responsive layouts, interactions
 | Theme selection | `ui/src/context/ThemeContext.tsx` |
 | Shared components | `ui/src/components/` |
 | Query keys | `ui/src/lib/queryKeys.ts` |
+| Queries shared across pages (overview, MCP, skills, targets, diff) | `ui/src/hooks/useSharedQueries.ts` |
 | API client | `ui/src/api/client.ts` |
 | Translation strings | `ui/src/i18n/` |
 

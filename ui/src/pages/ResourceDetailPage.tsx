@@ -34,6 +34,7 @@ import { useToast } from '../components/Toast';
 import { SkillEditor } from '../components/skill-editor';
 import { UninstallDialog } from '../components/resources/UninstallDialog';
 import { hasUpdate, updateUnits, useCheckStatuses } from './UpdatePage';
+import { useDiffQuery, useSkillsQuery } from '../hooks/useSharedQueries';
 
 type Tab = 'doc' | 'files' | 'audit';
 
@@ -61,7 +62,7 @@ export default function ResourceDetailPage() {
     staleTime: staleTimes.skills,
     enabled: !!name,
   });
-  const allSkills = useQuery({ queryKey: queryKeys.skills.all, queryFn: () => api.listSkills(), staleTime: staleTimes.skills });
+  const allSkills = useSkillsQuery();
   const kind = data?.resource.kind;
   const auditQuery = useQuery({
     queryKey: [...queryKeys.audit.skill(name!), kind],
@@ -463,7 +464,7 @@ function TargetsSection({ resource }: { resource: Skill }) {
   const isAgent = resource.kind === 'agent';
   const targetsQuery = useQuery({ queryKey: queryKeys.targets.all, queryFn: () => api.listTargets(), staleTime: staleTimes.targets });
   const { getSkillTargets, isLoading } = useSyncMatrix();
-  const diffQuery = useQuery({ queryKey: queryKeys.diff(), queryFn: () => api.diff(), staleTime: staleTimes.diff, enabled: !isAgent });
+  const diffQuery = useDiffQuery({ enabled: !isAgent });
   const [pending, setPending] = useState<string | null>(null);
 
   const targets = [...(targetsQuery.data?.targets ?? [])].sort((a, b) => a.name.localeCompare(b.name));

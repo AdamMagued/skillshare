@@ -22,6 +22,7 @@ import { shortenHome } from '../lib/paths';
 import ProjectInstructions from '../components/instructions/ProjectInstructions';
 import SharedInstructions from '../components/instructions/SharedInstructions';
 import { isAgentsExtra } from '../components/instructions/instructionsView';
+import { useAvailableTargetsQuery, useOverviewQuery } from '../hooks/useSharedQueries';
 
 const MODES = ['merge', 'copy', 'symlink'] as const;
 // A single file can't be a directory symlink; import writes an @ line instead.
@@ -449,8 +450,8 @@ export default function ExtrasPage() {
 
   const { data, isPending, error } = useQuery({ queryKey: queryKeys.extras, queryFn: () => api.listExtras(), staleTime: staleTimes.extras });
   const { data: extData } = useQuery({ queryKey: ['extras', 'extensions'], queryFn: () => api.listExtraExtensions(), staleTime: staleTimes.extras });
-  const { data: availData } = useQuery({ queryKey: queryKeys.targets.available, queryFn: () => api.availableTargets(), staleTime: staleTimes.targets });
-  const { data: overview } = useQuery({ queryKey: queryKeys.overview, queryFn: () => api.getOverview(), staleTime: staleTimes.overview });
+  const { data: availData } = useAvailableTargetsQuery();
+  const { data: overview } = useOverviewQuery();
   const extensions = extData?.extensions ?? [];
   const known = useMemo(() => availData?.targets ?? [], [availData]);
   // Mirrors config.ResolveExtrasSourceDir: extras_source, else "extras" next to the skills source

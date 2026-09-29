@@ -2,10 +2,9 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { ArrowLeft, Bot, Check, ChevronDown, FileText, Folder, FolderPlus, Layers, Pencil, Plug, Plus, Search, Users, X } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
 import { api, type AvailableTarget, type Target } from '../../api/client';
-import { mcpApi, mcpTargets } from '../../api/mcp';
-import { queryKeys, staleTimes } from '../../lib/queryKeys';
+import { mcpTargets } from '../../api/mcp';
+import { staleTimes } from '../../lib/queryKeys';
 import { useAppContext } from '../../context/AppContext';
 import { shortenHome } from '../../lib/paths';
 import { useI18n } from '../../i18n';
@@ -15,6 +14,7 @@ import DialogShell from '../DialogShell';
 import { Checkbox } from '../Input';
 import { setupPathProblem } from '../instructions/instructionsView';
 import { mcpClient } from '../mcp/mcpView';
+import { useMcpQuery } from '../../hooks/useSharedQueries';
 
 const PREVIEW_COUNT = 5;
 const SHARED_ICONS = 5;
@@ -66,7 +66,7 @@ export default function AddTargetDialog({ available, initial, existing, targets 
   const instructionsExample = `${isProjectMode ? '' : '~/'}.${draft.name.trim() || 'my-tool'}/AGENTS.md`;
   // Which folder is open for editing; the rest show as one line each.
   const [editing, setEditing] = useState<'skills' | 'agents' | null>(null);
-  const mcp = useQuery({ queryKey: queryKeys.mcp, queryFn: () => mcpApi.list(), staleTime: staleTimes.extras, enabled: !isProjectMode });
+  const mcp = useMcpQuery({ staleTime: staleTimes.extras, enabled: !isProjectMode });
   const mcpPaths = mcp.data?.paths ?? {};
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');

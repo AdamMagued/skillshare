@@ -22,7 +22,6 @@ import {
 } from 'lucide-react';
 import { api } from '../api/client';
 import type { AuditAllResponse, CheckResult, LogEntry, Overview, Target } from '../api/client';
-import { mcpApi } from '../api/mcp';
 import { pluginsApi } from '../api/plugins';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { clearAuditCache } from '../lib/auditCache';
@@ -36,6 +35,7 @@ import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import { useAppContext } from '../context/AppContext';
 import { useRepoUpdate } from '../hooks/useRepoUpdate';
+import { useMcpQuery, useOverviewQuery } from '../hooks/useSharedQueries';
 
 const STAR_CTA_DISMISSED_KEY = 'skillshare.dashboard.starCta.dismissed';
 
@@ -74,11 +74,7 @@ export default function DashboardPage() {
   const t = useT();
   const { locale } = useI18n();
   const { isProjectMode } = useAppContext();
-  const { data, isPending, error } = useQuery({
-    queryKey: queryKeys.overview,
-    queryFn: () => api.getOverview(),
-    staleTime: staleTimes.overview,
-  });
+  const { data, isPending, error } = useOverviewQuery();
   const { data: targetsData } = useQuery({
     queryKey: queryKeys.targets.all,
     queryFn: () => api.listTargets(),
@@ -89,7 +85,7 @@ export default function DashboardPage() {
     queryFn: () => api.listExtras(),
     staleTime: staleTimes.extras,
   });
-  const { data: mcpData } = useQuery({ queryKey: queryKeys.mcp, queryFn: mcpApi.list });
+  const { data: mcpData } = useMcpQuery();
   const { data: pluginData } = useQuery({ queryKey: queryKeys.pluginPackages, queryFn: () => pluginsApi.list(false) });
   const { data: lastSync } = useQuery({
     queryKey: queryKeys.log('ops', 1, { cmd: 'sync' }),

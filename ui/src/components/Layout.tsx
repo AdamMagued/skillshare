@@ -18,7 +18,6 @@ import {
   Compass,
 } from 'lucide-react';
 import { api, type AuditAllResponse } from '../api/client';
-import { mcpApi } from '../api/mcp';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { pendingCount } from './sync/syncView';
 import { useAppContext } from '../context/AppContext';
@@ -34,6 +33,7 @@ import { useTour } from './tour';
 import UpdateDialog from './UpdateDialog';
 import { useT } from '../i18n';
 import { shortenHome } from '../lib/paths';
+import { useDiffQuery, useMcpQuery, useOverviewQuery, useSyncedTargetsQuery } from '../hooks/useSharedQueries';
 
 interface NavItem {
   to: string;
@@ -94,16 +94,12 @@ export default function Layout() {
   const handleSync = useCallback(() => nav('/sync'), [nav]);
   const { modifierHeld } = useGlobalShortcuts({ onToggleHelp: toggleShortcuts, onSync: handleSync });
 
-  const { data: overview } = useQuery({
-    queryKey: queryKeys.overview,
-    queryFn: () => api.getOverview(),
-    staleTime: staleTimes.overview,
-  });
+  const { data: overview } = useOverviewQuery();
   const version = overview?.version;
   const home = isProjectMode ? projectRoot : overview?.configDir;
   const counts = useNavCounts(isProjectMode);
   // Shares the badge query, so this costs no request.
-  const { data: synced } = useQuery({ queryKey: queryKeys.targets.synced, queryFn: () => api.listTargets('all'), staleTime: staleTimes.targets });
+  const { data: synced } = useSyncedTargetsQuery();
   const targetAgents = useMemo(() => Object.fromEntries((synced?.targets ?? []).flatMap((x) => (x.agent ? [[x.name, x.agent]] : []))), [synced]);
 
   return (
@@ -179,10 +175,10 @@ const live = { refetchInterval: 15_000, refetchOnWindowFocus: true } as const;
 
 /** Sidebar badges: pending sync changes, git work to share, and skills a cached audit scan blocks. */
 function useNavCounts(isProjectMode: boolean): Record<string, number> {
-  const targets = useQuery({ queryKey: queryKeys.targets.synced, queryFn: () => api.listTargets('all'), staleTime: staleTimes.targets, ...live });
-  const diff = useQuery({ queryKey: queryKeys.diff(), queryFn: () => api.diff(), staleTime: staleTimes.diff, ...live });
+  const targets = useSyncedTargetsQuery(live);
+  const diff = useDiffQuery(live);
   const extras = useQuery({ queryKey: queryKeys.extrasDiff(), queryFn: () => api.diffExtras(), staleTime: staleTimes.extras, ...live });
-  const mcp = useQuery({ queryKey: queryKeys.mcp, queryFn: () => mcpApi.list(), staleTime: staleTimes.extras, ...live });
+  const mcp = useMcpQuery({ staleTime: staleTimes.extras, ...live });
   const git = useQuery({ queryKey: queryKeys.gitStatus, queryFn: () => api.gitStatus(), staleTime: staleTimes.gitStatus, enabled: !isProjectMode, ...live });
   // Scans are expensive, so the badge only reads one the Audit page already ran.
   const auditSkills = useQuery<AuditAllResponse>({ queryKey: queryKeys.audit.all('skills'), queryFn: () => api.auditAll('skills'), enabled: false });

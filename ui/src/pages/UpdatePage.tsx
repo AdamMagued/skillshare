@@ -14,6 +14,7 @@ import { Checkbox } from '../components/Checkbox';
 import EmptyState from '../components/EmptyState';
 import SyncPreviewModal from '../components/SyncPreviewModal';
 import { useToast } from '../components/Toast';
+import { useSkillsQuery } from '../hooks/useSharedQueries';
 
 /* -- Types ---------------------------------------- */
 
@@ -120,11 +121,7 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: skillsData } = useQuery({
-    queryKey: queryKeys.skills.all,
-    queryFn: () => api.listSkills(),
-    staleTime: staleTimes.skills,
-  });
+  const { data: skillsData } = useSkillsQuery();
   // Tracked repos declared in metadata but missing on disk (issue #212)
   const { data: missingReposData } = useQuery({
     queryKey: queryKeys.missingTrackedRepos,

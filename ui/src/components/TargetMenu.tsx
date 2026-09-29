@@ -1,10 +1,8 @@
 import { Fragment, useEffect, useRef, useLayoutEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronRight, Target } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
-import { api } from '../api/client';
-import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { useT } from '../i18n';
+import { useAvailableTargetsQuery } from '../hooks/useSharedQueries';
 
 /* ------------------------------------------------------------------ */
 /*  Context menu item types                                           */
@@ -283,12 +281,7 @@ export default function TargetMenu({
   onClose,
 }: TargetMenuProps) {
   const t = useT();
-  const { data: availableData } = useQuery({
-    queryKey: queryKeys.targets.available,
-    queryFn: () => api.availableTargets(),
-    staleTime: staleTimes.targets,
-    enabled: open,
-  });
+  const { data: availableData } = useAvailableTargetsQuery({ enabled: open });
 
   if (!open) return null;
 

@@ -11,6 +11,7 @@ import Spinner from '../Spinner';
 import { Select } from '../Select';
 import { queryKeys, staleTimes } from '../../lib/queryKeys';
 import { useT } from '../../i18n';
+import { useSkillsQuery } from '../../hooks/useSharedQueries';
 
 interface Props {
   title: string;
@@ -60,11 +61,7 @@ export default function HubView({ title, draftId, url, actions }: Props) {
     }));
   }, [draftId, draft.data, hosted.data]);
 
-  const { data: skillsData } = useQuery({
-    queryKey: queryKeys.skills.all,
-    queryFn: () => api.listSkills(),
-    staleTime: staleTimes.skills,
-  });
+  const { data: skillsData } = useSkillsQuery();
   const installed = useMemo(() => new Set((skillsData?.resources ?? []).map((r) => r.name)), [skillsData]);
 
   /** Every tag the hub actually uses, so the dropdown never offers a dead option. */

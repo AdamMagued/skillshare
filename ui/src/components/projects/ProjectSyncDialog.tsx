@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, CircleCheck, TriangleAlert } from 'lucide-react';
-import { api, type SyncResponse, type Target } from '../../api/client';
-import { mcpApi } from '../../api/mcp';
+import { type SyncResponse, type Target } from '../../api/client';
 import { describeMessage, targetLabel } from '../mcp/mcpView';
 import Button from '../Button';
 import DialogShell from '../DialogShell';
@@ -12,8 +11,9 @@ import SyncResultList, { SyncUpToDate } from '../SyncResultList';
 import { countChanges, MCP_CHANGED, mcpGroups, projectChanges, resourceGroups, runSync, type ChangeGroup } from '../sync/syncView';
 import { refreshTargets } from '../targets/targetView';
 import { useT } from '../../i18n';
-import { queryKeys, staleTimes } from '../../lib/queryKeys';
+import { queryKeys } from '../../lib/queryKeys';
 import type { ProjectRow } from './projectView';
+import { useDiffQuery, useMcpQuery } from '../../hooks/useSharedQueries';
 
 interface Props {
   open: boolean;
@@ -27,8 +27,8 @@ interface Props {
 export default function ProjectSyncDialog({ open, onClose, project, targets }: Props) {
   const t = useT();
   const queryClient = useQueryClient();
-  const diff = useQuery({ queryKey: queryKeys.diff(), queryFn: () => api.diff(), staleTime: staleTimes.diff, enabled: open });
-  const mcp = useQuery({ queryKey: queryKeys.mcp, queryFn: () => mcpApi.list(), enabled: open });
+  const diff = useDiffQuery({ enabled: open });
+  const mcp = useMcpQuery({ enabled: open });
   const [running, setRunning] = useState(false);
   const [error, setError] = useState('');
   // undefined until the sync ran

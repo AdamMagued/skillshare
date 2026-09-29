@@ -3,7 +3,6 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowDownToLine, CirclePause, Folder, Plus, Target as TargetIcon } from 'lucide-react';
 import { api, type Target } from '../api/client';
-import { mcpApi } from '../api/mcp';
 import Button from '../components/Button';
 import CollectDialog from '../components/CollectDialog';
 import EmptyState from '../components/EmptyState';
@@ -25,6 +24,7 @@ import { refreshTargets } from '../components/targets/targetView';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { fileName, shortenHome } from '../lib/paths';
 import { useT } from '../i18n';
+import { useAvailableTargetsQuery, useMcpQuery } from '../hooks/useSharedQueries';
 
 type Kind = 'skill' | 'agent';
 // File tabs (the instruction file first) past this many go into a menu.
@@ -63,7 +63,7 @@ function TargetEditor({ target, targets }: { target: Target; targets: Target[] }
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [params] = useSearchParams();
-  const mcp = useQuery({ queryKey: queryKeys.mcp, queryFn: mcpApi.list });
+  const mcp = useMcpQuery();
   // Only an Agent that has an MCP file in this scope (global, or the -p project) gets the tab.
   const client = mcpClient(target.name);
   const mcpPath = mcp.data?.paths[client];
@@ -85,7 +85,7 @@ function TargetEditor({ target, targets }: { target: Target; targets: Target[] }
   const [resuming, setResuming] = useState(false);
   const [addingFile, setAddingFile] = useState(false);
   const skillsOn = target.skillsEnabled !== false;
-  const available = useQuery({ queryKey: queryKeys.targets.available, queryFn: () => api.availableTargets(), staleTime: staleTimes.targets, enabled: tab === 'skill' });
+  const available = useAvailableTargetsQuery({ enabled: tab === 'skill' });
   // While skills are on the target list leaves skillsReadFrom out, so the confirm dialog asks available-targets.
   const readsFrom = (target.skillsReadFrom ?? available.data?.targets.find((a) => a.name === target.name)?.readsFrom ?? []).filter((n) => n !== target.name);
   const readFromName = readsFrom[0];

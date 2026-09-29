@@ -10,6 +10,7 @@ import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import { api } from '../api/client';
 import { useT } from '../i18n';
+import { useOverviewQuery, useSkillsQuery } from '../hooks/useSharedQueries';
 
 const NAME_REGEX = /^[a-z_][a-z0-9_-]*$/;
 const MAX_DESCRIPTION = 1024;
@@ -34,16 +35,8 @@ export default function NewSkillPage() {
     queryFn: () => api.getTemplates(),
     staleTime: staleTimes.config,
   });
-  const { data: skillsData } = useQuery({
-    queryKey: queryKeys.skills.all,
-    queryFn: () => api.listSkills(),
-    staleTime: staleTimes.skills,
-  });
-  const { data: overview } = useQuery({
-    queryKey: queryKeys.overview,
-    queryFn: () => api.getOverview(),
-    staleTime: staleTimes.overview,
-  });
+  const { data: skillsData } = useSkillsQuery();
+  const { data: overview } = useOverviewQuery();
 
   const skills = useMemo(() => (skillsData?.resources ?? []).filter((r) => r.kind === 'skill'), [skillsData]);
   // Folders that already hold local skills. Tracked repos are git clones, so new skills stay out of them

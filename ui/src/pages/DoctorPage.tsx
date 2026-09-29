@@ -12,6 +12,7 @@ import { useT } from '../i18n';
 import { shortenHome } from '../lib/paths';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { SettingsTabs } from './SettingsPage';
+import { useOverviewQuery } from '../hooks/useSharedQueries';
 
 type Filter = 'all' | 'error' | 'warning' | 'pass';
 
@@ -31,7 +32,7 @@ export default function DoctorPage() {
   const [upgrading, setUpgrading] = useState(false);
   const [upgradeMessage, setUpgradeMessage] = useState<string | null>(null);
 
-  const overview = useQuery({ queryKey: queryKeys.overview, queryFn: () => api.getOverview(), staleTime: staleTimes.overview });
+  const overview = useOverviewQuery();
   const { data, isPending, error, isFetching, refetch } = useQuery({ queryKey: queryKeys.doctor, queryFn: () => api.doctor(), staleTime: staleTimes.doctor });
 
   const checks = useMemo(() => {

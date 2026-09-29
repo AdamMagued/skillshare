@@ -4,7 +4,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Archive, ChevronDown, ChevronRight, Copy, Link2, Plus, Trash2 } from 'lucide-react';
 import { api } from '../api/client';
 import type { BackupInfo, RestoreValidateResponse } from '../api/client';
-import { mcpApi } from '../api/mcp';
 import AgentIcon from '../components/AgentIcon';
 import Button from '../components/Button';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -25,6 +24,7 @@ import type { Locale } from '../i18n/locales';
 import { shortenHome } from '../lib/paths';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { SettingsTabs } from './SettingsPage';
+import { useMcpQuery, useOverviewQuery } from '../hooks/useSharedQueries';
 
 const CONFLICTS_SHOWN = 6;
 const TABS = ['folders', 'files', 'mcp'] as const;
@@ -61,11 +61,11 @@ export default function BackupPage() {
   const [params] = useSearchParams();
   const tab = TABS.find((k) => k === params.get('tab')) ?? 'folders';
 
-  const overview = useQuery({ queryKey: queryKeys.overview, queryFn: () => api.getOverview(), staleTime: staleTimes.overview });
+  const overview = useOverviewQuery();
   // Each tab reads its own list; the counts in the tab bar share those queries.
   const folders = useQuery({ queryKey: queryKeys.backups, queryFn: () => api.listBackups(), staleTime: staleTimes.backups });
   const files = useQuery({ queryKey: queryKeys.fileBackups.all, queryFn: () => api.listFileBackups() });
-  const mcp = useQuery({ queryKey: queryKeys.mcp, queryFn: mcpApi.list });
+  const mcp = useMcpQuery();
   const counts = { folders: folders.data?.backups.length, files: files.data?.files.length, mcp: mcp.data?.backups.length };
   const create = useCreateBackup();
 

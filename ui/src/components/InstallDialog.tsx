@@ -38,6 +38,7 @@ import FindingList from './FindingList';
 import { Select } from './Select';
 import Spinner from './Spinner';
 import { useToast } from './Toast';
+import { useSkillsQuery } from '../hooks/useSharedQueries';
 
 type Kind = 'skill' | 'agent';
 type Tab = 'search' | 'url';
@@ -135,11 +136,7 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
   const [blocked, setBlocked] = useState<Blocked | null>(null);
   const [warnings, setWarnings] = useState<Finding[]>([]);
 
-  const { data: skillsData } = useQuery({
-    queryKey: queryKeys.skills.all,
-    queryFn: () => api.listSkills(),
-    staleTime: staleTimes.skills,
-  });
+  const { data: skillsData } = useSkillsQuery();
   const installedKeys = useMemo(() => new Set((skillsData?.resources ?? []).filter((r) => r.source).map((r) => `${r.kind}:${sourceKey(r.source!)}`)), [skillsData]);
   const isInstalled = (k: Kind, source: string) => installedKeys.has(`${k}:${sourceKey(source)}`);
   const isInstalledResult = (result: SearchResult) => {

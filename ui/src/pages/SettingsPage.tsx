@@ -10,6 +10,7 @@ import { useTheme, type ModePreference, type Style } from '../context/ThemeConte
 import { supportedLocales, useI18n, useT, type Locale } from '../i18n';
 import { shortenHome } from '../lib/paths';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
+import { useOverviewQuery } from '../hooks/useSharedQueries';
 
 const MODES = ['merge', 'copy', 'symlink'];
 const SEVERITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'];
@@ -52,7 +53,7 @@ export default function SettingsPage() {
   const { isProjectMode, projectRoot } = useAppContext();
   const queryClient = useQueryClient();
 
-  const overview = useQuery({ queryKey: queryKeys.overview, queryFn: () => api.getOverview(), staleTime: staleTimes.overview });
+  const overview = useOverviewQuery();
   const config = useQuery({ queryKey: queryKeys.config, queryFn: () => api.getConfig(), staleTime: staleTimes.config });
   const cfg = (config.data?.config ?? {}) as ConfigShape;
   const [threshold, setThreshold] = useState<string | null>(null);

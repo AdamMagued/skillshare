@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, Bot, Puzzle, ShieldCheck } from 'lucide-react';
 import { api, type AuditFinding, type AuditResult } from '../api/client';
 import Button from '../components/Button';
@@ -12,7 +12,8 @@ import Spinner from '../components/Spinner';
 import { useToast } from '../components/Toast';
 import { formatRelativeTime, useI18n, useT } from '../i18n';
 import { getCachedAuditResult } from '../lib/auditCache';
-import { queryKeys, staleTimes } from '../lib/queryKeys';
+import { queryKeys } from '../lib/queryKeys';
+import { useOverviewQuery } from '../hooks/useSharedQueries';
 
 type Kind = 'skills' | 'agents';
 type Severity = AuditFinding['severity'];
@@ -30,7 +31,7 @@ export default function AuditPage() {
   const { locale } = useI18n();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const overview = useQuery({ queryKey: queryKeys.overview, queryFn: () => api.getOverview(), staleTime: staleTimes.overview });
+  const overview = useOverviewQuery();
 
   const [kind, setKind] = useState<Kind>('skills');
   const [only, setOnly] = useState<Severity | null>(null);

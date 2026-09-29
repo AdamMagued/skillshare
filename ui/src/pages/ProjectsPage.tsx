@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, ChevronRight, Folder, Folders, Plus } from 'lucide-react';
 import { api, type ProjectList } from '../api/client';
-import { mcpApi } from '../api/mcp';
 import AgentIcon from '../components/AgentIcon';
 import Button from '../components/Button';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -17,6 +16,7 @@ import { refreshTargets } from '../components/targets/targetView';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { shortenHome } from '../lib/paths';
 import { useT } from '../i18n';
+import { useAvailableTargetsQuery, useMcpQuery } from '../hooks/useSharedQueries';
 
 const TONE = { missing: 'bad', conflict: 'warn', pending: 'warn', synced: 'ok', idle: 'off' } as const;
 const STACK = 6;
@@ -28,8 +28,8 @@ export default function ProjectsPage() {
   const { toast } = useToast();
   const list = useQuery({ queryKey: queryKeys.projects, queryFn: () => api.listProjects(), staleTime: staleTimes.targets });
   const targets = useQuery({ queryKey: queryKeys.targets.projects, queryFn: () => api.listTargets('projects'), staleTime: staleTimes.targets });
-  const mcp = useQuery({ queryKey: queryKeys.mcp, queryFn: mcpApi.list });
-  const available = useQuery({ queryKey: queryKeys.targets.available, queryFn: () => api.availableTargets(), staleTime: staleTimes.targets });
+  const mcp = useMcpQuery();
+  const available = useAvailableTargetsQuery();
   const [adding, setAdding] = useState(false);
   const [converting, setConverting] = useState<ProjectList['convertible'][number] | null>(null);
   const [busy, setBusy] = useState(false);

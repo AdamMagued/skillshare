@@ -16,6 +16,7 @@ import { formatLogDetail } from '../lib/logFormat';
 import { shortenHome } from '../lib/paths';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { SettingsTabs } from './SettingsPage';
+import { useOverviewQuery } from '../hooks/useSharedQueries';
 
 type LogTab = 'all' | 'ops' | 'audit';
 
@@ -53,7 +54,7 @@ export default function LogPage() {
   const [open, setOpen] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const overview = useQuery({ queryKey: queryKeys.overview, queryFn: () => api.getOverview(), staleTime: staleTimes.overview });
+  const overview = useOverviewQuery();
 
   const filters = useMemo(() => {
     const f: Record<string, string> = {};

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Navigate, useSearchParams } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, Archive, ChevronDown, Copy, Download, Eye, Pencil, Plug, Plus, PowerOff, Trash2, X } from 'lucide-react';
 import { mcpApi, type MCPMutation, type MCPPlan, type MCPSettings } from '../api/mcp';
 import Button from '../components/Button';
@@ -29,6 +29,7 @@ import { useMCPToggle } from '../components/mcp/useMCPToggle';
 import { useT } from '../i18n';
 import { shortenHome } from '../lib/paths';
 import { queryKeys } from '../lib/queryKeys';
+import { useMcpQuery } from '../hooks/useSharedQueries';
 
 const copy = (text: string) => void navigator.clipboard?.writeText(text);
 
@@ -37,7 +38,7 @@ export default function MCPPage() {
   const { toast } = useToast();
   const cache = useQueryClient();
   const [params] = useSearchParams();
-  const { data, error, isPending } = useQuery({ queryKey: queryKeys.mcp, queryFn: mcpApi.list });
+  const { data, error, isPending } = useMcpQuery();
   const { isProjectMode } = useAppContext();
   const [addingOff, setAddingOff] = useState(false); // the new entry is a switch, not a server
   const [piSetupName, setPiSetupName] = useState<string | null>(null);
