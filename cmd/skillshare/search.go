@@ -30,11 +30,7 @@ func cmdSearch(args []string) error {
 	}
 
 	// Auto-detect: if mode is auto and project config exists, use project mode
-	if mode == modeAuto && projectConfigExists(cwd) {
-		mode = modeProject
-	} else if mode == modeAuto {
-		mode = modeGlobal
-	}
+	mode = resolveAutoMode(mode, cwd)
 
 	applyModeLabel(mode)
 

@@ -33,11 +33,7 @@ func cmdHub(args []string) error {
 		if err != nil {
 			return fmt.Errorf("cannot determine working directory: %w", err)
 		}
-		if mode == modeAuto && projectConfigExists(cwd) {
-			mode = modeProject
-		} else if mode == modeAuto {
-			mode = modeGlobal
-		}
+		mode = resolveAutoMode(mode, cwd)
 		applyModeLabel(mode)
 		return cmdHubAdd(rest, mode, cwd)
 	case "list", "ls":
@@ -49,11 +45,7 @@ func cmdHub(args []string) error {
 		if err != nil {
 			return fmt.Errorf("cannot determine working directory: %w", err)
 		}
-		if mode == modeAuto && projectConfigExists(cwd) {
-			mode = modeProject
-		} else if mode == modeAuto {
-			mode = modeGlobal
-		}
+		mode = resolveAutoMode(mode, cwd)
 		applyModeLabel(mode)
 		return cmdHubList(mode, cwd)
 	case "remove", "rm":
@@ -65,11 +57,7 @@ func cmdHub(args []string) error {
 		if err != nil {
 			return fmt.Errorf("cannot determine working directory: %w", err)
 		}
-		if mode == modeAuto && projectConfigExists(cwd) {
-			mode = modeProject
-		} else if mode == modeAuto {
-			mode = modeGlobal
-		}
+		mode = resolveAutoMode(mode, cwd)
 		applyModeLabel(mode)
 		return cmdHubRemove(rest, mode, cwd)
 	case "default":
@@ -81,11 +69,7 @@ func cmdHub(args []string) error {
 		if err != nil {
 			return fmt.Errorf("cannot determine working directory: %w", err)
 		}
-		if mode == modeAuto && projectConfigExists(cwd) {
-			mode = modeProject
-		} else if mode == modeAuto {
-			mode = modeGlobal
-		}
+		mode = resolveAutoMode(mode, cwd)
 		applyModeLabel(mode)
 		return cmdHubDefault(rest, mode, cwd)
 	case "help", "-h", "--help":
@@ -109,11 +93,7 @@ func cmdHubIndex(args []string) error {
 	}
 
 	// Auto-detect mode
-	if mode == modeAuto && projectConfigExists(cwd) {
-		mode = modeProject
-	} else if mode == modeAuto {
-		mode = modeGlobal
-	}
+	mode = resolveAutoMode(mode, cwd)
 
 	applyModeLabel(mode)
 
