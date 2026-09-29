@@ -93,3 +93,50 @@ func TestExtrasParentDir(t *testing.T) {
 		t.Errorf("ExtrasParentDir() = %q, want %q", got, want)
 	}
 }
+
+func TestResolveExtrasSourceDirProject(t *testing.T) {
+	root := filepath.FromSlash("/projects/myapp")
+	parent := filepath.Join(root, ".skillshare", "extras")
+	got := ResolveExtrasSourceDirProject(ExtraConfig{Name: "a", Source: ".skillshare/extras/prompts"}, parent, root)
+	if want := filepath.Join(parent, "prompts"); got != want {
+		t.Errorf("with source = %q, want %q", got, want)
+	}
+	got = ResolveExtrasSourceDirProject(ExtraConfig{Name: "a"}, parent, root)
+	if want := filepath.Join(parent, "a"); got != want {
+		t.Errorf("without source = %q, want %q", got, want)
+	}
+}
+
+func TestValidateProjectExtraSource(t *testing.T) {
+	for _, source := range []string{"", ".skillshare/extras/prompts", "docs/prompts"} {
+		if err := ValidateProjectExtraSource(source); err != nil {
+			t.Errorf("%q: unexpected error %v", source, err)
+		}
+	}
+	for _, source := range []string{"/abs/prompts", "~/prompts", "..", "../prompts", "a/../../prompts"} {
+		if err := ValidateProjectExtraSource(source); err == nil {
+			t.Errorf("%q: expected an error", source)
+		}
+	}
+}
+
+// Two single-file extras may share one project folder, as in global mode.
+func TestProjectValidateExtras_SharedSourceFolder(t *testing.T) {
+	root := t.TempDir()
+	cfg := &ProjectConfig{Extras: []ExtraConfig{
+		{Name: "a", Source: ".skillshare/extras/prompts", File: "a.md", Targets: []ExtraTargetConfig{{Path: ".claude/commands"}}},
+		{Name: "b", Source: ".skillshare/extras/prompts", File: "b.md", Targets: []ExtraTargetConfig{{Path: ".claude/commands"}}},
+	}}
+	if err := cfg.ValidateExtras(root); err != nil {
+		t.Fatalf("ValidateExtras() = %v, want nil", err)
+	}
+}
+
+func TestProjectValidateExtras_RejectsEscapingSource(t *testing.T) {
+	cfg := &ProjectConfig{Extras: []ExtraConfig{
+		{Name: "a", Source: "../prompts", File: "a.md", Targets: []ExtraTargetConfig{{Path: ".claude/commands"}}},
+	}}
+	if err := cfg.ValidateExtras(t.TempDir()); err == nil {
+		t.Fatal("ValidateExtras() = nil, want an error for a source outside the project")
+	}
+}

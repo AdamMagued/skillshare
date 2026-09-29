@@ -79,7 +79,7 @@ func cmdExtrasRemoveTarget(args []string) error {
 		saveFn = func() error { return projCfg.Save(cwd) }
 		projectExtrasSource := projCfg.EffectiveExtrasSource(cwd)
 		sourceDirForExtra = func(extra config.ExtraConfig) string {
-			return config.ExtrasSourceDirProject(projectExtrasSource, extra.Name)
+			return config.ResolveExtrasSourceDirProject(extra, projectExtrasSource, cwd)
 		}
 		extensionsDir = projectExtensionsDir(cwd)
 	} else {

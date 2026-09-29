@@ -402,6 +402,11 @@
           "description": "Name of the extra resource (matches a subdirectory under the source extras directory).",
           "examples": ["rules", "commands"]
         },
+        "source": {
+          "type": "string",
+          "description": "Custom source directory for this extra (overrides extras_source and the default). Several single-file extras can share one directory. Supports ~ for home directory.",
+          "examples": ["~/dotfiles/prompts"]
+        },
         "file": {
           "type": "string",
           "description": "Sync one file instead of the whole source directory: a plain filename inside the extra's source directory. Each target receives <path>/<as or file>.",

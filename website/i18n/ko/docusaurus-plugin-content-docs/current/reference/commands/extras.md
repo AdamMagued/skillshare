@@ -47,7 +47,7 @@ wizard는 이름 다음에 **What do you want to sync?**를 묻습니다: **Fold
 | `--as <filename>` | 모든 target에 쓸 파일 이름 (기본값: `--file` 이름). `--file` 필요 |
 | `--mode <mode>` | 동기화 mode: `merge` (기본값), `copy`, 또는 `symlink`. `import`는 `--file`과 함께만 사용 가능 |
 | `--flatten` | 하위 디렉터리의 파일을 target 루트에 바로 동기화 (`symlink` mode 또는 `--file`과 함께 사용 불가) |
-| `--source <path>` | 이 extra에 대한 사용자 지정 source 디렉터리 (`extras_source` 및 기본값을 재정의; **전역 모드 전용**) |
+| `--source <path>` | 이 extra에 대한 사용자 지정 source 디렉터리 (`extras_source` 및 기본값을 재정의; 프로젝트 모드에서는 프로젝트 루트 기준 상대 경로) |
 | `--force` | extra가 이미 존재하면 덮어쓰기 |
 | `--no-tui` | interactive wizard 생략, CLI 플래그만 사용 |
 | `--project, -p` | 프로젝트 config(`.skillshare/`)에 생성 |
@@ -472,7 +472,7 @@ system prompt에 덧붙입니다. 그 내용을 dotfiles에 `system.md`로 두�
 ```yaml
 extras:
   - name: pi-prompt
-    source: ~/dotfiles/prompts     # global mode only
+    source: ~/dotfiles/prompts     # 프로젝트 모드: 프로젝트 루트 기준 상대 경로
     file: system.md                # ~/dotfiles/prompts/system.md
     targets:
       - path: ~/.pi/agent
@@ -549,7 +549,7 @@ single-file extra는 **Folders & files**에 표시됩니다. 그곳의 **Add ext
 
 ### 폴더 하나, 여러 파일
 
-전역 모드에서는 여러 single-file extra가 하나의 `source` 디렉터리를 공유할 수 있습니다. 파일마다
+여러 single-file extra가 하나의 `source` 디렉터리를 공유할 수 있습니다. 파일마다
 extra를 하나씩 만드세요. 어떤 extra에도 지정되지 않은 폴더 안의 파일은 동기화되지 않습니다:
 
 ```yaml
@@ -575,8 +575,18 @@ skillshare extras init pi-agents --source ~/dotfiles/pi --file agents.md \
   --as AGENTS.md --target ~/.pi/agent
 ```
 
-프로젝트 모드에서는 적용되지 않습니다. 프로젝트 모드에서 각 extra의 source는 항상
-`.skillshare/extras/<name>/`입니다.
+프로젝트 모드에서 `source`는 프로젝트 루트 기준 상대 경로이며 프로젝트 안에 있어야 합니다.
+절대 경로는 거부됩니다:
+
+```bash
+skillshare extras init review -p --source .skillshare/extras/prompts \
+  --file review.md --target .claude/commands
+skillshare extras init plan -p --source .skillshare/extras/prompts \
+  --file plan.md --target .claude/commands
+```
+
+대시보드에서는 공유 extras 폴더의 single file에 **Source folder** 필드가 있습니다. 기본값은
+extra 이름이며, 다른 extra의 폴더를 입력하면 두 파일을 한 폴더에 둘 수 있습니다.
 
 백업은 skillshare의 state 디렉터리(macOS와 Linux에서는
 `~/.local/state/skillshare/extras/backups/`)에 파일당 최근 10개까지 보관됩니다.

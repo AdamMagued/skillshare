@@ -101,7 +101,7 @@ func removeExtraFromProjectConfig(projCfg *config.ProjectConfig, cwd, name strin
 		return "", fmt.Errorf("extra %q not found in project config", name)
 	}
 
-	sourceDir := config.ExtrasSourceDirProject(projCfg.EffectiveExtrasSource(cwd), name)
+	sourceDir := config.ResolveExtrasSourceDirProject(removed, projCfg.EffectiveExtrasSource(cwd), cwd)
 	restored, restoreErr := restoreExtraFileTargets(removed, sourceDir, modeProject, cwd)
 	if restoreErr == nil {
 		projCfg.Extras = append(projCfg.Extras[:idx], projCfg.Extras[idx+1:]...)
@@ -186,7 +186,7 @@ func extrasRemoveProject(cwd, name string, force bool, start time.Time) error {
 
 	_, found := findExtraByName(projCfg.Extras, name)
 	if !force {
-		sourceDir := config.ExtrasSourceDirProject(projCfg.EffectiveExtrasSource(cwd), name)
+		sourceDir := config.ResolveExtrasSourceDirProject(found, projCfg.EffectiveExtrasSource(cwd), cwd)
 		ui.Warning("This will remove %q from project config.", name)
 		ui.Info("Source files in %s will NOT be deleted.", shortenPath(sourceDir))
 		ui.Info("%s", extraRemoveTargetNote(found))

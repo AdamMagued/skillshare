@@ -1,6 +1,10 @@
 package config
 
-import "path/filepath"
+import (
+	"fmt"
+	"path/filepath"
+	"strings"
+)
 
 // ResolveExtrasSourceDir resolves the source directory for an extra using
 // three-level priority: per-extra source > extras_source > default.
@@ -19,6 +23,32 @@ func ResolveExtrasSourceDir(extra ExtraConfig, extrasSource, skillsSource string
 // extrasParent is the resolved extras parent (e.g. from ProjectConfig.EffectiveExtrasSource).
 func ExtrasSourceDirProject(extrasParent, name string) string {
 	return filepath.Join(extrasParent, name)
+}
+
+// ResolveExtrasSourceDirProject resolves the source directory for an extra in
+// project mode: its source (relative to the project root) when set, else
+// <extrasParent>/<name>.
+func ResolveExtrasSourceDirProject(extra ExtraConfig, extrasParent, root string) string {
+	if extra.Source != "" {
+		return filepath.Join(root, filepath.FromSlash(extra.Source))
+	}
+	return ExtrasSourceDirProject(extrasParent, extra.Name)
+}
+
+// ValidateProjectExtraSource checks a project extra's source: a path relative
+// to the project root that stays inside it. Empty means the default folder.
+func ValidateProjectExtraSource(source string) error {
+	if source == "" {
+		return nil
+	}
+	if filepath.IsAbs(source) || filepath.VolumeName(source) != "" || strings.HasPrefix(source, "~") || strings.ContainsAny(source[:1], `/\`) {
+		return fmt.Errorf("extra source %q must be relative to the project root", source)
+	}
+	clean := filepath.Clean(filepath.FromSlash(source))
+	if clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("extra source %q must stay inside the project root", source)
+	}
+	return nil
 }
 
 // ExtrasParentDir returns the extras parent directory (for migration/init).

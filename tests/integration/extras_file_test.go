@@ -346,3 +346,40 @@ func TestExtrasFile_InitRejectsFlattenAndDirectorySource(t *testing.T) {
 		t.Errorf("config changed after rejected init:\n%s", got)
 	}
 }
+
+// Issue #300: several project single-file extras share one source folder.
+func TestExtrasFile_ProjectSharedSourceFolder(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	projectRoot := sb.SetupProjectDir("claude")
+	prompts := filepath.Join(projectRoot, ".skillshare", "extras", "prompts")
+	if err := os.MkdirAll(prompts, 0755); err != nil {
+		t.Fatal(err)
+	}
+	sb.WriteFile(filepath.Join(prompts, "a.md"), "# a")
+	sb.WriteFile(filepath.Join(prompts, "b.md"), "# b")
+
+	for _, name := range []string{"a", "b"} {
+		sb.RunCLIInDir(projectRoot, "extras", "init", name, "-p",
+			"--source", ".skillshare/extras/prompts", "--file", name+".md",
+			"--target", ".claude/commands", "--mode", "copy").AssertSuccess(t)
+	}
+	if got := sb.ReadFile(filepath.Join(projectRoot, ".skillshare", "config.yaml")); !strings.Contains(got, "source: .skillshare/extras/prompts") {
+		t.Errorf("project config does not keep the relative source:\n%s", got)
+	}
+
+	sb.RunCLIInDir(projectRoot, "sync", "extras", "-p").AssertSuccess(t)
+
+	out := filepath.Join(projectRoot, ".claude", "commands")
+	for _, name := range []string{"a", "b"} {
+		if got := sb.ReadFile(filepath.Join(out, name+".md")); got != "# "+name {
+			t.Errorf("%s.md = %q, want %q", name, got, "# "+name)
+		}
+	}
+
+	// Removing one extra keeps the folder and the other extra's file.
+	sb.RunCLIInDir(projectRoot, "extras", "remove", "a", "-p", "--force").AssertSuccess(t)
+	if got := sb.ReadFile(filepath.Join(prompts, "b.md")); got != "# b" {
+		t.Errorf("b.md after removing a = %q, want %q", got, "# b")
+	}
+}

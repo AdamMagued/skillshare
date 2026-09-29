@@ -1116,7 +1116,7 @@ func checkExtras(extras []config.ExtraConfig, result *doctorResult, isProject bo
 	for _, extra := range extras {
 		var sourceDir string
 		if isProject {
-			sourceDir = config.ExtrasSourceDirProject(projectExtrasParent, extra.Name)
+			sourceDir = config.ResolveExtrasSourceDirProject(extra, projectExtrasParent, projectRoot)
 		} else {
 			sourceDir = config.ResolveExtrasSourceDir(extra, extrasSource, source)
 		}

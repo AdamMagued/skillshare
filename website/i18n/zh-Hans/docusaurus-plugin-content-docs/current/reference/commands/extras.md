@@ -47,7 +47,7 @@ skillshare extras init <name> --file <filename> [--as <filename>] --target <path
 | `--as <filename>` | 写入每个 target 的文件名（默认为 `--file` 的名称）。需要搭配 `--file` |
 | `--mode <mode>` | Sync mode：`merge`（默认）、`copy` 或 `symlink`；`import` 仅可搭配 `--file` |
 | `--flatten` | 将子目录中的文件直接同步到 target 根目录（不能与 `symlink` mode 或 `--file` 一起使用） |
-| `--source <path>` | 该 extra 的自定义 source 目录（覆盖 `extras_source` 和默认值；**仅 global mode**） |
+| `--source <path>` | 该 extra 的自定义 source 目录（覆盖 `extras_source` 和默认值；project mode 下为相对于项目根目录的路径） |
 | `--force` | 如果 extra 已存在则覆盖 |
 | `--no-tui` | 跳过交互式向导，仅使用 CLI flags |
 | `--project, -p` | 在 project 配置（`.skillshare/`）中创建 |
@@ -456,7 +456,7 @@ target 会得到 `<path>/<as>`，其中 `as` 默认为 `file` 的名称。任何
 ```yaml
 extras:
   - name: pi-prompt
-    source: ~/dotfiles/prompts     # 仅限 global mode
+    source: ~/dotfiles/prompts     # project mode：相对于项目根目录
     file: system.md                # ~/dotfiles/prompts/system.md
     targets:
       - path: ~/.pi/agent
@@ -529,7 +529,7 @@ extras 则显示在 **Folders & files**。在那里，**添加 Extra** 提供 **
 
 ### 一个文件夹，多个文件
 
-在 global mode 中，多个单文件 extras 可以共用同一个 `source` 目录。每个文件创建
+多个单文件 extras 可以共用同一个 `source` 目录。每个文件创建
 一个 extra；文件夹中没有被任何 extra 指定的文件不会被同步：
 
 ```yaml
@@ -555,8 +555,17 @@ skillshare extras init pi-agents --source ~/dotfiles/pi --file agents.md \
   --as AGENTS.md --target ~/.pi/agent
 ```
 
-这不适用于 project mode，因为在 project mode 中每个 extra 的 source 始终是
-`.skillshare/extras/<name>/`。
+在 project mode 中，`source` 是相对于项目根目录的路径，且必须位于项目内；绝对路径会被拒绝：
+
+```bash
+skillshare extras init review -p --source .skillshare/extras/prompts \
+  --file review.md --target .claude/commands
+skillshare extras init plan -p --source .skillshare/extras/prompts \
+  --file plan.md --target .claude/commands
+```
+
+在 Dashboard 中，共享 extras 文件夹里的单文件有一个 **Source folder** 字段。默认是 extra 的名称；
+填入另一个 extra 的文件夹，即可把两个文件放在同一个文件夹中。
 
 备份保存在 skillshare 的 state 目录中（macOS 和 Linux 上为
 `~/.local/state/skillshare/extras/backups/`），每个文件保留最近 10 份。drift 备份位于该处的

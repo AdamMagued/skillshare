@@ -47,7 +47,7 @@ skillshare extras init <name> --file <filename> [--as <filename>] --target <path
 | `--as <filename>` | すべての Target で書き出すファイル名（デフォルト: `--file` の名前）。`--file` が必要 |
 | `--mode <mode>` | sync モード: `merge`（デフォルト）、`copy`、または `symlink`。`import` は `--file` 指定時のみ |
 | `--flatten` | サブディレクトリ内のファイルを Target のルート直下に sync する（`symlink` モードや `--file` とは併用不可） |
-| `--source <path>` | この Extras 用のカスタム Source ディレクトリ（`extras_source` とデフォルトを上書き。**グローバルモードのみ**） |
+| `--source <path>` | この Extras 用のカスタム Source ディレクトリ（`extras_source` とデフォルトを上書き。Project モードではプロジェクトルートからの相対パス） |
 | `--force` | すでに存在する Extras を上書き |
 | `--no-tui` | インタラクティブウィザードをスキップし、CLI フラグのみを使用 |
 | `--project, -p` | Project 設定（`.skillshare/`）内に作成 |
@@ -453,7 +453,7 @@ Target はディレクトリであるため、各 Target はそれぞれの Sour
 ```yaml
 extras:
   - name: pi-prompt
-    source: ~/dotfiles/prompts     # global モードのみ
+    source: ~/dotfiles/prompts     # project モード: プロジェクトルートからの相対パス
     file: system.md                # ~/dotfiles/prompts/system.md
     targets:
       - path: ~/.pi/agent
@@ -530,7 +530,7 @@ Claude Code のように `@` import に従うツールでのみ使ってくだ�
 
 ### 1 つのフォルダーに複数のファイル
 
-グローバルモードでは、複数の単一ファイルの Extras が 1 つの `source` ディレクトリを共有できます。
+複数の単一ファイルの Extras が 1 つの `source` ディレクトリを共有できます。
 ファイルごとに Extras を 1 つ作成してください。どの Extras にも指定されていないフォルダー内のファイルは sync されません。
 
 ```yaml
@@ -556,7 +556,16 @@ skillshare extras init pi-agents --source ~/dotfiles/pi --file agents.md \
   --as AGENTS.md --target ~/.pi/agent
 ```
 
-Project モードでは各 Extras の Source が常に `.skillshare/extras/<name>/` であるため、これは適用されません。
+Project モードでは、`source` はプロジェクトルートからの相対パスで、プロジェクト内に収まる必要があります。絶対パスは拒否されます：
+
+```bash
+skillshare extras init review -p --source .skillshare/extras/prompts \
+  --file review.md --target .claude/commands
+skillshare extras init plan -p --source .skillshare/extras/prompts \
+  --file plan.md --target .claude/commands
+```
+
+ダッシュボードでは、共有 Extras フォルダー内の単一ファイルに **Source folder** 欄があります。デフォルトは Extras の名前です。別の Extras のフォルダーを入力すると、両方のファイルを 1 つのフォルダーにまとめられます。
 
 バックアップは skillshare の state ディレクトリ（macOS と Linux では
 `~/.local/state/skillshare/extras/backups/`）に、ファイルごとに最新 10 件まで保存されます。

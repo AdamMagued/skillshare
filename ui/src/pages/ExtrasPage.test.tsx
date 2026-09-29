@@ -23,6 +23,8 @@ vi.mock('../api/client', async (load) => {
             targets: [{ path: '.claude/rules', mode: 'merge', flatten: false, status: 'synced' }] },
           { name: 'conventions', file: 'CONVENTIONS.md', source_dir: '/p/.skillshare/extras/conventions', source_type: 'per-extra', file_count: 1, source_exists: true,
             targets: [{ path: '.cursor', mode: 'copy', flatten: false, as: 'rules.md', status: 'synced' }] },
+          { name: 'pi-prompt', file: 'system.md', source_dir: String.raw`C:\Users\me\prompts`, source_type: 'custom', file_count: 1, source_exists: true,
+            targets: [{ path: String.raw`C:\Users\me\.pi\agent`, mode: 'copy', flatten: false, as: 'APPEND_SYSTEM.md', status: 'synced' }] },
         ],
       }),
       createExtra: vi.fn().mockResolvedValue({ success: true }),
@@ -58,6 +60,14 @@ describe('Extras page in a project', () => {
     expect(screen.getByText('.cursor/rules.md')).toBeInTheDocument();
   });
 
+  // A Windows folder keeps its backslashes up to the file name.
+  it('joins a Windows target folder and file name with a backslash', async () => {
+    renderPage();
+    expect(await screen.findByText(String.raw`~\.pi\agent\APPEND_SYSTEM.md`)).toBeInTheDocument();
+    // The full path is the row's tooltip.
+    expect(screen.getByTitle(String.raw`C:\Users\me\.pi\agent\APPEND_SYSTEM.md`)).toBeInTheDocument();
+  });
+
   it('creates a single-file extra with its file and target file name', async () => {
     const user = userEvent.setup();
     renderPage();
@@ -75,6 +85,29 @@ describe('Extras page in a project', () => {
       name: 'notes',
       file: 'NOTES.md',
       targets: [{ path: '.claude', mode: 'merge', as: 'CLAUDE-notes.md' }],
+    });
+  });
+
+  // Issue #300: several single files can share one folder of the shared extras folder.
+  it('creates a single-file extra in a source folder named differently from the extra', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: 'Add extra' }));
+    const dialog = screen.getByRole('dialog');
+    await user.type(within(dialog).getByLabelText('Name'), 'review');
+    await user.click(within(dialog).getByRole('radio', { name: 'Single file' }));
+    const [fileInput] = within(dialog).getAllByRole('textbox', { name: 'File name' });
+    await user.type(fileInput, 'review.md');
+    await user.type(within(dialog).getByRole('combobox', { name: 'Source folder' }), 'prompts');
+    await user.type(within(dialog).getByRole('textbox', { name: 'Folder' }), '.claude/commands');
+    expect(within(dialog).getByText(/\/extras\/prompts\/review\.md/)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Create' }));
+
+    expect(api.createExtra).toHaveBeenCalledWith({
+      name: 'review',
+      folder: 'prompts',
+      file: 'review.md',
+      targets: [{ path: '.claude/commands', mode: 'merge' }],
     });
   });
 });

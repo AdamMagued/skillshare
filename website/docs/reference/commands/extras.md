@@ -47,7 +47,7 @@ The wizard asks **What do you want to sync?** after the name: **Folder** or **Si
 | `--as <filename>` | File name to write at every target (default: the `--file` name). Requires `--file` |
 | `--mode <mode>` | Sync mode: `merge` (default), `copy`, or `symlink`; `import` only with `--file` |
 | `--flatten` | Sync files from subdirectories directly into the target root (cannot be used with `symlink` mode or `--file`) |
-| `--source <path>` | Custom source directory for this extra (overrides `extras_source` and default; **global mode only**) |
+| `--source <path>` | Custom source directory for this extra (overrides `extras_source` and default; relative to the project root in project mode) |
 | `--force` | Overwrite if extra already exists |
 | `--no-tui` | Skip interactive wizard, use CLI flags only |
 | `--project, -p` | Create in project config (`.skillshare/`) |
@@ -474,7 +474,7 @@ appends `~/.pi/agent/APPEND_SYSTEM.md` to its system prompt; keep that text as
 ```yaml
 extras:
   - name: pi-prompt
-    source: ~/dotfiles/prompts     # global mode only
+    source: ~/dotfiles/prompts     # project mode: relative to the project root
     file: system.md                # ~/dotfiles/prompts/system.md
     targets:
       - path: ~/.pi/agent
@@ -556,8 +556,8 @@ the file's content; edit the source file directly.
 
 ### One folder, several files
 
-In global mode, several single-file extras can share one `source` directory. Create
-one extra per file; files in the folder that no extra names are not synced:
+Several single-file extras can share one `source` directory. Create one extra per
+file; files in the folder that no extra names are not synced:
 
 ```yaml
 extras:
@@ -582,8 +582,19 @@ skillshare extras init pi-agents --source ~/dotfiles/pi --file agents.md \
   --as AGENTS.md --target ~/.pi/agent
 ```
 
-This does not apply in project mode, where each extra's source is always
-`.skillshare/extras/<name>/`.
+In project mode, `source` is relative to the project root and must stay inside it;
+absolute paths are rejected:
+
+```bash
+skillshare extras init review -p --source .skillshare/extras/prompts \
+  --file review.md --target .claude/commands
+skillshare extras init plan -p --source .skillshare/extras/prompts \
+  --file plan.md --target .claude/commands
+```
+
+In the dashboard, a single file in the shared extras folder has a **Source folder**
+field. It defaults to the extra's name; enter another extra's folder to keep both
+files in one folder.
 
 Backups are kept in skillshare's state directory
 (`~/.local/state/skillshare/extras/backups/` on macOS and Linux), the last 10 per

@@ -340,7 +340,7 @@ func cmdSyncExtrasProject(cwd string, dryRun, force, jsonOutput bool, start time
 	}
 
 	for _, extra := range projCfg.Extras {
-		extraSource := config.ExtrasSourceDirProject(projCfg.EffectiveExtrasSource(cwd), extra.Name)
+		extraSource := config.ResolveExtrasSourceDirProject(extra, projCfg.EffectiveExtrasSource(cwd), cwd)
 
 		if _, statErr := os.Stat(extraSource); os.IsNotExist(statErr) {
 			if !jsonOutput {

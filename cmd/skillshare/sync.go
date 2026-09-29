@@ -240,7 +240,7 @@ func cmdSync(args []string) error {
 				if loadErr == nil && len(projCfg.Extras) > 0 {
 					agentPaths := collectAgentTargetPathsProject(cwd)
 					extrasEntries := runExtrasSyncEntries(projCfg.Extras, func(extra config.ExtraConfig) string {
-						return config.ExtrasSourceDirProject(projCfg.EffectiveExtrasSource(cwd), extra.Name)
+						return config.ResolveExtrasSourceDirProject(extra, projCfg.EffectiveExtrasSource(cwd), cwd)
 					}, dryRun, force, cwd, agentPaths)
 					return syncOutputJSON(results, dryRun, start, projIgnoreStats, err, projCtxCost, mcpResult, extrasEntries)
 				}

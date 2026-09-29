@@ -115,8 +115,8 @@ func cmdExtrasInit(args []string) error {
 	}
 
 	if mode == modeProject {
-		if sourceOverride != "" {
-			return fmt.Errorf("--source is not supported in project mode (source is always .skillshare/extras/<name>/)")
+		if err := config.ValidateProjectExtraSource(sourceOverride); err != nil {
+			return err
 		}
 		return extrasInitProject(cwd, opts, start)
 	}
@@ -127,7 +127,7 @@ func cmdExtrasInit(args []string) error {
 // makes it a single-file extra.
 type extrasInitOptions struct {
 	name    string
-	source  string // global mode only
+	source  string // relative to the project root in project mode
 	file    string
 	targets []extrasInitTarget
 	force   bool
@@ -244,7 +244,7 @@ func extrasInitProject(cwd string, o extrasInitOptions, start time.Time) error {
 	}
 
 	extra := o.extra()
-	sourceDir := config.ExtrasSourceDirProject(projCfg.EffectiveExtrasSource(cwd), o.name)
+	sourceDir := config.ResolveExtrasSourceDirProject(extra, projCfg.EffectiveExtrasSource(cwd), cwd)
 	if err := checkExtraSourceFile(sourceDir, o.file); err != nil {
 		return err
 	}
@@ -338,7 +338,8 @@ Arguments:
 
 Options:
   --target <path>     Target directory (repeatable)
-  --source <path>     Custom source directory (overrides extras_source and default; global mode only)
+  --source <path>     Custom source directory (overrides extras_source and default;
+                      relative to the project root in project mode)
   --file <filename>   Sync only this file from the source directory (single-file extra)
   --as <filename>     Target filename for every --target (requires --file; default: the --file name)
   --mode <mode>       Sync mode: merge (default), copy, symlink; import for single-file extras
@@ -356,6 +357,8 @@ Examples:
   skillshare extras init rules --target ~/.claude/rules --force
   skillshare extras init agents --target ~/.claude/agents --flatten
   skillshare extras init prompts --target .claude/prompts -p
+  skillshare extras init review -p --source .skillshare/extras/prompts \
+    --file review.md --target .claude/commands
   skillshare extras init pi-prompt --source ~/dotfiles/prompts --file system.md \
     --target ~/.pi/agent --as APPEND_SYSTEM.md`)
 }

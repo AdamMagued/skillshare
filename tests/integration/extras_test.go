@@ -327,7 +327,7 @@ extras:
 
 // TestExtras_Init_SourceNotSupportedInProjectMode verifies that --source is
 // rejected in project mode with a clear error message.
-func TestExtras_Init_SourceNotSupportedInProjectMode(t *testing.T) {
+func TestExtras_Init_ProjectSourceMustBeRelative(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
@@ -342,7 +342,7 @@ func TestExtras_Init_SourceNotSupportedInProjectMode(t *testing.T) {
 		"-p")
 
 	result.AssertFailure(t)
-	result.AssertAnyOutputContains(t, "--source is not supported in project mode")
+	result.AssertAnyOutputContains(t, "must be relative to the project root")
 }
 
 // TestExtras_Source_Show verifies that "extras source" shows the current extras_source.

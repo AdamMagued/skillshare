@@ -124,7 +124,7 @@ func cmdDiffProject(root, targetName string, kind resourceKindFilter, opts diffR
 	var extrasResults []extraDiffResult
 	if len(runtime.config.Extras) > 0 {
 		extrasResults = collectExtrasDiff(runtime.config.Extras, func(extra config.ExtraConfig) string {
-			return config.ExtrasSourceDirProject(runtime.config.EffectiveExtrasSource(root), extra.Name)
+			return config.ResolveExtrasSourceDirProject(extra, runtime.config.EffectiveExtrasSource(root), root)
 		})
 	}
 

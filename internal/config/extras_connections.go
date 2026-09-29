@@ -98,7 +98,14 @@ func (c *Config) ValidateExtras(focus ...string) error {
 
 // ValidateExtras checks file ownership and import support in project mode.
 func (c *ProjectConfig) ValidateExtras(root string, focus ...string) error {
-	source := func(e ExtraConfig) string { return ExtrasSourceDirProject(c.EffectiveExtrasSource(root), e.Name) }
+	for _, e := range c.Extras {
+		if err := ValidateProjectExtraSource(e.Source); err != nil {
+			return fmt.Errorf("extra %q: %w", e.Name, err)
+		}
+	}
+	source := func(e ExtraConfig) string {
+		return ResolveExtrasSourceDirProject(e, c.EffectiveExtrasSource(root), root)
+	}
 	target := func(p string) string {
 		if filepath.IsAbs(p) {
 			return p

@@ -58,7 +58,7 @@ type extrasTargetInfo struct {
 // current mode.
 func (s *Server) extrasSourceDir(extra config.ExtraConfig) string {
 	if s.IsProjectMode() {
-		return config.ExtrasSourceDirProject(s.projectCfg.EffectiveExtrasSource(s.projectRoot), extra.Name)
+		return config.ResolveExtrasSourceDirProject(extra, s.projectCfg.EffectiveExtrasSource(s.projectRoot), s.projectRoot)
 	}
 	return config.ResolveExtrasSourceDir(extra, s.cfg.EffectiveExtrasSource(), s.cfg.EffectiveSkillsSource())
 }
@@ -113,7 +113,7 @@ func (s *Server) handleExtras(w http.ResponseWriter, r *http.Request) {
 	for _, extra := range extras {
 		var sourceDir string
 		if isProjectMode {
-			sourceDir = config.ExtrasSourceDirProject(projectExtrasParent, extra.Name)
+			sourceDir = config.ResolveExtrasSourceDirProject(extra, projectExtrasParent, projectRoot)
 		} else {
 			sourceDir = config.ResolveExtrasSourceDir(extra, extrasSource, source)
 		}
@@ -255,7 +255,7 @@ func (s *Server) handleExtrasDiff(w http.ResponseWriter, r *http.Request) {
 
 		var sourceDir string
 		if isProjectMode {
-			sourceDir = config.ExtrasSourceDirProject(projectExtrasParent, extra.Name)
+			sourceDir = config.ResolveExtrasSourceDirProject(extra, projectExtrasParent, projectRoot)
 		} else {
 			sourceDir = config.ResolveExtrasSourceDir(extra, extrasSource, source)
 		}
@@ -424,7 +424,8 @@ func (s *Server) handleExtrasCreate(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Name    string `json:"name"`
 		Source  string `json:"source,omitempty"`
-		File    string `json:"file,omitempty"` // single-file extra: the file in the source dir
+		Folder  string `json:"folder,omitempty"` // a folder in the extras directory, shared by several single-file extras
+		File    string `json:"file,omitempty"`   // single-file extra: the file in the source dir
 		Targets []struct {
 			Path      string `json:"path"`
 			Mode      string `json:"mode"`
@@ -445,6 +446,14 @@ func (s *Server) handleExtrasCreate(w http.ResponseWriter, r *http.Request) {
 
 	if len(body.Targets) == 0 {
 		writeError(w, http.StatusBadRequest, "at least one target is required")
+		return
+	}
+	if body.Folder != "" && body.Source != "" {
+		writeError(w, http.StatusBadRequest, "source and folder cannot both be set")
+		return
+	}
+	if body.Folder == "." || body.Folder == ".." || strings.ContainsAny(body.Folder, `/\`) {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("folder %q must be a plain folder name", body.Folder))
 		return
 	}
 
@@ -469,6 +478,22 @@ func (s *Server) handleExtrasCreate(w http.ResponseWriter, r *http.Request) {
 	if err := config.ValidateExtraNameUnique(body.Name, s.extrasConfig()); err != nil {
 		writeError(w, http.StatusConflict, err.Error())
 		return
+	}
+
+	// A folder other than the name becomes the source: absolute in global
+	// mode, relative to the project root in project mode.
+	if body.Folder != "" && body.Folder != body.Name {
+		if s.IsProjectMode() {
+			dir := filepath.Join(s.projectCfg.EffectiveExtrasSource(s.projectRoot), body.Folder)
+			rel, err := filepath.Rel(s.projectRoot, dir)
+			if err != nil {
+				writeError(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			body.Source = filepath.ToSlash(rel)
+		} else {
+			body.Source = filepath.Join(s.cfg.EffectiveExtrasSource(), body.Folder)
+		}
 	}
 
 	// Build ExtraConfig
@@ -625,7 +650,7 @@ func (s *Server) syncExtras(name string, dryRun, force bool) []extraSyncResult {
 		}
 		var sourceDir string
 		if projectRoot != "" {
-			sourceDir = config.ExtrasSourceDirProject(projectExtrasParent, extra.Name)
+			sourceDir = config.ResolveExtrasSourceDirProject(extra, projectExtrasParent, projectRoot)
 		} else {
 			sourceDir = config.ResolveExtrasSourceDir(extra, extrasSource, source)
 		}

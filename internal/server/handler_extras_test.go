@@ -924,6 +924,52 @@ func TestHandleExtrasCreate_SingleFile(t *testing.T) {
 	}
 }
 
+// Two project single-file extras can share one folder: the folder is stored
+// as a source relative to the project root and listed resolved.
+func TestHandleExtrasCreate_ProjectFolderSharedBySingleFiles(t *testing.T) {
+	s, projectRoot := newTestProjectServerWithExtras(t, nil)
+	for _, name := range []string{"a", "b"} {
+		body := `{"name":"` + name + `","folder":"prompts","file":"` + name + `.md","targets":[{"path":".claude/commands"}]}`
+		rr := httptest.NewRecorder()
+		s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, "/api/extras", strings.NewReader(body)))
+		if rr.Code != http.StatusOK {
+			t.Fatalf("create %s: expected 200, got %d: %s", name, rr.Code, rr.Body.String())
+		}
+	}
+
+	s.mu.RLock()
+	extras := s.projectCfg.Extras
+	s.mu.RUnlock()
+	for _, e := range extras {
+		if e.Source != ".skillshare/extras/prompts" {
+			t.Errorf("extra %s source = %q, want .skillshare/extras/prompts", e.Name, e.Source)
+		}
+	}
+
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/api/extras", nil))
+	var resp struct {
+		Extras []extrasListEntry `json:"extras"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(projectRoot, ".skillshare", "extras", "prompts")
+	if len(resp.Extras) != 2 || resp.Extras[0].SourceDir != want || resp.Extras[1].SourceDir != want {
+		t.Errorf("extras = %+v, want both with source_dir %s", resp.Extras, want)
+	}
+}
+
+func TestHandleExtrasCreate_ProjectRejectsAbsoluteSource(t *testing.T) {
+	s, _ := newTestProjectServerWithExtras(t, nil)
+	body := `{"name":"a","source":"` + filepath.ToSlash(t.TempDir()) + `","file":"a.md","targets":[{"path":".claude/commands"}]}`
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, "/api/extras", strings.NewReader(body)))
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
 func TestHandleExtrasCreate_SingleFileRejectsInvalidSettings(t *testing.T) {
 	targetDir := t.TempDir()
 	cases := map[string]string{

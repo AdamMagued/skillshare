@@ -588,7 +588,9 @@ func cmdExtrasInitTUI(mode runMode, cwd string) error {
 	}
 
 	if mode == modeProject {
-		opts.source = ""
+		if err := config.ValidateProjectExtraSource(opts.source); err != nil {
+			return err
+		}
 		return extrasInitProject(cwd, opts, start)
 	}
 	return extrasInitGlobal(opts, start)

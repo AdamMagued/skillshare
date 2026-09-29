@@ -30,8 +30,11 @@ const FILE_MODES = ['merge', 'copy', 'import'] as const;
 /** A file name typed where a path would be wrong. */
 const isPathLike = (name: string) => /[\\/]/.test(name);
 
-/** <folder>/<file>, for a single-file extra's source or target file. */
-const joinFile = (dir: string, file: string) => `${dir.replace(/[\\/]+$/, '')}/${file}`;
+/** <folder>/<file>, for a single-file extra's source or target file, with the separator the folder already uses (a backslash on Windows). */
+const joinFile = (dir: string, file: string) => {
+  const sep = dir.lastIndexOf('\\') > dir.lastIndexOf('/') ? '\\' : '/';
+  return `${dir.replace(/[\\/]+$/, '')}${sep}${file}`;
+};
 
 const STATUS: Record<string, { tone: string; labelKey: string }> = {
   synced: { tone: 'ok', labelKey: 'extras.status.synced' },
@@ -190,12 +193,13 @@ function FileDraftHints({ fileName }: { fileName: string }) {
   );
 }
 
-function AddExtraDialog({ onClose, onCreated, extensions, known, sharedDir }: {
+function AddExtraDialog({ onClose, onCreated, extensions, known, sharedDir, folders }: {
   onClose: () => void;
   onCreated: (agents: boolean) => void;
   extensions: string[];
   known: AvailableTarget[];
   sharedDir: string;
+  folders: string[]; // folders in sharedDir that single-file extras already use
 }) {
   const { toast } = useToast();
   const t = useT();
@@ -204,15 +208,18 @@ function AddExtraDialog({ onClose, onCreated, extensions, known, sharedDir }: {
   const [file, setFile] = useState('');
   const [custom, setCustom] = useState(false);
   const [source, setSource] = useState('');
+  const [folder, setFolder] = useState('');
   const [drafts, setDrafts] = useState<Draft[]>(() => [newDraft()]);
   const [saving, setSaving] = useState(false);
   const title = t('extras.addExtraTitle');
   const valid = drafts.filter((d) => d.path.trim());
   const fileName = file.trim();
-  const fileOk = !single || (fileName !== '' && !isPathLike(fileName) && valid.every((d) => !isPathLike(d.as.trim())));
+  // A single file in the shared folder can use another extra's folder; empty means the extra's name.
+  const folderName = single && !custom ? folder.trim() : '';
+  const fileOk = !single || (fileName !== '' && !isPathLike(fileName) && !isPathLike(folderName) && valid.every((d) => !isPathLike(d.as.trim())));
   const canCreate = name.trim() !== '' && valid.length > 0 && (!custom || source.trim() !== '') && fileOk && !saving;
   const agents = single && isAgentsExtra({ file: fileName });
-  const sourceFile = joinFile(custom ? source.trim() || '…' : `${shortenHome(sharedDir)}/${name.trim() || '…'}`, fileName || '…');
+  const sourceFile = joinFile(custom ? source.trim() || '…' : joinFile(shortenHome(sharedDir), folderName || name.trim() || '…'), fileName || '…');
 
   // Keep each target's mode valid for the chosen kind.
   const switchKind = (toSingle: boolean) => {
@@ -228,6 +235,7 @@ function AddExtraDialog({ onClose, onCreated, extensions, known, sharedDir }: {
       await api.createExtra({
         name: name.trim(),
         ...(custom && { source: source.trim() }),
+        ...(folderName && folderName !== name.trim() && { folder: folderName }),
         ...(single && { file: fileName }),
         targets: valid.map((d) => (single
           ? { path: d.path.trim(), mode: d.mode, ...(d.as.trim() && { as: d.as.trim() }) }
@@ -285,8 +293,18 @@ function AddExtraDialog({ onClose, onCreated, extensions, known, sharedDir }: {
               <span className="ss-inp">
                 <input value={source} onChange={(e) => setSource(e.target.value)} placeholder={t('extras.modal.sourcePathPlaceholder')} aria-label={t('extras.sourceType.custom')} disabled={saving} />
               </span>
-            ) : !single && (
-              <span className="hp truncate font-mono">{`${shortenHome(sharedDir)}/${name.trim() || '…'}`}</span>
+            ) : single ? (
+              <>
+                <span className={`ss-inp ${isPathLike(folderName) ? 'err' : ''}`}>
+                  <input value={folder} onChange={(e) => setFolder(e.target.value)} list="extra-folders" placeholder={name.trim() || t('extras.modal.namePlaceholder')} aria-label={t('extras.modal.sourceFolder')} aria-invalid={isPathLike(folderName)} disabled={saving} />
+                </span>
+                <datalist id="extra-folders">
+                  {folders.map((f) => <option key={f} value={f} />)}
+                </datalist>
+                <span className={`hp ${isPathLike(folderName) ? 'text-bad' : ''}`}>{t(isPathLike(folderName) ? 'extras.modal.sourceFolderInvalid' : 'extras.modal.sourceFolderHint')}</span>
+              </>
+            ) : (
+              <span className="hp truncate font-mono">{joinFile(shortenHome(sharedDir), name.trim() || '…')}</span>
             )}
           </div>
           {single && (
@@ -402,7 +420,13 @@ export default function ExtrasPage() {
   const extensions = extData?.extensions ?? [];
   const known = useMemo(() => availData?.targets ?? [], [availData]);
   // Mirrors config.ResolveExtrasSourceDir: extras_source, else "extras" next to the skills source
-  const sharedDir = overview?.extrasSource ?? `${(overview?.source ?? '').replace(/\/[^/]*\/?$/, '')}/extras`;
+  const sharedDir = overview?.extrasSource ?? joinFile((overview?.source ?? '').replace(/[\\/][^\\/]*[\\/]?$/, ''), 'extras');
+  // Folders of single-file extras directly inside sharedDir, offered when adding another file
+  const sharedFolders = useMemo(() => {
+    const parent = sharedDir.replace(/[\\/]+$/, '');
+    const dirs = (data?.extras ?? []).filter((e) => e.file).map((e) => e.source_dir.replace(/[\\/]+$/, ''));
+    return [...new Set(dirs.filter((d) => d.replace(/[\\/][^\\/]*$/, '') === parent).map((d) => d.slice(parent.length + 1)))];
+  }, [data, sharedDir]);
 
   const [showAdd, setShowAdd] = useState(false);
   const [creatingShared, setCreatingShared] = useState(false);
@@ -649,6 +673,7 @@ export default function ExtrasPage() {
           extensions={extensions}
           known={known}
           sharedDir={sharedDir}
+          folders={sharedFolders}
         />
       )}
       <SkillContextMenu open={!!menu} anchorPoint={menu ?? undefined} items={menu?.items ?? []} onClose={() => setMenu(null)} />

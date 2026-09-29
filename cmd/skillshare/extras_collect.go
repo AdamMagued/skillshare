@@ -114,7 +114,7 @@ func extrasCollectProject(cwd, name, fromPath string, dryRun, force bool, start 
 		return nil
 	}
 
-	sourceDir := config.ExtrasSourceDirProject(projCfg.EffectiveExtrasSource(cwd), extra.Name)
+	sourceDir := config.ResolveExtrasSourceDirProject(*extra, projCfg.EffectiveExtrasSource(cwd), cwd)
 	return runCollect(sourceDir, expandedPath, extra.Name, target.Mode, dryRun, force, target.Flatten, "project", config.ProjectConfigPath(cwd), start, cwd)
 }
 
