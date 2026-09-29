@@ -44,7 +44,7 @@ func ignorePayload(stats *skillignore.IgnoreStats) map[string]any {
 // failures apart from the other warnings.
 type syncFailure struct {
 	Target   string `json:"target"`
-	Part     string `json:"part"` // "skill" or "agent"
+	Part     string `json:"part"` // "skill", "agent", or "config"
 	Error    string `json:"error"`
 	Message  string `json:"message"`
 	Conflict bool   `json:"conflict,omitempty"` // a symlink points elsewhere; force replaces it
@@ -173,20 +173,44 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 	}
 
 	// Pre-check warnings via shared config validation
-	warnings, validErr := config.ValidateConfig(s.cfg)
+	warnings, invalid, validErr := config.ValidateConfigForSync(s.cfg)
 	if validErr != nil {
 		return nil, http.StatusBadRequest, validErr
 	}
 
 	conflicts, overlap := folderConflicts(s.cfg.Targets, s.IsProjectMode())
 
-	if !dryRun {
-		warnings = append(warnings, s.backupBeforeSync(targets, kind != kindAgent, kind != kindSkill)...)
-	}
-
 	results := make([]syncTargetResult, 0)
 	failed := make([]syncFailure, 0)
 	skillFailed := 0
+
+	// A target with invalid settings fails alone: it is skipped for skills and
+	// agents, and counts as a failed skill target when skills are synced.
+	var firstErr error
+	var firstFailed string
+	runTargets := maps.Clone(targets)
+	for _, name := range slices.Sorted(maps.Keys(invalid)) {
+		target, ok := targets[name]
+		if !ok {
+			continue
+		}
+		delete(runTargets, name)
+		err := invalid[name]
+		msg := name + ": invalid config: " + err.Error()
+		warnings = append(warnings, msg)
+		failed = append(failed, syncFailure{Target: name, Part: "config", Error: err.Error(), Message: msg})
+		if kind != kindAgent && target.SkillsConfig().IsEnabled() {
+			skillFailed++
+			if firstErr == nil {
+				firstErr, firstFailed = fmt.Errorf("invalid config for %s: %w", name, err), name
+			}
+		}
+	}
+	skillRan := skillFailed
+
+	if !dryRun {
+		warnings = append(warnings, s.backupBeforeSync(runTargets, kind != kindAgent, kind != kindSkill)...)
+	}
 
 	var ignoreStats *skillignore.IgnoreStats
 	var allSkills []ssync.DiscoveredSkill
@@ -209,8 +233,6 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 		// for installed skills whose files may be missing from disk.
 
 		// A failed target adds a warning and no results row; the rest still sync.
-		var firstErr error
-		var firstFailed string
 		failTarget := func(name string, err error) {
 			skillFailed++
 			if firstErr == nil {
@@ -224,8 +246,7 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 			Source: s.cfg.EffectiveSkillsSource(), ProjectRoot: s.projectRoot, IgnorePatterns: ignorePatterns,
 			DryRun: dryRun, Force: force,
 		}
-		skillRan := 0
-		for name, target := range targets {
+		for name, target := range runTargets {
 			sc := target.SkillsConfig()
 			if !sc.IsEnabled() {
 				continue // skills off: agents, extras and MCP below still run
@@ -299,8 +320,8 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 			agents := discoverActiveAgents(agentsSource)
 			builtinAgents := s.builtinAgentTargets()
 
-			agentTargets := make([]ssync.AgentTarget, 0, len(targets))
-			for name, target := range targets {
+			agentTargets := make([]ssync.AgentTarget, 0, len(runTargets))
+			for name, target := range runTargets {
 				agentTargets = append(agentTargets, ssync.AgentTarget{
 					Name:   name,
 					Path:   resolveAgentPath(target, builtinAgents, name, s.IsProjectMode()),

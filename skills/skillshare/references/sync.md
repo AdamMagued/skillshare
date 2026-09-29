@@ -22,6 +22,8 @@ skillshare sync --json         # JSON output
 skillshare sync -g             # Force global mode
 ```
 
+Sync runs every target. A target whose sync fails, or whose own settings are invalid (for example a skills path that is a file), is reported as failed and skipped; the rest still sync and the command exits non-zero. Config-wide problems (source, global `mode`/`target_naming`, `git_root`, extras) still stop sync before any target runs.
+
 ### Sync modes (quick reference)
 
 - `merge` (default): per-skill symlinks, preserves local target skills.

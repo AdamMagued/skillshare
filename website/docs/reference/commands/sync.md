@@ -191,6 +191,12 @@ flowchart TD
     S2 --> SYMLINK --> S3
 ```
 
+### When a target fails {#when-a-target-fails}
+
+Sync runs every target; one failed target does not stop the others. A target fails when syncing it hits an error, or when its own settings in the config are invalid, for example its skills path is a file instead of a folder or its `mode` is unknown. A target with invalid settings is skipped for skills and agents in that run. Each failed target is reported (`✗ <target>: invalid config: …` in text output, `error` in its `--json` `details` entry), and the command exits non-zero after the other targets have synced.
+
+Problems with the config as a whole still stop sync before any target runs: a missing or invalid source folder, an invalid global `mode` or `target_naming`, an invalid `git_root`, or invalid extras.
+
 ### Example Output
 
 ```text

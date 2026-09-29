@@ -771,3 +771,58 @@ func TestHandleSync_SymlinkConflictReplacedWithForce(t *testing.T) {
 		t.Fatalf("expected %s linked to the source after force", linkPath)
 	}
 }
+
+func TestHandleSync_InvalidTargetConfigFailsOnlyThatTarget(t *testing.T) {
+	s, src, _ := newAgentSyncServer(t)
+	addSkill(t, src, "alpha")
+	file := filepath.Join(t.TempDir(), "skills-file")
+	if err := os.WriteFile(file, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	brokenAgents := filepath.Join(t.TempDir(), "broken-agents")
+	s.cfg.Targets["broken"] = config.TargetConfig{
+		Skills: &config.ResourceTargetConfig{Path: file},
+		Agents: &config.ResourceTargetConfig{Path: brokenAgents},
+	}
+	s.cfg.Targets["claude"] = config.TargetConfig{
+		Skills: &config.ResourceTargetConfig{Path: filepath.Join(t.TempDir(), "claude-skills")},
+		Agents: &config.ResourceTargetConfig{Path: filepath.Join(t.TempDir(), "claude-agents")},
+	}
+	if err := s.cfg.Save(); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/sync", strings.NewReader(`{}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Results  []syncTargetResult `json:"results"`
+		Warnings []string           `json:"warnings"`
+		Failed   []syncFailure      `json:"failed"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if len(resp.Results) != 1 || resp.Results[0].Target != "claude" || !slices.Equal(resp.Results[0].Linked, []string{"alpha", "tutor.md"}) {
+		t.Fatalf("expected only the claude row with alpha and tutor.md, got %+v", resp.Results)
+	}
+	if len(resp.Failed) != 1 || resp.Failed[0].Target != "broken" || resp.Failed[0].Part != "config" ||
+		!strings.Contains(resp.Failed[0].Error, "path is not a directory") || !slices.Contains(resp.Warnings, resp.Failed[0].Message) {
+		t.Fatalf("expected one config failure for broken also in warnings, got failed %+v warnings %v", resp.Failed, resp.Warnings)
+	}
+	if _, err := os.Stat(brokenAgents); !os.IsNotExist(err) {
+		t.Fatalf("expected no agent sync into the invalid target, stat err = %v", err)
+	}
+	entries, err := oplog.Read(config.ConfigPath(), oplog.OpsFile, 1)
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("read ops log: %v (%d entries)", err, len(entries))
+	}
+	got, _ := json.Marshal(entries[0].Args["failed_targets"])
+	if e := entries[0]; e.Status != "partial" || e.Args["targets_failed"] != float64(1) || string(got) != `["broken"]` {
+		t.Fatalf("expected partial sync with broken failed, got status %q args %v", e.Status, e.Args)
+	}
+}

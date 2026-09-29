@@ -121,8 +121,8 @@ func resolveAgentTargetPath(tc config.TargetConfig, builtinAgents map[string]con
 
 // syncAgentsProject syncs agents for project mode using .skillshare/agents/ as source
 // and project-level target agent paths.
-// Returns the targets that failed and any error.
-func syncAgentsProject(projectRoot string, dryRun, force, jsonOutput bool, start time.Time) ([]string, error) {
+// Targets in skip are left out. Returns the targets that failed and any error.
+func syncAgentsProject(projectRoot string, skip map[string]error, dryRun, force, jsonOutput bool, start time.Time) ([]string, error) {
 	// Load project config first to resolve agents source path.
 	projCfg, loadErr := config.LoadProject(projectRoot)
 	if loadErr != nil {
@@ -170,7 +170,7 @@ func syncAgentsProject(projectRoot string, dryRun, force, jsonOutput bool, start
 		backedUp := false
 		for _, entry := range projCfg.Targets {
 			agentPath := resolveProjectAgentTargetPath(entry, builtinAgents, projectRoot)
-			if agentPath == "" {
+			if agentPath == "" || skip[entry.Name] != nil {
 				continue
 			}
 			entryName := entry.Name + "-agents"
@@ -189,6 +189,9 @@ func syncAgentsProject(projectRoot string, dryRun, force, jsonOutput bool, start
 
 	var targets []sync.AgentTarget
 	for _, entry := range projCfg.Targets {
+		if skip[entry.Name] != nil {
+			continue
+		}
 		targets = append(targets, sync.AgentTarget{
 			Name:   entry.Name,
 			Path:   resolveProjectAgentTargetPath(entry, builtinAgents, projectRoot),

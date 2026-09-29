@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"slices"
 	"strings"
@@ -204,16 +205,16 @@ func cmdSync(args []string) error {
 	if mode == modeProject {
 		// Agent-only project sync
 		if kind == kindAgents {
-			_, err := syncAgentsProject(cwd, dryRun, force, jsonOutput, start)
+			_, err := syncAgentsProject(cwd, nil, dryRun, force, jsonOutput, start)
 			return err
 		}
 
-		stats, results, projIgnoreStats, projCtxCost, err := cmdSyncProject(cwd, dryRun, force, jsonOutput, quiet)
+		stats, results, projIgnoreStats, projCtxCost, invalid, err := cmdSyncProject(cwd, dryRun, force, jsonOutput, quiet)
 		stats.ProjectScope = true
 
 		// Append agent sync when kind=all or --all
 		if kind == kindAll || hasAll {
-			agentFailed, agentErr := syncAgentsProject(cwd, dryRun, force, jsonOutput, start)
+			agentFailed, agentErr := syncAgentsProject(cwd, invalid, dryRun, force, jsonOutput, start)
 			if agentErr != nil && err == nil {
 				err = agentErr
 			}
@@ -259,8 +260,9 @@ func cmdSync(args []string) error {
 		return err
 	}
 
-	// Validate config before sync
-	warnings, validErr := config.ValidateConfig(cfg)
+	// Validate config before sync. A target with invalid settings fails alone:
+	// it is reported as failed and skipped, and the other targets still sync.
+	warnings, invalid, validErr := config.ValidateConfigForSync(cfg)
 	if validErr != nil {
 		if jsonOutput {
 			return writeJSONError(validErr)
@@ -273,12 +275,23 @@ func cmdSync(args []string) error {
 		}
 	}
 
+	syncCfg := withoutTargets(cfg, invalid)
+
 	// Agent-only mode: skip skill discovery/sync entirely
 	if kind == kindAgents {
-		agentStats, agentErr := syncAgentsGlobal(cfg, dryRun, force, jsonOutput, start)
+		invalidNames := slices.Sorted(maps.Keys(invalid))
+		if !jsonOutput {
+			for _, name := range invalidNames {
+				ui.Error("%s: %s", name, invalidConfigMessage(invalid[name]))
+			}
+		}
+		agentStats, agentErr := syncAgentsGlobal(syncCfg, dryRun, force, jsonOutput, start)
+		if agentErr == nil && len(invalidNames) > 0 {
+			agentErr = fmt.Errorf("some targets failed to sync")
+		}
 		logSyncOp(config.ConfigPath(), syncLogStats{
 			Targets:       len(cfg.Targets),
-			FailedTargets: mergeFailedTargets(agentStats.failed),
+			FailedTargets: mergeFailedTargets(agentStats.failed, invalidNames),
 			DryRun:        dryRun,
 			Force:         force,
 		}, start, agentErr)
@@ -307,7 +320,7 @@ func cmdSync(args []string) error {
 
 	// Backup targets before sync (only if not dry-run and there are skills)
 	if !dryRun && len(discoveredSkills) > 0 && !jsonOutput {
-		backupTargetsBeforeSync(cfg)
+		backupTargetsBeforeSync(syncCfg)
 	}
 
 	// Phase 2: Per-target sync (parallel)
@@ -323,7 +336,7 @@ func cmdSync(args []string) error {
 
 	var entries []syncTargetEntry
 	for name, target := range cfg.Targets {
-		entries = append(entries, syncTargetEntry{name: name, target: target, mode: getTargetMode(target.SkillsConfig().Mode, cfg.Mode)})
+		entries = append(entries, syncTargetEntry{name: name, target: target, mode: getTargetMode(target.SkillsConfig().Mode, cfg.Mode), configErr: invalid[name]})
 	}
 
 	var results []syncTargetResult
@@ -376,7 +389,7 @@ func cmdSync(args []string) error {
 	// for installed skills whose files may be missing from disk.
 
 	// Compute token cost once — used by both text summary and JSON output
-	analyzeEntries, analyzeErr := buildAnalyzeEntries(discoveredSkills, cfg.Targets, cfg.Mode, cfg.EffectiveSkillsSource(), "")
+	analyzeEntries, analyzeErr := buildAnalyzeEntries(discoveredSkills, syncCfg.Targets, cfg.Mode, cfg.EffectiveSkillsSource(), "")
 
 	if !jsonOutput && !quiet && analyzeErr == nil && len(analyzeEntries) > 0 {
 		printTokenSummary(analyzeEntries)
@@ -394,7 +407,7 @@ func cmdSync(args []string) error {
 
 	// Agents are included in --all in both human-readable and JSON output.
 	if kind == kindAll || hasAll {
-		agentStats, agentErr := syncAgentsGlobal(cfg, dryRun, force, jsonOutput, start)
+		agentStats, agentErr := syncAgentsGlobal(syncCfg, dryRun, force, jsonOutput, start)
 		if agentErr != nil && syncErr == nil {
 			syncErr = agentErr
 		}
@@ -475,6 +488,24 @@ func logSyncOp(cfgPath string, stats syncLogStats, start time.Time, cmdErr error
 		e.Message = cmdErr.Error()
 	}
 	oplog.WriteWithLimit(cfgPath, oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
+}
+
+// withoutTargets returns cfg, or a copy of it without the targets in skip.
+func withoutTargets(cfg *config.Config, skip map[string]error) *config.Config {
+	if len(skip) == 0 {
+		return cfg
+	}
+	c := *cfg
+	c.Targets = maps.Clone(cfg.Targets)
+	for name := range skip {
+		delete(c.Targets, name)
+	}
+	return &c
+}
+
+// invalidConfigMessage is the failure shown for a target with invalid settings.
+func invalidConfigMessage(err error) string {
+	return "invalid config: " + err.Error()
 }
 
 // failedSkillTargets returns the targets whose skills sync failed.

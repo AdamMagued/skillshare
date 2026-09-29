@@ -12,7 +12,8 @@ import (
 	"skillshare/internal/ui"
 )
 
-func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLogStats, []syncTargetResult, *skillignore.IgnoreStats, *contextCostJSON, error) {
+// The returned map holds the targets skipped for invalid settings.
+func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLogStats, []syncTargetResult, *skillignore.IgnoreStats, *contextCostJSON, map[string]error, error) {
 	start := time.Now()
 	stats := syncLogStats{
 		DryRun:       dryRun,
@@ -21,19 +22,20 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLog
 	}
 
 	if err := ensureProjectConfig(root); err != nil {
-		return stats, nil, nil, nil, err
+		return stats, nil, nil, nil, nil, err
 	}
 
 	runtime, err := loadProjectRuntime(root)
 	if err != nil {
-		return stats, nil, nil, nil, err
+		return stats, nil, nil, nil, nil, err
 	}
 	stats.Targets = len(runtime.config.Targets)
 
-	// Validate project config before sync
-	warnings, validErr := config.ValidateProjectConfig(runtime.config, root)
+	// Validate project config before sync. A target with invalid settings
+	// fails alone; the other targets still sync.
+	warnings, invalid, validErr := config.ValidateProjectConfigForSync(runtime.config, root)
 	if validErr != nil {
-		return stats, nil, nil, nil, validErr
+		return stats, nil, nil, nil, nil, validErr
 	}
 	if !jsonOutput {
 		for _, w := range warnings {
@@ -44,7 +46,7 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLog
 	// ValidateProjectConfig warns on missing source (may not exist yet after init).
 	// Gate here as a hard error — sync cannot proceed without source skills.
 	if _, err := os.Stat(runtime.sourcePath); os.IsNotExist(err) {
-		return stats, nil, nil, nil, fmt.Errorf("source directory does not exist: %s", runtime.sourcePath)
+		return stats, nil, nil, nil, nil, fmt.Errorf("source directory does not exist: %s", runtime.sourcePath)
 	}
 
 	// Phase 1: Discovery
@@ -57,7 +59,7 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLog
 		if spinner != nil {
 			spinner.Fail("Discovery failed")
 		}
-		return stats, nil, nil, nil, discoverErr
+		return stats, nil, nil, nil, nil, discoverErr
 	}
 	if spinner != nil {
 		spinner.Success(fmt.Sprintf("Discovered %d skills", len(discoveredSkills)))
@@ -88,7 +90,7 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLog
 		if mode == "" {
 			mode = "merge"
 		}
-		entries = append(entries, syncTargetEntry{name: name, target: target, mode: mode})
+		entries = append(entries, syncTargetEntry{name: name, target: target, mode: mode, configErr: invalid[name]})
 	}
 
 	var results []syncTargetResult
@@ -159,10 +161,10 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLog
 	}
 
 	if len(stats.FailedTargets) > 0 {
-		return stats, results, ignoreStats, ctxCost, fmt.Errorf("some targets failed to sync")
+		return stats, results, ignoreStats, ctxCost, invalid, fmt.Errorf("some targets failed to sync")
 	}
 
-	return stats, results, ignoreStats, ctxCost, nil
+	return stats, results, ignoreStats, ctxCost, invalid, nil
 }
 
 func projectTargetDisplayPath(entry config.ProjectTargetEntry) string {

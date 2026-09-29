@@ -64,7 +64,8 @@ func cmdSyncExtrasGlobal(dryRun, force, jsonOutput bool, start time.Time) error 
 		return err
 	}
 
-	if _, err := config.ValidateConfig(cfg); err != nil {
+	// Target problems fail only those targets' skills and agents, not extras.
+	if _, _, err := config.ValidateConfigForSync(cfg); err != nil {
 		return err
 	}
 	if len(cfg.Extras) == 0 {
@@ -197,7 +198,8 @@ func cmdSyncExtrasProject(cwd string, dryRun, force, jsonOutput bool, start time
 		return err
 	}
 
-	if _, err := config.ValidateProjectConfig(projCfg, cwd); err != nil {
+	// Target problems fail only those targets' skills and agents, not extras.
+	if _, _, err := config.ValidateProjectConfigForSync(projCfg, cwd); err != nil {
 		return err
 	}
 	if len(projCfg.Extras) == 0 {

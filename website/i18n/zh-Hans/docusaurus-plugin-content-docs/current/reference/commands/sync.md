@@ -196,6 +196,12 @@ flowchart TD
     S2 --> SYMLINK --> S3
 ```
 
+### target 失败时 {#when-a-target-fails}
+
+sync 会运行每个 target，一个 target 失败不会中断其他 target。target 在同步出错时失败，或在其自身配置无效时失败，例如 skills path 是文件而不是文件夹，或 `mode` 无法识别。配置无效的 target 在本次运行中会跳过 skills 和 agents。每个失败的 target 都会被报告（文本输出为 `✗ <target>: invalid config: …`，`--json` 中为对应 `details` 条目的 `error`），并在其他 target 同步完成后以非零状态退出。
+
+影响整个配置的问题仍会在任何 target 运行前中止 sync：source 文件夹不存在或无效、全局 `mode` 或 `target_naming` 无效、`git_root` 无效，或 extras 无效。
+
 ### 示例输出
 
 ```text

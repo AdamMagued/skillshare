@@ -473,3 +473,57 @@ func TestValidateConfig_RejectsRelativeInstructionsPath(t *testing.T) {
 		t.Fatalf("err = %v, want instructions.path error", err)
 	}
 }
+
+func TestValidateConfigForSync_TargetProblemFailsOnlyThatTarget(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "skills-file")
+	if err := os.WriteFile(file, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &Config{
+		Source: t.TempDir(),
+		Targets: map[string]TargetConfig{
+			"broken": {Skills: &ResourceTargetConfig{Path: file}},
+			"good":   {Skills: &ResourceTargetConfig{Path: filepath.Join(t.TempDir(), "skills")}},
+		},
+	}
+	_, invalid, err := ValidateConfigForSync(cfg)
+	if err != nil || len(invalid) != 1 || invalid["broken"] == nil || !strings.Contains(invalid["broken"].Error(), "path is not a directory") {
+		t.Fatalf("err = %v, invalid = %v; want only broken invalid", err, invalid)
+	}
+}
+
+func TestValidateConfigForSync_GlobalProblemStillFails(t *testing.T) {
+	cfg := &Config{Source: t.TempDir(), Mode: "bogus", Targets: map[string]TargetConfig{}}
+	if _, _, err := ValidateConfigForSync(cfg); err == nil || !strings.Contains(err.Error(), "invalid global sync mode") {
+		t.Fatalf("err = %v, want invalid global sync mode", err)
+	}
+}
+
+func TestValidateConfig_TargetPathIsFileStillRejected(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "skills-file")
+	if err := os.WriteFile(file, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &Config{Source: t.TempDir(), Targets: map[string]TargetConfig{"broken": {Skills: &ResourceTargetConfig{Path: file}}}}
+	if _, err := ValidateConfig(cfg); err == nil || !strings.Contains(err.Error(), `target "broken": path is not a directory`) {
+		t.Fatalf("err = %v, want target path error", err)
+	}
+}
+
+func TestValidateProjectConfigForSync_TargetProblemFailsOnlyThatTarget(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, ".skillshare", "skills"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "skills-file"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &ProjectConfig{Targets: []ProjectTargetEntry{
+		{Name: "broken", Skills: &ResourceTargetConfig{Path: "skills-file"}},
+		{Name: "claude"},
+	}}
+	_, invalid, err := ValidateProjectConfigForSync(cfg, root)
+	if err != nil || len(invalid) != 1 || invalid["broken"] == nil || !strings.Contains(invalid["broken"].Error(), "path is not a directory") {
+		t.Fatalf("err = %v, invalid = %v; want only broken invalid", err, invalid)
+	}
+}

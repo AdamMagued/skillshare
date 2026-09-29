@@ -3,8 +3,10 @@ package config
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -14,6 +16,14 @@ const errAgentsEnabled = "agents.enabled is not supported (only skills.enabled)"
 // ValidateConfig validates a global config semantically (after YAML parsing).
 // Returns warnings (non-fatal) and error (fatal, should return 400).
 func ValidateConfig(cfg *Config) (warnings []string, err error) {
+	warnings, invalid, err := ValidateConfigForSync(cfg)
+	return warnings, joinTargetErrors(err, invalid)
+}
+
+// ValidateConfigForSync validates a global config for sync, which runs every
+// target it can: invalid maps each target whose own settings are wrong to its
+// problems, and err holds the problems that stop the whole sync.
+func ValidateConfigForSync(cfg *Config) (warnings []string, invalid map[string]error, err error) {
 	var errs []string
 
 	// Source path validation checks the effective source, including the default
@@ -50,48 +60,75 @@ func ValidateConfig(cfg *Config) (warnings []string, err error) {
 		errs = append(errs, err.Error())
 	}
 
-	// Per-target validation
-	for name, target := range cfg.Targets {
-		if err := ValidateTargetInstructions(target.Instructions, false); err != nil {
-			errs = append(errs, fmt.Sprintf("target %q: %v", name, err))
-		}
-		if target.Agents != nil && target.Agents.Enabled != nil {
-			errs = append(errs, fmt.Sprintf("target %q: %s", name, errAgentsEnabled))
-		}
-		sc := target.SkillsConfig()
-		if !IsValidSyncMode(sc.Mode) {
-			errs = append(errs, fmt.Sprintf("target %q: invalid sync mode %q (valid: %s)", name, sc.Mode, strings.Join(ValidSyncModes, ", ")))
-			continue
-		}
-		if !IsValidTargetNaming(sc.TargetNaming) {
-			errs = append(errs, fmt.Sprintf("target %q: invalid target naming %q (valid: %s)", name, sc.TargetNaming, strings.Join(ValidTargetNamings, ", ")))
-			continue
-		}
-		path := sc.Path
-		if path == "" {
-			// Known built-in targets get their path from targets.yaml at runtime;
-			// custom targets must specify a path explicitly.
-			if _, known := LookupGlobalTarget(name); !known && target.Agent == "" {
-				errs = append(errs, fmt.Sprintf("target %q: missing path (custom targets require skills.path)", name))
-				continue
-			}
-		} else {
-			errs = append(errs, validateTargetPath(name, ExpandPath(path))...)
-		}
-	}
-
 	if err := cfg.ValidateExtras(); err != nil {
 		errs = append(errs, err.Error())
 	}
 
-	if len(errs) > 0 {
-		return warnings, errors.New(strings.Join(errs, "; "))
+	invalid = map[string]error{}
+	for name, target := range cfg.Targets {
+		if problems := validateGlobalTarget(name, target); len(problems) > 0 {
+			invalid[name] = errors.New(strings.Join(problems, "; "))
+		}
 	}
-	return warnings, nil
+
+	if len(errs) > 0 {
+		err = errors.New(strings.Join(errs, "; "))
+	}
+	return warnings, invalid, err
+}
+
+// validateGlobalTarget returns the problems of one global target's settings.
+func validateGlobalTarget(name string, target TargetConfig) []string {
+	var problems []string
+	if err := ValidateTargetInstructions(target.Instructions, false); err != nil {
+		problems = append(problems, err.Error())
+	}
+	if target.Agents != nil && target.Agents.Enabled != nil {
+		problems = append(problems, errAgentsEnabled)
+	}
+	sc := target.SkillsConfig()
+	if !IsValidSyncMode(sc.Mode) {
+		return append(problems, fmt.Sprintf("invalid sync mode %q (valid: %s)", sc.Mode, strings.Join(ValidSyncModes, ", ")))
+	}
+	if !IsValidTargetNaming(sc.TargetNaming) {
+		return append(problems, fmt.Sprintf("invalid target naming %q (valid: %s)", sc.TargetNaming, strings.Join(ValidTargetNamings, ", ")))
+	}
+	if sc.Path == "" {
+		// Known built-in targets get their path from targets.yaml at runtime;
+		// custom targets must specify a path explicitly.
+		if _, known := LookupGlobalTarget(name); !known && target.Agent == "" {
+			problems = append(problems, "missing path (custom targets require skills.path)")
+		}
+	} else if err := validateTargetPath(ExpandPath(sc.Path)); err != nil {
+		problems = append(problems, err.Error())
+	}
+	return problems
+}
+
+// joinTargetErrors folds the per-target problems into err, as one error that
+// names each target, for callers that reject the whole config.
+func joinTargetErrors(err error, invalid map[string]error) error {
+	var errs []string
+	if err != nil {
+		errs = append(errs, err.Error())
+	}
+	for _, name := range slices.Sorted(maps.Keys(invalid)) {
+		errs = append(errs, fmt.Sprintf("target %q: %v", name, invalid[name]))
+	}
+	if len(errs) == 0 {
+		return nil
+	}
+	return errors.New(strings.Join(errs, "; "))
 }
 
 // ValidateProjectConfig validates a project config semantically.
 func ValidateProjectConfig(cfg *ProjectConfig, projectRoot string) (warnings []string, err error) {
+	warnings, invalid, err := ValidateProjectConfigForSync(cfg, projectRoot)
+	return warnings, joinTargetErrors(err, invalid)
+}
+
+// ValidateProjectConfigForSync is ValidateConfigForSync for a project config.
+func ValidateProjectConfigForSync(cfg *ProjectConfig, projectRoot string) (warnings []string, invalid map[string]error, err error) {
 	var errs []string
 
 	sourcePath := cfg.EffectiveSkillsSource(projectRoot)
@@ -108,64 +145,78 @@ func ValidateProjectConfig(cfg *ProjectConfig, projectRoot string) (warnings []s
 		errs = append(errs, fmt.Sprintf("source path is not a directory: %s", sourcePath))
 	}
 
-	// Target validation
 	if !IsValidTargetNaming(cfg.TargetNaming) {
 		errs = append(errs, fmt.Sprintf("invalid project target naming %q (valid: %s)", cfg.TargetNaming, strings.Join(ValidTargetNamings, ", ")))
-	}
-	for _, entry := range cfg.Targets {
-		if err := ValidateTargetInstructions(entry.Instructions, true); err != nil {
-			errs = append(errs, fmt.Sprintf("target %q: %v", entry.Name, err))
-		}
-		if entry.Agents != nil && entry.Agents.Enabled != nil {
-			errs = append(errs, fmt.Sprintf("target %q: %s", entry.Name, errAgentsEnabled))
-		}
-		sc := entry.SkillsConfig()
-		if !IsValidSyncMode(sc.Mode) {
-			errs = append(errs, fmt.Sprintf("target %q: invalid sync mode %q (valid: %s)", entry.Name, sc.Mode, strings.Join(ValidSyncModes, ", ")))
-			continue
-		}
-		if !IsValidTargetNaming(sc.TargetNaming) {
-			errs = append(errs, fmt.Sprintf("target %q: invalid target naming %q (valid: %s)", entry.Name, sc.TargetNaming, strings.Join(ValidTargetNamings, ", ")))
-			continue
-		}
-
-		var skillsBuiltin string
-		if t, ok := LookupProjectTarget(entry.Name); ok {
-			skillsBuiltin = t.Path
-		}
-		if sc.Path == "" && skillsBuiltin == "" {
-			// Known built-in targets are resolved from targets.yaml;
-			// custom targets must have an explicit path.
-			errs = append(errs, fmt.Sprintf("target %q: missing path (custom targets require skills.path)", entry.Name))
-		} else {
-			skillsTargetPath := resolveProjectTargetPath(projectRoot, sc.Path, skillsBuiltin)
-			if sc.Path != "" {
-				errs = append(errs, validateTargetPath(entry.Name, skillsTargetPath)...)
-			}
-			if skillsTargetPath != "" && pathsOverlap(sourcePath, skillsTargetPath) {
-				errs = append(errs, fmt.Sprintf("target %q: skills target path %s overlaps skills source %s — sync --force could destroy the source", entry.Name, skillsTargetPath, sourcePath))
-			}
-		}
-
-		ac := entry.AgentsConfig()
-		var agentsBuiltin string
-		if t, ok := LookupProjectAgentTarget(entry.Name); ok {
-			agentsBuiltin = t.Path
-		}
-		agentsTargetPath := resolveProjectTargetPath(projectRoot, ac.Path, agentsBuiltin)
-		if agentsTargetPath != "" && pathsOverlap(agentsSourcePath, agentsTargetPath) {
-			errs = append(errs, fmt.Sprintf("target %q: agents target path %s overlaps agents source %s — sync --force could destroy the source", entry.Name, agentsTargetPath, agentsSourcePath))
-		}
 	}
 
 	if err := cfg.ValidateExtras(projectRoot); err != nil {
 		errs = append(errs, err.Error())
 	}
 
-	if len(errs) > 0 {
-		return warnings, errors.New(strings.Join(errs, "; "))
+	problems := map[string][]string{}
+	for _, entry := range cfg.Targets {
+		problems[entry.Name] = append(problems[entry.Name], validateProjectTarget(entry, projectRoot, sourcePath, agentsSourcePath)...)
 	}
-	return warnings, nil
+	invalid = map[string]error{}
+	for name, p := range problems {
+		if len(p) > 0 {
+			invalid[name] = errors.New(strings.Join(p, "; "))
+		}
+	}
+
+	if len(errs) > 0 {
+		err = errors.New(strings.Join(errs, "; "))
+	}
+	return warnings, invalid, err
+}
+
+// validateProjectTarget returns the problems of one project target's settings.
+func validateProjectTarget(entry ProjectTargetEntry, projectRoot, sourcePath, agentsSourcePath string) []string {
+	var problems []string
+	if err := ValidateTargetInstructions(entry.Instructions, true); err != nil {
+		problems = append(problems, err.Error())
+	}
+	if entry.Agents != nil && entry.Agents.Enabled != nil {
+		problems = append(problems, errAgentsEnabled)
+	}
+	sc := entry.SkillsConfig()
+	if !IsValidSyncMode(sc.Mode) {
+		return append(problems, fmt.Sprintf("invalid sync mode %q (valid: %s)", sc.Mode, strings.Join(ValidSyncModes, ", ")))
+	}
+	if !IsValidTargetNaming(sc.TargetNaming) {
+		return append(problems, fmt.Sprintf("invalid target naming %q (valid: %s)", sc.TargetNaming, strings.Join(ValidTargetNamings, ", ")))
+	}
+
+	var skillsBuiltin string
+	if t, ok := LookupProjectTarget(entry.Name); ok {
+		skillsBuiltin = t.Path
+	}
+	if sc.Path == "" && skillsBuiltin == "" {
+		// Known built-in targets are resolved from targets.yaml;
+		// custom targets must have an explicit path.
+		problems = append(problems, "missing path (custom targets require skills.path)")
+	} else {
+		skillsTargetPath := resolveProjectTargetPath(projectRoot, sc.Path, skillsBuiltin)
+		if sc.Path != "" {
+			if err := validateTargetPath(skillsTargetPath); err != nil {
+				problems = append(problems, err.Error())
+			}
+		}
+		if skillsTargetPath != "" && pathsOverlap(sourcePath, skillsTargetPath) {
+			problems = append(problems, fmt.Sprintf("skills target path %s overlaps skills source %s — sync --force could destroy the source", skillsTargetPath, sourcePath))
+		}
+	}
+
+	ac := entry.AgentsConfig()
+	var agentsBuiltin string
+	if t, ok := LookupProjectAgentTarget(entry.Name); ok {
+		agentsBuiltin = t.Path
+	}
+	agentsTargetPath := resolveProjectTargetPath(projectRoot, ac.Path, agentsBuiltin)
+	if agentsTargetPath != "" && pathsOverlap(agentsSourcePath, agentsTargetPath) {
+		problems = append(problems, fmt.Sprintf("agents target path %s overlaps agents source %s — sync --force could destroy the source", agentsTargetPath, agentsSourcePath))
+	}
+	return problems
 }
 
 // ValidateTargetInstructions checks a user-set instruction file: a file path,
@@ -227,7 +278,7 @@ func pathsOverlap(a, b string) bool {
 
 // validateTargetPath checks a single target's path is accessible and is a directory.
 // Missing paths are accepted — sync will auto-create them with a visible notification.
-func validateTargetPath(name, expandedPath string) []string {
+func validateTargetPath(expandedPath string) error {
 	if expandedPath == "" {
 		return nil // path resolved by target registry; skip filesystem check
 	}
@@ -237,10 +288,10 @@ func validateTargetPath(name, expandedPath string) []string {
 		if os.IsNotExist(statErr) {
 			return nil // sync will auto-create and notify
 		}
-		return []string{fmt.Sprintf("target %q: cannot access path: %v", name, statErr)}
+		return fmt.Errorf("cannot access path: %v", statErr)
 	}
 	if !info.IsDir() {
-		return []string{fmt.Sprintf("target %q: path is not a directory: %s", name, expandedPath)}
+		return fmt.Errorf("path is not a directory: %s", expandedPath)
 	}
 
 	return nil

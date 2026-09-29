@@ -175,6 +175,8 @@ type syncTargetEntry struct {
 	name   string
 	target config.TargetConfig
 	mode   string
+	// configErr fails the target without syncing it: its settings are invalid.
+	configErr error
 }
 
 // collectSyncResult runs sync for one target and returns a result struct.
@@ -375,7 +377,12 @@ func runParallelSyncCore(entries []syncTargetEntry, source string, skills []sync
 				if progress != nil {
 					progress.startTarget(m.entry.name)
 				}
-				r := collectSyncResult(m.entry.name, m.entry.target, source, m.entry.mode, skills, ignorePatterns, dryRun, force, progress, projectRoot)
+				r := syncTargetResult{name: m.entry.name, mode: m.entry.mode}
+				if m.entry.configErr != nil {
+					r.errMsg = invalidConfigMessage(m.entry.configErr)
+				} else {
+					r = collectSyncResult(m.entry.name, m.entry.target, source, m.entry.mode, skills, ignorePatterns, dryRun, force, progress, projectRoot)
+				}
 				if progress != nil {
 					progress.doneTarget(m.entry.name, r)
 				}
