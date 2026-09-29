@@ -1,0 +1,138 @@
+export interface TrackedRepo {
+  name: string;
+  skillCount: number;
+  dirty: boolean;
+}
+
+export interface Overview {
+  source: string;
+  agentsSource?: string;
+  extrasSource?: string;
+  skillCount: number;
+  agentCount: number;
+  topLevelCount: number;
+  targetCount: number;
+  mode: string;
+  version: string;
+  trackedRepos: TrackedRepo[];
+  isProjectMode: boolean;
+  projectRoot?: string;
+  /** Folder holding config.yaml */
+  configDir: string;
+}
+
+export interface Skill {
+  name: string;
+  kind: 'skill' | 'agent';
+  flatName: string;
+  relPath: string;
+  sourcePath: string;
+  isInRepo: boolean;
+  targets?: string[];
+  installedAt?: string;
+  source?: string;
+  type?: string;
+  repoUrl?: string;
+  version?: string;
+  disabled?: boolean;
+  /** disable-model-invocation: invocable by name, never loaded by the model on its own. */
+  manualOnly?: boolean;
+  branch?: string;
+}
+
+export interface SkillPattern {
+  name: string;
+  description: string;
+  scaffoldDirs: string[];
+}
+
+export interface SkillCategory {
+  key: string;
+  label: string;
+}
+
+export interface TemplatesResponse {
+  patterns: SkillPattern[];
+  categories: SkillCategory[];
+}
+
+export interface CreateSkillRequest {
+  name: string;
+  pattern: string;
+  category?: string;
+  description?: string;
+  /** Folder under the source to create the skill in */
+  into?: string;
+  scaffoldDirs?: string[];
+}
+
+export interface CreateSkillResponse {
+  skill: {
+    name: string;
+    flatName: string;
+    relPath: string;
+    sourcePath: string;
+  };
+  createdFiles: string[];
+}
+
+export interface SkillFileContent {
+  content: string;
+  contentType: string;
+  filename: string;
+}
+
+export interface BatchUninstallRequest {
+  names: string[];
+  kind?: 'skill' | 'agent';
+  force?: boolean;
+}
+
+export interface BatchUninstallItemResult {
+  name: string;
+  success: boolean;
+  movedToTrash?: boolean;
+  error?: string;
+}
+
+export interface BatchUninstallResult {
+  results: BatchUninstallItemResult[];
+  summary: { succeeded: number; failed: number };
+}
+
+export interface BatchToggleItemResult {
+  name: string;
+  success: boolean;
+  disabled: boolean;
+  error?: string;
+}
+
+export interface BatchToggleResult {
+  results: BatchToggleItemResult[];
+  summary: { updated: number; unchanged: number; failed: number };
+}
+
+export interface LocalSkillInfo {
+  name: string;
+  path: string;
+  targetName: string;
+  size: number;
+  modTime: string;
+  kind?: 'skill' | 'agent';
+}
+
+export interface CollectScanTarget {
+  targetName: string;
+  skills: LocalSkillInfo[];
+}
+
+export interface CollectScanResult {
+  targets: CollectScanTarget[];
+  totalCount: number;
+}
+
+export interface CollectResult {
+  pulled: string[];
+  skipped: string[];
+  failed: Record<string, string>;
+}
