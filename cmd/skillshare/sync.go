@@ -19,11 +19,12 @@ import (
 )
 
 type syncLogStats struct {
-	Targets      int
-	Failed       int
-	DryRun       bool
-	Force        bool
-	ProjectScope bool
+	Targets int
+	// FailedTargets names each target whose skills or agents failed, once.
+	FailedTargets []string
+	DryRun        bool
+	Force         bool
+	ProjectScope  bool
 }
 
 // syncJSONOutput is the JSON representation for sync --json output.
@@ -203,19 +204,22 @@ func cmdSync(args []string) error {
 	if mode == modeProject {
 		// Agent-only project sync
 		if kind == kindAgents {
-			return syncAgentsProject(cwd, dryRun, force, jsonOutput, start)
+			_, err := syncAgentsProject(cwd, dryRun, force, jsonOutput, start)
+			return err
 		}
 
 		stats, results, projIgnoreStats, projCtxCost, err := cmdSyncProject(cwd, dryRun, force, jsonOutput, quiet)
 		stats.ProjectScope = true
-		logSyncOp(config.ProjectConfigPath(cwd), stats, start, err)
 
 		// Append agent sync when kind=all or --all
 		if kind == kindAll || hasAll {
-			if agentErr := syncAgentsProject(cwd, dryRun, force, jsonOutput, start); agentErr != nil && err == nil {
+			agentFailed, agentErr := syncAgentsProject(cwd, dryRun, force, jsonOutput, start)
+			if agentErr != nil && err == nil {
 				err = agentErr
 			}
+			stats.FailedTargets = mergeFailedTargets(stats.FailedTargets, agentFailed)
 		}
+		logSyncOp(config.ProjectConfigPath(cwd), stats, start, err)
 
 		if jsonOutput {
 			err = finishMCP(err)
@@ -271,8 +275,13 @@ func cmdSync(args []string) error {
 
 	// Agent-only mode: skip skill discovery/sync entirely
 	if kind == kindAgents {
-		_, agentErr := syncAgentsGlobal(cfg, dryRun, force, jsonOutput, start)
-		logSyncOp(config.ConfigPath(), syncLogStats{DryRun: dryRun, Force: force}, start, agentErr)
+		agentStats, agentErr := syncAgentsGlobal(cfg, dryRun, force, jsonOutput, start)
+		logSyncOp(config.ConfigPath(), syncLogStats{
+			Targets:       len(cfg.Targets),
+			FailedTargets: mergeFailedTargets(agentStats.failed),
+			DryRun:        dryRun,
+			Force:         force,
+		}, start, agentErr)
 		return agentErr
 	}
 
@@ -376,19 +385,22 @@ func cmdSync(args []string) error {
 		}
 	}
 
-	logSyncOp(config.ConfigPath(), syncLogStats{
-		Targets: len(cfg.Targets),
-		Failed:  failedTargets,
-		DryRun:  dryRun,
-		Force:   force,
-	}, start, syncErr)
+	logStats := syncLogStats{
+		Targets:       len(cfg.Targets),
+		FailedTargets: failedSkillTargets(results),
+		DryRun:        dryRun,
+		Force:         force,
+	}
 
 	// Agents are included in --all in both human-readable and JSON output.
 	if kind == kindAll || hasAll {
-		if _, agentErr := syncAgentsGlobal(cfg, dryRun, force, jsonOutput, start); agentErr != nil && syncErr == nil {
+		agentStats, agentErr := syncAgentsGlobal(cfg, dryRun, force, jsonOutput, start)
+		if agentErr != nil && syncErr == nil {
 			syncErr = agentErr
 		}
+		logStats.FailedTargets = mergeFailedTargets(logStats.FailedTargets, agentStats.failed)
 	}
+	logSyncOp(config.ConfigPath(), logStats, start, syncErr)
 
 	if jsonOutput {
 		syncErr = finishMCP(syncErr)
@@ -440,17 +452,21 @@ func parseSyncFlags(args []string) (dryRun, force, jsonOutput, quiet bool) {
 }
 
 func logSyncOp(cfgPath string, stats syncLogStats, start time.Time, cmdErr error) {
+	failed := len(stats.FailedTargets)
 	status := statusFromErr(cmdErr)
-	if stats.Failed > 0 && stats.Failed < stats.Targets {
+	if failed > 0 && failed < stats.Targets {
 		status = "partial"
 	}
 	e := oplog.NewEntry("sync", status, time.Since(start))
 	e.Args = map[string]any{
 		"targets_total":  stats.Targets,
-		"targets_failed": stats.Failed,
+		"targets_failed": failed,
 		"dry_run":        stats.DryRun,
 		"force":          stats.Force,
 		"scope":          "global",
+	}
+	if failed > 0 {
+		e.Args["failed_targets"] = stats.FailedTargets
 	}
 	if stats.ProjectScope {
 		e.Args["scope"] = "project"
@@ -459,6 +475,24 @@ func logSyncOp(cfgPath string, stats syncLogStats, start time.Time, cmdErr error
 		e.Message = cmdErr.Error()
 	}
 	oplog.WriteWithLimit(cfgPath, oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
+}
+
+// failedSkillTargets returns the targets whose skills sync failed.
+func failedSkillTargets(results []syncTargetResult) []string {
+	var names []string
+	for _, r := range results {
+		if r.errMsg != "" {
+			names = append(names, r.name)
+		}
+	}
+	return mergeFailedTargets(names)
+}
+
+// mergeFailedTargets returns the distinct target names of lists, sorted.
+func mergeFailedTargets(lists ...[]string) []string {
+	names := slices.Concat(lists...)
+	slices.Sort(names)
+	return slices.Compact(names)
 }
 
 // printIgnoredSkills prints the list of .skillignore-excluded skills with source hints.

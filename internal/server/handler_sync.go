@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"time"
 
@@ -265,9 +266,11 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 		// Every skill target failing is an error, so single-target setups
 		// still see one.
 		if skillRan > 0 && skillFailed == skillRan {
+			failedNames := failedTargetNames(failed)
 			errArgs := map[string]any{
 				"targets_total":  len(targets),
-				"targets_failed": skillFailed,
+				"targets_failed": len(failedNames),
+				"failed_targets": failedNames,
 				"target":         firstFailed,
 				"dry_run":        dryRun,
 				"force":          force,
@@ -363,25 +366,42 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 		}
 	}
 
-	// Log the sync operation
+	// Log the sync operation. A target counts once however many parts failed.
+	failedNames := failedTargetNames(failed)
 	logArgs := map[string]any{
-		"targets_total":  len(results) + skillFailed,
-		"targets_failed": skillFailed,
+		"targets_total":  len(targets),
+		"targets_failed": len(failedNames),
 		"dry_run":        dryRun,
 		"force":          force,
 		"kind":           kind,
 		"scope":          "ui",
 	}
+	if len(failedNames) > 0 {
+		logArgs["failed_targets"] = failedNames
+	}
 	if project != "" {
 		logArgs["project"] = project
 	}
 	status := "ok"
-	if skillFailed > 0 {
+	switch {
+	case len(failedNames) >= len(targets) && len(failedNames) > 0:
+		status = "error"
+	case len(failedNames) > 0:
 		status = "partial"
 	}
 	s.writeOpsLog("sync", status, start, logArgs, "")
 
 	return &syncOutcome{results: results, warnings: warnings, failed: failed, folderConflicts: conflicts, pathOverlap: overlap, skills: allSkills, ignoreStats: ignoreStats}, 0, nil
+}
+
+// failedTargetNames returns the distinct targets in failed, sorted.
+func failedTargetNames(failed []syncFailure) []string {
+	names := make([]string, 0, len(failed))
+	for _, f := range failed {
+		names = append(names, f.Target)
+	}
+	slices.Sort(names)
+	return slices.Compact(names)
 }
 
 // backupBeforeSync snapshots the target folders a sync may overwrite, as the

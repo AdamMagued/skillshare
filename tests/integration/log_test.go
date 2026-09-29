@@ -288,6 +288,88 @@ targets:
 	}
 }
 
+// lastSyncLogEntry returns the newest sync entry of the operations log.
+func lastSyncLogEntry(t *testing.T, sb *testutil.Sandbox) (status string, args map[string]any) {
+	t.Helper()
+	logResult := sb.RunCLI("log", "--json", "--cmd", "sync", "--tail", "1")
+	logResult.AssertSuccess(t)
+	var entry struct {
+		Status string         `json:"status"`
+		Args   map[string]any `json:"args"`
+	}
+	if err := json.Unmarshal([]byte(strings.TrimSpace(logResult.Stdout)), &entry); err != nil {
+		t.Fatalf("parse sync log entry: %v\n%s", err, logResult.Stdout)
+	}
+	return entry.Status, entry.Args
+}
+
+func TestLog_SyncAgentsCountsFailedTargets(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	agentsDir := filepath.Join(filepath.Dir(sb.SourcePath), "agents")
+	sb.WriteFile(filepath.Join(agentsDir, "tutor.md"), "# Tutor")
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    skills:
+      path: ` + sb.CreateTarget("claude") + `
+    agents:
+      path: ` + filepath.Join(sb.Home, "claude-agents") + `
+  broken:
+    skills:
+      path: ` + sb.CreateTarget("broken") + `
+    agents:
+      path: ` + filepath.Join(sb.Home, "broken-agents") + `
+      include: ["["]
+`)
+
+	sb.RunCLI("sync", "agents").AssertFailure(t)
+
+	status, args := lastSyncLogEntry(t, sb)
+	got, _ := json.Marshal(args["failed_targets"])
+	if status != "partial" || args["targets_failed"] != float64(1) || args["targets_total"] != float64(2) || string(got) != `["broken"]` {
+		t.Fatalf("expected partial sync with broken failed of 2 targets, got status %q args %v", status, args)
+	}
+}
+
+func TestLog_SyncAllCountsSkillAndAgentFailures(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("test-skill", map[string]string{"SKILL.md": "# Test\n\nTest."})
+	agentsDir := filepath.Join(filepath.Dir(sb.SourcePath), "agents")
+	sb.WriteFile(filepath.Join(agentsDir, "tutor.md"), "# Tutor")
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    skills:
+      path: ` + sb.CreateTarget("claude") + `
+    agents:
+      path: ` + filepath.Join(sb.Home, "claude-agents") + `
+  skill-broken:
+    skills:
+      path: ` + sb.CreateTarget("skill-broken") + `
+      include: ["["]
+    agents:
+      path: ` + filepath.Join(sb.Home, "skill-broken-agents") + `
+  agent-broken:
+    skills:
+      path: ` + sb.CreateTarget("agent-broken") + `
+    agents:
+      path: ` + filepath.Join(sb.Home, "agent-broken-agents") + `
+      include: ["["]
+`)
+
+	sb.RunCLI("sync", "--all").AssertFailure(t)
+
+	status, args := lastSyncLogEntry(t, sb)
+	got, _ := json.Marshal(args["failed_targets"])
+	if status != "partial" || args["targets_failed"] != float64(2) || args["targets_total"] != float64(3) || string(got) != `["agent-broken","skill-broken"]` {
+		t.Fatalf("expected partial sync with 2 of 3 targets failed, got status %q args %v", status, args)
+	}
+}
+
 // --- Filter & JSON tests ---
 
 // setupSyncAndInstallLog creates a sandbox with both sync and install log entries.

@@ -73,7 +73,7 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLog
 	}
 
 	var entries []syncTargetEntry
-	notFoundCount := 0
+	var notFound []string
 	for _, entry := range runtime.config.Targets {
 		name := entry.Name
 		target, ok := runtime.targets[name]
@@ -81,7 +81,7 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLog
 			if !jsonOutput {
 				ui.Error("%s: target not found", name)
 			}
-			notFoundCount++
+			notFound = append(notFound, name)
 			continue
 		}
 		mode := target.SkillsConfig().Mode
@@ -92,14 +92,12 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLog
 	}
 
 	var results []syncTargetResult
-	var failedTargets int
 	ignorePatterns := sync.EffectiveFileIgnorePatterns(runtime.config.Ignore)
 	if jsonOutput {
-		results, failedTargets = runParallelSyncQuiet(entries, runtime.sourcePath, discoveredSkills, ignorePatterns, dryRun, force, root)
+		results, _ = runParallelSyncQuiet(entries, runtime.sourcePath, discoveredSkills, ignorePatterns, dryRun, force, root)
 	} else {
-		results, failedTargets = runParallelSync(entries, runtime.sourcePath, discoveredSkills, ignorePatterns, dryRun, force, root)
+		results, _ = runParallelSync(entries, runtime.sourcePath, discoveredSkills, ignorePatterns, dryRun, force, root)
 	}
-	failedTargets += notFoundCount
 
 	movedTargets := sync.MovedProjectTargets(runtime.config, runtime.targets)
 	for _, msg := range sync.CleanMovedProjectDirs(root, runtime.sourcePath, movedTargets, dryRun) {
@@ -115,7 +113,7 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLog
 		totals.updated += r.stats.updated
 		totals.pruned += r.stats.pruned
 	}
-	stats.Failed = failedTargets
+	stats.FailedTargets = mergeFailedTargets(failedSkillTargets(results), notFound)
 
 	if !jsonOutput {
 		// Phase 3: Summary
@@ -160,7 +158,7 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLog
 		}
 	}
 
-	if failedTargets > 0 {
+	if len(stats.FailedTargets) > 0 {
 		return stats, results, ignoreStats, ctxCost, fmt.Errorf("some targets failed to sync")
 	}
 

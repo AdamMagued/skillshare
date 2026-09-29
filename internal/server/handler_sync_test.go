@@ -279,7 +279,7 @@ func newAgentSyncServer(t *testing.T) (*Server, string, string) {
 	return s, src, agentSource
 }
 
-func TestHandleSync_AgentTargetFailureIsWarningNotFailure(t *testing.T) {
+func TestHandleSync_AgentTargetFailureCountsInLog(t *testing.T) {
 	s, _, _ := newAgentSyncServer(t)
 	s.cfg.Targets["claude"] = config.TargetConfig{
 		Skills: &config.ResourceTargetConfig{Path: filepath.Join(t.TempDir(), "claude-skills")},
@@ -311,8 +311,45 @@ func TestHandleSync_AgentTargetFailureIsWarningNotFailure(t *testing.T) {
 	if err != nil || len(entries) != 1 {
 		t.Fatalf("read ops log: %v (%d entries)", err, len(entries))
 	}
-	if e := entries[0]; e.Status != "ok" || e.Args["targets_failed"] != float64(0) {
-		t.Fatalf("expected ok sync with targets_failed 0, got status %q args %v", e.Status, e.Args)
+	if e := entries[0]; e.Status != "error" || e.Args["targets_failed"] != float64(1) {
+		t.Fatalf("expected error sync with targets_failed 1, got status %q args %v", e.Status, e.Args)
+	}
+}
+
+func TestHandleSync_LogCountsEachFailedTargetOnce(t *testing.T) {
+	s, src, _ := newAgentSyncServer(t)
+	addSkill(t, src, "alpha")
+	s.cfg.Targets["both"] = config.TargetConfig{
+		Skills: &config.ResourceTargetConfig{Path: filepath.Join(t.TempDir(), "both-skills"), Include: []string{"["}},
+		Agents: &config.ResourceTargetConfig{Path: filepath.Join(t.TempDir(), "both-agents"), Include: []string{"["}},
+	}
+	s.cfg.Targets["agent-only"] = config.TargetConfig{
+		Skills: &config.ResourceTargetConfig{Path: filepath.Join(t.TempDir(), "agent-only-skills")},
+		Agents: &config.ResourceTargetConfig{Path: filepath.Join(t.TempDir(), "agent-only-agents"), Include: []string{"["}},
+	}
+	s.cfg.Targets["claude"] = config.TargetConfig{
+		Skills: &config.ResourceTargetConfig{Path: filepath.Join(t.TempDir(), "claude-skills")},
+		Agents: &config.ResourceTargetConfig{Path: filepath.Join(t.TempDir(), "claude-agents")},
+	}
+	if err := s.cfg.Save(); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/sync", strings.NewReader(`{}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	entries, err := oplog.Read(config.ConfigPath(), oplog.OpsFile, 1)
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("read ops log: %v (%d entries)", err, len(entries))
+	}
+	e := entries[0]
+	got, _ := json.Marshal(e.Args["failed_targets"])
+	if e.Status != "partial" || e.Args["targets_failed"] != float64(2) || e.Args["targets_total"] != float64(3) || string(got) != `["agent-only","both"]` {
+		t.Fatalf("expected partial sync with 2 of 3 targets failed (agent-only, both), got status %q args %v", e.Status, e.Args)
 	}
 }
 

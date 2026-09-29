@@ -18,6 +18,7 @@ import (
 // agentSyncStats aggregates per-target agent sync results.
 type agentSyncStats struct {
 	linked, local, updated, pruned int
+	failed                         []string // targets whose agent sync failed
 }
 
 // syncAgentsGlobal discovers agents and syncs them to all agent-capable targets.
@@ -120,11 +121,12 @@ func resolveAgentTargetPath(tc config.TargetConfig, builtinAgents map[string]con
 
 // syncAgentsProject syncs agents for project mode using .skillshare/agents/ as source
 // and project-level target agent paths.
-func syncAgentsProject(projectRoot string, dryRun, force, jsonOutput bool, start time.Time) error {
+// Returns the targets that failed and any error.
+func syncAgentsProject(projectRoot string, dryRun, force, jsonOutput bool, start time.Time) ([]string, error) {
 	// Load project config first to resolve agents source path.
 	projCfg, loadErr := config.LoadProject(projectRoot)
 	if loadErr != nil {
-		return fmt.Errorf("cannot load project config: %w", loadErr)
+		return nil, fmt.Errorf("cannot load project config: %w", loadErr)
 	}
 
 	agentsSource := projCfg.EffectiveAgentsSource(projectRoot)
@@ -134,14 +136,14 @@ func syncAgentsProject(projectRoot string, dryRun, force, jsonOutput bool, start
 			if !jsonOutput {
 				ui.Info("No project agents directory (%s)", agentsSource)
 			}
-			return nil
+			return nil, nil
 		}
-		return fmt.Errorf("cannot access project agents: %w", err)
+		return nil, fmt.Errorf("cannot access project agents: %w", err)
 	}
 
 	allAgents, err := resource.AgentKind{}.Discover(agentsSource)
 	if err != nil {
-		return fmt.Errorf("cannot discover project agents: %w", err)
+		return nil, fmt.Errorf("cannot discover project agents: %w", err)
 	}
 	agents := resource.ActiveAgents(allAgents)
 
@@ -202,8 +204,8 @@ func syncAgentsProject(projectRoot string, dryRun, force, jsonOutput bool, start
 			return resolveExtension(ext, projectExtensionsDir(projectRoot))
 		},
 	})
-	_, err = renderAgentRun(results, dryRun, jsonOutput, start)
-	return err
+	stats, err := renderAgentRun(results, dryRun, jsonOutput, start)
+	return stats.failed, err
 }
 
 // renderAgentRun prints per-target agent sync results and the summary.
@@ -226,6 +228,7 @@ func renderAgentRun(results []sync.AgentTargetResult, dryRun, jsonOutput bool, s
 			if !jsonOutput {
 				ui.Error("%s: %v", r.Name, r.Err)
 			}
+			totals.failed = append(totals.failed, r.Name)
 			syncErr = fmt.Errorf("some agent targets failed to sync")
 			continue
 		}
@@ -233,6 +236,7 @@ func renderAgentRun(results []sync.AgentTargetResult, dryRun, jsonOutput bool, s
 			if !jsonOutput {
 				ui.Error("%s: agent sync failed: %v", r.Name, r.SyncErr)
 			}
+			totals.failed = append(totals.failed, r.Name)
 			syncErr = fmt.Errorf("some agent targets failed to sync")
 		}
 		if !r.Synced {
