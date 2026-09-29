@@ -116,6 +116,29 @@ export function mcpGroups(plan: MCPPlan | null | undefined): ChangeGroup[] {
   }));
 }
 
+/** Targets already in sync, the global ones apart from each project's: a project target is `<project>@<tool>`. */
+export function groupInSync(names: string[]) {
+  const global: string[] = [];
+  const projects = new Map<string, string[]>();
+  for (const name of names) {
+    const at = name.lastIndexOf('@');
+    if (at < 0) global.push(name);
+    else projects.set(name.slice(0, at), [...(projects.get(name.slice(0, at)) ?? []), name.slice(at + 1)]);
+  }
+  return { global, projects: [...projects].map(([project, tools]) => ({ project, tools })) };
+}
+
+/** Ignored names by folder, so a shared prefix such as `security/` is written once. */
+export function groupByFolder(names: string[]) {
+  const folders = new Map<string, string[]>();
+  for (const name of names) {
+    const slash = name.lastIndexOf('/');
+    const folder = slash < 0 ? '' : name.slice(0, slash + 1);
+    folders.set(folder, [...(folders.get(folder) ?? []), name.slice(slash + 1)]);
+  }
+  return [...folders].map(([folder, items]) => ({ folder, items }));
+}
+
 export const countChanges = (groups: ChangeGroup[]) => groups.reduce((n, g) => n + g.rows.filter((r) => r.counts).length, 0);
 /** Changes a plain sync of every part would apply (the sidebar badge). A blocked MCP plan applies nothing. */
 export function pendingCount(diffs: DiffTarget[], targets: Target[], extras: ExtraDiffResult[], plan: MCPPlan | null | undefined): number {

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api, type DiffTarget, type Target } from '../../api/client';
 import { mcpApi, type MCPPlan } from '../../api/mcp';
-import { countChanges, countEdited, extraGroups, MCP_CHANGED, mcpGroups, pendingCount, resourceGroups, runSync } from './syncView';
+import { countChanges, countEdited, extraGroups, groupByFolder, groupInSync, MCP_CHANGED, mcpGroups, pendingCount, resourceGroups, runSync } from './syncView';
 
 vi.mock('../../api/client', async (load) => ({ ...await load<typeof import('../../api/client')>(), api: { sync: vi.fn(), syncExtras: vi.fn() } }));
 vi.mock('../../api/mcp', async (load) => ({ ...await load<typeof import('../../api/mcp')>(), mcpApi: { preview: vi.fn(), configure: vi.fn() } }));
@@ -106,5 +106,20 @@ describe('mcpGroups', () => {
   it('counts taking over an existing entry as a change', () => {
     const adopt = { ...plan, changes: [{ target: 'claude', path: '/home/u/.claude.json', name: 'mcp-test', action: 'adopt' }] };
     expect(countChanges(mcpGroups(adopt))).toBe(1);
+  });
+});
+
+describe('groupInSync', () => {
+  it('keeps global targets apart and lists each project with its tools', () => {
+    expect(groupInSync(['api-server@claude', 'api-server@opencode', 'claude', 'shop-web@cursor', 'universal'])).toEqual({
+      global: ['claude', 'universal'],
+      projects: [{ project: 'api-server', tools: ['claude', 'opencode'] }, { project: 'shop-web', tools: ['cursor'] }],
+    });
+  });
+});
+
+describe('groupByFolder', () => {
+  it('writes a shared folder once', () => {
+    expect(groupByFolder(['security/a', 'security/b', 'top'])).toEqual([{ folder: 'security/', items: ['a', 'b'] }, { folder: '', items: ['top'] }]);
   });
 });

@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, ArrowDownToLine, Bot, ChevronDown, ChevronRight, CircleCheck, CircleMinus, EyeOff, FolderPlus, Gauge, Import, Minus, Plug, Plus, Puzzle, RefreshCw, TriangleAlert } from 'lucide-react';
+import { AlertCircle, ArrowDownToLine, Bot, ChevronDown, ChevronRight, CircleCheck, CircleMinus, EyeOff, Folder, FolderPlus, Gauge, Globe, Import, Minus, Plug, Plus, Puzzle, RefreshCw, TriangleAlert } from 'lucide-react';
 import { api, formatTokenK, type SyncResponse } from '../api/client';
 import { mcpApi } from '../api/mcp';
 import AgentIcon from '../components/AgentIcon';
@@ -12,7 +12,7 @@ import PageHeader from '../components/PageHeader';
 import Spinner from '../components/Spinner';
 import { useToast } from '../components/Toast';
 import { describeMessage, mcpClient, targetLabel } from '../components/mcp/mcpView';
-import { countChanges, countEdited, extraGroups, MCP_CHANGED, mcpGroups, resourceGroups, runSync, type ChangeGroup, type Part, type RowIcon } from '../components/sync/syncView';
+import { countChanges, countEdited, extraGroups, groupByFolder, groupInSync, MCP_CHANGED, mcpGroups, resourceGroups, runSync, type ChangeGroup, type Part, type RowIcon } from '../components/sync/syncView';
 import SkillsOffDialog from '../components/targets/SkillsOffDialog';
 import { joinList, refreshTargets } from '../components/targets/targetView';
 import { formatDateTime, formatRelativeTime, useI18n, useT } from '../i18n';
@@ -31,6 +31,29 @@ const ROW_ICON: Record<RowIcon, React.ReactNode> = {
 const PART_ICON: Record<Part, React.ReactNode> = { skill: <Puzzle size={14} />, agent: <Bot size={14} />, extra: <FolderPlus size={14} />, mcp: <Plug size={14} /> };
 const PART_LABEL: Record<Part, string> = { skill: 'Skills', agent: 'Agents', extra: 'Extras', mcp: 'MCP' };
 const PARTS = Object.keys(PART_LABEL) as Part[];
+
+/** A target in an expanded list: its logo and name. */
+function TargetChip({ target, label }: { target: string; label: string }) {
+  return (
+    <span className="inline-flex h-7 items-center gap-[7px] rounded-[var(--r-ctl)] border border-line bg-surface pl-[5px] pr-2.5 text-[13px]">
+      <span className="inline-flex size-5 items-center justify-center rounded-[5px] bg-sunken"><AgentIcon target={target} size={14} /></span>
+      {label}
+    </span>
+  );
+}
+
+/** A labelled row of an expanded list: the label on the left, its items on the right. */
+function ScopeRow({ label, sub, icon, children }: { label: string; sub?: string; icon?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-[96px_minmax(0,1fr)] items-start gap-3">
+      <div className={`flex flex-col gap-0.5 ${sub ? 'pt-[3px]' : ''}`}>
+        <span className={`flex items-center gap-1.5 text-[12px] font-semibold text-ink-3 ${sub ? '' : 'h-7'}`}>{icon}{label}</span>
+        {sub && <span className="font-mono text-[11.5px] text-ink-3">{sub}</span>}
+      </div>
+      {children}
+    </div>
+  );
+}
 
 export default function SyncPage() {
   const t = useT();
@@ -64,7 +87,10 @@ export default function SyncPage() {
   const loading = diff.isPending || targets.isPending;
 
   const local = diffs.flatMap((d) => (d.items ?? []).filter((i) => i.action === 'local' && parts.has(i.kind === 'agent' ? 'agent' : 'skill')));
-  const ignored = [...(parts.has('skill') ? diff.data?.ignored_skills ?? [] : []), ...(parts.has('agent') ? diff.data?.agent_ignored_skills ?? [] : [])];
+  const skillIgnored = parts.has('skill') ? diff.data?.ignored_skills ?? [] : [];
+  const agentIgnored = parts.has('agent') ? diff.data?.agent_ignored_skills ?? [] : [];
+  const ignored = [...skillIgnored, ...agentIgnored];
+  const inSync = groupInSync(resources.inSync);
   const skipped = parts.has('skill') ? diffs.filter((d) => (d.skippedCount ?? 0) > 0) : [];
   const last = log.data?.entries.find((e) => !e.args?.dry_run);
   const targetList = targets.data?.targets ?? [];
@@ -203,13 +229,33 @@ export default function SyncPage() {
                 ))}
                 {resources.inSync.length > 0 && (
                   <button type="button" className="ss-gh w-full text-left" aria-expanded={open.has('inSync')} onClick={() => setOpen((s) => toggle(s, 'inSync'))}>
-                    <span className="ss-stack ml-1.5">{resources.inSync.slice(0, 4).map((name) => <span key={name} className="ss-at"><AgentIcon target={name} size={14} /></span>)}</span>
+                    {!open.has('inSync') && <span className="ss-stack ml-1.5">{resources.inSync.slice(0, 4).map((name) => <span key={name} className="ss-at"><AgentIcon target={name} size={14} /></span>)}</span>}
                     <span className="font-semibold">{t(resources.inSync.length === 1 ? 'sync.inSync.one' : 'sync.inSync.other', { count: resources.inSync.length })}</span>
                     <span className="flex-1" />
                     {open.has('inSync') ? <ChevronDown size={15} className="text-ink-3" /> : <ChevronRight size={15} className="text-ink-3" />}
                   </button>
                 )}
-                {open.has('inSync') && <div className="ss-r text-[13px] text-ink-2">{resources.inSync.join(', ')}</div>}
+                {open.has('inSync') && (
+                  <div className="flex flex-col px-[18px] pb-[18px] pt-4 [border-top:var(--sep)] [&>*+*]:mt-3.5 [&>*+*]:pt-3.5 [&>*+*]:[border-top:var(--sep)]">
+                    {inSync.global.length > 0 && (
+                      <ScopeRow icon={<Globe size={13} />} label={`${t('resources.targets.global')} · ${inSync.global.length}`}>
+                        <div className="flex flex-wrap gap-2">{inSync.global.map((name) => <TargetChip key={name} target={name} label={name} />)}</div>
+                      </ScopeRow>
+                    )}
+                    {inSync.projects.length > 0 && (
+                      <ScopeRow icon={<Folder size={13} />} label={`${t('resources.targets.projects')} · ${resources.inSync.length - inSync.global.length}`}>
+                        <div className="flex flex-col gap-2">
+                          {inSync.projects.map(({ project, tools }) => (
+                            <div key={project} className="grid grid-cols-[120px_minmax(0,1fr)] items-center gap-2.5">
+                              <span className="truncate font-mono text-[12.5px] text-ink-2" title={project}>{project}</span>
+                              <div className="flex flex-wrap gap-2">{tools.map((tool) => <TargetChip key={tool} target={`${project}@${tool}`} label={tool} />)}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </ScopeRow>
+                    )}
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -234,11 +280,28 @@ export default function SyncPage() {
                     <button type="button" className="flex min-w-0 flex-1 items-center gap-2.5 text-left" aria-expanded={open.has('ignored')} onClick={() => setOpen((s) => toggle(s, 'ignored'))}>
                       {open.has('ignored') ? <ChevronDown size={14} className="shrink-0 text-ink-3" /> : <ChevronRight size={14} className="shrink-0 text-ink-3" />}
                       <EyeOff size={15} className="shrink-0 text-ink-3" />
-                      <span><b>{t(ignored.length === 1 ? 'sync.ignored.one' : 'sync.ignored.other', { count: ignored.length })}</b> <span className="text-ink-2">{t('sync.ignored.by')}</span></span>
+                      <span><b>{t(ignored.length === 1 ? 'sync.ignored.one' : 'sync.ignored.other', { count: ignored.length })}</b>{!open.has('ignored') && <> <span className="text-ink-2">{t('sync.ignored.by')}</span></>}</span>
                     </button>
                     <Link to="/config" className="shrink-0 font-semibold">{t('sync.ignored.edit')}</Link>
                   </div>
-                  {open.has('ignored') && <div className="ss-r pl-[62px] font-mono text-[12.5px] text-ink-2">{ignored.join(', ')}</div>}
+                  {open.has('ignored') && (
+                    <div className="flex flex-col gap-3.5 px-[18px] pb-[18px] pt-3.5 [border-top:var(--sep)]">
+                      {([['Skills', '.skillignore', skillIgnored], ['Agents', '.agentignore', agentIgnored]] as const).filter(([, , names]) => names.length > 0).map(([label, file, names]) => (
+                        <ScopeRow key={file} label={`${label} · ${names.length}`} sub={file}>
+                          <div className="flex flex-col gap-2">
+                            {groupByFolder(names).map(({ folder, items }) => (
+                              <div key={folder} className="flex flex-col gap-1.5">
+                                {folder && <div className="flex items-center gap-[7px] font-mono text-[12.5px] text-ink-2"><Folder size={14} className="shrink-0 text-ink-3" />{folder}</div>}
+                                <div className={`grid grid-cols-2 gap-x-6 gap-y-1.5 font-mono text-[12.5px] ${folder ? 'pl-[21px]' : ''}`}>
+                                  {items.map((name) => <span key={name} className="truncate" title={folder + name}>{name}</span>)}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </ScopeRow>
+                      ))}
+                    </div>
+                  )}
                 </>
               )}
               {skipped.map((d) => (
