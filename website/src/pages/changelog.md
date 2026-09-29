@@ -9,6 +9,48 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.21.15] - 2026-09-29
+
+### New Features
+
+#### Targets
+
+- **Switch skills off for a target** — a target can now stop syncing skills while skillshare keeps managing its agents, MCP servers and instructions. Use it for a tool that also reads another target's folder, such as Pi reading `~/.agents/skills` of `universal`, so each skill no longer shows up twice. Turning skills off saves `skills.enabled: false` and removes only the links into your source: your own skills stay, copies from copy mode are kept and listed apart, and a folder another enabled target writes to is left alone. `sync`, `diff`, `status` and `doctor` then skip the target's skills, and `analyze` counts what the folder still holds.
+  ```bash
+  skillshare target pi --skills=false --dry-run   # preview what is removed
+  skillshare target pi --skills=false
+  skillshare target add gemini ~/.gemini/skills --no-skills
+  ```
+  Turn skills back on with `--skills=true`; the next `skillshare sync` syncs them again. Works in project mode with `-p`.
+- **10 more targets** — `autohand-code`, `fx`, `jazz`, `kimchi`, `kimi-code`, `ona`, `posit-assistant`, `qoder-cn`, `reasonix` and `zcode`, with the folders each tool also reads recorded so the dashboard can tell you when two targets overlap.
+- **More vendor logos** — more targets show their vendor's colored logo instead of a letter.
+
+#### Dashboard
+
+- **Stop syncing skills from the target page** — **Stop syncing skills** on a target's Skills tab lists what will be removed and what stays before anything changes, and warns when other tools read the same folder and would lose those skills. The dashboard's target list shows such targets as **Skills off**.
+- **See who else reads a skills folder** — a target's Skills tab names the targets that stopped syncing skills and read its folder instead, and the other folders a tool also reads, so you can spot skills that load twice.
+- **Adding a target shows what it writes** — the add dialog pins `universal` as the shared folder when it is not configured yet, and for the picked tool lists every place skillshare will write: the skills folder (with a switch to add it with skills off), the agents folder, the MCP config and the instruction file.
+- **Where a target's AGENTS.md comes from, in one card** — the AGENTS.md tab now shows one card with the shared file the target follows or imports, the other targets using it, and the actions for it. **Change** switches the target to another shared AGENTS.md in place; **Edit** opens the shared file. The tab opens in **Preview** when the file has content, **Show all** expands it to its full length, and **Save** appears once there is something to save.
+
+#### Extras
+
+- **Several single-file extras in one source folder** — in the **Add extra** dialog, a single file's **Source file** is one path: the source folder, then the file name. The folder defaults to the extra's name; click a folder another single-file extra uses, or type a new one, and each extra syncs its own file from it. Project extras now accept `--source` too, relative to the project root, so a project can share a folder the same way. Removing an extra keeps files the others still use. Refs: #300.
+  ```bash
+  skillshare extras init review -p --source .skillshare/extras/prompts --file review.md --target .pi
+  skillshare extras init append -p --source .skillshare/extras/prompts --file append.md \
+    --target .pi --as APPEND_SYSTEM.md
+  ```
+
+### Bug Fixes
+
+- **Windows paths of single-file extras use backslashes throughout** — the Extras page showed paths such as `~\.pi\agent/APPEND_SYSTEM.md`, with a slash before the file name. Refs: #300.
+- **Kilo Code's AGENTS.md location** — the dashboard suggested `~/.kilocode/AGENTS.md`, a folder Kilo never reads. The `kilocode` target now uses `~/.config/kilo/AGENTS.md` globally and `AGENTS.md` in a project, as Kilo documents; **Change location** on its AGENTS.md tab sets another path such as `~/.kilo/AGENTS.md`. Refs: #302.
+
+### Breaking Changes
+
+- **The `zencoder` target moved to `.agents/skills`** — `~/.agents/skills` globally and `.agents/skills` in a project, because Zencoder now documents that location and reads `.zencoder/skills` only for backward compatibility. A global config stores full paths, so an existing one keeps its path. A project config stores target names only, so it follows the new default on its next `sync -p`, which also removes the links skillshare left in the old folder; folders you made by hand there are kept.
+- **`replit` is project-only** — Replit documents only the project `.agents/skills` folder, so the target no longer has a global default path. An existing global `replit` target keeps the path in your config.
+
 ## [0.21.14] - 2026-09-29
 
 ### New Features
