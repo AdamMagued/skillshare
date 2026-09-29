@@ -226,7 +226,7 @@ func manifestComponents(root, target string, m map[string]json.RawMessage, compo
 	return components
 }
 
-const maxLogo = 256 << 10
+const maxLogo = 1 << 20
 
 var logoTypes = map[string]string{".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".svg": "image/svg+xml"}
 
