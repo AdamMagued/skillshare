@@ -74,6 +74,18 @@ function isGitSource(s: string) {
 
 const sameURL = (a: string, b: string) => a.trim().replace(/\/+$/, '') === b.trim().replace(/\/+$/, '');
 
+function sourceKey(source: string): string {
+  const value = source.trim().replace(/\/+$/, '');
+  const github = value.match(/^(?:(?:https?:\/\/)?(?:www\.)?github\.com\/|git@github\.com:)(.+)$/i)?.[1]
+    ?? (/^[^/:.]+\/[^/]+/.test(value) ? value : null);
+  return github ? `github:${github.replace(/\.git(?=\/|$)/i, '').toLowerCase()}` : value;
+}
+
+function discoveredSource(source: string, path: string): string {
+  if (path === '.') return source;
+  return `${source}${/^(?:git@|ssh:\/\/).+\.git$/i.test(source) ? '//' : '/'}${path}`;
+}
+
 function mergeHubs(hubs: HubSavedEntry[]): HubSavedEntry[] {
   return [COMMUNITY_HUB, ...hubs.filter((h) => !sameURL(h.url, COMMUNITY_HUB.url)).map((h) => ({ label: h.label, url: h.url }))];
 }
@@ -128,8 +140,14 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
     queryFn: () => api.listSkills(),
     staleTime: staleTimes.skills,
   });
-  const installedKeys = useMemo(() => new Set((skillsData?.resources ?? []).map((r) => `${r.kind}:${r.name}`)), [skillsData]);
-  const isInstalled = (k: Kind, n: string) => installedKeys.has(`${k}:${n}`);
+  const installedKeys = useMemo(() => new Set((skillsData?.resources ?? []).filter((r) => r.source).map((r) => `${r.kind}:${sourceKey(r.source!)}`)), [skillsData]);
+  const isInstalled = (k: Kind, source: string) => installedKeys.has(`${k}:${sourceKey(source)}`);
+  const isInstalledResult = (result: SearchResult) => {
+    if (!result.skill) return isInstalled(kind, result.source);
+    const source = sourceKey(result.source);
+    return (skillsData?.resources ?? []).some((item) => item.kind === kind && item.name === result.skill && item.source
+      && (sourceKey(item.source) === source || sourceKey(item.source).startsWith(`${source}/`)));
+  };
 
   const { data: hubConfig } = useQuery({
     queryKey: queryKeys.hubConfig,
@@ -268,7 +286,7 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
     const show = (items: DiscoveredSkill[]) => {
       setSource(from);
       setFound({ source: from, items });
-      setSelected(new Set(items.filter((i) => !isInstalled(i.kind ?? 'skill', i.name)).map((i) => i.path)));
+      setSelected(new Set(items.filter((i) => !isInstalled(i.kind ?? 'skill', discoveredSource(from, i.path))).map((i) => i.path)));
       setFilter('');
       setExpanded(false);
       setTab('url');
@@ -436,7 +454,7 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
       <>
         <Button variant="ghost" onClick={() => setView(null)} disabled={locked}>{t('install.preview.back')}</Button>
         <span className="flex-1" />
-        {isInstalled(kind, p.name) ? (
+        {isInstalledResult(p) ? (
           <span className="ss-st ok text-ok">Installed</span>
         ) : (
           <Button variant="primary" loading={busy === `row:${p.source}`} disabled={locked || previewLoading || failed} onClick={() => installResult(p)}>
@@ -568,7 +586,7 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
                   )}
                   {r.stars > 0 && <span className="flex w-14 shrink-0 items-center gap-1 text-xs text-ink-3"><Star size={13} />{compact.format(r.stars)}</span>}
                   <span className="flex w-[76px] shrink-0 justify-end">
-                    {isInstalled(kind, r.name) ? (
+                    {isInstalledResult(r) ? (
                       <span className="ss-st ok text-ok">Installed</span>
                     ) : (
                       <Button variant="secondary" size="sm" loading={busy === `row:${r.source}`} disabled={locked} onClick={() => installResult(r)}>
@@ -706,7 +724,7 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
                     <Checkbox label={item.name} hideLabel checked={selected.has(item.path)} onChange={() => toggle(item.path)} />
                     <span className="nm m w-[170px] shrink-0 truncate">{item.name}</span>
                     <span className="min-w-0 flex-1 truncate text-[13px] text-ink-2">{item.description}</span>
-                    {isInstalled(item.kind ?? 'skill', item.name) && <span className="ss-st ok shrink-0 text-ok">Installed</span>}
+                    {isInstalled(item.kind ?? 'skill', discoveredSource(found.source, item.path)) && <span className="ss-st ok shrink-0 text-ok">Installed</span>}
                   </div>
                 ))}
               </div>
