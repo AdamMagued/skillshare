@@ -455,9 +455,9 @@ func TestUninstallModes_OplogOnCancelAndHelp(t *testing.T) {
 	}
 }
 
-// Project uninstall passes the project root to ensureProjectGitignore, so the
-// operational entries land in <root>/.gitignore rather than .skillshare/.gitignore.
-func TestUninstallModes_ProjectWritesOperationalGitignoreAtRoot(t *testing.T) {
+// Project uninstall backfills the operational entries for projects created
+// before v0.17.3; they belong in .skillshare/.gitignore, never the project root.
+func TestUninstallModes_ProjectEnsuresOperationalGitignore(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 	projectRoot := sb.SetupProjectDir("claude")
@@ -465,10 +465,14 @@ func TestUninstallModes_ProjectWritesOperationalGitignoreAtRoot(t *testing.T) {
 
 	sb.RunCLIInDir(projectRoot, "uninstall", "x", "--dry-run", "-p").AssertSuccess(t)
 
-	got := sb.ReadFile(filepath.Join(projectRoot, ".gitignore"))
+	got := sb.ReadFile(filepath.Join(projectRoot, ".skillshare", ".gitignore"))
 	for _, entry := range []string{"logs/", "trash/", "backups/"} {
 		if !strings.Contains(got, entry) {
-			t.Errorf("project uninstall should gitignore %s at the root, got:\n%s", entry, got)
+			t.Errorf("project uninstall should gitignore %s, got:\n%s", entry, got)
 		}
+	}
+	if sb.FileExists(filepath.Join(projectRoot, ".gitignore")) {
+		t.Errorf("project uninstall must not write the root .gitignore, got:\n%s",
+			sb.ReadFile(filepath.Join(projectRoot, ".gitignore")))
 	}
 }

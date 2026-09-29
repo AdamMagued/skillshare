@@ -102,7 +102,7 @@ func cmdUninstallProject(args []string, root string) error {
 	}
 
 	// Backward compat: ensure operational dirs are gitignored for projects created before v0.17.3.
-	_ = ensureProjectGitignore(root, false)
+	_ = ensureProjectGitignore(projectdir.Resolve(root), false)
 
 	// --- Phase 1: RESOLVE ---
 	var targets []*uninstallTarget
