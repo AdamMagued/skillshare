@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"skillshare/internal/config"
 	"skillshare/internal/install"
 )
 
@@ -31,8 +30,7 @@ func TestResolveUninstallByGlob_MatchesDirs(t *testing.T) {
 		os.MkdirAll(filepath.Join(src, name), 0755)
 	}
 
-	cfg := &config.Config{Source: src}
-	targets, err := resolveUninstallByGlob("core-*", cfg)
+	targets, err := resolveUninstallByGlob("core-*", src)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,8 +54,7 @@ func TestResolveUninstallByGlob_DetectsTrackedRepos(t *testing.T) {
 	// Regular skill
 	os.MkdirAll(filepath.Join(src, "_team-docs"), 0755)
 
-	cfg := &config.Config{Source: src}
-	targets, err := resolveUninstallByGlob("_team-*", cfg)
+	targets, err := resolveUninstallByGlob("_team-*", src)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,8 +76,7 @@ func TestResolveUninstallByGlob_CaseInsensitive(t *testing.T) {
 	os.MkdirAll(filepath.Join(src, "Core-Auth"), 0755)
 	os.MkdirAll(filepath.Join(src, "core-db"), 0755)
 
-	cfg := &config.Config{Source: src}
-	targets, err := resolveUninstallByGlob("core-*", cfg)
+	targets, err := resolveUninstallByGlob("core-*", src)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,8 +89,7 @@ func TestResolveUninstallByGlob_NoMatch(t *testing.T) {
 	src := t.TempDir()
 	os.MkdirAll(filepath.Join(src, "utils"), 0755)
 
-	cfg := &config.Config{Source: src}
-	targets, err := resolveUninstallByGlob("core-*", cfg)
+	targets, err := resolveUninstallByGlob("core-*", src)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,8 +103,7 @@ func TestResolveUninstallByGlob_SkipsFiles(t *testing.T) {
 	os.MkdirAll(filepath.Join(src, "core-skill"), 0755)
 	os.WriteFile(filepath.Join(src, "core-file.txt"), []byte("not a dir"), 0644)
 
-	cfg := &config.Config{Source: src}
-	targets, err := resolveUninstallByGlob("core-*", cfg)
+	targets, err := resolveUninstallByGlob("core-*", src)
 	if err != nil {
 		t.Fatal(err)
 	}

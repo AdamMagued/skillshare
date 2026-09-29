@@ -1,0 +1,701 @@
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	gosync "sync"
+	"time"
+
+	"github.com/pterm/pterm"
+
+	"skillshare/internal/git"
+	"skillshare/internal/install"
+	"skillshare/internal/sync"
+	"skillshare/internal/trash"
+	"skillshare/internal/ui"
+)
+
+// uninstallMode holds what differs between global and project skill uninstall.
+type uninstallMode struct {
+	sourceDir   string
+	sourceLabel string // names sourceDir in not-found errors
+	trashDir    string
+	configPath  string // oplog location
+	store       *install.MetadataStore
+
+	emptySourceErr string // --all found no skills
+	globs          bool   // expand glob patterns in skill names
+	confirmSuffix  string // appended to confirmation questions
+	reinstallFlags string // appended to reinstall hints
+	syncHint       string
+	batchSummary   bool // print the removed/skipped/failed line after a batch
+	// reportAfterFinalize reports a single-target trash failure and prints
+	// Next Steps after metadata and lock updates instead of right after the move.
+	reportAfterFinalize bool
+
+	dryRunGitignore  func(t *uninstallTarget) string // "" prints no line
+	gitignoreEntries func(succeeded []*uninstallTarget) (dir string, entries []string)
+	afterRemove      func(removed map[string]bool) // extra state cleanup, may be nil
+	preflight        uninstallPreflightMessages
+}
+
+// uninstallPreflightMessages reports tracked-repo git checks.
+type uninstallPreflightMessages struct {
+	forceStatus  func(name string, err error) // status unreadable, --force set
+	forceDirty   func(name string)            // dirty, --force set
+	batchDirty   func(name string, err error) // dirty repo skipped in a batch
+	singleStatus func(err error)              // status unreadable, single target; may be nil
+	noneLeft     func(skipped int) error      // every target skipped
+}
+
+var globalUninstallPreflight = uninstallPreflightMessages{
+	forceStatus: func(name string, err error) {
+		ui.Warning("Could not check git status for %s (proceeding with --force): %v", name, err)
+	},
+	forceDirty: func(name string) {
+		ui.Warning("Repository %s has uncommitted changes (proceeding with --force)", name)
+	},
+	batchDirty: func(name string, _ error) {
+		ui.StepSkip(name, "uncommitted changes, use --force")
+	},
+	singleStatus: func(err error) { ui.Error("%v", err) },
+	noneLeft: func(skipped int) error {
+		if skipped > 0 {
+			return fmt.Errorf("%d tracked repo%s skipped due to uncommitted changes; use --force to override", skipped, pluralS(skipped))
+		}
+		return fmt.Errorf("no skills to uninstall after pre-flight checks")
+	},
+}
+
+var projectUninstallPreflight = uninstallPreflightMessages{
+	forceStatus: func(_ string, err error) {
+		ui.Warning("Could not check git status (proceeding with --force): %v", err)
+	},
+	forceDirty: func(string) {
+		ui.Warning("Repository has uncommitted changes (proceeding with --force)")
+	},
+	batchDirty: func(name string, err error) {
+		ui.Error("Repository has uncommitted changes!")
+		ui.Info("Use --force to uninstall anyway, or commit/stash your changes first")
+		ui.Warning("Skipping %s: %v", name, err)
+	},
+	noneLeft: func(int) error {
+		return fmt.Errorf("no skills to uninstall after pre-flight checks")
+	},
+}
+
+// confirmUninstall prompts user for confirmation
+func confirmUninstall(target *uninstallTarget, suffix string) (bool, error) {
+	kind := "skill"
+	if target.isTrackedRepo {
+		kind = "tracked repository"
+	} else if len(countGroupSkills(target.path)) > 0 {
+		kind = "group"
+	}
+
+	fmt.Printf("Are you sure you want to uninstall this %s%s? [y/N]: ", kind, suffix)
+	return readUninstallConfirmation()
+}
+
+func readUninstallConfirmation() (bool, error) {
+	reader := bufio.NewReader(os.Stdin)
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		return false, err
+	}
+
+	input = strings.TrimSpace(strings.ToLower(input))
+	return input == "y" || input == "yes", nil
+}
+
+// performUninstallQuiet moves the skill to trash without printing output.
+// Used by batch mode; returns the type label for StepDone display.
+// Note: .gitignore cleanup is handled in batch by the caller.
+func performUninstallQuiet(target *uninstallTarget, trashDir string) (typeLabel string, err error) {
+	groupSkillCount := 0
+	if !target.isTrackedRepo {
+		groupSkillCount = len(countGroupSkills(target.path))
+	}
+
+	if _, err := trash.MoveToTrash(target.path, target.name, trashDir); err != nil {
+		return "", fmt.Errorf("failed to move to trash: %w", err)
+	}
+
+	if target.isTrackedRepo {
+		return "tracked repo", nil
+	}
+	if groupSkillCount > 0 {
+		return fmt.Sprintf("group, %d skill%s", groupSkillCount, pluralS(groupSkillCount)), nil
+	}
+	return "skill", nil
+}
+
+// performUninstall moves the skill to trash (verbose single-target output).
+// Note: .gitignore cleanup is handled in batch by the caller.
+func performUninstall(target *uninstallTarget, mode *uninstallMode) error {
+	// Read metadata before moving (for reinstall hint)
+	entry := mode.store.Get(target.name)
+	groupSkillCount := 0
+	if !target.isTrackedRepo {
+		groupSkillCount = len(countGroupSkills(target.path))
+	}
+
+	trashPath, err := trash.MoveToTrash(target.path, target.name, mode.trashDir)
+	if err != nil {
+		return err
+	}
+
+	if target.isTrackedRepo {
+		ui.Success("Uninstalled tracked repository: %s", target.name)
+	} else if groupSkillCount > 0 {
+		ui.Success("Uninstalled group: %s", target.name)
+	} else {
+		ui.Success("Uninstalled skill: %s", target.name)
+	}
+	ui.Info("Moved to trash (7 days): %s", trashPath)
+	if entry != nil && entry.Source != "" {
+		ui.Info("Reinstall: skillshare install %s%s", entry.Source, mode.reinstallFlags)
+	}
+	if !mode.reportAfterFinalize {
+		printUninstallNextSteps(mode)
+	}
+	return nil
+}
+
+func printUninstallNextSteps(mode *uninstallMode) {
+	ui.SectionLabel("Next Steps")
+	ui.Info("%s", mode.syncHint)
+	cleanupUninstallTrash(mode)
+}
+
+// cleanupUninstallTrash opportunistically removes expired trash items.
+func cleanupUninstallTrash(mode *uninstallMode) {
+	if n, _ := trash.Cleanup(mode.trashDir, 0); n > 0 {
+		ui.Info("Cleaned up %d expired trash item%s", n, pluralS(n))
+	}
+}
+
+// removeUninstalledFromGitignore batch-removes .gitignore entries for succeeded
+// targets in one read/write pass.
+func removeUninstalledFromGitignore(mode *uninstallMode, succeeded []*uninstallTarget) error {
+	if len(succeeded) == 0 {
+		return nil
+	}
+	dir, entries := mode.gitignoreEntries(succeeded)
+	if dir == "" || len(entries) == 0 {
+		return nil
+	}
+	_, err := install.RemoveFromGitIgnoreBatch(dir, entries)
+	return err
+}
+
+// runUninstallSkills resolves, checks, confirms and removes skills for either
+// mode. rawArgs feed the oplog entry.
+func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []string, start time.Time) error {
+	// --- Phase 1: RESOLVE ---
+	var targets []*uninstallTarget
+	seen := map[string]bool{} // dedup by path
+	var resolveWarnings []string
+
+	if opts.all {
+		var sp *ui.Spinner
+		if !opts.jsonOutput {
+			sp = ui.StartSpinner("Discovering skills...")
+		}
+		discovered, _, err := sync.DiscoverSourceSkillsLite(mode.sourceDir)
+		if err != nil {
+			if sp != nil {
+				sp.Fail("Discovery failed")
+			}
+			discoverErr := fmt.Errorf("failed to discover skills: %w", err)
+			if opts.jsonOutput {
+				return writeJSONError(discoverErr)
+			}
+			return discoverErr
+		}
+		if sp != nil {
+			sp.Success(fmt.Sprintf("Found %d skills", len(discovered)))
+		}
+		if len(discovered) == 0 {
+			noSkillsErr := fmt.Errorf("%s", mode.emptySourceErr)
+			if opts.jsonOutput {
+				return writeJSONError(noSkillsErr)
+			}
+			return noSkillsErr
+		}
+		// Collect unique top-level directories to avoid nested skill duplication
+		topDirs := map[string]bool{}
+		for _, d := range discovered {
+			topDirs[topLevelDir(d.RelPath)] = true
+		}
+		for dir := range topDirs {
+			skillPath := filepath.Join(mode.sourceDir, dir)
+			targets = append(targets, &uninstallTarget{
+				name:          dir,
+				path:          skillPath,
+				isTrackedRepo: install.IsGitRepo(skillPath),
+			})
+			seen[skillPath] = true
+		}
+	}
+
+	for _, name := range opts.skillNames {
+		// Glob pattern matching (e.g. "core-*", "_team-?")
+		if mode.globs && isGlobPattern(name) {
+			globMatches, globErr := resolveUninstallByGlob(name, mode.sourceDir)
+			if globErr != nil {
+				resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s: %v", name, globErr))
+				continue
+			}
+			if len(globMatches) == 0 {
+				resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s: no skills match pattern", name))
+				continue
+			}
+			if !opts.jsonOutput {
+				ui.Info("Pattern '%s' matched %d item(s)", name, len(globMatches))
+			}
+			for _, t := range globMatches {
+				if !seen[t.path] {
+					seen[t.path] = true
+					targets = append(targets, t)
+				}
+			}
+			continue
+		}
+
+		t, err := resolveUninstallTarget(name, mode.sourceDir, mode.sourceLabel)
+		if err != nil {
+			resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s: %v", name, err))
+			continue
+		}
+		if !seen[t.path] {
+			seen[t.path] = true
+			targets = append(targets, t)
+		}
+	}
+
+	for _, group := range opts.groups {
+		groupTargets, err := resolveGroupSkills(group, mode.sourceDir)
+		if err != nil {
+			resolveWarnings = append(resolveWarnings, fmt.Sprintf("--group %s: %v", group, err))
+			continue
+		}
+		for _, t := range groupTargets {
+			if !seen[t.path] {
+				seen[t.path] = true
+				targets = append(targets, t)
+			}
+		}
+	}
+
+	if !opts.jsonOutput {
+		for _, w := range resolveWarnings {
+			ui.Warning("%s", w)
+		}
+	}
+
+	// Shell glob detection: if positional args look like shell-expanded filenames,
+	// intercept early and suggest --all instead
+	if !opts.all && looksLikeShellGlob(opts.skillNames, resolveWarnings) {
+		globErr := fmt.Errorf("shell glob expansion detected")
+		if opts.jsonOutput {
+			return writeJSONError(globErr)
+		}
+		ui.Warning("It looks like '*' was expanded by your shell into file names.")
+		ui.Info("To uninstall all skills, use: skillshare uninstall --all")
+		return globErr
+	}
+
+	// --- Phase 2: VALIDATE ---
+	if len(targets) == 0 {
+		var noTargetsErr error
+		if len(resolveWarnings) > 0 {
+			noTargetsErr = fmt.Errorf("no valid skills to uninstall")
+		} else {
+			noTargetsErr = fmt.Errorf("no skills found")
+		}
+		if opts.jsonOutput {
+			return writeJSONError(noTargetsErr)
+		}
+		return noTargetsErr
+	}
+
+	// --- Phase 3: DISPLAY ---
+	single := len(targets) == 1
+	summary := summarizeUninstallTargets(targets)
+	if opts.jsonOutput {
+		// Skip display in JSON mode
+	} else if single {
+		displayUninstallInfo(targets[0], mode.store)
+	} else {
+		displayUninstallBatch(targets, summary)
+	}
+
+	// --- Phase 4: PRE-FLIGHT ---
+	var preflightSkipped int
+	var preflightFailed []string
+	if !opts.dryRun {
+		dirtyResults := checkUninstallTargetsDirty(targets)
+
+		var preflight []*uninstallTarget
+		for i, t := range targets {
+			if !t.isTrackedRepo {
+				preflight = append(preflight, t)
+				continue
+			}
+			dr := dirtyResults[i]
+			if dr.err != nil {
+				if opts.force {
+					if !opts.jsonOutput {
+						mode.preflight.forceStatus(t.name, dr.err)
+					}
+					preflight = append(preflight, t)
+					continue
+				}
+				statusErr := &gitStatusError{err: dr.err}
+				if single {
+					if opts.jsonOutput {
+						return writeJSONError(statusErr)
+					}
+					if mode.preflight.singleStatus != nil {
+						mode.preflight.singleStatus(statusErr)
+					}
+					return statusErr
+				}
+				if !opts.jsonOutput {
+					ui.StepFail(t.name, statusErr.Error())
+				}
+				preflightFailed = append(preflightFailed, fmt.Sprintf("%s: %v", t.name, statusErr))
+				continue
+			}
+			if !dr.dirty {
+				preflight = append(preflight, t)
+				continue
+			}
+			// Repo is dirty
+			if !opts.force {
+				dirtyErr := fmt.Errorf("uncommitted changes detected, use --force to override")
+				if single {
+					if opts.jsonOutput {
+						return writeJSONError(dirtyErr)
+					}
+					ui.Error("Repository has uncommitted changes!")
+					ui.Info("Use --force to uninstall anyway, or commit/stash your changes first")
+					return dirtyErr
+				}
+				if !opts.jsonOutput {
+					mode.preflight.batchDirty(t.name, dirtyErr)
+				}
+				continue
+			}
+			if !opts.jsonOutput {
+				mode.preflight.forceDirty(t.name)
+			}
+			preflight = append(preflight, t)
+		}
+		preflightSkipped = len(targets) - len(preflight) - len(preflightFailed)
+		targets = preflight
+		summary = summarizeUninstallTargets(targets)
+
+		if preflightSkipped > 0 && !opts.jsonOutput {
+			ui.Info("%d tracked repo%s skipped, %d remaining", preflightSkipped, pluralS(preflightSkipped), len(targets))
+			fmt.Println()
+		}
+
+		if len(targets) == 0 {
+			preflightErr := mode.preflight.noneLeft(preflightSkipped)
+			if len(preflightFailed) > 0 {
+				preflightErr = fmt.Errorf("%s", strings.Join(preflightFailed, "; "))
+			}
+			if opts.jsonOutput {
+				return writeJSONError(preflightErr)
+			}
+			return preflightErr
+		}
+	}
+
+	// --- Phase 5: DRY-RUN or CONFIRM ---
+	if opts.dryRun {
+		if opts.jsonOutput {
+			dryRunNames := make([]string, len(targets))
+			for i, t := range targets {
+				dryRunNames[i] = t.name
+			}
+			logUninstallOp(mode.configPath, uninstallOpNames(rawArgs), 0, start, nil)
+			return uninstallOutputJSON(dryRunNames, nil, preflightSkipped, true, start, nil)
+		}
+		for _, t := range targets {
+			ui.Warning("[dry-run] would move to trash: %s", t.path)
+			if line := mode.dryRunGitignore(t); line != "" {
+				ui.Warning("[dry-run] %s", line)
+			}
+			if entry := mode.store.Get(t.name); entry != nil && entry.Source != "" {
+				ui.Info("[dry-run] Reinstall: skillshare install %s%s", entry.Source, mode.reinstallFlags)
+			}
+		}
+		return nil
+	}
+
+	if !opts.force && !opts.jsonOutput {
+		var confirmed bool
+		var err error
+		if single {
+			confirmed, err = confirmUninstall(targets[0], mode.confirmSuffix)
+		} else {
+			fmt.Printf("Uninstall %d %s%s? [y/N]: ", len(targets), summarizeUninstallTargets(targets).noun(), mode.confirmSuffix)
+			confirmed, err = readUninstallConfirmation()
+		}
+		if err != nil {
+			return err
+		}
+		if !confirmed {
+			ui.Info("Cancelled")
+			return nil
+		}
+	}
+
+	// --- Phase 6: EXECUTE ---
+	batch := len(targets) > 1
+	var succeeded []*uninstallTarget
+	failed := preflightFailed
+
+	if opts.jsonOutput {
+		// JSON mode: quiet execution, no UI output
+		for _, t := range targets {
+			if _, err := performUninstallQuiet(t, mode.trashDir); err != nil {
+				failed = append(failed, fmt.Sprintf("%s: %v", t.name, err))
+			} else {
+				succeeded = append(succeeded, t)
+			}
+		}
+		removeUninstalledFromGitignore(mode, succeeded) //nolint:errcheck
+	} else if batch {
+		succeeded, failed = executeUninstallBatch(targets, summary, failed, preflightSkipped, mode, start)
+	} else {
+		for _, t := range targets {
+			if err := performUninstall(t, mode); err != nil {
+				failed = append(failed, fmt.Sprintf("%s: %v", t.name, err))
+				if mode.reportAfterFinalize {
+					ui.Warning("Failed to uninstall %s: %v", t.name, err)
+				}
+			} else {
+				succeeded = append(succeeded, t)
+			}
+		}
+
+		// Batch-remove .gitignore entries after all targets processed.
+		if err := removeUninstalledFromGitignore(mode, succeeded); err != nil {
+			ui.Warning("Could not update .gitignore: %v", err)
+		}
+	}
+
+	// --- Phase 7: FINALIZE ---
+	// Batch-remove succeeded skills from metadata store
+	if len(succeeded) > 0 {
+		removedNames := map[string]bool{}
+		for _, t := range succeeded {
+			removedNames[t.name] = true
+		}
+		mode.store.RemoveByNames(removedNames)
+		if saveErr := mode.store.Save(mode.sourceDir); saveErr != nil {
+			ui.Warning("Failed to update metadata after uninstall: %v", saveErr)
+		}
+		if mode.afterRemove != nil {
+			mode.afterRemove(removedNames)
+		}
+	}
+
+	if !batch && !opts.jsonOutput && mode.reportAfterFinalize {
+		printUninstallNextSteps(mode)
+	}
+
+	var finalErr error
+	if len(failed) > 0 && len(succeeded) == 0 {
+		finalErr = fmt.Errorf("all uninstalls failed")
+	}
+	// Partial failure: report but exit success (skip & continue)
+
+	logUninstallOp(mode.configPath, uninstallOpNames(rawArgs), len(succeeded), start, finalErr)
+
+	if opts.jsonOutput {
+		removedNames := make([]string, len(succeeded))
+		for i, t := range succeeded {
+			removedNames[i] = t.name
+		}
+		return uninstallOutputJSON(removedNames, failed, preflightSkipped, opts.dryRun, start, finalErr)
+	}
+	return finalErr
+}
+
+func displayUninstallBatch(targets []*uninstallTarget, summary uninstallTypeSummary) {
+	ui.Header(fmt.Sprintf("Uninstalling %d %s", len(targets), summary.noun()))
+	if len(targets) > 20 {
+		// Compressed: only list non-skill items (groups, tracked repos) individually
+		ui.Info("Includes: %s", summary.details())
+		for _, t := range targets {
+			if t.isTrackedRepo {
+				fmt.Printf("  - %s (tracked repository)\n", t.name)
+			} else if c := summary.groupSkillCount[t.path]; c > 0 {
+				fmt.Printf("  - %s (group, %d skill%s)\n", t.name, c, pluralS(c))
+			}
+		}
+		if summary.skills > 0 {
+			fmt.Printf("  ... and %d skill%s\n", summary.skills, pluralS(summary.skills))
+		}
+	} else {
+		if summary.isMixed() {
+			ui.Info("Includes: %s", summary.details())
+		}
+		for _, t := range targets {
+			label := t.name
+			if t.isTrackedRepo {
+				label += " (tracked repository)"
+			} else if c := summary.groupSkillCount[t.path]; c > 0 {
+				label += fmt.Sprintf(" (group, %d skill%s)", c, pluralS(c))
+			} else {
+				label += " (skill)"
+			}
+			fmt.Printf("  - %s\n", label)
+		}
+	}
+	fmt.Println()
+}
+
+type uninstallDirtyResult struct {
+	dirty bool
+	err   error
+}
+
+// checkUninstallTargetsDirty runs git dirty checks for tracked repos in
+// parallel, keyed by target index.
+func checkUninstallTargetsDirty(targets []*uninstallTarget) map[int]uninstallDirtyResult {
+	dirtyResults := make(map[int]uninstallDirtyResult)
+
+	var trackedIndices []int
+	for i, t := range targets {
+		if t.isTrackedRepo {
+			trackedIndices = append(trackedIndices, i)
+		}
+	}
+	if len(trackedIndices) == 0 {
+		return dirtyResults
+	}
+
+	const maxDirtyWorkers = 8
+	results := make([]uninstallDirtyResult, len(trackedIndices))
+	sem := make(chan struct{}, maxDirtyWorkers)
+	var wg gosync.WaitGroup
+
+	for j, idx := range trackedIndices {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(slot int, t *uninstallTarget) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			dirty, err := git.IsDirty(t.path)
+			results[slot] = uninstallDirtyResult{dirty: dirty, err: err}
+		}(j, targets[idx])
+	}
+	wg.Wait()
+
+	for j, idx := range trackedIndices {
+		dirtyResults[idx] = results[j]
+	}
+	return dirtyResults
+}
+
+// executeUninstallBatch removes several targets behind a spinner and prints
+// the condensed result. It returns the succeeded targets and all failures.
+func executeUninstallBatch(targets []*uninstallTarget, summary uninstallTypeSummary, failed []string, skipped int, mode *uninstallMode, start time.Time) ([]*uninstallTarget, []string) {
+	type batchResult struct {
+		target    *uninstallTarget
+		typeLabel string
+		errMsg    string
+	}
+
+	var succeeded []*uninstallTarget
+	sp := ui.StartSpinner(fmt.Sprintf("Uninstalling %d %s", len(targets), summary.noun()))
+	var results []batchResult
+
+	for _, t := range targets {
+		typeLabel, err := performUninstallQuiet(t, mode.trashDir)
+		if err != nil {
+			results = append(results, batchResult{target: t, errMsg: err.Error()})
+			failed = append(failed, fmt.Sprintf("%s: %v", t.name, err))
+		} else {
+			results = append(results, batchResult{target: t, typeLabel: typeLabel})
+			succeeded = append(succeeded, t)
+		}
+	}
+
+	removeUninstalledFromGitignore(mode, succeeded) //nolint:errcheck
+
+	// Spinner end state
+	if len(failed) > 0 && len(succeeded) == 0 {
+		sp.Fail(fmt.Sprintf("Failed to uninstall %d %s", len(failed), summary.noun()))
+	} else if len(failed) > 0 {
+		sp.Warn(fmt.Sprintf("Uninstalled %d, failed %d", len(succeeded), len(failed)))
+	} else {
+		sp.Success(fmt.Sprintf("Uninstalled %d %s", len(succeeded), summary.noun()))
+	}
+
+	// Failures always shown individually
+	var successes []batchResult
+	var failures []batchResult
+	for _, r := range results {
+		if r.errMsg != "" {
+			failures = append(failures, r)
+		} else {
+			successes = append(successes, r)
+		}
+	}
+
+	if len(failures) > 0 {
+		ui.SectionLabel("Failed")
+		for _, r := range failures {
+			ui.StepFail(r.target.name, r.errMsg)
+		}
+	}
+
+	// Successes: condensed when many
+	if len(successes) > 0 {
+		ui.SectionLabel("Removed")
+		switch {
+		case len(successes) > 50:
+			ui.StepDone(fmt.Sprintf("%d uninstalled", len(successes)), "")
+		case len(successes) > 10:
+			const maxShown = 10
+			names := make([]string, 0, maxShown)
+			for i := 0; i < maxShown && i < len(successes); i++ {
+				names = append(names, successes[i].target.name)
+			}
+			detail := strings.Join(names, ", ")
+			if len(successes) > maxShown {
+				detail = fmt.Sprintf("%s ... +%d more", detail, len(successes)-maxShown)
+			}
+			ui.StepDone(fmt.Sprintf("%d uninstalled", len(successes)), detail)
+		default:
+			for _, r := range successes {
+				ui.StepDone(r.target.name, r.typeLabel)
+			}
+		}
+	}
+
+	if mode.batchSummary {
+		ui.OperationSummary("Uninstall", time.Since(start),
+			ui.Metric{Label: "removed", Count: len(succeeded), HighlightColor: pterm.Green},
+			ui.Metric{Label: "skipped", Count: skipped, HighlightColor: pterm.Yellow},
+			ui.Metric{Label: "failed", Count: len(failed), HighlightColor: pterm.Red},
+		)
+	}
+
+	ui.SectionLabel("Next Steps")
+	ui.Info("Moved to trash (7 days).")
+	ui.Info("%s", mode.syncHint)
+	cleanupUninstallTrash(mode)
+
+	return succeeded, failed
+}
