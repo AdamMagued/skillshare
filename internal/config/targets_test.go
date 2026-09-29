@@ -513,6 +513,7 @@ func TestLookupInstructions_KnownTargets(t *testing.T) {
 		{"goose", ".config/goose/.goosehints", "AGENTS.md", false},
 		{"kiro", ".kiro/steering/AGENTS.md", "AGENTS.md", false},
 		{"roo", ".roo/rules/AGENTS.md", "AGENTS.md", false},
+		{"kilocode", ".config/kilo/AGENTS.md", "AGENTS.md", false},
 	}
 	for _, tt := range tests {
 		g, ok := LookupInstructions(tt.name, false)

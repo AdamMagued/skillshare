@@ -334,6 +334,9 @@ targets:
     also_scans:
       global: ["~/.agents/skills"]
       project: [".agents/skills"]
+    instructions:
+      global: "~/.config/kilo/AGENTS.md"
+      project: "AGENTS.md"
     aliases: [kilo]
   - name: kimchi
     skills:
