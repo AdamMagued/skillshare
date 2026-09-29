@@ -1025,7 +1025,8 @@ extras:
 	result := sb.RunCLIInDir(projectRoot, "sync", "extras", "-p", "--json")
 	result.AssertSuccess(t)
 
-	want := filepath.Join(projectRoot, ".claude", "rules")
+	// The CLI reports the real path; on macOS the temp dir sits behind /var -> /private/var.
+	want, _ := filepath.EvalSymlinks(filepath.Join(projectRoot, ".claude", "rules"))
 	if got := syncExtrasJSONTargets(t, result.Stdout)[0]["path"]; got != want {
 		t.Errorf("path = %v, want %q", got, want)
 	}
