@@ -78,9 +78,9 @@ export function InstructionsPreview({ content, names, className = 'min-h-0 flex-
   return (
     <div className={`flex flex-col gap-3 px-6 py-5 text-[13.5px] ${className}`} style={{ fontFamily: 'var(--f)' }}
       role="tabpanel" aria-label={t('instructions.target.view.preview')}>
-      {before.trim() && <MarkdownView>{before}</MarkdownView>}
+      {before.trim() && <MarkdownView breaks>{before}</MarkdownView>}
       {imports.length > 0 && <p className="font-mono text-[12px] text-ink-3">{imports.map((n) => `@import ${n}`).join(' · ')}</p>}
-      {after.trim() && <MarkdownView>{after}</MarkdownView>}
+      {after.trim() && <MarkdownView breaks>{after}</MarkdownView>}
       {empty && <p className="text-[13px] text-ink-3">{t('instructions.target.previewEmpty')}</p>}
     </div>
   );

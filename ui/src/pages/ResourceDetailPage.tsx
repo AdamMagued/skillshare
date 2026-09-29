@@ -237,13 +237,14 @@ export default function ResourceDetailPage() {
     skillMaps.byName.get(ref) ?? skillMaps.byFlat.get(`${resource.flatName}__${ref.replace(/\//g, '__')}`);
 
   const md: Components = {
-    a: ({ href, children }) => {
+    a: ({ href, id, children }) => {
       if (href && !href.startsWith('http') && !href.startsWith('#')) {
         const ref = resolveSkillRef(href);
         if (ref) return <Link to={resourceHref(ref)}>{children}</Link>;
         const file = files.find((f) => f === href || f.endsWith('/' + href));
         if (file && !isAgent) return <Link to={tabSearch('files', { file })}>{children}</Link>;
       }
+      if (href?.startsWith('#')) return <a href={href} id={id}>{children}</a>;
       return <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>;
     },
   };
