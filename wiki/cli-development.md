@@ -80,11 +80,13 @@ All command execution and isolation rules live in `testing`. Never run the CLI o
 
 When a dashboard endpoint is needed:
 
-1. Use existing `writeJSON` and `writeError` helpers in `internal/server/handler_<name>.go`.
+1. Use existing `writeJSON` and `writeError` helpers in `internal/server/handler_<name>.go`. Decode request bodies with `decodeJSON` or `decodeJSONWith` (`internal/server/json_body.go`), which cap the body size and return 413 when it is too large; do not call `json.NewDecoder(r.Body)` directly.
 2. Register the method and route in `internal/server/server.go`.
 3. Handle scope explicitly through `s.IsProjectMode()` or the existing guards.
 4. Add handler tests and verify UI client types and query invalidation.
 5. Share an `internal/` package when the CLI and API expose the same operation; do not shell out between them.
+
+Sync is the main example: the CLI and the server both run per-target sync through `internal/sync` (`SyncSkillTarget`, `RunAgentSync`, `RunExtraTargets`). Both follow CLI semantics: every target runs, and a failed target is reported as a partial failure instead of stopping the loop. Change sync behavior in these runners, not in a command or handler loop.
 
 ## Completion Criteria
 

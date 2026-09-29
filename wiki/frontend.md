@@ -21,6 +21,7 @@ Use when changing React components, pages, CSS, responsive layouts, interactions
 | Query keys | `ui/src/lib/queryKeys.ts` |
 | Queries shared across pages (overview, MCP, skills, targets, diff) | `ui/src/hooks/useSharedQueries.ts` |
 | API client | `ui/src/api/client.ts` |
+| `?kind=` query strings | `kindQuery()` in `ui/src/api/http.ts` |
 | Translation strings | `ui/src/i18n/` |
 
 The dashboard supports Clean and Playful styles plus light, dark, and system modes. New UI must use CSS variables, token utilities, and existing `ss-*` classes. Never hardcode colors, radii, shadows, or fonts. Scope Playful-only pastels to the Playful theme.
