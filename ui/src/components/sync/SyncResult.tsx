@@ -13,8 +13,9 @@ interface Props {
   warnings: string[];
   /** Targets that synced */
   synced: number;
-  force: boolean;
-  onForce: () => void;
+  force?: boolean;
+  /** Turns on Force; left out where there is no Force switch, so a symlink conflict offers Open target */
+  onForce?: () => void;
 }
 
 /** The outcome of a sync that had failures or warnings: failed targets first, then warnings, then what synced. */
@@ -41,7 +42,7 @@ export default function SyncResult({ failures, warnings, synced, force, onForce 
                 <Explanation failure={f} />
                 <span className="break-words font-mono text-[12px] text-ink-2">{f.error}</span>
               </div>
-              {f.conflict && !force ? (
+              {f.conflict && !force && onForce ? (
                 <Button size="sm" variant="secondary" onClick={onForce} title={t('sync.forceHint')}>{t('sync.result.useForce')}</Button>
               ) : (
                 <Link to={`/targets/${encodeURIComponent(f.target)}`} className="ss-btn sm shrink-0">{t('sync.result.openTarget')}</Link>

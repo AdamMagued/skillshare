@@ -8,7 +8,8 @@ import Button from '../Button';
 import DialogShell from '../DialogShell';
 import Spinner from '../Spinner';
 import SyncResultList, { SyncUpToDate } from '../SyncResultList';
-import { countChanges, MCP_CHANGED, mcpGroups, projectChanges, resourceGroups, runSync, type ChangeGroup } from '../sync/syncView';
+import { countChanges, MCP_CHANGED, mcpGroups, otherWarnings, projectChanges, resourceGroups, runSync, type ChangeGroup, type SyncFailure } from '../sync/syncView';
+import SyncResult from '../sync/SyncResult';
 import { refreshTargets } from '../targets/targetView';
 import { useT } from '../../i18n';
 import { queryKeys } from '../../lib/queryKeys';
@@ -33,6 +34,7 @@ export default function ProjectSyncDialog({ open, onClose, project, targets }: P
   const [error, setError] = useState('');
   // undefined until the sync ran
   const [done, setDone] = useState<SyncResponse | null>();
+  const [failures, setFailures] = useState<SyncFailure[]>([]);
 
   const mine = (targets ?? []).filter((tg) => tg.project === project.path);
   const names = new Set(mine.map((tg) => tg.name));
@@ -53,13 +55,14 @@ export default function ProjectSyncDialog({ open, onClose, project, targets }: P
   const close = () => {
     onClose();
     setDone(undefined);
+    setFailures([]);
     setError('');
   };
   const sync = async () => {
     setRunning(true);
     setError('');
     try {
-      const { resources } = await runSync({
+      const { resources, failures: failed } = await runSync({
         resources: project.declared ? 'both' : null,
         extras: false,
         mcp: plan && !mcpBlocked && changes.some((c) => c.action !== 'unchanged') ? plan : null,
@@ -67,6 +70,7 @@ export default function ProjectSyncDialog({ open, onClose, project, targets }: P
         project: { root: project.root, path: project.path },
       });
       setDone(resources ?? null);
+      setFailures(failed);
     } catch (err) {
       const message = (err as Error).message;
       setError(message === MCP_CHANGED ? t('sync.mcpChanged') : message);
@@ -76,6 +80,9 @@ export default function ProjectSyncDialog({ open, onClose, project, targets }: P
       for (const queryKey of [queryKeys.mcp, ['log']]) void queryClient.invalidateQueries({ queryKey });
     }
   };
+
+  const failedTargets = new Set(failures.map((f) => f.target));
+  const synced = new Set((done?.results ?? []).map((r) => r.target).filter((name) => !failedTargets.has(name))).size;
 
   const title = t('projects.sync.title', { name: project.name });
   return (
@@ -89,8 +96,9 @@ export default function ProjectSyncDialog({ open, onClose, project, targets }: P
       <div className="db">
         {done !== undefined ? (
           <>
-            <div className="ss-note inf"><CircleCheck size={16} /><span className="flex-1">{t('projects.sync.done', { name: project.name })}</span></div>
-            {done?.warnings?.map((w) => <div key={w} className="ss-note warn"><TriangleAlert size={16} /><span className="flex-1">{w}</span></div>)}
+            {failures.length === 0 && <div className="ss-note inf"><CircleCheck size={16} /><span className="flex-1">{t('projects.sync.done', { name: project.name })}</span></div>}
+            {/* No Force switch here, so a symlink conflict offers Open target only. */}
+            <SyncResult failures={failures} warnings={otherWarnings(done)} synced={synced} />
           </>
         ) : (
           <>
