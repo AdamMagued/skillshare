@@ -218,9 +218,11 @@ A conflict held by another Skillshare configuration that still exists offers nei
 because only that configuration can release the entry.
 
 This is also how you take over a server an Agent already has under the same name:
-add it to the source, and the next preview shows the Agent's entry as a conflict
-instead of overwriting it. Import it to adopt the Agent's version, or replace it with
-the source definition.
+add it to the source. If the Agent's entry already matches, the next preview lists it
+as **Take over**, and sync records it as managed without changing the file. This is
+what happens when you tick the Agent you imported from after the import. If it
+differs, the preview shows a conflict instead of overwriting it. Import it to adopt
+the Agent's version, or replace it with the source definition.
 
 The MCP dashboard also looks for servers already in your Agents' config files that
 Skillshare does not manage. When it finds some, a note above the server list says how
