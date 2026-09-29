@@ -167,8 +167,8 @@ skillshare uninstall _team-skills
 ```
 
 **What happens:**
-1. Checks for uncommitted changes (warns if found)
-2. Removes the directory
+1. Checks for uncommitted changes and stops if it finds any, or if it cannot read the git status (`--force` overrides)
+2. Moves the directory to trash (kept 7 days)
 3. Next `sync` removes the symlinks from targets
 
 ---

@@ -603,6 +603,7 @@ If the skill was installed from a remote source, a reinstall command is shown.
 
 For tracked repositories (_repo-name):
   - Checks for uncommitted changes (requires --force to override)
+  - Fails if git status cannot be read (requires --force to override)
   - Automatically removes the entry from .gitignore
   - The _ prefix is optional (automatically detected)
 

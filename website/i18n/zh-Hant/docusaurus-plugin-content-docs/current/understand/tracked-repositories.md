@@ -167,8 +167,8 @@ skillshare uninstall _team-skills
 ```
 
 **會發生什麼事：**
-1. 檢查是否有未 commit 的變更（若有會提出警告）
-2. 移除該目錄
+1. 檢查是否有未 commit 的變更；若有變更或無法讀取 git status，就會停止（可用 `--force` 覆寫）
+2. 將該目錄移到垃圾桶（保留 7 天）
 3. 下次 `sync` 時，會從 targets 移除對應的 symlink
 
 ---
