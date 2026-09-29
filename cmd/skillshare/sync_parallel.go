@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	gosync "sync"
@@ -13,7 +12,6 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/sync"
 	"skillshare/internal/ui"
-	"skillshare/internal/utils"
 )
 
 // syncTargetResult captures all output data for one target's sync operation.
@@ -196,46 +194,39 @@ func collectSyncResult(name string, target config.TargetConfig, source, mode str
 		return r
 	}
 
+	opts := sync.SkillRunOptions{
+		Source: source, ProjectRoot: projectRoot, IgnorePatterns: ignorePatterns,
+		DryRun: dryRun, Force: force,
+	}
+	if progress != nil {
+		opts.OnProgress = func(cur, total int, skill string) {
+			progress.updateTarget(name, fmt.Sprintf("%d/%d %s", cur, total, skill))
+		}
+	}
+	run := sync.SyncSkillTarget(sync.SkillTarget{Name: name, Target: target, Mode: mode}, skills, opts)
+	if run.Err != nil {
+		r.errMsg = run.Err.Error()
+		return r
+	}
+
 	switch mode {
 	case "merge":
-		collectMergeSyncResult(&r, name, target, source, skills, dryRun, force, projectRoot)
+		collectMergeSyncResult(&r, run, dryRun)
 	case "copy":
-		collectCopySyncResult(&r, name, target, source, skills, ignorePatterns, dryRun, force, progress)
+		collectCopySyncResult(&r, run, dryRun)
 	default:
-		collectSymlinkSyncResult(&r, name, target, source, dryRun, force, projectRoot)
+		collectSymlinkSyncResult(&r, run, sc.Path)
 	}
 
 	return r
 }
 
-func collectMergeSyncResult(r *syncTargetResult, name string, target config.TargetConfig, source string, skills []sync.DiscoveredSkill, dryRun, force bool, projectRoot string) {
-	sc := target.SkillsConfig()
-	result, err := sync.SyncTargetMergeWithSkills(name, target, skills, source, dryRun, force, projectRoot)
-	if err != nil {
-		r.errMsg = err.Error()
-		return
-	}
-
-	pruneResult, pruneErr := sync.PruneOrphanLinksWithSkills(sync.PruneOptions{
-		TargetPath: sc.Path, SourcePath: source, Skills: skills,
-		Include: sc.Include, Exclude: sc.Exclude, TargetNaming: sc.TargetNaming, TargetName: name,
-		DryRun: dryRun, Force: force,
-	})
-	if pruneErr != nil {
-		r.warnings = append(r.warnings, fmt.Sprintf("%s: prune failed: %v", name, pruneErr))
-	}
-
-	r.stats = mergeStats(result, pruneResult)
-
-	// Build message
-	linkedCount := len(result.Linked)
-	updatedCount := len(result.Updated)
-	skippedCount := len(result.Skipped)
-	removedCount := 0
-	if pruneResult != nil {
-		removedCount = len(pruneResult.Removed)
-		skippedCount += len(pruneResult.LocalDirs)
-	}
+func collectMergeSyncResult(r *syncTargetResult, run sync.SkillTargetResult, dryRun bool) {
+	linkedCount := len(run.Linked)
+	updatedCount := len(run.Updated)
+	skippedCount := len(run.Skipped) + len(run.LocalDirs)
+	removedCount := len(run.Pruned)
+	r.stats = syncModeStats{linked: linkedCount, local: skippedCount, updated: updatedCount, pruned: removedCount}
 
 	if linkedCount > 0 || updatedCount > 0 || removedCount > 0 {
 		r.message = fmt.Sprintf("merged (%d linked, %d local, %d updated, %d pruned)",
@@ -246,48 +237,16 @@ func collectMergeSyncResult(r *syncTargetResult, name string, target config.Targ
 		r.message = "merged (no skills)"
 	}
 
-	if result.DirCreated != "" {
-		verb := "Created"
-		if dryRun {
-			verb = "Will create"
-		}
-		r.infos = append(r.infos, fmt.Sprintf("%s target directory: %s", verb, result.DirCreated))
-	}
-
-	if pruneResult != nil {
-		r.warnings = append(r.warnings, pruneResult.Warnings...)
-	}
+	r.infos = append(r.infos, dirCreatedInfos(run.DirCreated, dryRun)...)
+	r.warnings = append(r.warnings, run.Warnings...)
 }
 
-func collectCopySyncResult(r *syncTargetResult, name string, target config.TargetConfig, source string, skills []sync.DiscoveredSkill, ignorePatterns []string, dryRun, force bool, progress *syncProgress) {
-	onProgress := func(cur, total int, skill string) {
-		if progress != nil {
-			progress.updateTarget(name, fmt.Sprintf("%d/%d %s", cur, total, skill))
-		}
-	}
-
-	result, err := sync.SyncTargetCopyWithSkillsOptions(name, target, skills, source, dryRun, force, onProgress, sync.CopyOptions{IgnorePatterns: ignorePatterns})
-	if err != nil {
-		r.errMsg = err.Error()
-		return
-	}
-
-	sc := target.SkillsConfig()
-	pruneResult, pruneErr := sync.PruneOrphanCopiesWithSkills(sc.Path, skills, sc.Include, sc.Exclude, name, sc.TargetNaming, dryRun)
-	if pruneErr != nil {
-		r.warnings = append(r.warnings, fmt.Sprintf("%s: prune failed: %v", name, pruneErr))
-	}
-
-	r.stats = copyStats(result, pruneResult)
-
-	// Build message
-	copiedCount := len(result.Copied)
-	updatedCount := len(result.Updated)
-	skippedCount := len(result.Skipped)
-	removedCount := 0
-	if pruneResult != nil {
-		removedCount = len(pruneResult.Removed)
-	}
+func collectCopySyncResult(r *syncTargetResult, run sync.SkillTargetResult, dryRun bool) {
+	copiedCount := len(run.Linked)
+	updatedCount := len(run.Updated)
+	skippedCount := len(run.Skipped)
+	removedCount := len(run.Pruned)
+	r.stats = syncModeStats{linked: copiedCount, local: skippedCount, updated: updatedCount, pruned: removedCount}
 
 	if copiedCount > 0 || updatedCount > 0 || removedCount > 0 {
 		r.message = fmt.Sprintf("copied (%d new, %d skipped, %d updated, %d pruned)",
@@ -298,52 +257,34 @@ func collectCopySyncResult(r *syncTargetResult, name string, target config.Targe
 		r.message = "copied (no skills)"
 	}
 
-	if result.DirCreated != "" {
-		verb := "Created"
-		if dryRun {
-			verb = "Will create"
-		}
-		r.infos = append(r.infos, fmt.Sprintf("%s target directory: %s", verb, result.DirCreated))
-	}
-
-	if pruneResult != nil {
-		r.warnings = append(r.warnings, pruneResult.Warnings...)
-	}
+	r.infos = append(r.infos, dirCreatedInfos(run.DirCreated, dryRun)...)
+	r.warnings = append(r.warnings, run.Warnings...)
 }
 
-func collectSymlinkSyncResult(r *syncTargetResult, name string, target config.TargetConfig, source string, dryRun, force bool, projectRoot string) {
-	sc := target.SkillsConfig()
-	status := sync.CheckStatus(sc.Path, source)
-
-	if status == sync.StatusConflict && !force {
-		link, err := utils.ResolveLinkTarget(sc.Path)
-		if err != nil {
-			link = "(unable to resolve target)"
-		}
-		r.errMsg = fmt.Sprintf("conflict - symlink points to %s (use --force to override)", link)
-		return
+// dirCreatedInfos notes a target directory the sync created or would create.
+func dirCreatedInfos(dir string, dryRun bool) []string {
+	if dir == "" {
+		return nil
 	}
-
-	if status == sync.StatusConflict && force && !dryRun {
-		os.Remove(sc.Path)
+	verb := "Created"
+	if dryRun {
+		verb = "Will create"
 	}
+	return []string{fmt.Sprintf("%s target directory: %s", verb, dir)}
+}
 
-	if err := sync.SyncTarget(name, target, source, dryRun, projectRoot); err != nil {
-		r.errMsg = err.Error()
-		return
-	}
-
-	switch status {
+func collectSymlinkSyncResult(r *syncTargetResult, run sync.SkillTargetResult, path string) {
+	switch run.SymlinkStatus {
 	case sync.StatusLinked:
 		r.message = "already linked"
 	case sync.StatusNotExist:
 		r.message = "symlink created"
-		r.warnings = append(r.warnings, fmt.Sprintf("Symlink mode: deleting files in %s will delete from source!", sc.Path))
-		r.infos = append(r.infos, fmt.Sprintf("Use 'skillshare target remove %s' to safely unlink", name))
+		r.warnings = append(r.warnings, fmt.Sprintf("Symlink mode: deleting files in %s will delete from source!", path))
+		r.infos = append(r.infos, fmt.Sprintf("Use 'skillshare target remove %s' to safely unlink", r.name))
 	case sync.StatusHasFiles:
 		r.message = "files migrated and linked"
-		r.warnings = append(r.warnings, fmt.Sprintf("Symlink mode: deleting files in %s will delete from source!", sc.Path))
-		r.infos = append(r.infos, fmt.Sprintf("Use 'skillshare target remove %s' to safely unlink", name))
+		r.warnings = append(r.warnings, fmt.Sprintf("Symlink mode: deleting files in %s will delete from source!", path))
+		r.infos = append(r.infos, fmt.Sprintf("Use 'skillshare target remove %s' to safely unlink", r.name))
 	case sync.StatusBroken:
 		r.message = "broken link fixed"
 	case sync.StatusConflict:

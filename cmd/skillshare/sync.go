@@ -590,31 +590,6 @@ func backupTargetsBeforeSync(cfg *config.Config) {
 	}
 }
 
-func mergeStats(result *sync.MergeResult, prune *sync.PruneResult) syncModeStats {
-	s := syncModeStats{
-		linked:  len(result.Linked),
-		local:   len(result.Skipped),
-		updated: len(result.Updated),
-	}
-	if prune != nil {
-		s.pruned = len(prune.Removed)
-		s.local += len(prune.LocalDirs)
-	}
-	return s
-}
-
-func copyStats(result *sync.CopyResult, prune *sync.PruneResult) syncModeStats {
-	s := syncModeStats{
-		linked:  len(result.Copied),
-		local:   len(result.Skipped),
-		updated: len(result.Updated),
-	}
-	if prune != nil {
-		s.pruned = len(prune.Removed)
-	}
-	return s
-}
-
 func reportCollisions(skills []sync.DiscoveredSkill, targets map[string]config.TargetConfig) {
 	global, perTarget := sync.CheckNameCollisionsForTargets(skills, targets)
 	if len(global) == 0 {

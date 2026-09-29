@@ -14,7 +14,6 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/skillignore"
 	ssync "skillshare/internal/sync"
-	"skillshare/internal/utils"
 )
 
 // ignorePayload builds the common ignored-skills fields for JSON responses.
@@ -203,6 +202,10 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 			}
 			warnings = append(warnings, name+": sync failed: "+err.Error())
 		}
+		runOpts := ssync.SkillRunOptions{
+			Source: s.cfg.EffectiveSkillsSource(), ProjectRoot: s.projectRoot, IgnorePatterns: ignorePatterns,
+			DryRun: dryRun, Force: force,
+		}
 		skillRan := 0
 		for name, target := range targets {
 			sc := target.SkillsConfig()
@@ -223,65 +226,19 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 				Pruned:  make([]string, 0),
 			}
 
+			run := ssync.SyncSkillTarget(ssync.SkillTarget{Name: name, Target: target, Mode: mode}, allSkills, runOpts)
+			if run.Err != nil {
+				failTarget(name, run.Err)
+				continue
+			}
+			warnings = append(warnings, run.Warnings...)
 			switch mode {
-			case "merge":
-				mergeResult, err := ssync.SyncTargetMergeWithSkills(name, target, allSkills, s.cfg.EffectiveSkillsSource(), dryRun, force, s.projectRoot)
-				if err != nil {
-					failTarget(name, err)
-					continue
+			case "merge", "copy":
+				res.Linked, res.Updated, res.Skipped, res.DirCreated = run.Linked, run.Updated, run.Skipped, run.DirCreated
+				if run.Pruned != nil {
+					res.Pruned = run.Pruned
 				}
-				res.Linked = mergeResult.Linked
-				res.Updated = mergeResult.Updated
-				res.Skipped = mergeResult.Skipped
-				res.DirCreated = mergeResult.DirCreated
-
-				pruneResult, err := ssync.PruneOrphanLinksWithSkills(ssync.PruneOptions{
-					TargetPath: sc.Path, SourcePath: s.cfg.EffectiveSkillsSource(), Skills: allSkills,
-					Include: sc.Include, Exclude: sc.Exclude, TargetNaming: sc.TargetNaming, TargetName: name,
-					DryRun: dryRun, Force: force,
-				})
-				warnings = append(warnings, skillPruneWarnings(name, pruneResult, err)...)
-				if pruneResult != nil {
-					res.Pruned = pruneResult.Removed
-				}
-
-			case "copy":
-				copyResult, err := ssync.SyncTargetCopyWithSkillsOptions(name, target, allSkills, s.cfg.EffectiveSkillsSource(), dryRun, force, nil, ssync.CopyOptions{IgnorePatterns: ignorePatterns})
-				if err != nil {
-					failTarget(name, err)
-					continue
-				}
-				res.Linked = copyResult.Copied
-				res.Updated = copyResult.Updated
-				res.Skipped = copyResult.Skipped
-				res.DirCreated = copyResult.DirCreated
-
-				pruneResult, err := ssync.PruneOrphanCopiesWithSkills(sc.Path, allSkills, sc.Include, sc.Exclude, name, sc.TargetNaming, dryRun)
-				warnings = append(warnings, skillPruneWarnings(name, pruneResult, err)...)
-				if pruneResult != nil {
-					res.Pruned = pruneResult.Removed
-				}
-
 			default:
-				// A symlink pointing elsewhere is replaced only with force, as in the CLI.
-				if ssync.CheckStatus(sc.Path, s.cfg.EffectiveSkillsSource()) == ssync.StatusConflict {
-					if !force {
-						link, err := utils.ResolveLinkTarget(sc.Path)
-						if err != nil {
-							link = "(unable to resolve target)"
-						}
-						failTarget(name, fmt.Errorf("conflict - symlink points to %s (use --force to override)", link))
-						continue
-					}
-					if !dryRun {
-						os.Remove(sc.Path)
-					}
-				}
-				err := ssync.SyncTarget(name, target, s.cfg.EffectiveSkillsSource(), dryRun, s.projectRoot)
-				if err != nil {
-					failTarget(name, err)
-					continue
-				}
 				res.Linked = []string{"(symlink mode)"}
 			}
 
@@ -403,19 +360,6 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 	s.writeOpsLog("sync", status, start, logArgs, "")
 
 	return &syncOutcome{results: results, warnings: warnings, folderConflicts: conflicts, pathOverlap: overlap, skills: allSkills, ignoreStats: ignoreStats}, 0, nil
-}
-
-// skillPruneWarnings reports a skills prune the way the CLI does: a failure
-// as "<target>: prune failed: <err>", then the prune's own warnings.
-func skillPruneWarnings(name string, pruneResult *ssync.PruneResult, err error) []string {
-	var warnings []string
-	if err != nil {
-		warnings = append(warnings, fmt.Sprintf("%s: prune failed: %v", name, err))
-	}
-	if pruneResult != nil {
-		warnings = append(warnings, pruneResult.Warnings...)
-	}
-	return warnings
 }
 
 // backupBeforeSync snapshots the target folders a sync may overwrite, as the
