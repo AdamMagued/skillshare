@@ -1,9 +1,11 @@
 package plugin
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
@@ -55,6 +57,9 @@ func inspect(root string, explicit ...string) (Candidate, error) {
 				c.TargetInfo[spec.target] = info
 				continue
 			}
+		}
+		if spec.target == "codex" {
+			info.Logo = codexLogo(root, m["interface"])
 		}
 		if spec.path == "package.json" {
 			name = strings.ReplaceAll(strings.TrimPrefix(name, "@"), "/", "-")
@@ -219,4 +224,38 @@ func manifestComponents(root, target string, m map[string]json.RawMessage, compo
 	}
 	slices.Sort(components)
 	return components
+}
+
+const maxLogo = 256 << 10
+
+var logoTypes = map[string]string{".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".svg": "image/svg+xml"}
+
+// codexLogo returns interface.logo of a Codex manifest as a data: URI, "" when it is absent, not
+// an image, too large, or outside the plugin. The path is opened through os.Root, so it cannot leave root.
+func codexLogo(root string, raw json.RawMessage) string {
+	var ui struct {
+		Logo string `json:"logo"`
+	}
+	if json.Unmarshal(raw, &ui) != nil || ui.Logo == "" {
+		return ""
+	}
+	mime, ok := logoTypes[strings.ToLower(filepath.Ext(ui.Logo))]
+	if !ok {
+		return ""
+	}
+	r, err := os.OpenRoot(root)
+	if err != nil {
+		return ""
+	}
+	defer r.Close()
+	f, err := r.Open(filepath.FromSlash(strings.TrimPrefix(ui.Logo, "./")))
+	if err != nil {
+		return ""
+	}
+	defer f.Close()
+	data, err := io.ReadAll(io.LimitReader(f, maxLogo+1))
+	if err != nil || len(data) > maxLogo {
+		return ""
+	}
+	return "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(data)
 }

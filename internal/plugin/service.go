@@ -168,7 +168,10 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 		otherSource := pack.Source != "" && (pack.Source != discovered.Source || pack.Plugin != c.Name || pack.SourceRef != discovered.SourceRef)
 		if len(r.Targets) == 0 {
 			// Only record the package; Agents are bound later from the same source.
-			change := Change{Name: name, Action: "record", Components: c.Components, Message: "Add to Skillshare only; choose Agents later.", Binding: Binding{Source: discovered.Source, SourceRef: discovered.SourceRef, Plugin: c.Name, Entry: r.Entry}}
+			change := Change{Name: name, Action: "record", Components: c.Components, Message: "Add to Skillshare only; choose Agents later.", Binding: Binding{Source: discovered.Source, SourceRef: discovered.SourceRef, Plugin: c.Name, Entry: r.Entry, Version: c.Version}}
+			if slices.Contains(c.Targets, "codex") {
+				change.Logo = c.TargetInfo["codex"].Logo
+			}
 			if c.Problem != "" || len(c.Targets) == 0 {
 				change.Action = "blocked"
 				change.Message = c.Problem

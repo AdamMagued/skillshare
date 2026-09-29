@@ -63,7 +63,7 @@ func (s *Service) Apply(ctx context.Context, r Request, revision string) (*Resul
 			if c.Action == "forget" {
 				delete(d.packages, c.Name)
 			} else {
-				pack.Source, pack.SourceRef, pack.Plugin, pack.Entry = c.Binding.Source, c.Binding.SourceRef, c.Binding.Plugin, c.Binding.Entry
+				pack.Source, pack.SourceRef, pack.Plugin, pack.Entry, pack.Version = c.Binding.Source, c.Binding.SourceRef, c.Binding.Plugin, c.Binding.Entry, c.Binding.Version
 				d.packages[c.Name] = pack
 			}
 			continue

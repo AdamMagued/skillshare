@@ -46,6 +46,8 @@ function Row({ name, inventory, updates, busy, working, onToggle, onMenu, onAdd,
   const bindings = Object.entries(pack.bindings) as [PluginTarget, NonNullable<(typeof pack.bindings)[PluginTarget]>][];
   const selected = bindings.filter(([, b]) => b.sync !== false).map(([target]) => target);
   const versions = [...new Set(bindings.map(([, b]) => b.version).filter(Boolean))];
+  // With no Agent yet, the version recorded when the plugin was added is all there is; a plugin
+  // added before that was recorded asks its source, through the same query the row opens with.
   const parts = [...new Set(bindings.flatMap(([, b]) => b.components ?? []))];
   const from = bindings.find(([, b]) => b.source)?.[1];
   // A plugin with no Agent yet has only what was recorded when it was added.
@@ -54,26 +56,34 @@ function Row({ name, inventory, updates, busy, working, onToggle, onMenu, onAdd,
   const entry = bindings.find(([, b]) => b.entry)?.[1].entry ?? pack.entry;
   const meta = parts.join(', ');
   const rowBusy = working === name;
-  // Which other Agents can take it is the source's answer, not config's, so it is asked when the
-  // row opens. Its own key, outside `plugins`: a toggle must not send it back to the network.
+  // Which other Agents can take it, and the logo its Codex manifest names, are the source's answer,
+  // not config's, so the row asks for them. Its own key, outside `plugins`: a toggle must not send it back to the network.
   // ponytail: one discovery per plugin per session; give it a refresh control if sources change under an open dashboard.
   const found = useQuery({
     // The name picks the snapshot: two plugins of one source can be at different commits.
     queryKey: ['plugin-discover', source, sourceRef, entry, name],
     queryFn: () => pluginsApi.discover(source!, sourceRef, entry, name),
-    enabled: expanded && !!source,
+    enabled: !!source,
     staleTime: Infinity,
     retry: false,
   });
   const plugin = bindings.find(([, b]) => b.plugin)?.[1].plugin ?? pack.plugin;
   const candidate = found.data?.candidates.find((c) => c.name === plugin) ?? (found.data?.candidates.length === 1 ? found.data.candidates[0] : undefined);
+  if (bindings.length === 0) {
+    const known = pack.version ?? candidate?.version;
+    if (known) versions.push(known);
+  }
+  const codex = candidate?.targets.includes('codex') ? candidate.targetInfo?.codex : undefined;
+  const logo = codex && !codex.problem ? codex.logo : undefined;
   const others = candidate ? agentReasons(candidate, pluginTargets, isProjectMode, t).filter((r) => !pack.bindings[r.target]) : [];
   const blocked = others.filter((r) => r.reason).length;
   const total = bindings.length + others.length - blocked;
   return (
     <>
       <div className="ss-r">
-        <span className="ss-cat plugin sm"><Package size={14} /></span>
+        <span className="ss-cat plugin sm">
+          {logo ? <img src={logo} alt="" className="size-full rounded-[inherit] object-cover" /> : <Package size={14} />}
+        </span>
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="flex items-center gap-2">
             <span title={name} className="truncate font-mono font-semibold">{name}</span>

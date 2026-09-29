@@ -33,6 +33,24 @@ describe('PluginsPage', () => {
     expect(screen.getByText('uninstall')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'plugins.sync' })).toBeEnabled();
   });
+  it('shows the version recorded at add time while no Agent is bound', async () => {
+    vi.mocked(pluginsApi.list).mockResolvedValue({ targetDefinitions: [], packages: { demo: { source: 'https://github.com/owner/demo', version: '2.3.4', bindings: {} } }, hosts: [] });
+    mount();
+    expect(await screen.findByText('2.3.4')).toBeInTheDocument();
+  });
+  it('asks the source for the version of a plugin added before it was recorded', async () => {
+    vi.mocked(pluginsApi.list).mockResolvedValue({ targetDefinitions: [], packages: { demo: { source: 'https://github.com/owner/demo', plugin: 'demo', bindings: {} } }, hosts: [] });
+    vi.mocked(pluginsApi.discover).mockResolvedValue({ source: 'https://github.com/owner/demo', digest: 'd', candidates: [{ name: 'demo', description: '', version: '5.6.7', targets: [], components: [] }] });
+    mount();
+    expect(await screen.findByText('5.6.7')).toBeInTheDocument();
+  });
+  it('draws the logo a Codex manifest names', async () => {
+    vi.mocked(pluginsApi.list).mockResolvedValue({ targetDefinitions: [], packages: { demo: { source: 'https://github.com/owner/demo', plugin: 'demo', bindings: {} } }, hosts: [] });
+    vi.mocked(pluginsApi.discover).mockResolvedValue({ source: 'https://github.com/owner/demo', digest: 'd', candidates: [{ name: 'demo', description: '', version: '1', targets: ['codex'], components: [], targetInfo: { codex: { manifest: '.codex-plugin/plugin.json', logo: 'data:image/png;base64,AA==', components: [] } } }] });
+    const { container } = mount();
+    await screen.findByText('demo');
+    await waitFor(() => expect(container.querySelector('img')?.getAttribute('src')).toBe('data:image/png;base64,AA=='));
+  });
   it('shows the installed version, and old → new once a check finds another', async () => {
     vi.mocked(pluginsApi.list).mockResolvedValue({ targetDefinitions: [{ target: 'codex', label: 'Codex', project: false, operations: ['add', 'check'] }], packages: { demo: { bindings: { codex: { id: 'demo@market', version: '1.0.0' } } } }, hosts: [] });
     vi.mocked(pluginsApi.preview).mockResolvedValue({ revision: 'r', blocked: false, changes: [{ name: 'demo', target: 'codex', id: 'demo@market', action: 'update-available', binding: { id: 'demo@market', version: '1.1.0' } }] });

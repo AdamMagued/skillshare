@@ -236,6 +236,8 @@ func TestAddWithoutTargetsKeepsPackageForLater(t *testing.T) {
 		}
 		return p
 	}
+	writeFile(t, root, ".codex-plugin/plugin.json", `{"name":"demo","version":"1.0.0","skills":"./skills","interface":{"logo":"./logo.png"}}`)
+	writeFile(t, root, "logo.png", "png")
 	p := apply(Request{Action: "add", Source: root, Plugin: "demo"})
 	if len(p.Changes) != 1 || p.Changes[0].Action != "record" || *mutations != 0 {
 		t.Fatalf("add without targets touched an Agent: %+v %d", p.Changes, *mutations)
@@ -243,6 +245,12 @@ func TestAddWithoutTargetsKeepsPackageForLater(t *testing.T) {
 	d, _ := s.load()
 	if pack, ok := d.packages["demo"]; !ok || pack.Source == "" || len(pack.Bindings) != 0 {
 		t.Fatalf("package not kept for later: %+v", d.packages)
+	}
+	if p.Changes[0].Logo != "data:image/png;base64,cG5n" {
+		t.Fatalf("preview lost the Codex logo: %q", p.Changes[0].Logo)
+	}
+	if d.packages["demo"].Version != "1.0.0" {
+		t.Fatalf("version not recorded without an Agent: %+v", d.packages["demo"])
 	}
 	apply(Request{Action: "add", Name: "demo", Source: root, Plugin: "demo", Targets: []string{"claude"}})
 	apply(Request{Action: "remove", Name: "demo", Targets: []string{"claude"}})

@@ -31,9 +31,10 @@ type Binding struct {
 	Pending    string   `json:"pending,omitempty" yaml:"pending,omitempty"`
 }
 
-// Source, SourceRef, Plugin and Entry keep a package managed while no Agent is bound, so
-// Agents can be bound later from the same source.
+// Source, SourceRef, Plugin, Entry and Version keep a package managed while no Agent is bound,
+// so Agents can be bound later from the same source and the dashboard can still show its version.
 type Package struct {
+	Version   string             `json:"version,omitempty" yaml:"version,omitempty"`
 	Source    string             `json:"source,omitempty" yaml:"source,omitempty"`
 	SourceRef string             `json:"sourceRef,omitempty" yaml:"source_ref,omitempty"`
 	Plugin    string             `json:"plugin,omitempty" yaml:"plugin,omitempty"`
@@ -59,6 +60,7 @@ type TargetPackage struct {
 	// Path is set when this Agent's catalog points at its own folder; empty means Candidate.Path.
 	Path        string            `json:"path,omitempty"`
 	Version     string            `json:"version,omitempty"`
+	Logo        string            `json:"logo,omitempty"`
 	Entry       string            `json:"entry,omitempty"`
 	Components  []string          `json:"components"`
 	Problem     string            `json:"problem,omitempty"`
@@ -210,6 +212,8 @@ type Change struct {
 	Message    string   `json:"message,omitempty"`
 	Binding    Binding  `json:"binding"`
 	Components []string `json:"components,omitempty"`
+	// Logo is the package logo for a change with no Agent, as a data: URI.
+	Logo string `json:"logo,omitempty"`
 }
 
 type Plan struct {

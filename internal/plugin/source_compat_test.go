@@ -128,3 +128,23 @@ func TestNativeManifestPrecedesPortableFallback(t *testing.T) {
 		t.Fatalf("broken fallback hid native manifest: %+v %v", d, err)
 	}
 }
+
+func TestCodexLogoComesFromTheManifestInsideThePlugin(t *testing.T) {
+	root := fixture(t)
+	writeFile(t, root, ".codex-plugin/plugin.json", `{"name":"demo","version":"1.0.0","skills":"./skills","interface":{"logo":"./logo.png"}}`)
+	writeFile(t, root, "logo.png", "png-bytes")
+	d, err := Discover(context.Background(), root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := d.Candidates[0].TargetInfo["codex"].Logo; got != "data:image/png;base64,cG5nLWJ5dGVz" {
+		t.Fatalf("logo not read: %q", got)
+	}
+	writeFile(t, root, ".codex-plugin/plugin.json", `{"name":"demo","version":"1.0.0","skills":"./skills","interface":{"logo":"../outside.png"}}`)
+	if d, err = Discover(context.Background(), root); err != nil {
+		t.Fatal(err)
+	}
+	if got := d.Candidates[0].TargetInfo["codex"].Logo; got != "" {
+		t.Fatalf("logo outside the plugin was read: %q", got)
+	}
+}
