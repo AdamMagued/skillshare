@@ -479,9 +479,11 @@ func TestLookupProjectTarget_AntigravityCLIIsNotAntigravityAlias(t *testing.T) {
 	}
 }
 
-func TestAlsoScans_AntigravityCLIHasNone(t *testing.T) {
-	if got := AlsoScansGlobal("antigravity-cli"); len(got) != 0 {
-		t.Errorf("AlsoScansGlobal(antigravity-cli) = %v, want none", got)
+func TestAlsoScans_AntigravityHasNone(t *testing.T) {
+	for _, name := range []string{"antigravity", "antigravity-cli"} {
+		if got := AlsoScansGlobal(name); len(got) != 0 {
+			t.Errorf("AlsoScansGlobal(%s) = %v, want none", name, got)
+		}
 	}
 }
 
