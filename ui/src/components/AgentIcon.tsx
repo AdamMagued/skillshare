@@ -24,7 +24,6 @@ import snowflakeColor from '@lobehub/icons-static-svg/icons/snowflake-color.svg?
 import traeColor from '@lobehub/icons-static-svg/icons/trae-color.svg?url';
 import zencoderColor from '@lobehub/icons-static-svg/icons/zencoder-color.svg?url';
 import clineMono from '@lobehub/icons-static-svg/icons/cline.svg?url';
-import commandcodeMono from '@lobehub/icons-static-svg/icons/commandcode.svg?url';
 import cursorMono from '@lobehub/icons-static-svg/icons/cursor.svg?url';
 import githubcopilotMono from '@lobehub/icons-static-svg/icons/githubcopilot.svg?url';
 import gooseMono from '@lobehub/icons-static-svg/icons/goose.svg?url';
@@ -106,7 +105,6 @@ const colored: Record<string, string> = {
 const mono: Record<string, string> = {
   bob: ibmMono,
   cline: clineMono,
-  commandcode: commandcodeMono,
   copilot: githubcopilotMono,
   cursor: cursorMono,
   droid: factoryMono,
