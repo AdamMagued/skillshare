@@ -9,6 +9,69 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.22.0] - 2026-09-30
+
+### New Features
+
+#### Dashboard
+
+- **Richer markdown preview** — skill and file previews now render HTML such as `<details>`, GitHub alerts, `:::` containers, emoji shortcodes, `==mark==`, `++ins++`, `^sup^` and `~sub~`, and footnote links resolve. HTML goes through a sanitizer, since previews show skills from anyone. Tables no longer squeeze short columns until words break, file previews keep single line breaks as the tool reads them, a leading `---` block counts as frontmatter only when it is YAML, and outside links open in a new tab.
+- **Failed sync targets listed first** — when a dashboard sync loses a target, the Sync page now lists each failed target with its part (Skills, Agents, Extras or Config) and error above the other warnings, marks it in the change list, and shows a warning toast instead of **Sync complete**. Each failure gets a plain-language explanation for common causes (a symlink pointing elsewhere, permission denied, a read-only disk, a file where a folder belongs, a missing path, invalid target settings). A skills symlink that points elsewhere offers **Turn on Force**. The **Last sync** card names the failed targets, and the project sync dialog shows the same list instead of a success note.
+
+### Bug Fixes
+
+#### Sync
+
+- **Dashboard sync keeps going after a target fails** — the first skills target that failed stopped a dashboard sync with an error, leaving every later target unsynced and agents, extras and MCP not run. Like `skillshare sync`, the failed target is now reported as `<target>: sync failed: <err>` and the rest still sync; the operation log records it as `partial`.
+- **Invalid target settings fail only that target** — one target with invalid settings, such as a path that is a file instead of a folder, or a project target without a path, stopped the whole `sync`, `sync -p` and dashboard sync before anything ran. That target is now skipped with its error and the others still sync.
+- **Project dashboard works with a target that has no path** — `skillshare ui -p` would not start, and a running project dashboard failed every request, when a custom target had no `skills.path`. It now starts with a warning, and its sync lists that target as failed.
+- **`sync -p agents` checks settings and is logged** — it synced agents into targets with invalid settings and left no entry in `skillshare log`. It now skips those targets, exits non-zero, and logs the run like `sync agents`.
+- **Dashboard sync reports every failed target when all fail** — when every skills target failed, the dashboard showed only the first error, and agents, extras and MCP were not synced. It now lists every failed target the same way as a partial failure.
+- **Agent failures counted in the operation log** — a target whose agents failed to sync was left out of the sync entry's `targets_failed`, so a partly failed sync could be logged as `ok`. The entry now counts it and lists `failed_targets`.
+- **Prune failures reported** — when removing orphaned skills or agents from a target failed, `sync` and the dashboard said nothing and stale links stayed behind. They now show `<target>: agents prune failed: <err>` (or `prune failed` for skills) along with the prune's own warnings.
+- **Dashboard respects symlink conflicts** — in symlink mode, a target folder linked somewhere else was replaced by a dashboard sync without the conflict message `skillshare sync` shows. Without **Force** it now fails with `conflict - symlink points to X (use --force to override)`.
+- **`sync --all` exits non-zero when an extras target fails** — it printed a warning and exited 0, and with `--json` ignored extras errors entirely. It now fails in text and JSON, global and project, and the dashboard's operation log records extras failures as `partial` instead of `ok`.
+- **An extras failure no longer stops a dashboard sync** — the first failed extras target ended the run: the skills result and warnings already on screen were dropped, MCP was never written, and the error named neither the extra nor the target. The sync now finishes and lists every failed extras target.
+- **Missing extras source is skipped, not created** — global `sync` and the dashboard created an empty source folder for an extra whose source did not exist, which hid a misconfigured path. Every sync now skips that extra and says `Source directory does not exist: <path>`.
+- **Dashboard skips extras targets the agents sync writes** — like the CLI, a dashboard sync no longer writes the `agents` extra into a target folder that the agents sync already manages, so the two stop fighting over it.
+- **Context-cost warnings name the right target** — the dashboard's sync warnings showed `{target}` instead of a name, and when several targets tied, listed offenders from a different target than the one named. They now name the target, and ties go to the alphabetically first one with its own offenders.
+
+#### Tracked repositories
+
+- **Unreadable git status no longer treated as clean** — when skillshare could not read a tracked repo's git status (for example, a corrupt index), `update` pulled over it, `uninstall` moved it to trash after a warning, and `status` and `list` showed it as up to date. `update` and `uninstall` now fail that repo with `failed to check git status: <err>` unless `--force`, while other items in the batch still run; `status` and `list` show it as unknown with a warning, and `status --json` reports `"status": "unknown"`. The error now includes what git printed, not just `exit status 128`.
+  ```bash
+  skillshare update --all --force   # pull even when git status cannot be read
+  ```
+- **Dashboard checks private repos with your token** — the dashboard's update check fetched without the HTTPS token, so private tracked repos and skills without a pinned branch reported errors that `skillshare check` did not. It now uses the same check as the CLI.
+
+#### Project mode
+
+- **Project uninstall reports the real problem** — every name that could not be resolved was reported as "not found", even when it matched several nested skills or pointed at a file. Project mode now gives the same specific errors as global.
+- **Project uninstall logs like global** — the operation log recorded `--help`, dry runs and declined prompts as uninstalls, always with zero succeeded. It now records one entry when the uninstall ran, with the real count, and uninstalls from the project `list` view are logged too.
+- **`logs/`, `trash/` and `backups/` stay out of your project's `.gitignore`** — in projects created before 0.17.3, project uninstall added them to the project's own `.gitignore` instead of `.skillshare/.gitignore`.
+
+#### CLI
+
+- **`search` shows mixed-case skill names** — skills named like `MySkill`, which `install` accepts, never appeared in `search` results. Search now uses the same name rule as install.
+
+#### Dashboard
+
+- **Revert on ignore-file tabs** — on the `.skillignore` and `.agentignore` tabs of the Config page, **Revert** reset `config.yaml` and left the ignore file's edits in place. It now resets the file the tab has open.
+- **Install dialog marks the right skills as installed** — the dialog matched installed skills by name only, so a skill with the same name from another repo showed as **Installed**. It now matches by source.
+- **Path overlap warning translated** — the Sync page showed the overlap warning in English in every language. It is now translated and has a button that opens Health Check.
+- **Target-only resources grouped by target** — the Sync page's list of resources that exist only in targets was one comma-joined line. Each target now has its own group with its logo and count.
+- **Failed target settings no longer reported as saved** — batch target updates reported success even when saving the settings failed, so an override could disappear on the next reload. They now show the error.
+- **Sync page in Chinese, Japanese and Korean** — the Playful theme's handwritten note on the Sync page repeated the subtitle and, with no CJK glyphs in its font, showed as stray large text. It has been removed.
+- **Selected tool in Add target** — the picked tool now uses the same highlighted row as the collect and install dialogs, instead of an inset ring.
+
+### Breaking Changes
+
+- **`update` and `uninstall` stop on an unreadable git status** — a tracked repo whose git status cannot be read now fails instead of being treated as clean. Scripts that run `update --all` unattended should expect a non-zero exit for such a repo, or pass `--force` to pull anyway.
+- **`sync --all` exits non-zero when an extras target fails** — it used to warn and exit 0. `sync --json` also reports the failure.
+- **`sync -p agents` exits non-zero for a target with invalid settings** — it used to sync agents into that target and exit 0.
+- **Missing extras sources are no longer created** — sync used to create an empty source folder for an extra whose source did not exist. Create the folder yourself or fix the path in the config.
+- **`POST /api/sync` returns 200 when every target fails** — the dashboard API used to answer 500 with the first error. It now returns the usual result with every failed target in `failed`; check that list instead of the status code.
+
 ## [0.21.17] - 2026-09-29
 
 ### New Features
