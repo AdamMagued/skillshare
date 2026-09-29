@@ -86,7 +86,10 @@ export default function SyncPage() {
   const edited = countEdited(groups);
   const loading = diff.isPending || targets.isPending;
 
-  const local = diffs.flatMap((d) => (d.items ?? []).filter((i) => i.action === 'local' && parts.has(i.kind === 'agent' ? 'agent' : 'skill')));
+  const localByTarget = diffs
+    .map((d) => ({ target: d.target, items: (d.items ?? []).filter((i) => i.action === 'local' && parts.has(i.kind === 'agent' ? 'agent' : 'skill')) }))
+    .filter((d) => d.items.length > 0);
+  const local = localByTarget.flatMap((d) => d.items);
   const skillIgnored = parts.has('skill') ? diff.data?.ignored_skills ?? [] : [];
   const agentIgnored = parts.has('agent') ? diff.data?.agent_ignored_skills ?? [] : [];
   const ignored = [...skillIgnored, ...agentIgnored];
@@ -331,7 +334,21 @@ export default function SyncPage() {
                     </button>
                     <button type="button" className="shrink-0 font-semibold" onClick={() => setCollecting(true)}>{t('sync.local.collect')}</button>
                   </div>
-                  {open.has('local') && <div className="ss-r pl-[62px] font-mono text-[12.5px] text-ink-2">{[...new Set(local.map((i) => (i.kind === 'agent' ? formatAgentDisplayName(i.skill) : i.skill)))].join(', ')}</div>}
+                  {open.has('local') && (
+                    <div className="flex flex-col gap-3.5 px-[18px] pb-[18px] pt-3.5 [border-top:var(--sep)]">
+                      {localByTarget.map(({ target, items }) => (
+                        <div key={target} className="flex flex-col gap-2">
+                          <div className="flex items-center gap-2"><TargetChip target={target} label={target} /><span className="text-[12px] text-ink-3">{items.length}</span></div>
+                          <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 pl-[5px] font-mono text-[12.5px]">
+                            {items.map((i) => {
+                              const name = i.kind === 'agent' ? formatAgentDisplayName(i.skill) : i.skill;
+                              return <span key={`${i.kind}:${i.skill}`} className="flex min-w-0 items-center gap-1.5" title={name}>{i.kind === 'agent' ? <Bot size={13} className="shrink-0 text-ink-3" /> : <Puzzle size={13} className="shrink-0 text-ink-3" />}<span className="truncate">{name}</span></span>;
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </>
               )}
             </div>
