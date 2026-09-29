@@ -104,3 +104,22 @@ func TestSyncProject_InvalidTargetConfigFailsOnlyThatTarget(t *testing.T) {
 		t.Fatal("valid project target should still be synced")
 	}
 }
+
+func TestSyncProject_TargetWithoutPathFailsOnlyThatTarget(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	projectRoot := sb.SetupProjectDir("claude")
+	sb.CreateProjectSkill(projectRoot, "my-skill", map[string]string{"SKILL.md": "# My Skill"})
+	sb.WriteProjectConfig(projectRoot, `targets:
+  - claude
+  - name: custom
+`)
+
+	result := sb.RunCLIInDir(projectRoot, "sync", "-p")
+	result.AssertFailure(t)
+	result.AssertOutputContains(t, "custom: invalid config: missing path")
+
+	if !sb.IsSymlink(filepath.Join(projectRoot, ".claude", "skills", "my-skill")) {
+		t.Fatal("valid project target should still be synced")
+	}
+}

@@ -1,6 +1,8 @@
 package main
 
 import (
+	"slices"
+
 	"skillshare/internal/config"
 	"skillshare/internal/install"
 )
@@ -20,8 +22,19 @@ func loadProjectRuntime(root string) (*projectRuntime, error) {
 	if err != nil {
 		return nil, err
 	}
+	return newProjectRuntime(root, cfg, nil)
+}
 
-	targets, err := config.ResolveProjectTargets(root, cfg)
+// newProjectRuntime builds the runtime of a loaded config. The targets in skip
+// are left out of targets, so one that cannot resolve (no path) does not fail the rest.
+func newProjectRuntime(root string, cfg *config.ProjectConfig, skip map[string]error) (*projectRuntime, error) {
+	resolveCfg := cfg
+	if len(skip) > 0 {
+		c := *cfg
+		c.Targets = slices.DeleteFunc(slices.Clone(cfg.Targets), func(e config.ProjectTargetEntry) bool { return skip[e.Name] != nil })
+		resolveCfg = &c
+	}
+	targets, err := config.ResolveProjectTargets(root, resolveCfg)
 	if err != nil {
 		return nil, err
 	}

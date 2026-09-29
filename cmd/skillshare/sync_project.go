@@ -25,17 +25,21 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLog
 		return stats, nil, nil, nil, nil, err
 	}
 
-	runtime, err := loadProjectRuntime(root)
+	cfg, err := config.LoadProject(root)
 	if err != nil {
 		return stats, nil, nil, nil, nil, err
 	}
-	stats.Targets = len(runtime.config.Targets)
+	stats.Targets = len(cfg.Targets)
 
-	// Validate project config before sync. A target with invalid settings
-	// fails alone; the other targets still sync.
-	warnings, invalid, validErr := config.ValidateProjectConfigForSync(runtime.config, root)
+	// Validate project config before resolving targets. A target with invalid
+	// settings, even one without a path, fails alone; the other targets still sync.
+	warnings, invalid, validErr := config.ValidateProjectConfigForSync(cfg, root)
 	if validErr != nil {
 		return stats, nil, nil, nil, nil, validErr
+	}
+	runtime, err := newProjectRuntime(root, cfg, invalid)
+	if err != nil {
+		return stats, nil, nil, nil, nil, err
 	}
 	if !jsonOutput {
 		for _, w := range warnings {
@@ -79,7 +83,7 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLog
 	for _, entry := range runtime.config.Targets {
 		name := entry.Name
 		target, ok := runtime.targets[name]
-		if !ok {
+		if !ok && invalid[name] == nil {
 			if !jsonOutput {
 				ui.Error("%s: target not found", name)
 			}
