@@ -1,6 +1,6 @@
 # Build arguments (must be before first FROM for cross-stage visibility)
 ARG NODE_VERSION=24
-ARG PNPM_VERSION=10.28.0
+ARG PNPM_VERSION=12.6.0
 ARG GO_VERSION=1.25.5
 
 # Stage 1: Build frontend assets (for playground UI)
@@ -8,7 +8,7 @@ FROM node:${NODE_VERSION}-bookworm-slim AS ui-builder
 ARG PNPM_VERSION
 RUN npm install -g pnpm@${PNPM_VERSION}
 WORKDIR /ui
-COPY ui/package.json ui/pnpm-lock.yaml ./
+COPY ui/package.json ui/pnpm-lock.yaml ui/pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY ui/ ./
 RUN pnpm run build
