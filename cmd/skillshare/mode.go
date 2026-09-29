@@ -57,6 +57,18 @@ func modeString(mode runMode) string {
 	return "global"
 }
 
+// resolveAutoMode turns modeAuto into modeProject when cwd has a project
+// config and into modeGlobal otherwise. Explicit modes pass through unchanged.
+func resolveAutoMode(mode runMode, cwd string) runMode {
+	if mode != modeAuto {
+		return mode
+	}
+	if projectConfigExists(cwd) {
+		return modeProject
+	}
+	return modeGlobal
+}
+
 func projectConfigExists(root string) bool {
 	_, ok := projectdir.Find(root)
 	return ok

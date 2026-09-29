@@ -65,13 +65,7 @@ func cmdToggleSkill(args []string, enable bool) error {
 		return fmt.Errorf("cannot determine working directory: %w", err)
 	}
 
-	if mode == modeAuto {
-		if projectConfigExists(cwd) {
-			mode = modeProject
-		} else {
-			mode = modeGlobal
-		}
-	}
+	mode = resolveAutoMode(mode, cwd)
 	applyModeLabel(mode)
 
 	isAgent := kind == kindAgents

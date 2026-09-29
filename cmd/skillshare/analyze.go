@@ -158,13 +158,7 @@ func cmdAnalyze(args []string) error {
 	if err != nil {
 		return fmt.Errorf("cannot determine working directory: %w", err)
 	}
-	if mode == modeAuto {
-		if projectConfigExists(cwd) {
-			mode = modeProject
-		} else {
-			mode = modeGlobal
-		}
-	}
+	mode = resolveAutoMode(mode, cwd)
 	applyModeLabel(mode)
 	if mode == modeProject {
 		return cmdAnalyzeProject(cwd, opts)

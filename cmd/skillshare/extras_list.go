@@ -108,13 +108,7 @@ func cmdExtrasList(args []string) error {
 	}
 
 	cwd, _ := os.Getwd()
-	if mode == modeAuto {
-		if projectConfigExists(cwd) {
-			mode = modeProject
-		} else {
-			mode = modeGlobal
-		}
-	}
+	mode = resolveAutoMode(mode, cwd)
 
 	extensionsDir := globalExtensionsDir()
 	if mode == modeProject {

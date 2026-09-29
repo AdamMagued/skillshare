@@ -16,7 +16,6 @@ import (
 	"skillshare/internal/sync"
 	"skillshare/internal/trash"
 	"skillshare/internal/ui"
-	"skillshare/internal/utils"
 )
 
 type syncLogStats struct {
@@ -103,13 +102,7 @@ func cmdSync(args []string) error {
 		return fmt.Errorf("cannot determine working directory: %w", err)
 	}
 
-	if mode == modeAuto {
-		if projectConfigExists(cwd) {
-			mode = modeProject
-		} else {
-			mode = modeGlobal
-		}
-	}
+	mode = resolveAutoMode(mode, cwd)
 
 	applyModeLabel(mode)
 
@@ -597,177 +590,6 @@ func backupTargetsBeforeSync(cfg *config.Config) {
 	}
 }
 
-func syncTarget(name string, target config.TargetConfig, cfg *config.Config, dryRun, force bool) error {
-	sc := target.SkillsConfig()
-	if !sc.IsEnabled() {
-		return nil
-	}
-	// Determine mode: target-specific > global > default
-	mode := sc.Mode
-	if mode == "" {
-		mode = cfg.Mode
-	}
-	if mode == "" {
-		mode = "merge"
-	}
-
-	switch mode {
-	case "merge":
-		return syncMergeMode(name, target, cfg.EffectiveSkillsSource(), dryRun, force)
-	case "copy":
-		return syncCopyMode(name, target, cfg.EffectiveSkillsSource(), sync.EffectiveFileIgnorePatterns(cfg.Ignore), dryRun, force)
-	default:
-		return syncSymlinkMode(name, target, cfg.EffectiveSkillsSource(), dryRun, force)
-	}
-}
-
-func syncTargetWithSkills(name string, target config.TargetConfig, cfg *config.Config, skills []sync.DiscoveredSkill, dryRun, force bool) error {
-	_, err := syncTargetWithSkillsStats(name, target, cfg, skills, dryRun, force)
-	return err
-}
-
-func syncTargetWithSkillsStats(name string, target config.TargetConfig, cfg *config.Config, skills []sync.DiscoveredSkill, dryRun, force bool) (syncModeStats, error) {
-	sc := target.SkillsConfig()
-	if !sc.IsEnabled() {
-		return syncModeStats{}, nil
-	}
-	mode := sc.Mode
-	if mode == "" {
-		mode = cfg.Mode
-	}
-	if mode == "" {
-		mode = "merge"
-	}
-
-	switch mode {
-	case "merge":
-		return syncMergeModeWithSkills(name, target, cfg.EffectiveSkillsSource(), skills, dryRun, force)
-	case "copy":
-		return syncCopyModeWithSkills(name, target, cfg.EffectiveSkillsSource(), skills, sync.EffectiveFileIgnorePatterns(cfg.Ignore), dryRun, force)
-	default:
-		err := syncSymlinkMode(name, target, cfg.EffectiveSkillsSource(), dryRun, force)
-		return syncModeStats{}, err
-	}
-}
-
-func syncMergeMode(name string, target config.TargetConfig, source string, dryRun, force bool) error {
-	sc := target.SkillsConfig()
-	result, err := sync.SyncTargetMerge(name, target, source, dryRun, force, "")
-	if err != nil {
-		return err
-	}
-
-	pruneResult, pruneErr := sync.PruneOrphanLinks(sc.Path, source, sc.Include, sc.Exclude, name, sc.TargetNaming, dryRun, force)
-	if pruneErr != nil {
-		ui.Warning("%s: prune failed: %v", name, pruneErr)
-	}
-
-	reportMergeResult(name, target, result, pruneResult, dryRun)
-	return nil
-}
-
-func syncMergeModeWithSkills(name string, target config.TargetConfig, source string, skills []sync.DiscoveredSkill, dryRun, force bool) (syncModeStats, error) {
-	sc := target.SkillsConfig()
-	result, err := sync.SyncTargetMergeWithSkills(name, target, skills, source, dryRun, force, "")
-	if err != nil {
-		return syncModeStats{}, err
-	}
-
-	pruneResult, pruneErr := sync.PruneOrphanLinksWithSkills(sync.PruneOptions{
-		TargetPath: sc.Path, SourcePath: source, Skills: skills,
-		Include: sc.Include, Exclude: sc.Exclude, TargetNaming: sc.TargetNaming, TargetName: name,
-		DryRun: dryRun, Force: force,
-	})
-	if pruneErr != nil {
-		ui.Warning("%s: prune failed: %v", name, pruneErr)
-	}
-
-	reportMergeResult(name, target, result, pruneResult, dryRun)
-	return mergeStats(result, pruneResult), nil
-}
-
-func reportMergeResult(name string, target config.TargetConfig, result *sync.MergeResult, pruneResult *sync.PruneResult, dryRun bool) {
-	sc := target.SkillsConfig()
-	linkedCount := len(result.Linked)
-	updatedCount := len(result.Updated)
-	skippedCount := len(result.Skipped)
-	removedCount := 0
-	if pruneResult != nil {
-		removedCount = len(pruneResult.Removed)
-		skippedCount += len(pruneResult.LocalDirs)
-	}
-
-	if linkedCount > 0 || updatedCount > 0 || removedCount > 0 {
-		ui.Success("%s: merged (%d linked, %d local, %d updated, %d pruned)",
-			name, linkedCount, skippedCount, updatedCount, removedCount)
-	} else if skippedCount > 0 {
-		ui.Success("%s: merged (%d local skills preserved)", name, skippedCount)
-	} else {
-		ui.Success("%s: merged (no skills)", name)
-	}
-
-	if len(sc.Include) > 0 {
-		ui.Info("  include: %s", strings.Join(sc.Include, ", "))
-	}
-	if len(sc.Exclude) > 0 {
-		ui.Info("  exclude: %s", strings.Join(sc.Exclude, ", "))
-	}
-
-	if pruneResult != nil {
-		for _, warn := range pruneResult.Warnings {
-			ui.Warning("  %s", warn)
-		}
-	}
-
-	if result.DirCreated != "" {
-		verb := "Created"
-		if dryRun {
-			verb = "Will create"
-		}
-		ui.Info("  %s target directory: %s", verb, result.DirCreated)
-	}
-}
-
-func syncCopyMode(name string, target config.TargetConfig, source string, ignorePatterns []string, dryRun, force bool) error {
-	sc := target.SkillsConfig()
-	result, err := sync.SyncTargetCopyWithOptions(name, target, source, dryRun, force, sync.CopyOptions{IgnorePatterns: ignorePatterns})
-	if err != nil {
-		return err
-	}
-
-	pruneResult, pruneErr := sync.PruneOrphanCopies(sc.Path, source, sc.Include, sc.Exclude, name, sc.TargetNaming, dryRun)
-	if pruneErr != nil {
-		ui.Warning("%s: prune failed: %v", name, pruneErr)
-	}
-
-	reportCopyResult(name, target, result, pruneResult, dryRun)
-	return nil
-}
-
-func syncCopyModeWithSkills(name string, target config.TargetConfig, source string, skills []sync.DiscoveredSkill, ignorePatterns []string, dryRun, force bool) (syncModeStats, error) {
-	// Copy mode is slow (checksum + file copy per skill) — show a spinner with progress
-	spinner := ui.StartSpinner(fmt.Sprintf("%s: copying skills", name))
-	onProgress := func(cur, total int, skill string) {
-		spinner.Update(fmt.Sprintf("%s: %d/%d %s", name, cur, total, skill))
-	}
-
-	result, err := sync.SyncTargetCopyWithSkillsOptions(name, target, skills, source, dryRun, force, onProgress, sync.CopyOptions{IgnorePatterns: ignorePatterns})
-	if err != nil {
-		spinner.Fail(fmt.Sprintf("%s: copy failed", name))
-		return syncModeStats{}, err
-	}
-	spinner.Stop()
-
-	sc := target.SkillsConfig()
-	pruneResult, pruneErr := sync.PruneOrphanCopiesWithSkills(sc.Path, skills, sc.Include, sc.Exclude, name, sc.TargetNaming, dryRun)
-	if pruneErr != nil {
-		ui.Warning("%s: prune failed: %v", name, pruneErr)
-	}
-
-	reportCopyResult(name, target, result, pruneResult, dryRun)
-	return copyStats(result, pruneResult), nil
-}
-
 func mergeStats(result *sync.MergeResult, prune *sync.PruneResult) syncModeStats {
 	s := syncModeStats{
 		linked:  len(result.Linked),
@@ -791,47 +613,6 @@ func copyStats(result *sync.CopyResult, prune *sync.PruneResult) syncModeStats {
 		s.pruned = len(prune.Removed)
 	}
 	return s
-}
-
-func reportCopyResult(name string, target config.TargetConfig, result *sync.CopyResult, pruneResult *sync.PruneResult, dryRun bool) {
-	sc := target.SkillsConfig()
-	copiedCount := len(result.Copied)
-	updatedCount := len(result.Updated)
-	skippedCount := len(result.Skipped)
-	removedCount := 0
-	if pruneResult != nil {
-		removedCount = len(pruneResult.Removed)
-	}
-
-	if copiedCount > 0 || updatedCount > 0 || removedCount > 0 {
-		ui.Success("%s: copied (%d new, %d skipped, %d updated, %d pruned)",
-			name, copiedCount, skippedCount, updatedCount, removedCount)
-	} else if skippedCount > 0 {
-		ui.Success("%s: copied (%d skipped, up to date)", name, skippedCount)
-	} else {
-		ui.Success("%s: copied (no skills)", name)
-	}
-
-	if len(sc.Include) > 0 {
-		ui.Info("  include: %s", strings.Join(sc.Include, ", "))
-	}
-	if len(sc.Exclude) > 0 {
-		ui.Info("  exclude: %s", strings.Join(sc.Exclude, ", "))
-	}
-
-	if pruneResult != nil {
-		for _, warn := range pruneResult.Warnings {
-			ui.Warning("  %s", warn)
-		}
-	}
-
-	if result.DirCreated != "" {
-		verb := "Created"
-		if dryRun {
-			verb = "Will create"
-		}
-		ui.Info("  %s target directory: %s", verb, result.DirCreated)
-	}
 }
 
 func reportCollisions(skills []sync.DiscoveredSkill, targets map[string]config.TargetConfig) {
@@ -913,49 +694,6 @@ func reportCollisions(skills []sync.DiscoveredSkill, targets map[string]config.T
 			ui.Info("%d duplicate skill names (isolated by target filters): %s, ... and %d more", len(global), strings.Join(names, ", "), len(global)-maxShow)
 		}
 	}
-}
-
-func syncSymlinkMode(name string, target config.TargetConfig, source string, dryRun, force bool) error {
-	sc := target.SkillsConfig()
-	status := sync.CheckStatus(sc.Path, source)
-
-	// Handle conflicts
-	if status == sync.StatusConflict && !force {
-		link, err := utils.ResolveLinkTarget(sc.Path)
-		if err != nil {
-			link = "(unable to resolve target)"
-		}
-		return fmt.Errorf("conflict - symlink points to %s (use --force to override)", link)
-	}
-
-	if status == sync.StatusConflict && force {
-		if !dryRun {
-			os.Remove(sc.Path)
-		}
-	}
-
-	if err := sync.SyncTarget(name, target, source, dryRun, ""); err != nil {
-		return err
-	}
-
-	switch status {
-	case sync.StatusLinked:
-		ui.Success("%s: already linked", name)
-	case sync.StatusNotExist:
-		ui.Success("%s: symlink created", name)
-		ui.Warning("  Symlink mode: deleting files in %s will delete from source!", sc.Path)
-		ui.Info("  Use 'skillshare target remove %s' to safely unlink", name)
-	case sync.StatusHasFiles:
-		ui.Success("%s: files migrated and linked", name)
-		ui.Warning("  Symlink mode: deleting files in %s will delete from source!", sc.Path)
-		ui.Info("  Use 'skillshare target remove %s' to safely unlink", name)
-	case sync.StatusBroken:
-		ui.Success("%s: broken link fixed", name)
-	case sync.StatusConflict:
-		ui.Success("%s: conflict resolved (forced)", name)
-	}
-
-	return nil
 }
 
 func printSyncHelp() {

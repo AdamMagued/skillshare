@@ -48,13 +48,7 @@ func cmdSyncExtras(args []string) error {
 	dryRun, force, jsonOutput, _ := parseSyncFlags(rest)
 
 	cwd, _ := os.Getwd()
-	if mode == modeAuto {
-		if projectConfigExists(cwd) {
-			mode = modeProject
-		} else {
-			mode = modeGlobal
-		}
-	}
+	mode = resolveAutoMode(mode, cwd)
 
 	applyModeLabel(mode)
 
