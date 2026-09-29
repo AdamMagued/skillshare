@@ -185,6 +185,13 @@ export default function SyncPage() {
           )}
           {parts.has('mcp') && mcp.data?.previewError && <div className="ss-note bad"><AlertCircle size={16} /><span className="flex-1">{mcp.data.previewError}</span></div>}
           {outcome?.warnings?.map((w) => <div key={w} className="ss-note warn"><TriangleAlert size={16} /><span className="flex-1">{w}</span></div>)}
+          {!!outcome?.path_overlap && (
+            <div className="ss-note warn !items-center">
+              <TriangleAlert size={16} />
+              <span className="flex-1">{t(outcome.path_overlap === 1 ? 'sync.pathOverlap.one' : 'sync.pathOverlap.other', { count: outcome.path_overlap })}</span>
+              <Link to="/doctor" className="ss-btn sm">{t('sync.openDoctor')}</Link>
+            </div>
+          )}
           {conflicts.map((c) => (
             <div key={c.path} className="ss-note warn !items-center">
               <TriangleAlert size={16} />

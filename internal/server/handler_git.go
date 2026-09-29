@@ -752,6 +752,9 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 		} else {
 			resp.SyncResults = out.results
 			resp.Warnings = append(resp.Warnings, out.warnings...)
+			if out.pathOverlap > 0 {
+				resp.Warnings = append(resp.Warnings, fmt.Sprintf("Skill path overlap across %d target(s) — see Health Check for details", out.pathOverlap))
+			}
 		}
 	}
 

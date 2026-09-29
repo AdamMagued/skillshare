@@ -87,6 +87,7 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 		"results":          out.results,
 		"warnings":         out.warnings,
 		"folder_conflicts": out.folderConflicts,
+		"path_overlap":     out.pathOverlap,
 	}
 	if len(out.skills) > 0 {
 		if contextCost := s.computeContextCost(out.skills); contextCost != nil {
@@ -102,14 +103,14 @@ type syncOutcome struct {
 	results         []syncTargetResult
 	warnings        []string
 	folderConflicts []config.SkillsFolderConflict
+	pathOverlap     int // targets whose path overlap the folder conflicts don't explain
 	skills          []ssync.DiscoveredSkill
 	ignoreStats     *skillignore.IgnoreStats
 }
 
 // folderConflicts returns the skills folders whose targets undo each other's
-// sync, never nil, plus a warning for the path overlap they don't explain
-// ("" when there is none).
-func folderConflicts(targets map[string]config.TargetConfig, isProject bool) ([]config.SkillsFolderConflict, string) {
+// sync, never nil, plus how many targets overlap in a way they don't explain.
+func folderConflicts(targets map[string]config.TargetConfig, isProject bool) ([]config.SkillsFolderConflict, int) {
 	conflicts := config.SkillsFolderConflicts(targets)
 	explained := map[string]bool{}
 	for _, c := range conflicts {
@@ -126,10 +127,7 @@ func folderConflicts(targets map[string]config.TargetConfig, isProject bool) ([]
 	if conflicts == nil {
 		conflicts = []config.SkillsFolderConflict{}
 	}
-	if rest == 0 {
-		return conflicts, ""
-	}
-	return conflicts, fmt.Sprintf("Skill path overlap across %d target(s) — see Health Check for details", rest)
+	return conflicts, rest
 }
 
 // projectTargets returns the targets of the project declared under root.
@@ -166,9 +164,6 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 	}
 
 	conflicts, overlap := folderConflicts(s.cfg.Targets, s.IsProjectMode())
-	if overlap != "" {
-		warnings = append(warnings, overlap)
-	}
 
 	if !dryRun {
 		warnings = append(warnings, s.backupBeforeSync(targets, kind != kindAgent, kind != kindSkill)...)
@@ -386,7 +381,7 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 	}
 	s.writeOpsLog("sync", "ok", start, logArgs, "")
 
-	return &syncOutcome{results: results, warnings: warnings, folderConflicts: conflicts, skills: allSkills, ignoreStats: ignoreStats}, 0, nil
+	return &syncOutcome{results: results, warnings: warnings, folderConflicts: conflicts, pathOverlap: overlap, skills: allSkills, ignoreStats: ignoreStats}, 0, nil
 }
 
 // backupBeforeSync snapshots the target folders a sync may overwrite, as the

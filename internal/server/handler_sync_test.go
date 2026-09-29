@@ -329,6 +329,26 @@ func TestHandleSync_UnknownProjectIsRejected(t *testing.T) {
 	}
 }
 
+func TestHandleSync_ReportsPathOverlapCount(t *testing.T) {
+	shared := filepath.Join(t.TempDir(), "agents-skills")
+	s, src := newTestServerWithTargets(t, map[string]string{"universal": shared, "codex": shared})
+	addSkill(t, src, "alpha")
+
+	req := httptest.NewRequest(http.MethodPost, "/api/sync", strings.NewReader(`{"dryRun":true}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		PathOverlap int `json:"path_overlap"`
+	}
+	json.Unmarshal(rr.Body.Bytes(), &resp)
+	if resp.PathOverlap != 2 {
+		t.Errorf("path_overlap = %d, want 2", resp.PathOverlap)
+	}
+}
+
 func TestHandleSync_ReportsFolderConflicts(t *testing.T) {
 	shared := filepath.Join(t.TempDir(), "agents-skills")
 	s, src := newTestServerWithTargets(t, map[string]string{"universal": shared, "codex": shared})
@@ -349,7 +369,7 @@ func TestHandleSync_ReportsFolderConflicts(t *testing.T) {
 			t.Fatalf("%s: expected 200, got %d: %s", tc.url, rr.Code, rr.Body.String())
 		}
 		var resp struct {
-			Warnings        []string                      `json:"warnings"`
+			PathOverlap     int                           `json:"path_overlap"`
 			FolderConflicts []config.SkillsFolderConflict `json:"folder_conflicts"`
 		}
 		json.Unmarshal(rr.Body.Bytes(), &resp)
@@ -360,10 +380,8 @@ func TestHandleSync_ReportsFolderConflicts(t *testing.T) {
 		if c.Keep != "universal" || len(c.Stop) != 1 || c.Stop[0] != "codex" {
 			t.Errorf("%s: conflict = %+v, want keep universal, stop codex", tc.url, c)
 		}
-		for _, w := range resp.Warnings {
-			if strings.Contains(w, "Skill path overlap") {
-				t.Errorf("%s: overlap fully explained by the conflict, got warning %q", tc.url, w)
-			}
+		if resp.PathOverlap != 0 {
+			t.Errorf("%s: overlap fully explained by the conflict, got path_overlap %d", tc.url, resp.PathOverlap)
 		}
 	}
 }

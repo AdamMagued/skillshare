@@ -1243,6 +1243,8 @@ export interface SyncResponse extends IgnoreSources {
   results: SyncResult[];
   warnings?: string[];
   folder_conflicts?: FolderConflict[];
+  /** Targets whose skills path overlaps another's in a way folder_conflicts doesn't explain. */
+  path_overlap?: number;
   context_cost?: ContextCost;
 }
 
