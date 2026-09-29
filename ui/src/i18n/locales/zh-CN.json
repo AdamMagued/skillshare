@@ -1700,6 +1700,7 @@
   "sync.last.targets": "目标",
   "sync.last.took": "耗时",
   "sync.last.error": "错误",
+  "sync.last.failed": "失败",
   "sync.last.never": "尚未同步过。",
   "sync.last.openLog": "打开日志",
   "gitSync.changes.title": "本机上的变更",

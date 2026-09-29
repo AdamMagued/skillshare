@@ -1700,6 +1700,7 @@
   "sync.last.targets": "هدف‌ها",
   "sync.last.took": "مدت",
   "sync.last.error": "خطا",
+  "sync.last.failed": "ناموفق",
   "sync.last.never": "هنوز همگام‌سازی انجام نشده است.",
   "sync.last.openLog": "باز کردن log",
   "gitSync.changes.title": "تغییرات روی این دستگاه",

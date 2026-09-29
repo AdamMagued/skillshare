@@ -1700,6 +1700,7 @@
   "sync.last.targets": "ターゲット",
   "sync.last.took": "所要時間",
   "sync.last.error": "エラー",
+  "sync.last.failed": "失敗",
   "sync.last.never": "まだ同期していません。",
   "sync.last.openLog": "log を開く",
   "gitSync.changes.title": "このマシンでの変更",

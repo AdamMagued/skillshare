@@ -376,6 +376,13 @@ export default function SyncPage() {
                 <dt>{t('sync.last.when')}</dt>
                 <dd title={formatDateTime(last.ts, locale)}>{formatRelativeTime(last.ts, locale)}</dd>
                 {typeof last.args?.targets_total === 'number' && <><dt>{t('sync.last.targets')}</dt><dd>{last.args.targets_total}</dd></>}
+                {last.args?.targets_failed > 0 && (
+                  <>
+                    <dt>{t('sync.last.failed')}</dt>
+                    {/* Entries written before failed_targets existed only have the count. */}
+                    <dd className="break-words text-bad">{Array.isArray(last.args?.failed_targets) && last.args.failed_targets.length > 0 ? joinList(last.args.failed_targets, locale) : last.args?.targets_failed}</dd>
+                  </>
+                )}
                 {typeof last.ms === 'number' && <><dt>{t('sync.last.took')}</dt><dd className="font-mono">{(last.ms / 1000).toFixed(1)} s</dd></>}
                 {last.msg && <><dt>{t('sync.last.error')}</dt><dd className="break-words text-bad">{last.msg}</dd></>}
               </dl>

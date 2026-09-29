@@ -1700,6 +1700,7 @@
   "sync.last.targets": "Ziele",
   "sync.last.took": "Dauer",
   "sync.last.error": "Fehler",
+  "sync.last.failed": "Fehlgeschlagen",
   "sync.last.never": "Es wurde noch nicht synchronisiert.",
   "sync.last.openLog": "Log öffnen",
   "gitSync.changes.title": "Änderungen auf diesem Rechner",

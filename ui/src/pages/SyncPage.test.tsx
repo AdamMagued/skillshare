@@ -49,3 +49,31 @@ describe('Sync page folder conflicts', () => {
     await waitFor(() => expect(api.updateTarget).toHaveBeenCalledWith('codex', { skills_enabled: false }));
   });
 });
+
+describe('Sync page last sync', () => {
+  const renderPage = () => render(
+    <MemoryRouter>
+      <QueryClientProvider client={new QueryClient()}><I18nProvider><ToastProvider><SyncPage /></ToastProvider></I18nProvider></QueryClientProvider>
+    </MemoryRouter>,
+  );
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(api.listTargets).mockResolvedValue({ targets: [target('codex')], sourceSkillCount: 3 });
+    vi.mocked(api.diff).mockResolvedValue({ diffs: [], ignored_count: 0, ignored_skills: [], ignore_root: '', ignore_repos: [] });
+    vi.mocked(api.diffExtras).mockResolvedValue({ extras: [] });
+    vi.mocked(mcpApi.list).mockResolvedValue({ paths: {}, source: { targets: [], servers: {} } } as never);
+  });
+
+  it('names the targets the last sync failed', async () => {
+    vi.mocked(api.listLog).mockResolvedValue({ entries: [{ ts: '2026-09-30T00:00:00Z', cmd: 'sync', status: 'partial', args: { targets_total: 3, targets_failed: 2, failed_targets: ['codex', 'cursor'] } }] } as never);
+    renderPage();
+    expect((await screen.findByText('Failed')).nextElementSibling).toHaveTextContent('codex and cursor');
+  });
+
+  it('counts the failed targets when an older entry has no names', async () => {
+    vi.mocked(api.listLog).mockResolvedValue({ entries: [{ ts: '2026-09-30T00:00:00Z', cmd: 'sync', status: 'partial', args: { targets_total: 3, targets_failed: 1 } }] } as never);
+    renderPage();
+    expect((await screen.findByText('Failed')).nextElementSibling).toHaveTextContent('1');
+  });
+});

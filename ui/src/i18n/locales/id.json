@@ -1700,6 +1700,7 @@
   "sync.last.targets": "Target",
   "sync.last.took": "Durasi",
   "sync.last.error": "Galat",
+  "sync.last.failed": "Gagal",
   "sync.last.never": "Belum pernah sinkronisasi.",
   "sync.last.openLog": "Buka log",
   "gitSync.changes.title": "Perubahan di mesin ini",

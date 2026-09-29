@@ -1700,6 +1700,7 @@
   "sync.last.targets": "Cibles",
   "sync.last.took": "Durée",
   "sync.last.error": "Erreur",
+  "sync.last.failed": "Échecs",
   "sync.last.never": "Aucune synchronisation pour l'instant.",
   "sync.last.openLog": "Ouvrir le log",
   "gitSync.changes.title": "Changements sur cette machine",
