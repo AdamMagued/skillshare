@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -117,6 +119,40 @@ func resolveAgentTargetPath(tc config.TargetConfig, builtinAgents map[string]con
 		return config.ExpandPath(builtin.Path)
 	}
 	return ""
+}
+
+// syncAgentsOnlyProject runs `sync -p agents`: like the global agent-only sync,
+// a target with invalid settings fails alone, and the run is logged.
+func syncAgentsOnlyProject(projectRoot string, dryRun, force, jsonOutput bool, start time.Time) error {
+	projCfg, err := config.LoadProject(projectRoot)
+	if err != nil {
+		return fmt.Errorf("cannot load project config: %w", err)
+	}
+	warnings, invalid, validErr := config.ValidateProjectConfigForSync(projCfg, projectRoot)
+	if validErr != nil {
+		return validErr
+	}
+	invalidNames := slices.Sorted(maps.Keys(invalid))
+	if !jsonOutput {
+		for _, w := range warnings {
+			ui.Warning("%s", w)
+		}
+		for _, name := range invalidNames {
+			ui.Error("%s: %s", name, invalidConfigMessage(invalid[name]))
+		}
+	}
+	agentFailed, agentErr := syncAgentsProject(projectRoot, invalid, dryRun, force, jsonOutput, start)
+	if agentErr == nil && len(invalidNames) > 0 {
+		agentErr = fmt.Errorf("some targets failed to sync")
+	}
+	logSyncOp(config.ProjectConfigPath(projectRoot), syncLogStats{
+		Targets:       len(projCfg.Targets),
+		FailedTargets: mergeFailedTargets(agentFailed, invalidNames),
+		DryRun:        dryRun,
+		Force:         force,
+		ProjectScope:  true,
+	}, start, agentErr)
+	return agentErr
 }
 
 // syncAgentsProject syncs agents for project mode using .skillshare/agents/ as source

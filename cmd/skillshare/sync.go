@@ -205,8 +205,7 @@ func cmdSync(args []string) error {
 	if mode == modeProject {
 		// Agent-only project sync
 		if kind == kindAgents {
-			_, err := syncAgentsProject(cwd, nil, dryRun, force, jsonOutput, start)
-			return err
+			return syncAgentsOnlyProject(cwd, dryRun, force, jsonOutput, start)
 		}
 
 		stats, results, projIgnoreStats, projCtxCost, invalid, err := cmdSyncProject(cwd, dryRun, force, jsonOutput, quiet)

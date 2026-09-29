@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"skillshare/internal/testutil"
@@ -121,5 +122,45 @@ func TestSyncProject_TargetWithoutPathFailsOnlyThatTarget(t *testing.T) {
 
 	if !sb.IsSymlink(filepath.Join(projectRoot, ".claude", "skills", "my-skill")) {
 		t.Fatal("valid project target should still be synced")
+	}
+}
+
+func TestSyncProject_AgentsOnlySkipsInvalidTargetAndLogsIt(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	projectRoot := sb.SetupProjectDir("claude")
+	sb.WriteFile(filepath.Join(projectRoot, ".skillshare", "agents", "tutor.md"), "# Tutor")
+	sb.WriteFile(filepath.Join(projectRoot, "skills-file"), "x")
+	sb.WriteProjectConfig(projectRoot, `targets:
+  - claude
+  - name: broken
+    skills:
+      path: skills-file
+    agents:
+      path: broken-agents
+`)
+
+	result := sb.RunCLIInDir(projectRoot, "sync", "-p", "agents")
+	result.AssertFailure(t)
+	result.AssertOutputContains(t, "broken: invalid config: path is not a directory")
+
+	if !sb.IsSymlink(filepath.Join(projectRoot, ".claude", "agents", "tutor.md")) {
+		t.Fatal("valid project target should still get its agents")
+	}
+	if _, err := os.Lstat(filepath.Join(projectRoot, "broken-agents", "tutor.md")); !os.IsNotExist(err) {
+		t.Fatalf("expected no agent sync into the invalid target, lstat err = %v", err)
+	}
+	logResult := sb.RunCLIInDir(projectRoot, "log", "-p", "--json", "--cmd", "sync", "--tail", "1")
+	logResult.AssertSuccess(t)
+	var entry struct {
+		Status string         `json:"status"`
+		Args   map[string]any `json:"args"`
+	}
+	if err := json.Unmarshal([]byte(strings.TrimSpace(logResult.Stdout)), &entry); err != nil {
+		t.Fatalf("parse sync log entry: %v\n%s", err, logResult.Stdout)
+	}
+	got, _ := json.Marshal(entry.Args["failed_targets"])
+	if entry.Status != "partial" || string(got) != `["broken"]` {
+		t.Fatalf("expected partial sync with broken failed, got status %q args %v", entry.Status, entry.Args)
 	}
 }
