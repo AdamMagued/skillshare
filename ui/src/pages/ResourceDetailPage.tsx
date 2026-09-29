@@ -32,7 +32,7 @@ import Spinner from '../components/Spinner';
 import { SkillContextMenu, type ContextMenuItem } from '../components/TargetMenu';
 import { useToast } from '../components/Toast';
 import { SkillEditor } from '../components/skill-editor';
-import { UninstallDialog } from './ResourcesPage';
+import { UninstallDialog } from '../components/resources/UninstallDialog';
 import { hasUpdate, updateUnits, useCheckStatuses } from './UpdatePage';
 
 type Tab = 'doc' | 'files' | 'audit';

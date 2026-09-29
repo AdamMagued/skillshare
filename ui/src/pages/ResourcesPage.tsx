@@ -6,7 +6,6 @@ import {
   ChevronsDownUp,
   ChevronsUpDown,
   CircleCheck,
-  CircleX,
   Download,
   Ellipsis,
   ExternalLink,
@@ -29,12 +28,15 @@ import {
   X,
 } from 'lucide-react';
 import { api } from '../api/client';
-import type { BatchUninstallItemResult, Skill, SyncMatrixEntry } from '../api/client';
+import type { Skill } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
-import { clearAuditCache } from '../lib/auditCache';
 import { globToRegex } from '../lib/glob';
-import { parseRemoteURL } from '../lib/parseRemoteURL';
 import { folderOf, formatTrackedRepoName, resourceHref } from '../lib/resourceNames';
+import {
+  byTargetOrProject, countLabel, groupByFolder, groupBySource, limitGroups, parentPath, projectOf, repoOf, sortSkills, sourceName, splitTargets, syncedByTarget,
+  SOURCE_LABEL, SOURCE_ORDER,
+  type FolderGroup, type Group, type SortType, type SourceFilter,
+} from '../lib/resourceGrouping';
 import { useSyncMatrix } from '../hooks/useSyncMatrix';
 import { useRepoUpdate } from '../hooks/useRepoUpdate';
 import { useT } from '../i18n';
@@ -42,23 +44,23 @@ import AgentIcon from '../components/AgentIcon';
 import Button from '../components/Button';
 import { Checkbox } from '../components/Checkbox';
 import ConfirmDialog from '../components/ConfirmDialog';
-import DialogShell from '../components/DialogShell';
 import AnalyzePanel from '../components/analyze/AnalyzePanel';
 import EmptyState from '../components/EmptyState';
 import InstallDialog from '../components/InstallDialog';
 import SyncPreviewModal from '../components/SyncPreviewModal';
 import { countChanges, resourceGroups } from '../components/sync/syncView';
 import PageHeader from '../components/PageHeader';
+import { resolveSource } from '../components/SourceBadge';
 import SegmentedControl from '../components/SegmentedControl';
 import { Select } from '../components/Select';
 import { PageSkeleton } from '../components/Skeleton';
-import { resolveSource, type SourceType } from '../components/SourceBadge';
 import TargetMenu, { SkillContextMenu } from '../components/TargetMenu';
 import Tooltip from '../components/Tooltip';
 import SkillTree from '../components/resources/SkillTree';
 import type { SelectMode } from '../components/resources/SkillTree';
 import TreeDetailPane from '../components/resources/TreeDetailPane';
 import type { PaneSubject } from '../components/resources/TreeDetailPane';
+import { UninstallDialog } from '../components/resources/UninstallDialog';
 import TreeSplit from '../components/resources/TreeSplit';
 import ArrangeMenu from '../components/resources/ArrangeMenu';
 import { buildTree, findFolder, flattenTree, folderPaths, isRepoRoot, rangeIds, selectedSkills, skillsUnder, summarize } from '../components/resources/tree';
@@ -68,9 +70,7 @@ import TrashPage from './TrashPage';
 import UpdatePage, { countUpdates, updateUnits, useCheckStatuses } from './UpdatePage';
 
 type Kind = Skill['kind'];
-type SourceFilter = 'all' | SourceType;
 type StatusFilter = 'all' | 'enabled' | 'disabled';
-type SortType = 'name-asc' | 'name-desc' | 'newest' | 'oldest';
 type ViewType = 'list' | 'cards' | 'tree';
 type GroupBy = 'source' | 'folder' | 'none';
 type Tone = 'ok' | 'off';
@@ -86,9 +86,6 @@ type SkillsData = { resources: Skill[] };
 const EMPTY: Skill[] = [];
 // ponytail: "Show more" paging instead of virtualization; add a virtual list if 1000+ rows get slow.
 const STEP = 100;
-const SOURCE_ORDER: SourceType[] = ['tracked', 'github', 'remote', 'local'];
-// Source names stay in English, like the CLI.
-const SOURCE_LABEL: Record<SourceFilter, string> = { all: 'All', tracked: 'Tracked', github: 'GitHub', remote: 'Remote', local: 'Local' };
 const SOURCE_ICON = { tracked: GitBranch, github: Github, remote: Globe, local: Folder };
 const VIEW_KEY = 'skillshare:skills-view';
 const COLLAPSED_KEY = 'skillshare:folder-collapsed';
@@ -115,145 +112,6 @@ function loadCollapsed(): Set<string> {
 
 function saveCollapsed(collapsed: Set<string>) {
   try { localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...collapsed])); } catch { /* storage unavailable */ }
-}
-
-/**
- * Which of `items` each target actually receives, keyed by target name.
- * Reads the sync matrix — the same source the Targets column renders — so a
- * filter result always matches the icons the rows show.
- */
-export function syncedByTarget(items: Skill[], matrix: SyncMatrixEntry[]): Map<string, Set<string>> {
-  const names = new Set(items.map((s) => s.flatName));
-  const byTarget = new Map<string, Set<string>>();
-  for (const e of matrix) {
-    if (e.status !== 'synced' || !names.has(e.skill)) continue;
-    let set = byTarget.get(e.target);
-    if (!set) byTarget.set(e.target, (set = new Set()));
-    set.add(e.skill);
-  }
-  return byTarget;
-}
-
-/** The project a target name belongs to, or '' for a global target. */
-const projectOf = (name: string) => (name.includes('@') ? name.slice(0, name.lastIndexOf('@')) : '');
-
-/**
- * Folds each project's targets into one filter entry keyed `<project>@`, holding what any of its
- * tools receives; global targets keep their own entries.
- */
-export function byTargetOrProject(byTarget: Map<string, Set<string>>): Map<string, Set<string>> {
-  const out = new Map<string, Set<string>>();
-  for (const [name, names] of byTarget) {
-    const project = projectOf(name);
-    const key = project ? `${project}@` : name;
-    out.set(key, new Set([...(out.get(key) ?? []), ...names]));
-  }
-  return out;
-}
-
-// Group key for sorting: tracked repo name or first dir segment.
-function sortGroup(s: Skill): string {
-  const slash = s.relPath.indexOf('/');
-  return slash > 0 ? s.relPath.slice(0, slash) : '';
-}
-
-function sortSkills(skills: Skill[], sortType: SortType): Skill[] {
-  const byName = (a: Skill, b: Skill) => sortGroup(a).localeCompare(sortGroup(b)) || a.name.localeCompare(b.name);
-  const byDate = (dir: 1 | -1) => (a: Skill, b: Skill) => {
-    if (!a.installedAt && !b.installedAt) return byName(a, b);
-    if (!a.installedAt) return 1;
-    if (!b.installedAt) return -1;
-    return dir * (new Date(a.installedAt).getTime() - new Date(b.installedAt).getTime());
-  };
-  const sorted = [...skills];
-  switch (sortType) {
-    case 'name-asc': return sorted.sort(byName);
-    case 'name-desc': return sorted.sort((a, b) => sortGroup(a).localeCompare(sortGroup(b)) || b.name.localeCompare(a.name));
-    case 'newest': return sorted.sort(byDate(-1));
-    case 'oldest': return sorted.sort(byDate(1));
-  }
-}
-
-function repoOf(s: Skill): string | undefined {
-  return s.isInRepo ? s.relPath.split('/')[0] : undefined;
-}
-
-/** Parent folder shown under the name. Inside a repo group the repo prefix is already in the header. */
-function parentPath(s: Skill, inGroup = false): string {
-  const i = s.relPath.lastIndexOf('/');
-  if (i <= 0) return '';
-  const dir = s.relPath.slice(0, i);
-  const repo = inGroup ? repoOf(s) : undefined;
-  if (repo) return dir === repo ? '' : dir.slice(repo.length + 1);
-  return formatTrackedRepoName(dir);
-}
-
-function sourceName(s: Skill): string {
-  const repo = repoOf(s);
-  if (repo) return formatTrackedRepoName(repo);
-  if (s.source) return parseRemoteURL(s.source)?.ownerRepo ?? s.source;
-  return SOURCE_LABEL.local;
-}
-
-/* -- Source groups -------------------------------- */
-
-interface Group { key: string; source: SourceType; repo?: string; items: Skill[] }
-
-function groupBySource(items: Skill[]): Group[] {
-  const groups = new Map<string, Group>();
-  for (const s of items) {
-    const source = resolveSource(s.type, s.isInRepo);
-    const repo = repoOf(s);
-    const key = repo ?? source;
-    if (!groups.has(key)) groups.set(key, { key, source, repo, items: [] });
-    groups.get(key)!.items.push(s);
-  }
-  return [...groups.values()].sort((a, b) => SOURCE_ORDER.indexOf(a.source) - SOURCE_ORDER.indexOf(b.source) || a.key.localeCompare(b.key));
-}
-
-/* -- Folder groups -------------------------------- */
-
-interface FolderGroup { key: string; repo: boolean; items: Skill[] }
-
-/** Root first, then folder name A→Z; items keep the order they came in (the current sort). */
-function groupByFolder(items: Skill[]): FolderGroup[] {
-  const groups = new Map<string, FolderGroup>();
-  for (const s of items) {
-    const key = folderOf(s);
-    if (!groups.has(key)) groups.set(key, { key, repo: !!repoOf(s), items: [] });
-    groups.get(key)!.items.push(s);
-  }
-  return [...groups.values()].sort((a, b) => formatTrackedRepoName(a.key).localeCompare(formatTrackedRepoName(b.key)));
-}
-
-/** Cut groups down to the first `limit` items, keeping headers only for groups that still show something. */
-function limitGroups<G extends { items: Skill[] }>(groups: G[], limit: number): G[] {
-  const out: G[] = [];
-  let left = limit;
-  for (const g of groups) {
-    if (left <= 0) break;
-    out.push({ ...g, items: g.items.slice(0, left) });
-    left -= g.items.length;
-  }
-  return out;
-}
-
-/* -- Small pieces --------------------------------- */
-
-/** Splits target names into global tools and projects; `myapp@claude` is claude in the myapp project. */
-export function splitTargets(names: string[]): { global: string[]; projects: [string, string[]][] } {
-  const global: string[] = [];
-  const projects = new Map<string, string[]>();
-  for (const n of names) {
-    const i = n.lastIndexOf('@');
-    if (i < 0) {
-      global.push(n);
-      continue;
-    }
-    const project = n.slice(0, i);
-    projects.set(project, [...(projects.get(project) ?? []), n.slice(i + 1)]);
-  }
-  return { global, projects: [...projects] };
 }
 
 /**
@@ -307,11 +165,6 @@ function TargetStack({ names, reachable = [], max = 4 }: { names: string[]; reac
       </span>
     </Tooltip>
   );
-}
-
-/** "1 skill" / "3 agents". The i18n layer has no plural rules, so pick the key by count. */
-function countLabel(t: ReturnType<typeof useT>, kind: Kind, count: number): string {
-  return t(`resources.count.${kind}${count === 1 ? '' : 's'}`, { count });
 }
 
 function menuPoint(e: ReactMouseEvent): Point {
@@ -1158,144 +1011,5 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
       <SyncPreviewModal open={syncOpen} onClose={() => setSyncOpen(false)} kind={kind} />
       {installTab && <InstallDialog kind={kind} initialTab={installTab === 'url' ? 'url' : 'search'} initialSource={params.get('source') ?? undefined} onClose={() => setInstall(null)} />}
     </div>
-  );
-}
-
-/* -- Uninstall dialog ----------------------------- */
-
-export function UninstallDialog({ kind, selection, all, onClose }: {
-  kind: Kind;
-  selection: Skill[];
-  all: Skill[];
-  onClose: (removed: boolean) => void;
-}) {
-  const t = useT();
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-  const [force, setForce] = useState(false);
-  const [syncing, setSyncing] = useState(false);
-  const [running, setRunning] = useState(false);
-  const [results, setResults] = useState<BatchUninstallItemResult[] | null>(null);
-
-  // A skill inside a tracked repo can only go with its repo. Agents are removed one by one.
-  const repos = new Map<string, number>();
-  const singles: Skill[] = [];
-  for (const s of selection) {
-    const repo = kind === 'skill' ? repoOf(s) : undefined;
-    if (repo) repos.set(repo, all.filter((x) => repoOf(x) === repo).length);
-    else singles.push(s);
-  }
-  const names = [...repos.keys(), ...singles.map((s) => s.flatName)];
-  const removedCount = singles.length + [...repos.values()].reduce((a, b) => a + b, 0);
-
-  const run = async (targets: string[], withForce: boolean) => {
-    setRunning(true);
-    try {
-      const res = await api.batchUninstall({ names: targets, kind, force: withForce });
-      clearAuditCache(queryClient);
-      queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.overview });
-      queryClient.invalidateQueries({ queryKey: queryKeys.trash });
-      queryClient.invalidateQueries({ queryKey: ['sync-matrix'] });
-      if (res.summary.failed === 0) {
-        toast(t('batchUninstall.toast.success', { count: res.summary.succeeded }), 'success');
-        onClose(true);
-        return;
-      }
-      setResults(res.results);
-    } catch (err) {
-      toast(t('batchUninstall.toast.uninstallFailed', { error: err instanceof Error ? err.message : String(err) }), 'error');
-    } finally {
-      setRunning(false);
-    }
-  };
-
-  // Replaces the results dialog rather than stacking a second one on top.
-  if (syncing) return <SyncPreviewModal open onClose={() => onClose(true)} kind={kind} />;
-
-  if (results) {
-    const failed = results.filter((r) => !r.success);
-    return (
-      <DialogShell open onClose={() => onClose(true)} maxWidth="lg" padding="none" ariaLabel={t('batchUninstall.results.partialResult')} preventClose={running}>
-        <div className="dh">
-          <div className="flex flex-col gap-1">
-            <h2 className="ss-h2">{t('batchUninstall.results.partialResult')}</h2>
-            <p className="text-[13px] text-ink-2">{t('resources.uninstall.resultSummary', { removed: results.length - failed.length, failed: failed.length })}</p>
-          </div>
-        </div>
-        <div className="db">
-          <div className="ss-list !shadow-none">
-            {results.map((r) => (
-              <div key={r.name} className="ss-r !min-h-11">
-                {r.success ? <CircleCheck size={16} className="shrink-0 text-ok" /> : <CircleX size={16} className="shrink-0 text-bad" />}
-                <span className="nm m flex-1 truncate">{formatTrackedRepoName(r.name)}</span>
-                <span className={`text-[13px] ${r.success ? 'text-ink-2' : 'text-bad'}`}>{r.success ? t('resources.uninstall.movedToTrash') : r.error}</span>
-              </div>
-            ))}
-          </div>
-          <div className="ss-note warn">
-            <RefreshCw size={16} />
-            <div className="flex-1">{t('resources.uninstall.syncReminder')}</div>
-          </div>
-        </div>
-        <div className="df">
-          {!force && failed.length > 0 && (
-            <Button variant="ghost" loading={running} onClick={() => { setForce(true); run(failed.map((r) => r.name), true); }}>
-              {t('resources.uninstall.retryForce')}
-            </Button>
-          )}
-          <span className="flex-1" />
-          <Button variant="secondary" onClick={() => onClose(true)}>{t('batchUninstall.results.continueButton')}</Button>
-          <Button variant="primary" onClick={() => setSyncing(true)}>
-            <RefreshCw size={15} />
-            {t('syncPreview.syncNowButton')}
-          </Button>
-        </div>
-      </DialogShell>
-    );
-  }
-
-  const title = t('resources.uninstall.title', { what: countLabel(t, kind, removedCount) });
-  return (
-    <DialogShell open onClose={() => onClose(false)} maxWidth="lg" padding="none" ariaLabel={title} preventClose={running}>
-      <div className="dh">
-        <h2 className="ss-h2">{title}</h2>
-      </div>
-      <div className="db">
-        <div className="ss-list !shadow-none max-h-64 overflow-y-auto">
-          {[...repos].map(([repo, n]) => (
-            <div key={repo} className="ss-r !min-h-[42px]">
-              <GitBranch size={15} className="shrink-0 text-ink-2" />
-              <span className="nm m flex-1 truncate">{formatTrackedRepoName(repo)}</span>
-              <span className="text-xs text-ink-3">{t('resources.uninstall.wholeRepo', { what: countLabel(t, 'skill', n) })}</span>
-            </div>
-          ))}
-          {singles.map((s) => (
-            <div key={s.flatName} className="ss-r !min-h-[42px]">
-              <span className={`ss-cat sm ${kind}`}>{kind === 'agent' ? <Bot size={14} /> : <Puzzle size={14} />}</span>
-              <span className="nm m flex-1 truncate">{s.name}</span>
-              <span className="font-mono text-xs text-ink-3 truncate">{parentPath(s)}</span>
-            </div>
-          ))}
-        </div>
-        {repos.size > 0 && (
-          <div className="ss-note warn">
-            <TriangleAlert size={16} />
-            <div className="flex-1">{t('resources.uninstall.repoNote')}</div>
-          </div>
-        )}
-        {repos.size > 0 && (
-          <Checkbox size="sm" label={t('batchUninstall.confirm.forceLabel')} checked={force} onChange={setForce} />
-        )}
-        <p className="text-[13px] text-ink-2">{t('resources.uninstall.trashNote')}</p>
-      </div>
-      <div className="df">
-        <Button variant="ghost" onClick={() => onClose(false)} disabled={running}>{t('common.cancel')}</Button>
-        <Button variant="secondary" loading={running} onClick={() => run(names, force)}>
-          <Trash2 size={15} />
-          {t('resources.contextMenu.uninstall')}
-        </Button>
-      </div>
-    </DialogShell>
   );
 }

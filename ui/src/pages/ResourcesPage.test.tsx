@@ -7,7 +7,8 @@ import { api } from '../api/client';
 import type { Skill, SyncMatrixEntry } from '../api/client';
 import { I18nProvider } from '../i18n';
 import { ToastProvider } from '../components/Toast';
-import ResourcesPage, { byTargetOrProject, splitTargets, syncedByTarget } from './ResourcesPage';
+import { byTargetOrProject, splitTargets, syncedByTarget } from '../lib/resourceGrouping';
+import ResourcesPage from './ResourcesPage';
 
 vi.mock('../context/AppContext', () => ({ useAppContext: () => ({ isProjectMode: false }) }));
 vi.mock('../api/client', async (load) => {
