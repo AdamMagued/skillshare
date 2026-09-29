@@ -328,10 +328,11 @@ func syncVerb(mode string) string {
 	}
 }
 
-// runExtrasSync runs extras sync and returns JSON entries without printing.
+// runExtrasSync runs extras sync and returns JSON entries without printing,
+// plus an error counting failures as `sync extras` does.
 // Used by sync --all --json to merge extras into the skills JSON output.
 // agentTargetPaths is used to skip extras "agents" targets that overlap with the agents sync system.
-func runExtrasSyncEntries(extras []config.ExtraConfig, sourceFunc func(config.ExtraConfig) string, dryRun, force bool, projectRoot string, agentTargetPaths map[string]bool) []syncExtrasJSONEntry {
+func runExtrasSyncEntries(extras []config.ExtraConfig, sourceFunc func(config.ExtraConfig) string, dryRun, force bool, projectRoot string, agentTargetPaths map[string]bool) ([]syncExtrasJSONEntry, error) {
 	// Resolve the per-target transform extension so --all --json applies
 	// it like a normal sync instead of copying files verbatim.
 	extDir := globalExtensionsDir()
@@ -351,6 +352,7 @@ func runExtrasSyncEntries(extras []config.ExtraConfig, sourceFunc func(config.Ex
 		AgentTargetPaths: agentTargetPaths,
 	}
 
+	var totals extrasSyncTotals
 	entries := make([]syncExtrasJSONEntry, 0, len(extras))
 	for _, extra := range extras {
 		entry := syncExtrasJSONEntry{Name: extra.Name}
@@ -359,11 +361,15 @@ func runExtrasSyncEntries(extras []config.ExtraConfig, sourceFunc func(config.Ex
 			entry.Targets = []syncExtrasJSONTarget{}
 		}
 		for _, tr := range run.Targets {
+			reportExtraTarget(extra.Name, tr, true, &totals)
 			entry.Targets = append(entry.Targets, extraTargetJSON(tr, tr.Path))
 		}
 		entries = append(entries, entry)
 	}
-	return entries
+	if totals.errors > 0 {
+		return entries, fmt.Errorf("%d extras sync error(s)", totals.errors)
+	}
+	return entries, nil
 }
 
 // printMissingExtraSource tells the user, unless jsonOutput, that an extra was

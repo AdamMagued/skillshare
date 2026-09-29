@@ -838,9 +838,20 @@ func TestHandleExtrasSync_ReportsRawPathUnderTargetKey(t *testing.T) {
 	}
 }
 
-// Characterization: a failing target still yields 200 and an "ok" oplog entry,
-// and extension errors carry an "extension <name>: " prefix.
-func TestHandleExtrasSync_TargetErrorStillLogsOK(t *testing.T) {
+// latestOpsEntry returns the newest operations log entry.
+func latestOpsEntry(t *testing.T, s *Server) oplog.Entry {
+	t.Helper()
+	entries, err := oplog.Read(s.configPath(), oplog.OpsFile, 10)
+	if err != nil || len(entries) == 0 {
+		t.Fatalf("read ops log: %v (entries %d)", err, len(entries))
+	}
+	return entries[0]
+}
+
+// When every target fails, the sync still answers 200 but logs status
+// "error" with the failure count; extension errors carry an
+// "extension <name>: " prefix.
+func TestHandleExtrasSync_AllTargetsFailedLogsError(t *testing.T) {
 	extras := []config.ExtraConfig{{
 		Name:    "rules",
 		Targets: []config.ExtraTargetConfig{{Path: t.TempDir(), Extension: "missing-ext"}},
@@ -852,12 +863,27 @@ func TestHandleExtrasSync_TargetErrorStillLogsOK(t *testing.T) {
 	if msg, _ := targets[0]["error"].(string); !strings.HasPrefix(msg, "extension missing-ext: ") {
 		t.Errorf("error = %q, want prefix %q", msg, "extension missing-ext: ")
 	}
-	entries, err := oplog.Read(s.configPath(), oplog.OpsFile, 10)
-	if err != nil || len(entries) == 0 {
-		t.Fatalf("read ops log: %v (entries %d)", err, len(entries))
+	e := latestOpsEntry(t, s)
+	if e.Command != "extras-sync" || e.Status != "error" || e.Args["errors"] != float64(1) {
+		t.Errorf("latest oplog entry = %s/%s errors=%v, want extras-sync/error errors=1", e.Command, e.Status, e.Args["errors"])
 	}
-	if entries[0].Command != "extras-sync" || entries[0].Status != "ok" {
-		t.Errorf("latest oplog entry = %s/%s, want extras-sync/ok", entries[0].Command, entries[0].Status)
+}
+
+// When only some targets fail, the sync logs status "partial".
+func TestHandleExtrasSync_SomeTargetsFailedLogsPartial(t *testing.T) {
+	extras := []config.ExtraConfig{{
+		Name: "rules",
+		Targets: []config.ExtraTargetConfig{
+			{Path: t.TempDir(), Extension: "missing-ext"},
+			{Path: t.TempDir(), Mode: "copy"},
+		},
+	}}
+	s, _ := newTestServerWithExtras(t, extras, "")
+
+	postExtrasSync(t, s, `{"name":"rules"}`)
+
+	if e := latestOpsEntry(t, s); e.Status != "partial" || e.Args["errors"] != float64(1) {
+		t.Errorf("latest oplog entry = %s errors=%v, want partial errors=1", e.Status, e.Args["errors"])
 	}
 }
 

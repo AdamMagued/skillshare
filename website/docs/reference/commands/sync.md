@@ -585,7 +585,9 @@ skillshare sync --all             # Sync skills + agents + extras + MCP
 | `--dry-run` | `-n` | Preview changes without writing |
 | `--force` | `-f` | Overwrite conflicting files at target |
 
-`--json` returns a non-zero exit status when extras sync has errors. For single-file extras,
+`--json` returns a non-zero exit status when extras sync has errors. `sync --all` also exits
+non-zero when an extras target fails, with or without `--json`. An extra whose source
+directory does not exist is skipped with a hint, not created. For single-file extras,
 `--dry-run` also reports edits that would be backed up before replacement.
 
 :::info Both modes supported

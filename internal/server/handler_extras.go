@@ -623,15 +623,49 @@ func (s *Server) handleExtrasSync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.writeOpsLog("extras-sync", "ok", start, map[string]any{
+	status, errCount := extrasSyncStatus(results)
+	s.writeOpsLog("extras-sync", status, start, map[string]any{
 		"name":   body.Name,
 		"dryRun": body.DryRun,
 		"force":  body.Force,
 		"count":  len(results),
+		"errors": errCount,
 		"scope":  "ui",
 	}, "")
 
 	writeJSON(w, map[string]any{"extras": results})
+}
+
+// extrasSyncStatus counts errors like `sync extras` (one per failed target plus
+// each per-file error) and returns the oplog status: "ok" without errors,
+// "error" when every target that ran failed, else "partial". Skipped targets
+// and extras with a missing source are not failures.
+func extrasSyncStatus(results []extraSyncResult) (string, int) {
+	var ran, failed, errCount int
+	for _, extra := range results {
+		for _, t := range extra.Targets {
+			if t.SkippedBy != "" {
+				continue
+			}
+			ran++
+			n := len(t.Errors)
+			if t.Error != "" {
+				n++
+			}
+			if n > 0 {
+				failed++
+				errCount += n
+			}
+		}
+	}
+	switch {
+	case errCount == 0:
+		return "ok", 0
+	case failed == ran:
+		return "error", errCount
+	default:
+		return "partial", errCount
+	}
 }
 
 // syncExtras syncs every extra (or only the one named) into its targets.

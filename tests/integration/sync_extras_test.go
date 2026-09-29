@@ -1030,3 +1030,93 @@ extras:
 		t.Errorf("path = %v, want %q", got, want)
 	}
 }
+
+// `sync --all --json` exits non-zero when an extras target fails, as
+// `sync extras` does, while still writing the JSON result.
+func TestSyncAll_JSONExtrasTargetErrorExitsNonZero(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("my-skill", map[string]string{"SKILL.md": "# My Skill"})
+	targetPath := sb.CreateTarget("claude")
+	rulesSource := filepath.Join(filepath.Dir(sb.SourcePath), "extras", "rules")
+	os.MkdirAll(rulesSource, 0755)
+	os.WriteFile(filepath.Join(rulesSource, "coding.md"), []byte("# Coding"), 0644)
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + targetPath + `
+extras:
+  - name: rules
+    targets:
+      - path: ` + filepath.Join(sb.Home, ".claude", "rules") + `
+        extension: missing-ext
+`)
+
+	result := sb.RunCLI("sync", "--all", "--json")
+	result.AssertFailure(t)
+
+	var out struct {
+		Extras []struct {
+			Targets []map[string]any `json:"targets"`
+		} `json:"extras"`
+	}
+	if err := json.Unmarshal([]byte(result.Stdout), &out); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, result.Stdout)
+	}
+	if len(out.Extras) != 1 || len(out.Extras[0].Targets) != 1 || out.Extras[0].Targets[0]["error"] == nil {
+		t.Errorf("expected the failed extras target in JSON, got %s", result.Stdout)
+	}
+}
+
+// Text `sync --all` exits non-zero when an extras target fails, matching
+// `sync --all --json`, and still prints the extras warning.
+func TestSyncAll_TextExtrasTargetErrorExitsNonZero(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("my-skill", map[string]string{"SKILL.md": "# My Skill"})
+	targetPath := sb.CreateTarget("claude")
+	rulesSource := filepath.Join(filepath.Dir(sb.SourcePath), "extras", "rules")
+	os.MkdirAll(rulesSource, 0755)
+	os.WriteFile(filepath.Join(rulesSource, "coding.md"), []byte("# Coding"), 0644)
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + targetPath + `
+extras:
+  - name: rules
+    targets:
+      - path: ` + filepath.Join(sb.Home, ".claude", "rules") + `
+        extension: missing-ext
+`)
+
+	result := sb.RunCLI("sync", "--all")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "Extras sync:")
+}
+
+// Project text `sync --all -p` exits non-zero when an extras target fails.
+func TestSyncAll_ProjectTextExtrasTargetErrorExitsNonZero(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	projectRoot := sb.SetupProjectDir("claude")
+	rulesSource := filepath.Join(projectRoot, ".skillshare", "extras", "rules")
+	os.MkdirAll(rulesSource, 0755)
+	os.WriteFile(filepath.Join(rulesSource, "coding.md"), []byte("# Coding"), 0644)
+	sb.WriteProjectConfig(projectRoot, `targets:
+  - claude
+extras:
+  - name: rules
+    targets:
+      - path: .claude/rules
+        extension: missing-ext
+`)
+
+	result := sb.RunCLIInDir(projectRoot, "sync", "--all", "-p")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "Extras sync:")
+}

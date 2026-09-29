@@ -206,15 +206,6 @@ func cmdSync(args []string) error {
 			return syncAgentsProject(cwd, dryRun, force, jsonOutput, start)
 		}
 
-		if hasAll && !jsonOutput {
-			// Run project extras sync after project skills sync (text mode)
-			defer func() {
-				if extrasErr := cmdSyncExtras(append([]string{"-p"}, rest...)); extrasErr != nil {
-					ui.Warning("Extras sync: %v", extrasErr)
-				}
-			}()
-		}
-
 		stats, results, projIgnoreStats, projCtxCost, err := cmdSyncProject(cwd, dryRun, force, jsonOutput, quiet)
 		stats.ProjectScope = true
 		logSyncOp(config.ProjectConfigPath(cwd), stats, start, err)
@@ -232,15 +223,28 @@ func cmdSync(args []string) error {
 				projCfg, loadErr := config.LoadProject(cwd)
 				if loadErr == nil && len(projCfg.Extras) > 0 {
 					agentPaths := collectAgentTargetPathsProject(cwd)
-					extrasEntries := runExtrasSyncEntries(projCfg.Extras, func(extra config.ExtraConfig) string {
+					extrasEntries, extrasErr := runExtrasSyncEntries(projCfg.Extras, func(extra config.ExtraConfig) string {
 						return config.ResolveExtrasSourceDirProject(extra, projCfg.EffectiveExtrasSource(cwd), cwd)
 					}, dryRun, force, cwd, agentPaths)
+					if err == nil {
+						err = extrasErr
+					}
 					return syncOutputJSON(results, dryRun, start, projIgnoreStats, err, projCtxCost, mcpResult, extrasEntries)
 				}
 			}
 			return syncOutputJSON(results, dryRun, start, projIgnoreStats, err, projCtxCost, mcpResult)
 		}
-		return finishMCP(err)
+		err = finishMCP(err)
+		if hasAll {
+			// Run project extras sync after project skills sync (text mode)
+			if extrasErr := cmdSyncExtras(append([]string{"-p"}, rest...)); extrasErr != nil {
+				ui.Warning("Extras sync: %v", extrasErr)
+				if err == nil {
+					err = extrasErr
+				}
+			}
+		}
+		return err
 	}
 
 	cfg, err := config.Load()
@@ -394,21 +398,29 @@ func cmdSync(args []string) error {
 		}
 		if hasAll && len(cfg.Extras) > 0 {
 			agentPaths := collectAgentTargetPathsGlobal(cfg)
-			extrasEntries := runExtrasSyncEntries(cfg.Extras, func(extra config.ExtraConfig) string {
+			extrasEntries, extrasErr := runExtrasSyncEntries(cfg.Extras, func(extra config.ExtraConfig) string {
 				return config.ResolveExtrasSourceDir(extra, cfg.EffectiveExtrasSource(), cfg.EffectiveSkillsSource())
 			}, dryRun, force, "", agentPaths)
+			if syncErr == nil {
+				syncErr = extrasErr
+			}
 			return syncOutputJSON(results, dryRun, start, ignoreStats, syncErr, ctxCost, mcpResult, extrasEntries)
 		}
 		return syncOutputJSON(results, dryRun, start, ignoreStats, syncErr, ctxCost, mcpResult)
 	}
 
+	var extrasErr error
 	if hasAll {
-		if extrasErr := cmdSyncExtras(append([]string{"-g"}, rest...)); extrasErr != nil {
+		if extrasErr = cmdSyncExtras(append([]string{"-g"}, rest...)); extrasErr != nil {
 			ui.Warning("Extras sync: %v", extrasErr)
 		}
 	}
 
-	return finishMCP(syncErr)
+	// An extras failure fails the run but, as in JSON mode, does not hold back MCP.
+	if err := finishMCP(syncErr); err != nil {
+		return err
+	}
+	return extrasErr
 }
 
 func parseSyncFlags(args []string) (dryRun, force, jsonOutput, quiet bool) {
