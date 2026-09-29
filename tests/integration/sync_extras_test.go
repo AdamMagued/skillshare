@@ -426,8 +426,9 @@ extras:
 	result := sb.RunCLI("sync", "extras")
 
 	result.AssertSuccess(t)
-	// Sync auto-creates missing extras source directories (same as target dirs)
-	result.AssertAnyOutputContains(t, "Created source directory")
+	// A missing source skips the extra with a hint instead of creating it
+	result.AssertAnyOutputContains(t, "Source directory does not exist")
+	result.AssertAnyOutputContains(t, "Create it to start syncing nonexistent")
 }
 
 func TestSyncExtras_FlattenMerge(t *testing.T) {
@@ -914,8 +915,9 @@ func syncExtrasJSONTargets(t *testing.T, stdout string) []map[string]any {
 	return out.Extras[0].Targets
 }
 
-// Characterization: global sync creates a missing extra source directory.
-func TestSyncExtras_GlobalCreatesMissingSource(t *testing.T) {
+// Global sync skips an extra whose source directory is missing instead of
+// creating it, like project sync.
+func TestSyncExtras_GlobalSkipsMissingSource(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
@@ -936,8 +938,11 @@ extras:
 	result := sb.RunCLI("sync", "extras", "--json")
 	result.AssertSuccess(t)
 
-	if info, err := os.Stat(rulesSource); err != nil || !info.IsDir() {
-		t.Errorf("expected source dir %s to be created, stat err = %v", rulesSource, err)
+	if targets := syncExtrasJSONTargets(t, result.Stdout); len(targets) != 0 {
+		t.Errorf("expected no targets for a missing source, got %v", targets)
+	}
+	if _, err := os.Stat(rulesSource); !os.IsNotExist(err) {
+		t.Errorf("global sync must not create %s, stat err = %v", rulesSource, err)
 	}
 }
 
@@ -973,8 +978,8 @@ extras:
 	}
 }
 
-// Characterization: project sync skips an extra whose source directory is
-// missing instead of creating it.
+// Project sync skips an extra whose source directory is missing instead of
+// creating it.
 func TestSyncExtras_ProjectSkipsMissingSource(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

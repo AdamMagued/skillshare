@@ -117,10 +117,9 @@ func cmdSyncExtrasGlobal(dryRun, force, jsonOutput bool, start time.Time) error 
 	}
 
 	opts := sync.ExtraRunOptions{
-		DryRun:        dryRun,
-		Force:         force,
-		MissingSource: sync.MissingSourceCreate,
-		ResolvePath:   config.ExpandPath,
+		DryRun:      dryRun,
+		Force:       force,
+		ResolvePath: config.ExpandPath,
 		ResolveExtension: func(ext string) (*sync.ExtensionSpec, error) {
 			return resolveExtension(ext, globalExtensionsDir())
 		},
@@ -131,17 +130,12 @@ func cmdSyncExtrasGlobal(dryRun, force, jsonOutput bool, start time.Time) error 
 		extraSource := config.ResolveExtrasSourceDir(extra, cfg.EffectiveExtrasSource(), cfg.EffectiveSkillsSource())
 
 		run := sync.RunExtraTargets(extra, extraSource, opts)
-		if run.SourceErr != nil {
-			if !jsonOutput {
-				ui.Warning("Failed to create source directory: %s", shortenPath(extraSource))
-			}
+		if run.SourceMissing {
+			printMissingExtraSource(extra.Name, extraSource, jsonOutput)
 			if jsonOutput {
 				jsonEntries = append(jsonEntries, syncExtrasJSONEntry{Name: extra.Name, Targets: []syncExtrasJSONTarget{}})
 			}
 			continue
-		}
-		if run.SourceCreated && !jsonOutput {
-			ui.Info("Created source directory: %s", shortenPath(extraSource))
 		}
 
 		jsonEntry := syncExtrasJSONEntry{Name: extra.Name}
@@ -239,10 +233,9 @@ func cmdSyncExtrasProject(cwd string, dryRun, force, jsonOutput bool, start time
 	}
 
 	opts := sync.ExtraRunOptions{
-		DryRun:        dryRun,
-		Force:         force,
-		ProjectRoot:   cwd,
-		MissingSource: sync.MissingSourceSkip,
+		DryRun:      dryRun,
+		Force:       force,
+		ProjectRoot: cwd,
 		// Expand ~ and resolve relative paths against project root
 		ResolvePath: func(path string) string { return resolveProjectPath(cwd, path) },
 		ResolveExtension: func(ext string) (*sync.ExtensionSpec, error) {
@@ -256,10 +249,7 @@ func cmdSyncExtrasProject(cwd string, dryRun, force, jsonOutput bool, start time
 
 		run := sync.RunExtraTargets(extra, extraSource, opts)
 		if run.SourceMissing {
-			if !jsonOutput {
-				ui.Info("Source directory does not exist: %s", extraSource)
-				ui.Info("Create it to start syncing %s", extra.Name)
-			}
+			printMissingExtraSource(extra.Name, extraSource, jsonOutput)
 			if jsonOutput {
 				jsonEntries = append(jsonEntries, syncExtrasJSONEntry{Name: extra.Name, Targets: []syncExtrasJSONTarget{}})
 			}
@@ -351,11 +341,10 @@ func runExtrasSyncEntries(extras []config.ExtraConfig, sourceFunc func(config.Ex
 		resolvePath = func(path string) string { return resolveProjectPath(projectRoot, path) }
 	}
 	opts := sync.ExtraRunOptions{
-		DryRun:        dryRun,
-		Force:         force,
-		ProjectRoot:   projectRoot,
-		MissingSource: sync.MissingSourceSkip,
-		ResolvePath:   resolvePath,
+		DryRun:      dryRun,
+		Force:       force,
+		ProjectRoot: projectRoot,
+		ResolvePath: resolvePath,
 		ResolveExtension: func(ext string) (*sync.ExtensionSpec, error) {
 			return resolveExtension(ext, extDir)
 		},
@@ -375,6 +364,16 @@ func runExtrasSyncEntries(extras []config.ExtraConfig, sourceFunc func(config.Ex
 		entries = append(entries, entry)
 	}
 	return entries
+}
+
+// printMissingExtraSource tells the user, unless jsonOutput, that an extra was
+// skipped because its source directory does not exist.
+func printMissingExtraSource(name, sourceDir string, jsonOutput bool) {
+	if jsonOutput {
+		return
+	}
+	ui.Info("Source directory does not exist: %s", sourceDir)
+	ui.Info("Create it to start syncing %s", name)
 }
 
 // extrasSyncTotals accumulates target outcomes for the summary and oplog.

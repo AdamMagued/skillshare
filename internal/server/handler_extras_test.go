@@ -90,7 +90,7 @@ func newTestProjectServerWithExtras(t *testing.T, extras []config.ExtraConfig) (
 
 	// Create source directories for project extras.
 	for _, extra := range extras {
-		dir := config.ExtrasSourceDirProject(projectRoot, extra.Name)
+		dir := config.ResolveExtrasSourceDirProject(extra, projectCfg.EffectiveExtrasSource(projectRoot), projectRoot)
 		os.MkdirAll(dir, 0755)
 	}
 
@@ -782,8 +782,9 @@ func TestHandleExtrasSync_DoesNotSkipAgentOverlapTarget(t *testing.T) {
 	}
 }
 
-// Characterization: the server creates a missing extra source directory.
-func TestHandleExtrasSync_CreatesMissingSource(t *testing.T) {
+// The server skips an extra whose source directory is missing, with a hint in
+// the extra's warnings, instead of creating it.
+func TestHandleExtrasSync_SkipsMissingSource(t *testing.T) {
 	extras := []config.ExtraConfig{{
 		Name:    "rules",
 		Targets: []config.ExtraTargetConfig{{Path: t.TempDir()}},
@@ -794,10 +795,30 @@ func TestHandleExtrasSync_CreatesMissingSource(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	postExtrasSync(t, s, `{"name":"rules"}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/extras/sync", strings.NewReader(`{"name":"rules"}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Extras []struct {
+			Targets  []map[string]any `json:"targets"`
+			Warnings []string         `json:"warnings"`
+		} `json:"extras"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 
-	if info, err := os.Stat(srcDir); err != nil || !info.IsDir() {
-		t.Errorf("expected source dir %s to be created, stat err = %v", srcDir, err)
+	if len(resp.Extras) != 1 || len(resp.Extras[0].Targets) != 0 {
+		t.Fatalf("expected the extra with no targets, got %s", rr.Body.String())
+	}
+	if w := resp.Extras[0].Warnings; len(w) != 1 || !strings.Contains(w[0], "Source directory does not exist") {
+		t.Errorf("expected a missing-source hint in warnings, got %v", w)
+	}
+	if _, err := os.Stat(srcDir); !os.IsNotExist(err) {
+		t.Errorf("server must not create %s, stat err = %v", srcDir, err)
 	}
 }
 

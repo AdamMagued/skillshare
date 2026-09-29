@@ -580,8 +580,9 @@ type extraTargetSyncResult struct {
 }
 
 type extraSyncResult struct {
-	Name    string                  `json:"name"`
-	Targets []extraTargetSyncResult `json:"targets"`
+	Name     string                  `json:"name"`
+	Targets  []extraTargetSyncResult `json:"targets"`
+	Warnings []string                `json:"warnings,omitempty"`
 }
 
 // handleExtrasSync — POST /api/extras/sync
@@ -642,13 +643,11 @@ func (s *Server) syncExtras(name string, dryRun, force bool) []extraSyncResult {
 		projectExtrasParent = s.projectCfg.EffectiveExtrasSource(s.projectRoot)
 	}
 
-	// The server creates a missing source even if that fails, and does not
-	// skip targets managed by the agents sync.
+	// The server does not skip targets managed by the agents sync.
 	opts := syncpkg.ExtraRunOptions{
 		DryRun:           dryRun,
 		Force:            force,
 		ProjectRoot:      projectRoot,
-		MissingSource:    syncpkg.MissingSourceCreateIgnoreError,
 		ResolvePath:      func(path string) string { return resolveExtrasTargetPath(projectRoot, path) },
 		ResolveExtension: s.resolveExtensionSpec,
 	}
@@ -670,6 +669,9 @@ func (s *Server) syncExtras(name string, dryRun, force bool) []extraSyncResult {
 		result := extraSyncResult{
 			Name:    extra.Name,
 			Targets: make([]extraTargetSyncResult, 0, len(extra.Targets)),
+		}
+		if run.SourceMissing {
+			result.Warnings = []string{fmt.Sprintf("Source directory does not exist: %s. Create it to start syncing %s", sourceDir, extra.Name)}
 		}
 
 		for _, tr := range run.Targets {

@@ -8,27 +8,12 @@ import (
 	"skillshare/internal/config"
 )
 
-// MissingSourcePolicy says what RunExtraTargets does when an extra's source
-// directory does not exist.
-type MissingSourcePolicy int
-
-const (
-	// MissingSourceCreate creates the directory. If that fails, no target is synced.
-	MissingSourceCreate MissingSourcePolicy = iota
-	// MissingSourceCreateIgnoreError creates the directory and syncs the
-	// targets even when creating it fails.
-	MissingSourceCreateIgnoreError
-	// MissingSourceSkip leaves the directory missing and syncs no target.
-	MissingSourceSkip
-)
-
 // ExtraRunOptions holds what differs between the callers of RunExtraTargets.
 type ExtraRunOptions struct {
 	DryRun bool
 	Force  bool
 	// ProjectRoot is passed to the sync; empty in global mode.
-	ProjectRoot   string
-	MissingSource MissingSourcePolicy
+	ProjectRoot string
 	// ResolvePath turns a configured target path into the path to sync.
 	ResolvePath func(path string) string
 	// ResolveExtension loads a target's transform extension by its configured value.
@@ -40,9 +25,7 @@ type ExtraRunOptions struct {
 
 // ExtraRun is the outcome of RunExtraTargets for one extra.
 type ExtraRun struct {
-	SourceCreated bool  // the missing source directory was created
-	SourceMissing bool  // the source directory is missing, so no target was synced
-	SourceErr     error // creating the missing source directory failed
+	SourceMissing bool // the source directory is missing, so no target was synced
 	Targets       []ExtraTargetRun
 }
 
@@ -62,25 +45,14 @@ type ExtraTargetRun struct {
 	Result       *ExtraResult
 }
 
-// RunExtraTargets syncs every target of extra from sourceDir. It only syncs and
-// reports; callers print, log and count the results.
+// RunExtraTargets syncs every target of extra from sourceDir. A missing
+// sourceDir syncs nothing and sets SourceMissing. It only syncs and reports;
+// callers print, log and count the results.
 func RunExtraTargets(extra config.ExtraConfig, sourceDir string, opts ExtraRunOptions) ExtraRun {
 	var run ExtraRun
 	if _, err := os.Stat(sourceDir); os.IsNotExist(err) {
-		switch opts.MissingSource {
-		case MissingSourceSkip:
-			run.SourceMissing = true
-			return run
-		case MissingSourceCreate:
-			if err := os.MkdirAll(sourceDir, 0755); err != nil {
-				run.SourceMissing = true
-				run.SourceErr = err
-				return run
-			}
-			run.SourceCreated = true
-		case MissingSourceCreateIgnoreError:
-			run.SourceCreated = os.MkdirAll(sourceDir, 0755) == nil
-		}
+		run.SourceMissing = true
+		return run
 	}
 
 	run.Targets = make([]ExtraTargetRun, 0, len(extra.Targets))
