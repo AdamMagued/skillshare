@@ -9,6 +9,28 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.21.16] - 2026-09-29
+
+### New Features
+
+#### Sync
+
+- **Targets that undo each other's sync** — when two targets sync skills into the same folder with different include or exclude filters, each sync adds what one wants and removes what the other filters out, so `sync` keeps showing the same changes. `sync`, `doctor` and the dashboard's Sync page now name both targets and the folder and suggest keeping one (`universal` when it is one of them); the Sync page has a button that stops syncing skills for the other.
+  ```bash
+  skillshare target codex --skills=false   # let universal alone write ~/.agents/skills
+  ```
+  Targets with the same filters in one folder are not reported.
+
+#### Dashboard
+
+- **Plugin version and logo without an Agent** — a plugin added without picking an Agent now shows its version, and the logo from its Codex manifest (`interface.logo`, up to 1MB) in the Plugins list and the add preview, instead of the default icon.
+
+### Bug Fixes
+
+- **No false "also reads" note for a shared folder** — a target sharing its skills folder with another, such as `codex` and `universal` both on `~/.agents/skills`, was told it also reads the other's skills and sees each one twice. It holds one copy, so the note no longer appears.
+- **Duplicate skills described accurately** — the dashboard and docs said each skill "shows up twice" when a tool reads two skills folders. Pi keeps the first and warns, and Gemini and others pick one, so they now say the tool finds each skill twice.
+- **Antigravity no longer counted as reading `~/.agents/skills`** — Antigravity documents only `~/.gemini/config/skills` as the desktop app's global skills folder, so switching its skills off no longer claims it still sees `universal`'s skills.
+
 ## [0.21.15] - 2026-09-29
 
 ### New Features
