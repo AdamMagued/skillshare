@@ -36,13 +36,18 @@ func SkillsAlsoReadBy(targets map[string]TargetConfig, name, projectRoot string)
 // SkillsReadFrom names the configured targets with skills on whose skills
 // folder the built-in tool name reads. name need not be configured, so the
 // add-target list can say a tool already sees another target's skills.
+// A folder name itself syncs skills into is not another source.
 func SkillsReadFrom(targets map[string]TargetConfig, name, projectRoot string) []string {
+	var own string
+	if tc, ok := targets[name]; ok && tc.SkillsConfig().IsEnabled() {
+		own = skillsFolder(tc)
+	}
 	var names []string
 	for other, otc := range targets {
 		if other == name || !otc.SkillsConfig().IsEnabled() {
 			continue
 		}
-		if folder := skillsFolder(otc); folder != "" && toolReadsSkills(name, folder, projectRoot) {
+		if folder := skillsFolder(otc); folder != "" && folder != own && toolReadsSkills(name, folder, projectRoot) {
 			names = append(names, other)
 		}
 	}

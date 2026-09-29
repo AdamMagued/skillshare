@@ -174,6 +174,20 @@ func TestSkillsReaders_Global(t *testing.T) {
 	}
 }
 
+func TestSkillsReadFrom_SameFolderIsNotAnotherSource(t *testing.T) {
+	targets := map[string]TargetConfig{
+		"universal": {Skills: &ResourceTargetConfig{Path: "~/.agents/skills"}},
+		"codex":     {Skills: &ResourceTargetConfig{Path: "~/.agents/skills"}},
+	}
+	if got := SkillsReadFrom(targets, "codex", ""); len(got) != 0 {
+		t.Errorf("codex sharing universal's folder reads no second copy, got %v", got)
+	}
+	targets["codex"] = disabledAt("~/.agents/skills")
+	if got := SkillsReadFrom(targets, "codex", ""); !slices.Equal(got, []string{"universal"}) {
+		t.Errorf("codex with skills off still reads universal's folder, got %v", got)
+	}
+}
+
 func TestSkillsReaders_Project(t *testing.T) {
 	root := t.TempDir()
 	targets := map[string]TargetConfig{
