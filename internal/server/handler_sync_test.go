@@ -580,11 +580,16 @@ func TestHandleSync_SkillTargetFailureKeepsSyncingOthers(t *testing.T) {
 	}
 }
 
-func TestHandleSync_EverySkillTargetFailingIsAnError(t *testing.T) {
+func TestHandleSync_EverySkillTargetFailingIsReported(t *testing.T) {
 	s, _ := newTestServer(t)
+	file := filepath.Join(t.TempDir(), "skills-file")
+	if err := os.WriteFile(file, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	s.cfg.Targets["broken"] = config.TargetConfig{
 		Skills: &config.ResourceTargetConfig{Path: filepath.Join(t.TempDir(), "broken-skills"), Include: []string{"["}},
 	}
+	s.cfg.Targets["invalid"] = config.TargetConfig{Skills: &config.ResourceTargetConfig{Path: file}}
 	if err := s.cfg.Save(); err != nil {
 		t.Fatal(err)
 	}
@@ -593,15 +598,28 @@ func TestHandleSync_EverySkillTargetFailingIsAnError(t *testing.T) {
 	rr := httptest.NewRecorder()
 	s.handler.ServeHTTP(rr, req)
 
-	if rr.Code != http.StatusInternalServerError || !strings.Contains(rr.Body.String(), "sync failed for broken") {
-		t.Fatalf("expected 500 naming broken, got %d: %s", rr.Code, rr.Body.String())
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Failed []syncFailure `json:"failed"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	parts := map[string]string{}
+	for _, f := range resp.Failed {
+		parts[f.Target] = f.Part
+	}
+	if len(resp.Failed) != 2 || parts["broken"] != "skill" || parts["invalid"] != "config" {
+		t.Fatalf("expected broken (skill) and invalid (config) failed, got %+v", resp.Failed)
 	}
 	entries, err := oplog.Read(config.ConfigPath(), oplog.OpsFile, 1)
 	if err != nil || len(entries) != 1 {
 		t.Fatalf("read ops log: %v (%d entries)", err, len(entries))
 	}
-	if e := entries[0]; e.Status != "error" || e.Args["targets_failed"] != float64(1) {
-		t.Fatalf("expected error sync with targets_failed 1, got status %q args %v", e.Status, e.Args)
+	if e := entries[0]; e.Status != "error" || e.Args["targets_failed"] != float64(2) {
+		t.Fatalf("expected error sync with targets_failed 2, got status %q args %v", e.Status, e.Args)
 	}
 }
 

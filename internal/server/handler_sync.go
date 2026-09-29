@@ -159,8 +159,9 @@ func (s *Server) projectTargets(root string) map[string]config.TargetConfig {
 
 // syncResources links skills and agents (kind "" means both) into every target,
 // or only the targets of the project declared under project, and logs the sync.
-// On failure it returns the HTTP status to report; agent failures only add
-// warnings. Callers must hold s.mu.
+// A failed target, even when every target fails, is reported in failed and
+// warnings; an error, with the HTTP status to report, means nothing could run.
+// Callers must hold s.mu.
 func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, project string) (*syncOutcome, int, error) {
 	targets := s.cfg.Targets
 	if project != "" {
@@ -182,16 +183,11 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 
 	results := make([]syncTargetResult, 0)
 	failed := make([]syncFailure, 0)
-	skillFailed := 0
 
-	// A target with invalid settings fails alone: it is skipped for skills and
-	// agents, and counts as a failed skill target when skills are synced.
-	var firstErr error
-	var firstFailed string
+	// A target with invalid settings fails alone: it is skipped for skills and agents.
 	runTargets := maps.Clone(targets)
 	for _, name := range slices.Sorted(maps.Keys(invalid)) {
-		target, ok := targets[name]
-		if !ok {
+		if _, ok := targets[name]; !ok {
 			continue
 		}
 		delete(runTargets, name)
@@ -199,14 +195,7 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 		msg := name + ": invalid config: " + err.Error()
 		warnings = append(warnings, msg)
 		failed = append(failed, syncFailure{Target: name, Part: "config", Error: err.Error(), Message: msg})
-		if kind != kindAgent && target.SkillsConfig().IsEnabled() {
-			skillFailed++
-			if firstErr == nil {
-				firstErr, firstFailed = fmt.Errorf("invalid config for %s: %w", name, err), name
-			}
-		}
 	}
-	skillRan := skillFailed
 
 	if !dryRun {
 		warnings = append(warnings, s.backupBeforeSync(runTargets, kind != kindAgent, kind != kindSkill)...)
@@ -234,10 +223,6 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 
 		// A failed target adds a warning and no results row; the rest still sync.
 		failTarget := func(name string, err error) {
-			skillFailed++
-			if firstErr == nil {
-				firstErr, firstFailed = fmt.Errorf("sync failed for %s: %w", name, err), name
-			}
 			msg := name + ": sync failed: " + err.Error()
 			warnings = append(warnings, msg)
 			failed = append(failed, syncFailure{Target: name, Part: "skill", Error: err.Error(), Message: msg, Conflict: errors.Is(err, ssync.ErrSymlinkConflict)})
@@ -251,7 +236,6 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 			if !sc.IsEnabled() {
 				continue // skills off: agents, extras and MCP below still run
 			}
-			skillRan++
 			mode := sc.Mode
 			if mode == "" {
 				mode = globalMode
@@ -282,26 +266,6 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 			}
 
 			results = append(results, res)
-		}
-
-		// Every skill target failing is an error, so single-target setups
-		// still see one.
-		if skillRan > 0 && skillFailed == skillRan {
-			failedNames := failedTargetNames(failed)
-			errArgs := map[string]any{
-				"targets_total":  len(targets),
-				"targets_failed": len(failedNames),
-				"failed_targets": failedNames,
-				"target":         firstFailed,
-				"dry_run":        dryRun,
-				"force":          force,
-				"scope":          "ui",
-			}
-			if project != "" {
-				errArgs["project"] = project
-			}
-			s.writeOpsLog("sync", "error", start, errArgs, firstErr.Error())
-			return nil, http.StatusInternalServerError, firstErr
 		}
 
 		// Clean skillshare entries left in also_scans dirs a target no longer
