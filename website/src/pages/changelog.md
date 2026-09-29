@@ -9,6 +9,33 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.21.17] - 2026-09-29
+
+### New Features
+
+#### Dashboard
+
+- **Edit Pi's APPEND_SYSTEM.md on its target page** — the `pi` and `omp` target pages have an **APPEND_SYSTEM.md** tab next to the instruction file, so you can edit the text Pi appends to its system prompt without leaving the dashboard. **+** adds a tab for any other file a tool reads, including files in subfolders; the dashboard saves them under the target's `files`. Three tabs show at a time and the rest move to a menu; removing a tab doesn't delete the file. Refs: #301.
+  ```yaml
+  targets:
+    pi:
+      files:
+        - SYSTEM.md
+        - prompts/review.md
+  ```
+  Paths stay inside the tool's folder (`~/.pi/agent` for pi, `.pi` in a project). **Share with Extras** on a tab opens **Add extra** filled in with the file's folder and name, so one file can be shared across tools.
+
+#### Extras
+
+- **Single-file extras named after their file** — in **Add extra**, a single file's **Name** follows its file name without the extension (`APPEND_SYSTEM.md` gives `APPEND_SYSTEM`) until you type one, and the hint suggests using the file name. Refs: #300.
+
+### Bug Fixes
+
+- **Ticking an Agent after importing from it takes its entry over** — importing an MCP server from an Agent without ticking that Agent, then ticking it later, left the Agent's entry unmanaged: no sync was offered, nothing was recorded in `state.json`, and unticking the Agent removed nothing. The preview now lists the entry as **Take over**; sync records it as managed without changing the file, and unticking the Agent afterwards removes it. A server you turned off in the Agent itself is still never claimed. Refs: #303.
+- **MCP tab for `antigravity-cli`** — the `antigravity-cli` target page now has an MCP tab, showing the `~/.gemini/config/mcp_config.json` file it shares with Antigravity.
+- **Dialogs keep focus on their first field** — dialogs that focus a field when they open, such as **Add extra**, moved focus to the close button instead.
+- **Pi's logo in its brand colors** — Pi now shows its coral, blue and yellow logo instead of a black mark.
+
 ## [0.21.16] - 2026-09-29
 
 ### New Features
