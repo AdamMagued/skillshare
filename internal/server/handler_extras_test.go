@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"skillshare/internal/config"
+	"skillshare/internal/oplog"
 )
 
 // newTestServerWithExtras creates a test server with pre-configured extras
@@ -721,6 +722,121 @@ func TestHandleExtrasSync_ProjectRelativeTargetResolvesProjectRoot(t *testing.T)
 	}
 	if _, err := os.Stat(filepath.Join(otherCWD, ".cursor", "rules", "rule.md")); !os.IsNotExist(err) {
 		t.Fatalf("server cwd target should not be written, stat err = %v", err)
+	}
+}
+
+// postExtrasSync posts body to /api/extras/sync and decodes the response.
+func postExtrasSync(t *testing.T, s *Server, body string) []map[string]any {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPost, "/api/extras/sync", strings.NewReader(body))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Extras []struct {
+			Targets []map[string]any `json:"targets"`
+		} `json:"extras"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(resp.Extras) != 1 {
+		t.Fatalf("expected 1 extra, got %d: %s", len(resp.Extras), rr.Body.String())
+	}
+	return resp.Extras[0].Targets
+}
+
+// Characterization: unlike the CLI, the server syncs an "agents" extra target
+// even when it is also an agents sync target.
+func TestHandleExtrasSync_DoesNotSkipAgentOverlapTarget(t *testing.T) {
+	agentsTarget := t.TempDir()
+	extras := []config.ExtraConfig{{
+		Name:    "agents",
+		Targets: []config.ExtraTargetConfig{{Path: agentsTarget, Mode: "copy"}},
+	}}
+	s, sourceDir := newTestServerWithExtras(t, extras, "")
+
+	agentsSource := filepath.Join(filepath.Dir(sourceDir), "agents")
+	os.MkdirAll(agentsSource, 0755)
+	os.WriteFile(filepath.Join(agentsSource, "helper.md"), []byte("# Helper"), 0644)
+	s.cfg.AgentsSource = agentsSource
+	s.cfg.Targets = map[string]config.TargetConfig{"claude": {
+		Skills: &config.ResourceTargetConfig{Path: t.TempDir()},
+		Agents: &config.ResourceTargetConfig{Path: agentsTarget},
+	}}
+	if err := s.cfg.Save(); err != nil {
+		t.Fatal(err)
+	}
+	srcDir := config.ResolveExtrasSourceDir(extras[0], "", sourceDir)
+	os.WriteFile(filepath.Join(srcDir, "extra-agent.md"), []byte("# Extra"), 0644)
+
+	targets := postExtrasSync(t, s, `{"name":"agents"}`)
+
+	if _, ok := targets[0]["skipped_by"]; ok {
+		t.Errorf("server must not report skipped_by, got %v", targets[0])
+	}
+	if _, err := os.Stat(filepath.Join(agentsTarget, "extra-agent.md")); err != nil {
+		t.Errorf("expected extra-agent.md synced into the agents target: %v", err)
+	}
+}
+
+// Characterization: the server creates a missing extra source directory.
+func TestHandleExtrasSync_CreatesMissingSource(t *testing.T) {
+	extras := []config.ExtraConfig{{
+		Name:    "rules",
+		Targets: []config.ExtraTargetConfig{{Path: t.TempDir()}},
+	}}
+	s, sourceDir := newTestServerWithExtras(t, extras, "")
+	srcDir := config.ResolveExtrasSourceDir(extras[0], "", sourceDir)
+	if err := os.RemoveAll(srcDir); err != nil {
+		t.Fatal(err)
+	}
+
+	postExtrasSync(t, s, `{"name":"rules"}`)
+
+	if info, err := os.Stat(srcDir); err != nil || !info.IsDir() {
+		t.Errorf("expected source dir %s to be created, stat err = %v", srcDir, err)
+	}
+}
+
+// Characterization: the server reports each target under "target" with the
+// path as configured, not the resolved path.
+func TestHandleExtrasSync_ReportsRawPathUnderTargetKey(t *testing.T) {
+	extras := []config.ExtraConfig{{
+		Name:    "rules",
+		Targets: []config.ExtraTargetConfig{{Path: ".cursor/rules", Mode: "copy"}},
+	}}
+	s, _ := newTestProjectServerWithExtras(t, extras)
+
+	targets := postExtrasSync(t, s, `{"name":"rules"}`)
+
+	if got := targets[0]["target"]; got != ".cursor/rules" {
+		t.Errorf("target = %v, want %q (full entry %v)", got, ".cursor/rules", targets[0])
+	}
+}
+
+// Characterization: a failing target still yields 200 and an "ok" oplog entry,
+// and extension errors carry an "extension <name>: " prefix.
+func TestHandleExtrasSync_TargetErrorStillLogsOK(t *testing.T) {
+	extras := []config.ExtraConfig{{
+		Name:    "rules",
+		Targets: []config.ExtraTargetConfig{{Path: t.TempDir(), Extension: "missing-ext"}},
+	}}
+	s, _ := newTestServerWithExtras(t, extras, "")
+
+	targets := postExtrasSync(t, s, `{"name":"rules"}`)
+
+	if msg, _ := targets[0]["error"].(string); !strings.HasPrefix(msg, "extension missing-ext: ") {
+		t.Errorf("error = %q, want prefix %q", msg, "extension missing-ext: ")
+	}
+	entries, err := oplog.Read(s.configPath(), oplog.OpsFile, 10)
+	if err != nil || len(entries) == 0 {
+		t.Fatalf("read ops log: %v (entries %d)", err, len(entries))
+	}
+	if entries[0].Command != "extras-sync" || entries[0].Status != "ok" {
+		t.Errorf("latest oplog entry = %s/%s, want extras-sync/ok", entries[0].Command, entries[0].Status)
 	}
 }
 

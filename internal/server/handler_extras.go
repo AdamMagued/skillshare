@@ -642,6 +642,17 @@ func (s *Server) syncExtras(name string, dryRun, force bool) []extraSyncResult {
 		projectExtrasParent = s.projectCfg.EffectiveExtrasSource(s.projectRoot)
 	}
 
+	// The server creates a missing source even if that fails, and does not
+	// skip targets managed by the agents sync.
+	opts := syncpkg.ExtraRunOptions{
+		DryRun:           dryRun,
+		Force:            force,
+		ProjectRoot:      projectRoot,
+		MissingSource:    syncpkg.MissingSourceCreateIgnoreError,
+		ResolvePath:      func(path string) string { return resolveExtrasTargetPath(projectRoot, path) },
+		ResolveExtension: s.resolveExtensionSpec,
+	}
+
 	results := make([]extraSyncResult, 0)
 
 	for _, extra := range s.extrasConfig() {
@@ -655,74 +666,38 @@ func (s *Server) syncExtras(name string, dryRun, force bool) []extraSyncResult {
 			sourceDir = config.ResolveExtrasSourceDir(extra, extrasSource, source)
 		}
 
-		// Auto-create source directory if it doesn't exist
-		if _, statErr := os.Stat(sourceDir); os.IsNotExist(statErr) {
-			os.MkdirAll(sourceDir, 0755)
-		}
-
+		run := syncpkg.RunExtraTargets(extra, sourceDir, opts)
 		result := extraSyncResult{
 			Name:    extra.Name,
 			Targets: make([]extraTargetSyncResult, 0, len(extra.Targets)),
 		}
 
-		for _, t := range extra.Targets {
-			m := syncpkg.EffectiveMode(t.Mode)
-
-			tr := extraTargetSyncResult{
+		for _, tr := range run.Targets {
+			t := tr.Target
+			out := extraTargetSyncResult{
 				Target: t.Path,
 				Mode:   syncpkg.ExtraTargetMode(t.Mode, extra.File != ""),
 				Errors: []string{},
 			}
-
-			// Resolve the per-target transform extension (if any) so the UI
-			// sync applies it just like the CLI — otherwise files are copied
-			// verbatim instead of being transformed (e.g. .md left as .md).
-			spec, specErr := s.resolveExtensionSpec(t.Extension)
-			if specErr != nil {
-				tr.Error = "extension " + t.Extension + ": " + specErr.Error()
-				result.Targets = append(result.Targets, tr)
-				continue
-			}
-
-			// Transform extensions emit generated files via copy semantics.
-			// Resolve through the shared resolver so the CLI, sync, status, and
-			// diff paths all enforce one contract (empty/copy → copy, else error).
-			if spec != nil {
-				resolved, modeErr := syncpkg.ResolveExtensionMode(t.Mode)
-				if modeErr != nil {
-					tr.Error = "extension " + t.Extension + ": " + modeErr.Error()
-					result.Targets = append(result.Targets, tr)
-					continue
-				}
-				m = resolved
-				tr.Mode = m
-			}
-
-			targetPath := resolveExtrasTargetPath(projectRoot, t.Path)
-			var res *syncpkg.ExtraResult
-			var err error
 			switch {
-			case extra.File == "":
-				res, err = syncpkg.SyncExtra(sourceDir, targetPath, m, dryRun, force, t.Flatten, projectRoot, spec)
-			case spec != nil:
-				err = fmt.Errorf("extensions are not supported for single-file extras")
+			case tr.ExtensionErr != nil:
+				out.Error = "extension " + t.Extension + ": " + tr.ExtensionErr.Error()
+			case tr.ModeErr != nil:
+				out.Error = "extension " + t.Extension + ": " + tr.ModeErr.Error()
+			case tr.Err != nil:
+				out.Mode = tr.Mode
+				out.Error = tr.Err.Error()
 			default:
-				res, err = syncpkg.SyncExtraFile(syncpkg.NewExtraFile(sourceDir, extra.File, targetPath, t.As, m), dryRun, projectRoot)
-			}
-			if err != nil {
-				tr.Error = err.Error()
-			} else {
-				tr.Synced = res.Synced
-				tr.Skipped = res.Skipped
-				tr.Pruned = res.Pruned
-				tr.Errors = res.Errors
-				tr.Warnings = res.Warnings
-				if tr.Errors == nil {
-					tr.Errors = []string{}
+				out.Mode = tr.Mode
+				out.Synced = tr.Result.Synced
+				out.Skipped = tr.Result.Skipped
+				out.Pruned = tr.Result.Pruned
+				out.Warnings = tr.Result.Warnings
+				if tr.Result.Errors != nil {
+					out.Errors = tr.Result.Errors
 				}
 			}
-
-			result.Targets = append(result.Targets, tr)
+			result.Targets = append(result.Targets, out)
 		}
 
 		results = append(results, result)

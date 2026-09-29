@@ -1042,7 +1042,7 @@ func (m extrasListTUIModel) doSync(name, targetPath string) (string, error) {
 				return "", fmt.Errorf("sync %s: %w", t.Path, specErr)
 			}
 		}
-		_, err := syncExtraTarget(*extra, t, sourceDir, resolved, mode, false, false, projectRoot, spec)
+		_, err := sync.SyncExtraTarget(*extra, t, sourceDir, resolved, mode, false, false, projectRoot, spec)
 		if err != nil {
 			return "", fmt.Errorf("sync %s: %w", t.Path, err)
 		}

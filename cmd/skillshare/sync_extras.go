@@ -109,156 +109,61 @@ func cmdSyncExtrasGlobal(dryRun, force, jsonOutput bool, start time.Time) error 
 		}
 	}
 
-	var totalSynced, totalSkipped, totalPruned, totalErrors, totalTargets int
+	var totals extrasSyncTotals
 	var jsonEntries []syncExtrasJSONEntry
 
 	if !jsonOutput {
 		ui.Header(ui.WithModeLabel("Syncing extras"))
 	}
 
+	opts := sync.ExtraRunOptions{
+		DryRun:        dryRun,
+		Force:         force,
+		MissingSource: sync.MissingSourceCreate,
+		ResolvePath:   config.ExpandPath,
+		ResolveExtension: func(ext string) (*sync.ExtensionSpec, error) {
+			return resolveExtension(ext, globalExtensionsDir())
+		},
+		AgentTargetPaths: agentTargetPaths,
+	}
+
 	for _, extra := range cfg.Extras {
 		extraSource := config.ResolveExtrasSourceDir(extra, cfg.EffectiveExtrasSource(), cfg.EffectiveSkillsSource())
 
-		// Auto-create source directory if it doesn't exist
-		if _, statErr := os.Stat(extraSource); os.IsNotExist(statErr) {
-			if err := os.MkdirAll(extraSource, 0755); err != nil {
-				if !jsonOutput {
-					ui.Warning("Failed to create source directory: %s", shortenPath(extraSource))
-				}
-				if jsonOutput {
-					jsonEntries = append(jsonEntries, syncExtrasJSONEntry{Name: extra.Name, Targets: []syncExtrasJSONTarget{}})
-				}
-				continue
-			}
+		run := sync.RunExtraTargets(extra, extraSource, opts)
+		if run.SourceErr != nil {
 			if !jsonOutput {
-				ui.Info("Created source directory: %s", shortenPath(extraSource))
+				ui.Warning("Failed to create source directory: %s", shortenPath(extraSource))
 			}
+			if jsonOutput {
+				jsonEntries = append(jsonEntries, syncExtrasJSONEntry{Name: extra.Name, Targets: []syncExtrasJSONTarget{}})
+			}
+			continue
+		}
+		if run.SourceCreated && !jsonOutput {
+			ui.Info("Created source directory: %s", shortenPath(extraSource))
 		}
 
 		jsonEntry := syncExtrasJSONEntry{Name: extra.Name}
-
-		for _, target := range extra.Targets {
-			totalTargets++
-			mode := target.Mode
-			if mode == "" {
-				mode = "merge"
-			}
-			targetPath := config.ExpandPath(target.Path)
-
-			// Skip extras "agents" targets that overlap with the agents sync system
-			if extra.Name == extrasAgentsName && isExtrasTargetOverlappingAgents(targetPath, agentTargetPaths) {
-				if !jsonOutput {
-					ui.Warning("Skipping extras %q target %s — already managed by agents sync", extra.Name, shortenPath(targetPath))
-				}
-				jsonEntry.Targets = append(jsonEntry.Targets, syncExtrasJSONTarget{
-					Path: target.Path, Mode: mode, SkippedBy: extrasAgentsName,
-				})
-				continue
-			}
-
-			var spec *sync.ExtensionSpec
-			if target.Extension != "" {
-				effMode, modeErr := validateExtensionMode(target.Mode)
-				if modeErr != nil {
-					if !jsonOutput {
-						ui.Warning("%s: %v", shortenPath(targetPath), modeErr)
-					}
-					jsonEntry.Targets = append(jsonEntry.Targets, syncExtrasJSONTarget{
-						Path: target.Path, Mode: mode, Error: modeErr.Error(),
-					})
-					totalErrors++
-					continue
-				}
-				mode = effMode
-				var specErr error
-				spec, specErr = resolveExtension(target.Extension, globalExtensionsDir())
-				if specErr != nil {
-					if !jsonOutput {
-						ui.Warning("%s: %v", shortenPath(targetPath), specErr)
-					}
-					jsonEntry.Targets = append(jsonEntry.Targets, syncExtrasJSONTarget{
-						Path: target.Path, Mode: mode, Error: specErr.Error(),
-					})
-					totalErrors++
-					continue
-				}
-			}
-
-			result, syncErr := syncExtraTarget(extra, target, extraSource, targetPath, mode, dryRun, force, "", spec)
-			shortTarget := shortenPath(targetPath)
-			shownMode := sync.ExtraTargetMode(mode, extra.File != "")
-
-			jsonTarget := syncExtrasJSONTarget{
-				Path: target.Path,
-				Mode: shownMode,
-			}
-
-			if syncErr != nil {
-				if !jsonOutput {
-					ui.Warning("%s: %v", shortTarget, syncErr)
-				}
-				jsonTarget.Error = syncErr.Error()
-				jsonEntry.Targets = append(jsonEntry.Targets, jsonTarget)
-				totalErrors++
-				continue
-			}
-
-			totalSynced += result.Synced
-			totalSkipped += result.Skipped
-			totalPruned += result.Pruned
-			totalErrors += len(result.Errors)
-
-			jsonTarget.Synced = result.Synced
-			jsonTarget.Skipped = result.Skipped
-			jsonTarget.Pruned = result.Pruned
-			jsonTarget.Warnings = result.Warnings
-			if len(result.Errors) > 0 {
-				jsonTarget.Error = strings.Join(result.Errors, "; ")
-			}
-			jsonEntry.Targets = append(jsonEntry.Targets, jsonTarget)
-
-			if !jsonOutput {
-				// Report result
-				verb := syncVerb(shownMode)
-				if result.Synced > 0 {
-					parts := []string{fmt.Sprintf("%d files %s", result.Synced, verb)}
-					if result.Pruned > 0 {
-						parts = append(parts, fmt.Sprintf("%d pruned", result.Pruned))
-					}
-					ui.Success("%s  %s (%s)", shortTarget, strings.Join(parts, ", "), shownMode)
-				} else if result.Skipped > result.Preserved {
-					ui.Warning("%s  %d files skipped (use --force to override)", shortTarget, result.Skipped-result.Preserved)
-				} else if result.Preserved == 0 {
-					ui.Success("%s  up to date (%s)", shortTarget, shownMode)
-				}
-				if result.Preserved > 0 {
-					ui.Success("%s  %d local preserved", shortTarget, result.Preserved)
-				}
-
-				for _, e := range result.Errors {
-					ui.Warning("    %s", e)
-				}
-				for _, w := range result.Warnings {
-					ui.Info("    %s", w)
-				}
-			}
+		for _, tr := range run.Targets {
+			reportExtraTarget(extra.Name, tr, jsonOutput, &totals)
+			jsonEntry.Targets = append(jsonEntry.Targets, extraTargetJSON(tr, tr.Target.Path))
 		}
-
 		jsonEntries = append(jsonEntries, jsonEntry)
 	}
 
 	// Oplog
 	status := "ok"
-	if totalErrors > 0 {
+	if totals.errors > 0 {
 		status = "partial"
 	}
 	e := oplog.NewEntry("sync-extras", status, time.Since(start))
 	e.Args = map[string]any{
 		"extras_count": len(cfg.Extras),
-		"synced":       totalSynced,
-		"skipped":      totalSkipped,
-		"pruned":       totalPruned,
-		"errors":       totalErrors,
+		"synced":       totals.synced,
+		"skipped":      totals.skipped,
+		"pruned":       totals.pruned,
+		"errors":       totals.errors,
 		"dry_run":      dryRun,
 		"force":        force,
 	}
@@ -272,22 +177,22 @@ func cmdSyncExtrasGlobal(dryRun, force, jsonOutput bool, start time.Time) error 
 		if err := writeJSON(&output); err != nil {
 			return err
 		}
-		if totalErrors > 0 {
-			return &jsonSilentError{cause: fmt.Errorf("%d extras sync error(s)", totalErrors)}
+		if totals.errors > 0 {
+			return &jsonSilentError{cause: fmt.Errorf("%d extras sync error(s)", totals.errors)}
 		}
 		return nil
 	}
 
 	ui.ExtrasSyncSummary(ui.ExtrasSyncStats{
-		Targets:  totalTargets,
-		Synced:   totalSynced,
-		Skipped:  totalSkipped,
-		Pruned:   totalPruned,
+		Targets:  totals.targets,
+		Synced:   totals.synced,
+		Skipped:  totals.skipped,
+		Pruned:   totals.pruned,
 		Duration: time.Since(start),
 	})
 
-	if totalErrors > 0 {
-		return fmt.Errorf("%d extras sync error(s)", totalErrors)
+	if totals.errors > 0 {
+		return fmt.Errorf("%d extras sync error(s)", totals.errors)
 	}
 	return nil
 }
@@ -326,17 +231,31 @@ func cmdSyncExtrasProject(cwd string, dryRun, force, jsonOutput bool, start time
 		}
 	}
 
-	var totalSynced, totalSkipped, totalPruned, totalErrors, totalTargets int
+	var totals extrasSyncTotals
 	var jsonEntries []syncExtrasJSONEntry
 
 	if !jsonOutput {
 		ui.Header(ui.WithModeLabel("Syncing extras"))
 	}
 
+	opts := sync.ExtraRunOptions{
+		DryRun:        dryRun,
+		Force:         force,
+		ProjectRoot:   cwd,
+		MissingSource: sync.MissingSourceSkip,
+		// Expand ~ and resolve relative paths against project root
+		ResolvePath: func(path string) string { return resolveProjectPath(cwd, path) },
+		ResolveExtension: func(ext string) (*sync.ExtensionSpec, error) {
+			return resolveExtension(ext, projectExtensionsDir(cwd))
+		},
+		AgentTargetPaths: agentTargetPaths,
+	}
+
 	for _, extra := range projCfg.Extras {
 		extraSource := config.ResolveExtrasSourceDirProject(extra, projCfg.EffectiveExtrasSource(cwd), cwd)
 
-		if _, statErr := os.Stat(extraSource); os.IsNotExist(statErr) {
+		run := sync.RunExtraTargets(extra, extraSource, opts)
+		if run.SourceMissing {
 			if !jsonOutput {
 				ui.Info("Source directory does not exist: %s", extraSource)
 				ui.Info("Create it to start syncing %s", extra.Name)
@@ -348,129 +267,29 @@ func cmdSyncExtrasProject(cwd string, dryRun, force, jsonOutput bool, start time
 		}
 
 		jsonEntry := syncExtrasJSONEntry{Name: extra.Name}
-
-		for _, target := range extra.Targets {
-			totalTargets++
-			mode := target.Mode
-			if mode == "" {
-				mode = "merge"
+		for _, tr := range run.Targets {
+			reportExtraTarget(extra.Name, tr, jsonOutput, &totals)
+			// Targets that reached the sync report the resolved path.
+			path := tr.Target.Path
+			if tr.SkippedBy == "" && tr.ModeErr == nil && tr.ExtensionErr == nil {
+				path = tr.Path
 			}
-
-			// Expand ~ and resolve relative paths against project root
-			targetPath := resolveProjectPath(cwd, target.Path)
-
-			// Skip extras "agents" targets that overlap with the agents sync system
-			if extra.Name == extrasAgentsName && isExtrasTargetOverlappingAgents(targetPath, agentTargetPaths) {
-				if !jsonOutput {
-					ui.Warning("Skipping extras %q target %s — already managed by agents sync", extra.Name, shortenPath(targetPath))
-				}
-				jsonEntry.Targets = append(jsonEntry.Targets, syncExtrasJSONTarget{
-					Path: target.Path, Mode: mode, SkippedBy: extrasAgentsName,
-				})
-				continue
-			}
-
-			var spec *sync.ExtensionSpec
-			if target.Extension != "" {
-				effMode, modeErr := validateExtensionMode(target.Mode)
-				if modeErr != nil {
-					if !jsonOutput {
-						ui.Warning("%s: %v", shortenPath(targetPath), modeErr)
-					}
-					jsonEntry.Targets = append(jsonEntry.Targets, syncExtrasJSONTarget{
-						Path: target.Path, Mode: mode, Error: modeErr.Error(),
-					})
-					totalErrors++
-					continue
-				}
-				mode = effMode
-				var specErr error
-				spec, specErr = resolveExtension(target.Extension, projectExtensionsDir(cwd))
-				if specErr != nil {
-					if !jsonOutput {
-						ui.Warning("%s: %v", shortenPath(targetPath), specErr)
-					}
-					jsonEntry.Targets = append(jsonEntry.Targets, syncExtrasJSONTarget{
-						Path: target.Path, Mode: mode, Error: specErr.Error(),
-					})
-					totalErrors++
-					continue
-				}
-			}
-
-			result, syncErr := syncExtraTarget(extra, target, extraSource, targetPath, mode, dryRun, force, cwd, spec)
-			shortTarget := shortenPath(targetPath)
-			shownMode := sync.ExtraTargetMode(mode, extra.File != "")
-
-			jsonTarget := syncExtrasJSONTarget{
-				Path: targetPath,
-				Mode: shownMode,
-			}
-
-			if syncErr != nil {
-				if !jsonOutput {
-					ui.Warning("%s: %v", shortTarget, syncErr)
-				}
-				jsonTarget.Error = syncErr.Error()
-				jsonEntry.Targets = append(jsonEntry.Targets, jsonTarget)
-				totalErrors++
-				continue
-			}
-
-			totalSynced += result.Synced
-			totalSkipped += result.Skipped
-			totalPruned += result.Pruned
-			totalErrors += len(result.Errors)
-
-			jsonTarget.Synced = result.Synced
-			jsonTarget.Skipped = result.Skipped
-			jsonTarget.Pruned = result.Pruned
-			jsonTarget.Warnings = result.Warnings
-			if len(result.Errors) > 0 {
-				jsonTarget.Error = strings.Join(result.Errors, "; ")
-			}
-			jsonEntry.Targets = append(jsonEntry.Targets, jsonTarget)
-
-			if !jsonOutput {
-				verb := syncVerb(shownMode)
-				if result.Synced > 0 {
-					parts := []string{fmt.Sprintf("%d files %s", result.Synced, verb)}
-					if result.Pruned > 0 {
-						parts = append(parts, fmt.Sprintf("%d pruned", result.Pruned))
-					}
-					ui.Success("%s  %s (%s)", shortTarget, strings.Join(parts, ", "), shownMode)
-				} else if result.Skipped > result.Preserved {
-					ui.Warning("%s  %d files skipped (use --force to override)", shortTarget, result.Skipped-result.Preserved)
-				} else if result.Preserved == 0 {
-					ui.Success("%s  up to date (%s)", shortTarget, shownMode)
-				}
-				if result.Preserved > 0 {
-					ui.Success("%s  %d local preserved", shortTarget, result.Preserved)
-				}
-
-				for _, e := range result.Errors {
-					ui.Warning("    %s", e)
-				}
-				for _, w := range result.Warnings {
-					ui.Info("    %s", w)
-				}
-			}
+			jsonEntry.Targets = append(jsonEntry.Targets, extraTargetJSON(tr, path))
 		}
-
 		jsonEntries = append(jsonEntries, jsonEntry)
 	}
 
 	status := "ok"
-	if totalErrors > 0 {
+	if totals.errors > 0 {
 		status = "partial"
 	}
 	e := oplog.NewEntry("sync-extras", status, time.Since(start))
 	e.Args = map[string]any{
 		"extras_count": len(projCfg.Extras),
-		"synced":       totalSynced,
-		"skipped":      totalSkipped,
-		"pruned":       totalPruned,
-		"errors":       totalErrors,
+		"synced":       totals.synced,
+		"skipped":      totals.skipped,
+		"pruned":       totals.pruned,
+		"errors":       totals.errors,
 		"dry_run":      dryRun,
 		"force":        force,
 		"scope":        "project",
@@ -485,36 +304,24 @@ func cmdSyncExtrasProject(cwd string, dryRun, force, jsonOutput bool, start time
 		if err := writeJSON(&output); err != nil {
 			return err
 		}
-		if totalErrors > 0 {
-			return &jsonSilentError{cause: fmt.Errorf("%d extras sync error(s)", totalErrors)}
+		if totals.errors > 0 {
+			return &jsonSilentError{cause: fmt.Errorf("%d extras sync error(s)", totals.errors)}
 		}
 		return nil
 	}
 
 	ui.ExtrasSyncSummary(ui.ExtrasSyncStats{
-		Targets:  totalTargets,
-		Synced:   totalSynced,
-		Skipped:  totalSkipped,
-		Pruned:   totalPruned,
+		Targets:  totals.targets,
+		Synced:   totals.synced,
+		Skipped:  totals.skipped,
+		Pruned:   totals.pruned,
 		Duration: time.Since(start),
 	})
 
-	if totalErrors > 0 {
-		return fmt.Errorf("%d extras sync error(s)", totalErrors)
+	if totals.errors > 0 {
+		return fmt.Errorf("%d extras sync error(s)", totals.errors)
 	}
 	return nil
-}
-
-// syncExtraTarget syncs one target of an extra. Single-file extras (file:)
-// sync just that file to <target>/<as or file>; others sync the directory.
-func syncExtraTarget(extra config.ExtraConfig, target config.ExtraTargetConfig, sourceDir, targetPath, mode string, dryRun, force bool, projectRoot string, spec *sync.ExtensionSpec) (*sync.ExtraResult, error) {
-	if extra.File == "" {
-		return sync.SyncExtra(sourceDir, targetPath, mode, dryRun, force, target.Flatten, projectRoot, spec)
-	}
-	if spec != nil {
-		return nil, fmt.Errorf("extensions are not supported for single-file extras")
-	}
-	return sync.SyncExtraFile(sync.NewExtraFile(sourceDir, extra.File, targetPath, target.As, mode), dryRun, projectRoot)
 }
 
 // syncVerb returns a user-facing verb for the given sync mode.
@@ -535,88 +342,130 @@ func syncVerb(mode string) string {
 // Used by sync --all --json to merge extras into the skills JSON output.
 // agentTargetPaths is used to skip extras "agents" targets that overlap with the agents sync system.
 func runExtrasSyncEntries(extras []config.ExtraConfig, sourceFunc func(config.ExtraConfig) string, dryRun, force bool, projectRoot string, agentTargetPaths map[string]bool) []syncExtrasJSONEntry {
+	// Resolve the per-target transform extension so --all --json applies
+	// it like a normal sync instead of copying files verbatim.
+	extDir := globalExtensionsDir()
+	resolvePath := config.ExpandPath
+	if projectRoot != "" {
+		extDir = projectExtensionsDir(projectRoot)
+		resolvePath = func(path string) string { return resolveProjectPath(projectRoot, path) }
+	}
+	opts := sync.ExtraRunOptions{
+		DryRun:        dryRun,
+		Force:         force,
+		ProjectRoot:   projectRoot,
+		MissingSource: sync.MissingSourceSkip,
+		ResolvePath:   resolvePath,
+		ResolveExtension: func(ext string) (*sync.ExtensionSpec, error) {
+			return resolveExtension(ext, extDir)
+		},
+		AgentTargetPaths: agentTargetPaths,
+	}
+
 	entries := make([]syncExtrasJSONEntry, 0, len(extras))
 	for _, extra := range extras {
-		extraSource := sourceFunc(extra)
 		entry := syncExtrasJSONEntry{Name: extra.Name}
-
-		if _, statErr := os.Stat(extraSource); os.IsNotExist(statErr) {
+		run := sync.RunExtraTargets(extra, sourceFunc(extra), opts)
+		if run.SourceMissing {
 			entry.Targets = []syncExtrasJSONTarget{}
-			entries = append(entries, entry)
-			continue
 		}
-
-		for _, target := range extra.Targets {
-			mode := target.Mode
-			if mode == "" {
-				mode = "merge"
-			}
-			targetPath := config.ExpandPath(target.Path)
-			if projectRoot != "" {
-				targetPath = resolveProjectPath(projectRoot, target.Path)
-			}
-
-			if extra.Name == extrasAgentsName && isExtrasTargetOverlappingAgents(targetPath, agentTargetPaths) {
-				entry.Targets = append(entry.Targets, syncExtrasJSONTarget{
-					Path: targetPath, Mode: mode, SkippedBy: extrasAgentsName,
-				})
-				continue
-			}
-
-			// Resolve the per-target transform extension so --all --json applies
-			// it like a normal sync instead of copying files verbatim.
-			var spec *sync.ExtensionSpec
-			if target.Extension != "" {
-				effMode, modeErr := validateExtensionMode(target.Mode)
-				if modeErr != nil {
-					entry.Targets = append(entry.Targets, syncExtrasJSONTarget{
-						Path: targetPath, Mode: mode, Error: modeErr.Error(),
-					})
-					continue
-				}
-				mode = effMode
-				extDir := globalExtensionsDir()
-				if projectRoot != "" {
-					extDir = projectExtensionsDir(projectRoot)
-				}
-				var specErr error
-				spec, specErr = resolveExtension(target.Extension, extDir)
-				if specErr != nil {
-					entry.Targets = append(entry.Targets, syncExtrasJSONTarget{
-						Path: targetPath, Mode: mode, Error: specErr.Error(),
-					})
-					continue
-				}
-			}
-
-			result, syncErr := syncExtraTarget(extra, target, extraSource, targetPath, mode, dryRun, force, projectRoot, spec)
-			jt := syncExtrasJSONTarget{Path: targetPath, Mode: sync.ExtraTargetMode(mode, extra.File != "")}
-			if syncErr != nil {
-				jt.Error = syncErr.Error()
-			} else {
-				jt.Synced = result.Synced
-				jt.Skipped = result.Skipped
-				jt.Pruned = result.Pruned
-				jt.Warnings = result.Warnings
-				if len(result.Errors) > 0 {
-					jt.Error = strings.Join(result.Errors, "; ")
-				}
-			}
-			entry.Targets = append(entry.Targets, jt)
+		for _, tr := range run.Targets {
+			entry.Targets = append(entry.Targets, extraTargetJSON(tr, tr.Path))
 		}
-
 		entries = append(entries, entry)
 	}
 	return entries
 }
 
-// isExtrasTargetOverlappingAgents checks whether an extras target path overlaps
-// with any active agent target path.
-func isExtrasTargetOverlappingAgents(targetPath string, agentPaths map[string]bool) bool {
-	if len(agentPaths) == 0 {
-		return false
+// extrasSyncTotals accumulates target outcomes for the summary and oplog.
+type extrasSyncTotals struct {
+	synced, skipped, pruned, errors, targets int
+}
+
+// reportExtraTarget adds one target's outcome to totals and, unless
+// jsonOutput, prints it.
+func reportExtraTarget(extraName string, tr sync.ExtraTargetRun, jsonOutput bool, totals *extrasSyncTotals) {
+	totals.targets++
+	shortTarget := shortenPath(tr.Path)
+
+	if tr.SkippedBy != "" {
+		if !jsonOutput {
+			ui.Warning("Skipping extras %q target %s — already managed by agents sync", extraName, shortTarget)
+		}
+		return
 	}
-	return agentPaths[filepath.Clean(targetPath)]
+	if err := extraTargetFailure(tr); err != nil {
+		if !jsonOutput {
+			ui.Warning("%s: %v", shortTarget, err)
+		}
+		totals.errors++
+		return
+	}
+
+	result := tr.Result
+	totals.synced += result.Synced
+	totals.skipped += result.Skipped
+	totals.pruned += result.Pruned
+	totals.errors += len(result.Errors)
+	if jsonOutput {
+		return
+	}
+
+	shownMode := tr.Mode
+	verb := syncVerb(shownMode)
+	if result.Synced > 0 {
+		parts := []string{fmt.Sprintf("%d files %s", result.Synced, verb)}
+		if result.Pruned > 0 {
+			parts = append(parts, fmt.Sprintf("%d pruned", result.Pruned))
+		}
+		ui.Success("%s  %s (%s)", shortTarget, strings.Join(parts, ", "), shownMode)
+	} else if result.Skipped > result.Preserved {
+		ui.Warning("%s  %d files skipped (use --force to override)", shortTarget, result.Skipped-result.Preserved)
+	} else if result.Preserved == 0 {
+		ui.Success("%s  up to date (%s)", shortTarget, shownMode)
+	}
+	if result.Preserved > 0 {
+		ui.Success("%s  %d local preserved", shortTarget, result.Preserved)
+	}
+
+	for _, e := range result.Errors {
+		ui.Warning("    %s", e)
+	}
+	for _, w := range result.Warnings {
+		ui.Info("    %s", w)
+	}
+}
+
+// extraTargetFailure returns the error that stopped a target, checking the
+// mode before the extension.
+func extraTargetFailure(tr sync.ExtraTargetRun) error {
+	switch {
+	case tr.ModeErr != nil:
+		return tr.ModeErr
+	case tr.ExtensionErr != nil:
+		return tr.ExtensionErr
+	default:
+		return tr.Err
+	}
+}
+
+// extraTargetJSON returns the JSON form of one target, reported at path.
+func extraTargetJSON(tr sync.ExtraTargetRun, path string) syncExtrasJSONTarget {
+	jt := syncExtrasJSONTarget{Path: path, Mode: tr.Mode, SkippedBy: tr.SkippedBy}
+	if err := extraTargetFailure(tr); err != nil {
+		jt.Error = err.Error()
+		return jt
+	}
+	if tr.Result != nil {
+		jt.Synced = tr.Result.Synced
+		jt.Skipped = tr.Result.Skipped
+		jt.Pruned = tr.Result.Pruned
+		jt.Warnings = tr.Result.Warnings
+		if len(tr.Result.Errors) > 0 {
+			jt.Error = strings.Join(tr.Result.Errors, "; ")
+		}
+	}
+	return jt
 }
 
 // cachedHome caches the home directory for shortenPath.

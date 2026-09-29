@@ -3,6 +3,7 @@
 package integration
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -892,5 +893,135 @@ extras:
 	}
 	if sb.FileExists(filepath.Join(cursorAgents, "extra-agent.md")) {
 		t.Error("project extras agent file should not be synced to cursor when target overlaps agents sync")
+	}
+}
+
+// syncExtrasJSONTargets parses `sync extras --json` output and returns the
+// targets of its only extra.
+func syncExtrasJSONTargets(t *testing.T, stdout string) []map[string]any {
+	t.Helper()
+	var out struct {
+		Extras []struct {
+			Targets []map[string]any `json:"targets"`
+		} `json:"extras"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &out); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, stdout)
+	}
+	if len(out.Extras) != 1 {
+		t.Fatalf("expected 1 extra, got %d:\n%s", len(out.Extras), stdout)
+	}
+	return out.Extras[0].Targets
+}
+
+// Characterization: global sync creates a missing extra source directory.
+func TestSyncExtras_GlobalCreatesMissingSource(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("placeholder", map[string]string{"SKILL.md": "# Placeholder"})
+	targetPath := sb.CreateTarget("claude")
+	rulesSource := filepath.Join(filepath.Dir(sb.SourcePath), "extras", "rules")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + targetPath + `
+extras:
+  - name: rules
+    targets:
+      - path: ` + filepath.Join(sb.Home, ".claude", "rules") + `
+`)
+
+	result := sb.RunCLI("sync", "extras", "--json")
+	result.AssertSuccess(t)
+
+	if info, err := os.Stat(rulesSource); err != nil || !info.IsDir() {
+		t.Errorf("expected source dir %s to be created, stat err = %v", rulesSource, err)
+	}
+}
+
+// Characterization: global JSON reports the target path from the loaded config,
+// where config.Load has already expanded "~".
+func TestSyncExtras_GlobalJSONReportsConfiguredPath(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("placeholder", map[string]string{"SKILL.md": "# Placeholder"})
+	targetPath := sb.CreateTarget("claude")
+	rulesSource := filepath.Join(filepath.Dir(sb.SourcePath), "extras", "rules")
+	os.MkdirAll(rulesSource, 0755)
+	os.WriteFile(filepath.Join(rulesSource, "coding.md"), []byte("# Coding"), 0644)
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + targetPath + `
+extras:
+  - name: rules
+    targets:
+      - path: ~/.claude/rules
+`)
+
+	result := sb.RunCLI("sync", "extras", "--json")
+	result.AssertSuccess(t)
+
+	targets := syncExtrasJSONTargets(t, result.Stdout)
+	want := filepath.Join(sb.Home, ".claude", "rules")
+	if got := targets[0]["path"]; got != want {
+		t.Errorf("path = %v, want %q", got, want)
+	}
+}
+
+// Characterization: project sync skips an extra whose source directory is
+// missing instead of creating it.
+func TestSyncExtras_ProjectSkipsMissingSource(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	projectRoot := sb.SetupProjectDir("claude")
+	rulesSource := filepath.Join(projectRoot, ".skillshare", "extras", "rules")
+	sb.WriteProjectConfig(projectRoot, `targets:
+  - claude
+extras:
+  - name: rules
+    targets:
+      - path: .claude/rules
+`)
+
+	result := sb.RunCLIInDir(projectRoot, "sync", "extras", "-p", "--json")
+	result.AssertSuccess(t)
+
+	if targets := syncExtrasJSONTargets(t, result.Stdout); len(targets) != 0 {
+		t.Errorf("expected no targets for a missing source, got %v", targets)
+	}
+	if _, err := os.Stat(rulesSource); !os.IsNotExist(err) {
+		t.Errorf("project sync must not create %s, stat err = %v", rulesSource, err)
+	}
+}
+
+// Characterization: project JSON reports the resolved target path.
+func TestSyncExtras_ProjectJSONReportsResolvedPath(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	projectRoot := sb.SetupProjectDir("claude")
+	rulesSource := filepath.Join(projectRoot, ".skillshare", "extras", "rules")
+	os.MkdirAll(rulesSource, 0755)
+	os.WriteFile(filepath.Join(rulesSource, "coding.md"), []byte("# Coding"), 0644)
+	sb.WriteProjectConfig(projectRoot, `targets:
+  - claude
+extras:
+  - name: rules
+    targets:
+      - path: .claude/rules
+`)
+
+	result := sb.RunCLIInDir(projectRoot, "sync", "extras", "-p", "--json")
+	result.AssertSuccess(t)
+
+	want := filepath.Join(projectRoot, ".claude", "rules")
+	if got := syncExtrasJSONTargets(t, result.Stdout)[0]["path"]; got != want {
+		t.Errorf("path = %v, want %q", got, want)
 	}
 }
