@@ -496,3 +496,73 @@ func TestHandleSync_ReportsFolderConflicts(t *testing.T) {
 		}
 	}
 }
+
+func TestHandleSync_SkillTargetFailureKeepsSyncingOthers(t *testing.T) {
+	s, src, _ := newAgentSyncServer(t)
+	addSkill(t, src, "alpha")
+	s.cfg.Targets["broken"] = config.TargetConfig{
+		Skills: &config.ResourceTargetConfig{Path: filepath.Join(t.TempDir(), "broken-skills"), Include: []string{"["}},
+	}
+	s.cfg.Targets["claude"] = config.TargetConfig{
+		Skills: &config.ResourceTargetConfig{Path: filepath.Join(t.TempDir(), "claude-skills")},
+		Agents: &config.ResourceTargetConfig{Path: filepath.Join(t.TempDir(), "claude-agents")},
+	}
+	if err := s.cfg.Save(); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/sync", strings.NewReader(`{}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Results  []syncTargetResult `json:"results"`
+		Warnings []string           `json:"warnings"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if len(resp.Results) != 1 || resp.Results[0].Target != "claude" || !slices.Equal(resp.Results[0].Linked, []string{"alpha", "tutor.md"}) {
+		t.Fatalf("expected only the claude row with alpha and tutor.md, got %+v", resp.Results)
+	}
+	if !slices.ContainsFunc(resp.Warnings, func(w string) bool {
+		return strings.HasPrefix(w, "broken: sync failed: ")
+	}) {
+		t.Fatalf("expected sync failed warning for broken, got %v", resp.Warnings)
+	}
+	entries, err := oplog.Read(config.ConfigPath(), oplog.OpsFile, 1)
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("read ops log: %v (%d entries)", err, len(entries))
+	}
+	if e := entries[0]; e.Status != "partial" || e.Args["targets_failed"] != float64(1) {
+		t.Fatalf("expected partial sync with targets_failed 1, got status %q args %v", e.Status, e.Args)
+	}
+}
+
+func TestHandleSync_EverySkillTargetFailingIsAnError(t *testing.T) {
+	s, _ := newTestServer(t)
+	s.cfg.Targets["broken"] = config.TargetConfig{
+		Skills: &config.ResourceTargetConfig{Path: filepath.Join(t.TempDir(), "broken-skills"), Include: []string{"["}},
+	}
+	if err := s.cfg.Save(); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/sync", strings.NewReader(`{}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusInternalServerError || !strings.Contains(rr.Body.String(), "sync failed for broken") {
+		t.Fatalf("expected 500 naming broken, got %d: %s", rr.Code, rr.Body.String())
+	}
+	entries, err := oplog.Read(config.ConfigPath(), oplog.OpsFile, 1)
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("read ops log: %v (%d entries)", err, len(entries))
+	}
+	if e := entries[0]; e.Status != "error" || e.Args["targets_failed"] != float64(1) {
+		t.Fatalf("expected error sync with targets_failed 1, got status %q args %v", e.Status, e.Args)
+	}
+}

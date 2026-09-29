@@ -170,6 +170,7 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 	}
 
 	results := make([]syncTargetResult, 0)
+	skillFailed := 0
 
 	var ignoreStats *skillignore.IgnoreStats
 	var allSkills []ssync.DiscoveredSkill
@@ -191,11 +192,23 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 		// Sync only manages symlinks — it must not prune registry entries
 		// for installed skills whose files may be missing from disk.
 
+		// A failed target adds a warning and no results row; the rest still sync.
+		var firstErr error
+		var firstFailed string
+		failTarget := func(name string, err error) {
+			skillFailed++
+			if firstErr == nil {
+				firstErr, firstFailed = fmt.Errorf("sync failed for %s: %w", name, err), name
+			}
+			warnings = append(warnings, name+": sync failed: "+err.Error())
+		}
+		skillRan := 0
 		for name, target := range targets {
 			sc := target.SkillsConfig()
 			if !sc.IsEnabled() {
 				continue // skills off: agents, extras and MCP below still run
 			}
+			skillRan++
 			mode := sc.Mode
 			if mode == "" {
 				mode = globalMode
@@ -209,24 +222,12 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 				Pruned:  make([]string, 0),
 			}
 
-			syncErrArgs := map[string]any{
-				"targets_total":  len(targets),
-				"targets_failed": 1,
-				"target":         name,
-				"dry_run":        dryRun,
-				"force":          force,
-				"scope":          "ui",
-			}
-			if project != "" {
-				syncErrArgs["project"] = project
-			}
-
 			switch mode {
 			case "merge":
 				mergeResult, err := ssync.SyncTargetMergeWithSkills(name, target, allSkills, s.cfg.EffectiveSkillsSource(), dryRun, force, s.projectRoot)
 				if err != nil {
-					s.writeOpsLog("sync", "error", start, syncErrArgs, err.Error())
-					return nil, http.StatusInternalServerError, fmt.Errorf("sync failed for %s: %w", name, err)
+					failTarget(name, err)
+					continue
 				}
 				res.Linked = mergeResult.Linked
 				res.Updated = mergeResult.Updated
@@ -245,8 +246,8 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 			case "copy":
 				copyResult, err := ssync.SyncTargetCopyWithSkillsOptions(name, target, allSkills, s.cfg.EffectiveSkillsSource(), dryRun, force, nil, ssync.CopyOptions{IgnorePatterns: ignorePatterns})
 				if err != nil {
-					s.writeOpsLog("sync", "error", start, syncErrArgs, err.Error())
-					return nil, http.StatusInternalServerError, fmt.Errorf("sync failed for %s: %w", name, err)
+					failTarget(name, err)
+					continue
 				}
 				res.Linked = copyResult.Copied
 				res.Updated = copyResult.Updated
@@ -261,13 +262,31 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 			default:
 				err := ssync.SyncTarget(name, target, s.cfg.EffectiveSkillsSource(), dryRun, s.projectRoot)
 				if err != nil {
-					s.writeOpsLog("sync", "error", start, syncErrArgs, err.Error())
-					return nil, http.StatusInternalServerError, fmt.Errorf("sync failed for %s: %w", name, err)
+					failTarget(name, err)
+					continue
 				}
 				res.Linked = []string{"(symlink mode)"}
 			}
 
 			results = append(results, res)
+		}
+
+		// Every skill target failing is an error, so single-target setups
+		// still see one.
+		if skillRan > 0 && skillFailed == skillRan {
+			errArgs := map[string]any{
+				"targets_total":  len(targets),
+				"targets_failed": skillFailed,
+				"target":         firstFailed,
+				"dry_run":        dryRun,
+				"force":          force,
+				"scope":          "ui",
+			}
+			if project != "" {
+				errArgs["project"] = project
+			}
+			s.writeOpsLog("sync", "error", start, errArgs, firstErr.Error())
+			return nil, http.StatusInternalServerError, firstErr
 		}
 
 		// Clean skillshare entries left in also_scans dirs a target no longer
@@ -350,8 +369,8 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 
 	// Log the sync operation
 	logArgs := map[string]any{
-		"targets_total":  len(results),
-		"targets_failed": 0,
+		"targets_total":  len(results) + skillFailed,
+		"targets_failed": skillFailed,
 		"dry_run":        dryRun,
 		"force":          force,
 		"kind":           kind,
@@ -360,7 +379,11 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 	if project != "" {
 		logArgs["project"] = project
 	}
-	s.writeOpsLog("sync", "ok", start, logArgs, "")
+	status := "ok"
+	if skillFailed > 0 {
+		status = "partial"
+	}
+	s.writeOpsLog("sync", status, start, logArgs, "")
 
 	return &syncOutcome{results: results, warnings: warnings, folderConflicts: conflicts, pathOverlap: overlap, skills: allSkills, ignoreStats: ignoreStats}, 0, nil
 }
