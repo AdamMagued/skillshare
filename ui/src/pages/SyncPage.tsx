@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, ArrowDownToLine, Bot, ChevronDown, ChevronRight, CircleCheck, CircleMinus, EyeOff, FolderPlus, Gauge, Minus, Plug, Plus, Puzzle, RefreshCw, TriangleAlert } from 'lucide-react';
+import { AlertCircle, ArrowDownToLine, Bot, ChevronDown, ChevronRight, CircleCheck, CircleMinus, EyeOff, FolderPlus, Gauge, Import, Minus, Plug, Plus, Puzzle, RefreshCw, TriangleAlert } from 'lucide-react';
 import { api, formatTokenK, type SyncResponse } from '../api/client';
 import { mcpApi } from '../api/mcp';
 import AgentIcon from '../components/AgentIcon';
@@ -22,6 +22,7 @@ import { queryKeys, staleTimes } from '../lib/queryKeys';
 
 const ROW_ICON: Record<RowIcon, React.ReactNode> = {
   add: <Plus size={16} className="shrink-0 text-ok" />,
+  adopt: <Import size={15} className="shrink-0 text-info" />,
   update: <RefreshCw size={15} className="shrink-0 text-info" />,
   remove: <Minus size={16} className="shrink-0 text-bad" />,
   kept: <CircleMinus size={15} className="shrink-0 text-ink-3" />,

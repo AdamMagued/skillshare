@@ -590,10 +590,17 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 			case currentHash == wantHash && managed && agentFieldsChanged(target, current, want):
 				change.Action = "update"
 				f.changes[name] = withAgentFields(target, current, want)
+			case currentHash == wantHash && !managed && want != nil && current != nil && !change.Switch:
+				// The Agent already has this server, e.g. the one it was imported from, ticked
+				// after the import. Sync takes it over without writing it, so the preview shows
+				// the takeover and unticking the Agent later removes the entry. Refs: #303.
+				// A switch the person turned off in the Agent stays theirs.
+				change.Action = "adopt"
+				p.state.Entries[key] = ownership{Owner: source.ConfigPath, Target: target, Path: path, Name: name, Hash: currentHash}
 			case currentHash == wantHash:
 				// Already as desired, e.g. after pulling a teammate's change or
-				// moving a project. Refresh an owned baseline, but never claim an
-				// unmanaged entry: removing the server must not delete the user's own.
+				// moving a project. Refresh an owned baseline; an unmanaged entry
+				// is only claimed by the adopt change above.
 				if want == nil {
 					delete(p.state.Entries, key)
 					continue

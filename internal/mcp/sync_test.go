@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -91,14 +92,35 @@ func TestApplyKeepsSettingsWrittenAfterPreview(t *testing.T) {
 	}
 }
 
-func TestIdenticalUnmanagedEntryConverges(t *testing.T) {
+// An Agent entry that already matches is taken over only by a sync the user runs: the
+// preview lists it, the file stays as it is, and from then on the server's removal
+// removes it too. Refs: #303.
+func TestIdenticalUnmanagedEntryIsTakenOverBySync(t *testing.T) {
 	s := testService(t)
 	path := filepath.Join(s.Home, ".claude.json")
-	if err := os.WriteFile(path, []byte(`{"mcpServers":{"docs":{"type":"http","url":"https://example.com/mcp"}}}`), 0600); err != nil {
+	// Laid out as sync writes it, so the takeover leaves nothing else to do.
+	before := []byte("{\n  \"mcpServers\": {\n    \"docs\": {\n      \"type\": \"http\",\n      \"url\": \"https://example.com/mcp\"\n    }\n  }\n}\n")
+	if err := os.WriteFile(path, before, 0600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.Apply(""); err != nil {
+	plan, err := s.Preview()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c := changeFor(plan, path, "docs"); c == nil || c.Action != "adopt" {
+		t.Fatalf("want adopt, got %+v", c)
+	}
+	if _, err := s.Apply(plan.Revision); err != nil {
 		t.Fatalf("identical entry must not conflict: %v", err)
+	}
+	if data, _ := os.ReadFile(path); !bytes.Equal(data, before) {
+		t.Fatalf("taking over rewrote the entry: %s", data)
+	}
+	if plan, err = s.Preview(); err != nil {
+		t.Fatal(err)
+	}
+	if c := changeFor(plan, path, "docs"); c == nil || c.Action != "unchanged" {
+		t.Fatalf("a taken over entry is still pending: %+v", c)
 	}
 	if err := os.WriteFile(s.ConfigPath, []byte("mcp:\n  targets: [claude, codex, cursor, vscode]\n  servers: {}\n"), 0600); err != nil {
 		t.Fatal(err)
@@ -106,9 +128,46 @@ func TestIdenticalUnmanagedEntryConverges(t *testing.T) {
 	if _, err := s.Apply(""); err != nil {
 		t.Fatal(err)
 	}
-	data, _ := os.ReadFile(path)
-	if !strings.Contains(string(data), "example.com") {
-		t.Fatal("removing the server deleted an entry Skillshare never owned")
+	if data, _ := os.ReadFile(path); strings.Contains(string(data), "example.com") {
+		t.Fatal("removing the server left the entry Skillshare took over")
+	}
+}
+
+// Importing without the source Agent and ticking it later still takes the entry over,
+// so unticking it again has something to remove. Refs: #303.
+func TestTickingTheImportedAgentLaterTakesItsEntryOver(t *testing.T) {
+	s := testService(t)
+	path := filepath.Join(s.Home, ".claude.json")
+	if err := os.WriteFile(path, []byte(`{"mcpServers":{"mcp-test":{"command":"npx","args":["x"]}}}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	candidates, err := s.ImportClient("claude")
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := candidates[0].Server
+	server.Targets = []string{"codex"}
+	if _, err := s.Mutate(Mutation{Name: "mcp-test", Server: &server}, "", false); err != nil {
+		t.Fatal(err)
+	}
+	server.Targets = []string{"claude"}
+	tick := Mutation{Name: "mcp-test", Server: &server, Replace: true}
+	plan, err := s.PreviewMutation(tick)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c := changeFor(plan, path, "mcp-test"); c == nil || c.Action != "adopt" {
+		t.Fatalf("ticking claude plans nothing to sync: %+v", c)
+	}
+	if _, err := s.Mutate(tick, plan.Revision, true); err != nil {
+		t.Fatal(err)
+	}
+	server.Targets = []string{}
+	if plan, err = s.PreviewMutation(Mutation{Name: "mcp-test", Server: &server, Replace: true}); err != nil {
+		t.Fatal(err)
+	}
+	if c := changeFor(plan, path, "mcp-test"); c == nil || c.Action != "remove" {
+		t.Fatalf("unticking claude plans nothing to sync: %+v", c)
 	}
 }
 

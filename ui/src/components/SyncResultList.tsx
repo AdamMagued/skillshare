@@ -35,6 +35,7 @@ export default function SyncResultList({ groups, inSync, className = '' }: { gro
         const on = count((r) => r.icon === 'remove' && r.switch === true);
         const linked = count((r) => r.icon === 'add' && !r.switch) - folder;
         const updated = count((r) => r.icon === 'update');
+        const adopted = count((r) => r.icon === 'adopt');
         const pruned = count((r) => r.icon === 'remove' && !r.switch);
         const kept = count((r) => r.icon === 'kept');
         const conflict = count((r) => r.icon === 'conflict');
@@ -49,6 +50,7 @@ export default function SyncResultList({ groups, inSync, className = '' }: { gro
               {folder > 0 && <span className="ss-tag inf">{t('syncResult.dirCreated')}</span>}
               {linked > 0 && <span className="ss-tag ok">{t(mcp ? 'syncResult.mcp.add' : 'syncResult.linked', { count: linked })}</span>}
               {updated > 0 && <span className="ss-tag inf">{t(mcp ? 'syncResult.mcp.update' : 'syncResult.updated', { count: updated })}</span>}
+              {adopted > 0 && <span className="ss-tag inf">{t('syncResult.mcp.adopt', { count: adopted })}</span>}
               {pruned > 0 && <span className="ss-tag warn">{t(mcp ? 'syncResult.mcp.remove' : 'syncResult.pruned', { count: pruned })}</span>}
               {off > 0 && <span className="ss-tag warn">{t('syncResult.mcp.off', { count: off })}</span>}
               {on > 0 && <span className="ss-tag ok">{t('syncResult.mcp.on', { count: on })}</span>}

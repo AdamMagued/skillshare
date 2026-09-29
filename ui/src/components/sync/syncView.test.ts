@@ -101,4 +101,10 @@ describe('mcpGroups', () => {
   it("names the project on Claude's off list, which sits in the global file", () => {
     expect(mcpGroups(plan).map((g) => g.project)).toEqual(['/work/app', undefined]);
   });
+
+  // Issue #303: taking over an entry the Agent already has is a change Sync applies.
+  it('counts taking over an existing entry as a change', () => {
+    const adopt = { ...plan, changes: [{ target: 'claude', path: '/home/u/.claude.json', name: 'mcp-test', action: 'adopt' }] };
+    expect(countChanges(mcpGroups(adopt))).toBe(1);
+  });
 });

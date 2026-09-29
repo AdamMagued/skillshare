@@ -11,7 +11,7 @@ export interface MatrixRow {
 }
 
 export const statusVariant: Record<string, 'default' | 'success' | 'warning' | 'danger' | 'info'> = {
-  add: 'info', update: 'info', restore: 'info', unchanged: 'success', conflict: 'warning', remove: 'danger',
+  add: 'info', adopt: 'info', update: 'info', restore: 'info', unchanged: 'success', conflict: 'warning', remove: 'danger',
 };
 
 /** One row per source server, plus rows for entries the plan will remove from Agents. */
@@ -28,8 +28,8 @@ export function buildMatrix(servers: Record<string, MCPServer>, plan: MCPPlan | 
 /** Every MCP target in display order; accounts of an Agent follow the Agents, by name. */
 export const mcpOrder = (accounts?: Record<string, unknown>) => [...mcpTargets, ...Object.keys(accounts ?? {}).sort()];
 
-/** A change that Sync writes; `unchanged` and `conflict` write nothing. */
-export const writes = (change: { action: string }) => ['add', 'update', 'remove'].includes(change.action);
+/** A change that Sync applies; `adopt` only records an entry the Agent already has. `unchanged` and `conflict` do nothing. */
+export const writes = (change: { action: string }) => ['add', 'adopt', 'update', 'remove'].includes(change.action);
 
 /** The MCP client a skill target writes to: Factory's skills target is named droid, and agy shares Antigravity's MCP file. */
 const MCP_CLIENTS: Record<string, string> = { droid: 'factory', 'antigravity-cli': 'antigravity' };

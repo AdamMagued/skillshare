@@ -4,7 +4,7 @@ import { formatAgentDisplayName } from '../../lib/resourceNames';
 import { groupByFile, projectOf, type MCPChange } from '../mcp/mcpView';
 
 export type Part = 'skill' | 'agent' | 'extra' | 'mcp';
-export type RowIcon = 'add' | 'update' | 'remove' | 'kept' | 'conflict';
+export type RowIcon = 'add' | 'adopt' | 'update' | 'remove' | 'kept' | 'conflict';
 
 export interface ChangeRow {
   key: string;
@@ -93,7 +93,7 @@ export function extraGroups(diffs: ExtraDiffResult[], force: boolean): ChangeGro
   }));
 }
 
-const MCP_ICON: Record<string, RowIcon> = { add: 'add', update: 'update', remove: 'remove', conflict: 'conflict' };
+const MCP_ICON: Record<string, RowIcon> = { add: 'add', adopt: 'adopt', update: 'update', remove: 'remove', conflict: 'conflict' };
 
 export function mcpGroups(plan: MCPPlan | null | undefined): ChangeGroup[] {
   return groupByFile((plan?.changes ?? []).filter((c) => MCP_ICON[c.action])).map((file) => ({
