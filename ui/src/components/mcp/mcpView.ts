@@ -31,8 +31,9 @@ export const mcpOrder = (accounts?: Record<string, unknown>) => [...mcpTargets, 
 /** A change that Sync writes; `unchanged` and `conflict` write nothing. */
 export const writes = (change: { action: string }) => ['add', 'update', 'remove'].includes(change.action);
 
-/** The MCP client a skill target writes to: Factory's skills target is named droid. */
-export const mcpClient = (target: string) => (target === 'droid' ? 'factory' : target);
+/** The MCP client a skill target writes to: Factory's skills target is named droid, and agy shares Antigravity's MCP file. */
+const MCP_CLIENTS: Record<string, string> = { droid: 'factory', 'antigravity-cli': 'antigravity' };
+export const mcpClient = (target: string) => MCP_CLIENTS[target] ?? target;
 
 /** How many servers a scope writes to one Agent, none when it has no MCP file there. A switch-only entry turns a server off, so it does not count. */
 export const serverCount = (data: { source: { servers?: Record<string, MCPServer>; targets: string[] | null }; paths: Record<string, string> }, target: string) =>

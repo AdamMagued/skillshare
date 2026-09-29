@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { MCPPlan } from '../../api/mcp';
-import { buildMatrix, describeError, describeMessage, canImportConflict, groupByFile, isResolvable, joinCommand, parsePiOptions, serverCount, splitCommand, switchTargets, targetLabel } from './mcpView';
+import { buildMatrix, describeError, describeMessage, canImportConflict, groupByFile, isResolvable, joinCommand, mcpClient, parsePiOptions, serverCount, splitCommand, switchTargets, targetLabel } from './mcpView';
 import { mcpTargets } from '../../api/mcp';
 
 const change = (name: string, target: string, action: string, message?: string) => ({ name, target, action, message, path: `/${target}.json` });
 
 describe('MCP view helpers', () => {
+  it('gives the agy skills target the MCP file it shares with Antigravity', () => {
+    expect(mcpClient('antigravity-cli')).toBe('antigravity');
+  });
+
   it('includes Antigravity in the shared matrix and dialog targets', () => {
     expect(mcpTargets).toContain('antigravity');
     expect(targetLabel('antigravity')).toBe('Antigravity');
