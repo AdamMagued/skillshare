@@ -680,3 +680,55 @@ targets: {}
 	result.AssertAnyOutputContains(t, "skipped")
 	result.AssertAnyOutputContains(t, "remaining")
 }
+
+// makeUnreadableTrackedRepo creates a tracked repo whose `git status` fails
+// because its .git directory is empty.
+func makeUnreadableTrackedRepo(t *testing.T, sb *testutil.Sandbox, name string) string {
+	t.Helper()
+	repoPath := filepath.Join(sb.SourcePath, name)
+	if err := os.MkdirAll(filepath.Join(repoPath, ".git"), 0755); err != nil {
+		t.Fatalf("failed to create fake .git dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(repoPath, "SKILL.md"), []byte("# Broken"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	return repoPath
+}
+
+func TestUninstall_TrackedRepo_GitStatusErrorBlocksUninstall(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	repoPath := makeUnreadableTrackedRepo(t, sb, "_broken-repo")
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	result := sb.RunCLIWithInput("y\n", "uninstall", "_broken-repo")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "failed to check git status")
+
+	if !sb.FileExists(repoPath) {
+		t.Error("tracked repo must stay in place when git status cannot be read")
+	}
+}
+
+func TestUninstall_BatchGitStatusErrorFailsRepoAndKeepsCleanSkills(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	repoPath := makeUnreadableTrackedRepo(t, sb, "_broken-repo")
+	sb.CreateSkill("clean-a", map[string]string{"SKILL.md": "# A"})
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	result := sb.RunCLI("uninstall", "--all", "--json")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "failed to check git status")
+
+	if !sb.FileExists(repoPath) {
+		t.Error("tracked repo must stay in place when git status cannot be read")
+	}
+	if sb.FileExists(filepath.Join(sb.SourcePath, "clean-a")) {
+		t.Error("clean-a should still be removed")
+	}
+}

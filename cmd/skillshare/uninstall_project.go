@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -219,6 +220,7 @@ func cmdUninstallProject(args []string, root string) error {
 	}
 
 	// --- Phase 4: PRE-FLIGHT ---
+	var preflightFailed []string
 	if !opts.dryRun {
 		var preflight []*uninstallTarget
 		for _, t := range targets {
@@ -226,12 +228,18 @@ func cmdUninstallProject(args []string, root string) error {
 				if single {
 					return err
 				}
+				var statusErr *gitStatusError
+				if errors.As(err, &statusErr) {
+					ui.StepFail(t.name, err.Error())
+					preflightFailed = append(preflightFailed, fmt.Sprintf("%s: %v", t.name, err))
+					continue
+				}
 				ui.Warning("Skipping %s: %v", t.name, err)
 				continue
 			}
 			preflight = append(preflight, t)
 		}
-		skippedCount := len(targets) - len(preflight)
+		skippedCount := len(targets) - len(preflight) - len(preflightFailed)
 		targets = preflight
 		summary = summarizeUninstallTargets(targets)
 
@@ -241,6 +249,9 @@ func cmdUninstallProject(args []string, root string) error {
 		}
 
 		if len(targets) == 0 {
+			if len(preflightFailed) > 0 {
+				return fmt.Errorf("%s", strings.Join(preflightFailed, "; "))
+			}
 			return fmt.Errorf("no skills to uninstall after pre-flight checks")
 		}
 	}
@@ -292,7 +303,7 @@ func cmdUninstallProject(args []string, root string) error {
 	}
 
 	var succeeded []*uninstallTarget
-	var failed []string
+	failed := preflightFailed
 
 	if batch {
 		sp := ui.StartSpinner(fmt.Sprintf("Uninstalling %d %s", len(targets), summary.noun()))

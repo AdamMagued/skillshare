@@ -163,7 +163,7 @@ func TestUninstallProject_Group(t *testing.T) {
 	}
 }
 
-func TestUninstallProject_TrackedRepo_GitStatusErrorWarnsAndContinues(t *testing.T) {
+func TestUninstallProject_TrackedRepo_GitStatusErrorBlocksUninstall(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 	projectRoot := sb.SetupProjectDir("claude")
@@ -178,11 +178,11 @@ func TestUninstallProject_TrackedRepo_GitStatusErrorWarnsAndContinues(t *testing
 	}
 
 	result := sb.RunCLIInDirWithInput(projectRoot, "y\n", "uninstall", "broken-repo", "-p")
-	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Could not check git status")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "failed to check git status")
 
-	if sb.FileExists(repoDir) {
-		t.Error("tracked repo should still be uninstalled when git status check fails")
+	if !sb.FileExists(repoDir) {
+		t.Error("tracked repo must stay in place when git status cannot be read")
 	}
 }
 

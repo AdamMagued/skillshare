@@ -439,7 +439,14 @@ func displayUninstallInfo(target *uninstallTarget, store *install.MetadataStore)
 	fmt.Println()
 }
 
-// checkTrackedRepoStatus checks for uncommitted changes in tracked repos
+// gitStatusError marks a tracked repo whose git status could not be read.
+type gitStatusError struct{ err error }
+
+func (e *gitStatusError) Error() string { return fmt.Sprintf("failed to check git status: %v", e.err) }
+func (e *gitStatusError) Unwrap() error { return e.err }
+
+// checkTrackedRepoStatus checks for uncommitted changes in tracked repos.
+// An unreadable git status blocks the uninstall unless force is set.
 func checkTrackedRepoStatus(target *uninstallTarget, force bool) error {
 	if !target.isTrackedRepo {
 		return nil
@@ -447,7 +454,10 @@ func checkTrackedRepoStatus(target *uninstallTarget, force bool) error {
 
 	isDirty, err := git.IsDirty(target.path)
 	if err != nil {
-		ui.Warning("Could not check git status: %v", err)
+		if !force {
+			return &gitStatusError{err: err}
+		}
+		ui.Warning("Could not check git status (proceeding with --force): %v", err)
 		return nil
 	}
 
@@ -786,6 +796,7 @@ func cmdUninstall(args []string) error {
 
 	// --- Phase 4: PRE-FLIGHT ---
 	var preflightSkipped int
+	var preflightFailed []string
 	if !opts.dryRun {
 		// Parallel git dirty checks for tracked repos
 		type dirtyResult struct {
@@ -833,10 +844,25 @@ func cmdUninstall(args []string) error {
 			}
 			dr := dirtyResults[i]
 			if dr.err != nil {
-				if !opts.jsonOutput {
-					ui.Warning("Could not check git status for %s: %v", t.name, dr.err)
+				if opts.force {
+					if !opts.jsonOutput {
+						ui.Warning("Could not check git status for %s (proceeding with --force): %v", t.name, dr.err)
+					}
+					preflight = append(preflight, t)
+					continue
 				}
-				preflight = append(preflight, t)
+				statusErr := &gitStatusError{err: dr.err}
+				if single {
+					if opts.jsonOutput {
+						return writeJSONError(statusErr)
+					}
+					ui.Error("%v", statusErr)
+					return statusErr
+				}
+				if !opts.jsonOutput {
+					ui.StepFail(t.name, statusErr.Error())
+				}
+				preflightFailed = append(preflightFailed, fmt.Sprintf("%s: %v", t.name, statusErr))
 				continue
 			}
 			if !dr.dirty {
@@ -864,7 +890,7 @@ func cmdUninstall(args []string) error {
 			}
 			preflight = append(preflight, t)
 		}
-		preflightSkipped = len(targets) - len(preflight)
+		preflightSkipped = len(targets) - len(preflight) - len(preflightFailed)
 		targets = preflight
 		summary = summarizeUninstallTargets(targets)
 
@@ -877,6 +903,9 @@ func cmdUninstall(args []string) error {
 			preflightErr := fmt.Errorf("no skills to uninstall after pre-flight checks")
 			if preflightSkipped > 0 {
 				preflightErr = fmt.Errorf("%d tracked repo%s skipped due to uncommitted changes; use --force to override", preflightSkipped, pluralS(preflightSkipped))
+			}
+			if len(preflightFailed) > 0 {
+				preflightErr = fmt.Errorf("%s", strings.Join(preflightFailed, "; "))
 			}
 			if opts.jsonOutput {
 				return writeJSONError(preflightErr)
@@ -942,7 +971,7 @@ func cmdUninstall(args []string) error {
 	}
 
 	var succeeded []*uninstallTarget
-	var failed []string
+	failed := preflightFailed
 
 	if opts.jsonOutput {
 		// JSON mode: quiet execution, no UI output
