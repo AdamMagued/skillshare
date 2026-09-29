@@ -84,65 +84,23 @@ func syncAgentsGlobal(cfg *config.Config, dryRun, force, jsonOutput bool, start 
 
 	// Resolve agent-capable targets: user config agents sub-key + built-in defaults
 	builtinAgents := config.DefaultAgentTargets()
-	var totals agentSyncStats
-	var syncErr error
-	var skippedTargets []string
-	var targetCount int
-
-	for name := range cfg.Targets {
-		agentPath := resolveAgentTargetPath(cfg.Targets[name], builtinAgents, name)
-		if agentPath == "" {
-			skippedTargets = append(skippedTargets, name)
-			continue
-		}
-		targetCount++
-
-		tc := cfg.Targets[name]
-		ac := tc.AgentsConfig()
-		filtered, filterErr := sync.FilterAgents(agents, ac.Include, ac.Exclude)
-		if filterErr != nil {
-			if !jsonOutput {
-				ui.Error("%s: invalid agent filter: %v", name, filterErr)
-			}
-			syncErr = fmt.Errorf("some agent targets failed to sync")
-			continue
-		}
-		filtered = sync.FilterAgentsByTarget(filtered, name)
-		spec, specErr := resolveExtension(ac.Extension, globalExtensionsDir())
-		if specErr != nil {
-			if !jsonOutput {
-				ui.Error("%s: %v", name, specErr)
-			}
-			syncErr = fmt.Errorf("some agent targets failed to sync")
-			continue
-		}
-		stats, targetErr := syncAgentTarget(name, agentPath, ac.Mode, spec, filtered, agentsSource, dryRun, force, jsonOutput, "")
-		if targetErr != nil {
-			syncErr = fmt.Errorf("some agent targets failed to sync")
-		}
-		totals.linked += stats.linked
-		totals.local += stats.local
-		totals.updated += stats.updated
-		totals.pruned += stats.pruned
-	}
-
-	if !jsonOutput {
-		ui.AgentSyncSummary(ui.AgentSyncStats{
-			Targets:  targetCount,
-			Linked:   totals.linked,
-			Local:    totals.local,
-			Updated:  totals.updated,
-			Pruned:   totals.pruned,
-			Duration: time.Since(start),
+	var targets []sync.AgentTarget
+	for name, tc := range cfg.Targets {
+		targets = append(targets, sync.AgentTarget{
+			Name:   name,
+			Path:   resolveAgentTargetPath(tc, builtinAgents, name),
+			Config: tc.AgentsConfig(),
 		})
-		if len(skippedTargets) > 0 {
-			sort.Strings(skippedTargets)
-			ui.Warning("%d target(s) skipped for agents (no agents path): %s",
-				len(skippedTargets), strings.Join(skippedTargets, ", "))
-		}
 	}
-
-	return totals, syncErr
+	results := sync.RunAgentSync(targets, agents, sync.AgentRunOptions{
+		Source: agentsSource,
+		DryRun: dryRun,
+		Force:  force,
+		ResolveExtension: func(ext string) (*sync.ExtensionSpec, error) {
+			return resolveExtension(ext, globalExtensionsDir())
+		},
+	})
+	return renderAgentRun(results, dryRun, jsonOutput, start)
 }
 
 // resolveAgentTargetPath returns the effective agent path for a target,
@@ -227,40 +185,71 @@ func syncAgentsProject(projectRoot string, dryRun, force, jsonOutput bool, start
 		}
 	}
 
+	var targets []sync.AgentTarget
+	for _, entry := range projCfg.Targets {
+		targets = append(targets, sync.AgentTarget{
+			Name:   entry.Name,
+			Path:   resolveProjectAgentTargetPath(entry, builtinAgents, projectRoot),
+			Config: entry.AgentsConfig(),
+		})
+	}
+	results := sync.RunAgentSync(targets, agents, sync.AgentRunOptions{
+		Source:      agentsSource,
+		ProjectRoot: projectRoot,
+		DryRun:      dryRun,
+		Force:       force,
+		ResolveExtension: func(ext string) (*sync.ExtensionSpec, error) {
+			return resolveExtension(ext, projectExtensionsDir(projectRoot))
+		},
+	})
+	_, err = renderAgentRun(results, dryRun, jsonOutput, start)
+	return err
+}
+
+// renderAgentRun prints per-target agent sync results and the summary.
+// Shared by both global and project sync paths. Returns the totals and an
+// error when any target failed.
+func renderAgentRun(results []sync.AgentTargetResult, dryRun, jsonOutput bool, start time.Time) (agentSyncStats, error) {
 	var totals agentSyncStats
 	var syncErr error
 	var skippedTargets []string
 	var targetCount int
 
-	for _, entry := range projCfg.Targets {
-		agentPath := resolveProjectAgentTargetPath(entry, builtinAgents, projectRoot)
-		if agentPath == "" {
-			skippedTargets = append(skippedTargets, entry.Name)
+	for _, r := range results {
+		if r.Path == "" {
+			skippedTargets = append(skippedTargets, r.Name)
 			continue
 		}
 		targetCount++
 
-		ac := entry.AgentsConfig()
-		filtered, filterErr := sync.FilterAgents(agents, ac.Include, ac.Exclude)
-		if filterErr != nil {
+		if r.Err != nil {
 			if !jsonOutput {
-				ui.Error("%s: invalid agent filter: %v", entry.Name, filterErr)
+				ui.Error("%s: %v", r.Name, r.Err)
 			}
 			syncErr = fmt.Errorf("some agent targets failed to sync")
 			continue
 		}
-		filtered = sync.FilterAgentsByTarget(filtered, entry.Name)
-		spec, specErr := resolveExtension(ac.Extension, projectExtensionsDir(projectRoot))
-		if specErr != nil {
+		if r.SyncErr != nil {
 			if !jsonOutput {
-				ui.Error("%s: %v", entry.Name, specErr)
+				ui.Error("%s: agent sync failed: %v", r.Name, r.SyncErr)
 			}
 			syncErr = fmt.Errorf("some agent targets failed to sync")
+		}
+		if !r.Synced {
 			continue
 		}
-		stats, targetErr := syncAgentTarget(entry.Name, agentPath, ac.Mode, spec, filtered, agentsSource, dryRun, force, jsonOutput, projectRoot)
-		if targetErr != nil {
-			syncErr = fmt.Errorf("some agent targets failed to sync")
+
+		stats := agentSyncStats{
+			linked:  len(r.Linked),
+			local:   len(r.Skipped),
+			updated: len(r.Updated),
+			pruned:  len(r.Pruned),
+		}
+		if !jsonOutput {
+			for _, w := range r.Warnings {
+				ui.Warning("%s", w)
+			}
+			reportAgentSyncResult(r.Name, r.Mode, stats, dryRun)
 		}
 		totals.linked += stats.linked
 		totals.local += stats.local
@@ -284,65 +273,7 @@ func syncAgentsProject(projectRoot string, dryRun, force, jsonOutput bool, start
 		}
 	}
 
-	return syncErr
-}
-
-// syncAgentTarget syncs agents to a single target directory.
-// Shared by both global and project sync paths.
-// A non-nil spec transforms each agent instead of linking or copying it.
-func syncAgentTarget(name, agentPath, modeOverride string, spec *sync.ExtensionSpec, agents []resource.DiscoveredResource, agentsSource string, dryRun, force, jsonOutput bool, projectRoot string) (agentSyncStats, error) {
-	mode := modeOverride
-	if mode == "" {
-		mode = "merge"
-	}
-
-	var result *sync.AgentSyncResult
-	var err error
-	outputExt := ""
-	if spec != nil {
-		result, err = sync.SyncAgentsTransform(agents, agentsSource, agentPath, mode, spec, dryRun, force)
-		outputExt = spec.OutputExt
-	} else {
-		result, err = sync.SyncAgents(agents, agentsSource, agentPath, mode, dryRun, force, projectRoot)
-	}
-	if err != nil {
-		if !jsonOutput {
-			ui.Error("%s: agent sync failed: %v", name, err)
-		}
-		// A transform returns partial results when only some agents failed;
-		// the rest still count and orphans still get pruned.
-		if result == nil {
-			return agentSyncStats{}, err
-		}
-	}
-
-	var pruned []string
-	switch mode {
-	case "copy":
-		pruned, _ = sync.PruneOrphanAgentCopies(agentPath, agents, outputExt, dryRun)
-	case "merge":
-		pruned, _ = sync.PruneOrphanAgentLinks(agentPath, agents, dryRun)
-	}
-
-	stats := agentSyncStats{
-		linked:  len(result.Linked),
-		local:   len(result.Skipped),
-		updated: len(result.Updated),
-		pruned:  len(pruned),
-	}
-
-	if !jsonOutput {
-		shownMode := mode
-		if spec == nil {
-			shownMode = sync.EffectiveAgentMode(mode)
-			if shownMode != mode {
-				ui.Warning("%s: agents %s", name, sync.FileLinkFallbackWarning)
-			}
-		}
-		reportAgentSyncResult(name, shownMode, stats, dryRun)
-	}
-
-	return stats, err
+	return totals, syncErr
 }
 
 // reportAgentSyncResult prints per-target agent sync status.

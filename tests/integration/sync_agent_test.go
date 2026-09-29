@@ -255,8 +255,41 @@ targets:
 	}
 
 	// Warning should mention windsurf was skipped
-	result.AssertAnyOutputContains(t, "skipped")
-	result.AssertAnyOutputContains(t, "windsurf")
+	result.AssertAnyOutputContains(t, "1 target(s) skipped for agents (no agents path): windsurf")
+}
+
+func TestSync_Agents_TargetFailureExitsNonZero(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	agentsDir := filepath.Join(filepath.Dir(sb.SourcePath), "agents")
+	os.MkdirAll(agentsDir, 0755)
+	os.WriteFile(filepath.Join(agentsDir, "helper.md"), []byte("# Helper"), 0644)
+
+	cursorAgents := filepath.Join(sb.Home, ".cursor", "agents")
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    skills:
+      path: "` + filepath.Join(sb.Home, ".claude", "skills") + `"
+    agents:
+      path: "` + filepath.Join(sb.Home, ".claude", "agents") + `"
+      include: ["["]
+  cursor:
+    skills:
+      path: "` + filepath.Join(sb.Home, ".cursor", "skills") + `"
+    agents:
+      path: "` + cursorAgents + `"
+`)
+
+	result := sb.RunCLI("sync", "agents")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "claude: invalid agent filter")
+	result.AssertAnyOutputContains(t, "some agent targets failed to sync")
+
+	if !sb.FileExists(filepath.Join(cursorAgents, "helper.md")) {
+		t.Error("healthy target should still sync when another target fails")
+	}
 }
 
 func TestSync_Agents_FrontmatterTargetsRestrictsTargets(t *testing.T) {

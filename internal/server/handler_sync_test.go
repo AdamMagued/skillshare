@@ -6,12 +6,14 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
 	"skillshare/internal/install"
+	"skillshare/internal/oplog"
 )
 
 func TestHandleSync_MergeMode(t *testing.T) {
@@ -258,6 +260,115 @@ func TestHandleSync_AgentsPruneExcludedTargetAgent(t *testing.T) {
 	}
 	if _, err := os.Lstat(targetAgent); !os.IsNotExist(err) {
 		t.Fatalf("excluded synced agent should be pruned, got err=%v", err)
+	}
+}
+
+// newAgentSyncServer returns a server whose agents source holds tutor.md.
+func newAgentSyncServer(t *testing.T) (*Server, string, string) {
+	t.Helper()
+	s, src := newTestServer(t)
+	agentSource := filepath.Join(t.TempDir(), "agents")
+	if err := os.MkdirAll(agentSource, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(agentSource, "tutor.md"), []byte("# Tutor"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s.cfg.AgentsSource = agentSource
+	return s, src, agentSource
+}
+
+func TestHandleSync_AgentTargetFailureIsWarningNotFailure(t *testing.T) {
+	s, _, _ := newAgentSyncServer(t)
+	s.cfg.Targets["claude"] = config.TargetConfig{
+		Skills: &config.ResourceTargetConfig{Path: filepath.Join(t.TempDir(), "claude-skills")},
+		Agents: &config.ResourceTargetConfig{Path: filepath.Join(t.TempDir(), "claude-agents"), Include: []string{"["}},
+	}
+	if err := s.cfg.Save(); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/sync", strings.NewReader(`{"kind":"agent"}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Warnings []string `json:"warnings"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.ContainsFunc(resp.Warnings, func(w string) bool {
+		return strings.HasPrefix(w, "agent sync failed for claude: invalid agent filter: ")
+	}) {
+		t.Fatalf("expected invalid filter warning, got %v", resp.Warnings)
+	}
+	entries, err := oplog.Read(config.ConfigPath(), oplog.OpsFile, 1)
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("read ops log: %v (%d entries)", err, len(entries))
+	}
+	if e := entries[0]; e.Status != "ok" || e.Args["targets_failed"] != float64(0) {
+		t.Fatalf("expected ok sync with targets_failed 0, got status %q args %v", e.Status, e.Args)
+	}
+}
+
+func TestHandleSync_AgentsSkipTargetWithoutAgentsPathSilently(t *testing.T) {
+	s, _, _ := newAgentSyncServer(t)
+	s.cfg.Targets["custom-tool"] = config.TargetConfig{
+		Skills: &config.ResourceTargetConfig{Path: filepath.Join(t.TempDir(), "custom-skills")},
+	}
+	if err := s.cfg.Save(); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/sync", strings.NewReader(`{"kind":"agent"}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Results  []syncTargetResult `json:"results"`
+		Warnings []string           `json:"warnings"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if len(resp.Results) != 0 || len(resp.Warnings) != 0 {
+		t.Fatalf("expected silent skip, got results %+v warnings %v", resp.Results, resp.Warnings)
+	}
+}
+
+func TestHandleSync_MergesAgentsIntoSkillsRow(t *testing.T) {
+	s, src, _ := newAgentSyncServer(t)
+	addSkill(t, src, "alpha")
+	s.cfg.Targets["claude"] = config.TargetConfig{
+		Skills: &config.ResourceTargetConfig{Path: filepath.Join(t.TempDir(), "claude-skills")},
+		Agents: &config.ResourceTargetConfig{Path: filepath.Join(t.TempDir(), "claude-agents")},
+	}
+	if err := s.cfg.Save(); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/sync", strings.NewReader(`{}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Results []syncTargetResult `json:"results"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if len(resp.Results) != 1 || !slices.Equal(resp.Results[0].Linked, []string{"alpha", "tutor.md"}) {
+		t.Fatalf("expected one claude row linking alpha and tutor.md, got %+v", resp.Results)
 	}
 }
 

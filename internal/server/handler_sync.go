@@ -286,56 +286,37 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 			agents := discoverActiveAgents(agentsSource)
 			builtinAgents := s.builtinAgentTargets()
 
+			agentTargets := make([]ssync.AgentTarget, 0, len(targets))
 			for name, target := range targets {
-				agentPath := resolveAgentPath(target, builtinAgents, name, s.IsProjectMode())
-				if agentPath == "" {
+				agentTargets = append(agentTargets, ssync.AgentTarget{
+					Name:   name,
+					Path:   resolveAgentPath(target, builtinAgents, name, s.IsProjectMode()),
+					Config: target.AgentsConfig(),
+				})
+			}
+			runs := ssync.RunAgentSync(agentTargets, agents, ssync.AgentRunOptions{
+				Source:           agentsSource,
+				ProjectRoot:      s.projectRoot,
+				DryRun:           dryRun,
+				Force:            force,
+				ResolveExtension: s.resolveExtensionSpec,
+			})
+
+			for _, run := range runs {
+				name := run.Name
+				if run.Path == "" {
 					continue
 				}
-
-				agentMode := target.AgentsConfig().Mode
-				if agentMode == "" {
-					agentMode = "merge"
-				}
-
-				ac := target.AgentsConfig()
-				filteredAgents, filterErr := ssync.FilterAgents(agents, ac.Include, ac.Exclude)
-				if filterErr != nil {
-					warnings = append(warnings, "agent sync failed for "+name+": invalid agent filter: "+filterErr.Error())
+				if run.Err != nil {
+					warnings = append(warnings, "agent sync failed for "+name+": "+run.Err.Error())
 					continue
 				}
-				filteredAgents = ssync.FilterAgentsByTarget(filteredAgents, name)
-
-				spec, err := s.resolveExtensionSpec(ac.Extension)
-				if err != nil {
-					warnings = append(warnings, "agent sync failed for "+name+": "+err.Error())
+				warnings = append(warnings, run.Warnings...)
+				if run.SyncErr != nil {
+					warnings = append(warnings, "agent sync failed for "+name+": "+run.SyncErr.Error())
+				}
+				if !run.Synced {
 					continue
-				}
-				var agentResult *ssync.AgentSyncResult
-				outputExt := ""
-				if spec != nil {
-					agentResult, err = ssync.SyncAgentsTransform(filteredAgents, agentsSource, agentPath, agentMode, spec, dryRun, force)
-					outputExt = spec.OutputExt
-				} else {
-					agentResult, err = ssync.SyncAgents(filteredAgents, agentsSource, agentPath, agentMode, dryRun, force, s.projectRoot)
-					if ssync.EffectiveAgentMode(agentMode) != agentMode {
-						warnings = append(warnings, name+": agents "+ssync.FileLinkFallbackWarning)
-					}
-				}
-				if err != nil {
-					warnings = append(warnings, "agent sync failed for "+name+": "+err.Error())
-					// A transform returns partial results when only some agents failed.
-					if agentResult == nil {
-						continue
-					}
-				}
-
-				// Prune orphan agents even when the source is empty so uninstall-all
-				// matches skills and clears previously synced target entries.
-				var pruned []string
-				if agentMode == "merge" {
-					pruned, _ = ssync.PruneOrphanAgentLinks(agentPath, filteredAgents, dryRun)
-				} else if agentMode == "copy" {
-					pruned, _ = ssync.PruneOrphanAgentCopies(agentPath, filteredAgents, outputExt, dryRun)
 				}
 
 				// Find or create result entry for this target
@@ -346,7 +327,7 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 						break
 					}
 				}
-				if idx < 0 && (len(agentResult.Linked) > 0 || len(agentResult.Updated) > 0 || len(agentResult.Skipped) > 0 || len(pruned) > 0) {
+				if idx < 0 && (len(run.Linked) > 0 || len(run.Updated) > 0 || len(run.Skipped) > 0 || len(run.Pruned) > 0) {
 					results = append(results, syncTargetResult{
 						Target:  name,
 						Linked:  make([]string, 0),
@@ -358,10 +339,10 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 				}
 
 				if idx >= 0 {
-					results[idx].Linked = append(results[idx].Linked, agentResult.Linked...)
-					results[idx].Updated = append(results[idx].Updated, agentResult.Updated...)
-					results[idx].Skipped = append(results[idx].Skipped, agentResult.Skipped...)
-					results[idx].Pruned = append(results[idx].Pruned, pruned...)
+					results[idx].Linked = append(results[idx].Linked, run.Linked...)
+					results[idx].Updated = append(results[idx].Updated, run.Updated...)
+					results[idx].Skipped = append(results[idx].Skipped, run.Skipped...)
+					results[idx].Pruned = append(results[idx].Pruned, run.Pruned...)
 				}
 			}
 		}
