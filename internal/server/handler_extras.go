@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"skillshare/internal/config"
+	"skillshare/internal/resource"
 	syncpkg "skillshare/internal/sync"
 	"skillshare/internal/utils"
 )
@@ -569,14 +570,15 @@ func (s *Server) handleExtrasCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 type extraTargetSyncResult struct {
-	Target   string   `json:"target"`
-	Mode     string   `json:"mode"`
-	Synced   int      `json:"synced"`
-	Skipped  int      `json:"skipped"`
-	Pruned   int      `json:"pruned"`
-	Errors   []string `json:"errors,omitempty"`
-	Error    string   `json:"error,omitempty"`
-	Warnings []string `json:"warnings,omitempty"`
+	Target    string   `json:"target"`
+	Mode      string   `json:"mode"`
+	Synced    int      `json:"synced"`
+	Skipped   int      `json:"skipped"`
+	Pruned    int      `json:"pruned"`
+	Errors    []string `json:"errors,omitempty"`
+	Error     string   `json:"error,omitempty"`
+	Warnings  []string `json:"warnings,omitempty"`
+	SkippedBy string   `json:"skipped_by,omitempty"`
 }
 
 type extraSyncResult struct {
@@ -643,13 +645,18 @@ func (s *Server) syncExtras(name string, dryRun, force bool) []extraSyncResult {
 		projectExtrasParent = s.projectCfg.EffectiveExtrasSource(s.projectRoot)
 	}
 
-	// The server does not skip targets managed by the agents sync.
 	opts := syncpkg.ExtraRunOptions{
 		DryRun:           dryRun,
 		Force:            force,
 		ProjectRoot:      projectRoot,
 		ResolvePath:      func(path string) string { return resolveExtrasTargetPath(projectRoot, path) },
 		ResolveExtension: s.resolveExtensionSpec,
+	}
+	for _, extra := range s.extrasConfig() {
+		if extra.Name == "agents" {
+			opts.AgentTargetPaths = s.extrasAgentTargetPaths()
+			break
+		}
 	}
 
 	results := make([]extraSyncResult, 0)
@@ -682,6 +689,9 @@ func (s *Server) syncExtras(name string, dryRun, force bool) []extraSyncResult {
 				Errors: []string{},
 			}
 			switch {
+			case tr.SkippedBy != "":
+				out.Mode = tr.Mode
+				out.SkippedBy = tr.SkippedBy
 			case tr.ExtensionErr != nil:
 				out.Error = "extension " + t.Extension + ": " + tr.ExtensionErr.Error()
 			case tr.ModeErr != nil:
@@ -706,6 +716,27 @@ func (s *Server) syncExtras(name string, dryRun, force bool) []extraSyncResult {
 	}
 
 	return results
+}
+
+// extrasAgentTargetPaths returns the cleaned agent target paths the agents
+// sync writes to, or nil when the agents source holds no agents, matching the
+// CLI. Callers must hold s.mu.
+func (s *Server) extrasAgentTargetPaths() map[string]bool {
+	agentsSource := s.agentsSource()
+	if _, err := os.Stat(agentsSource); err != nil {
+		return nil
+	}
+	if agents, err := (resource.AgentKind{}).Discover(agentsSource); err != nil || len(agents) == 0 {
+		return nil
+	}
+	builtinAgents := s.builtinAgentTargets()
+	paths := make(map[string]bool)
+	for name, target := range s.cfg.Targets {
+		if p := resolveAgentPath(target, builtinAgents, name, s.IsProjectMode()); p != "" {
+			paths[filepath.Clean(resolveExtrasTargetPath(s.projectRoot, p))] = true
+		}
+	}
+	return paths
 }
 
 // handleExtrasMode — PATCH /api/extras/{name}/mode

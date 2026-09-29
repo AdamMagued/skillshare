@@ -748,9 +748,9 @@ func postExtrasSync(t *testing.T, s *Server, body string) []map[string]any {
 	return resp.Extras[0].Targets
 }
 
-// Characterization: unlike the CLI, the server syncs an "agents" extra target
-// even when it is also an agents sync target.
-func TestHandleExtrasSync_DoesNotSkipAgentOverlapTarget(t *testing.T) {
+// Like the CLI, the server skips an "agents" extra target that the agents sync
+// already manages.
+func TestHandleExtrasSync_SkipsAgentOverlapTarget(t *testing.T) {
 	agentsTarget := t.TempDir()
 	extras := []config.ExtraConfig{{
 		Name:    "agents",
@@ -774,11 +774,11 @@ func TestHandleExtrasSync_DoesNotSkipAgentOverlapTarget(t *testing.T) {
 
 	targets := postExtrasSync(t, s, `{"name":"agents"}`)
 
-	if _, ok := targets[0]["skipped_by"]; ok {
-		t.Errorf("server must not report skipped_by, got %v", targets[0])
+	if got := targets[0]["skipped_by"]; got != "agents" {
+		t.Errorf("skipped_by = %v, want %q (full entry %v)", got, "agents", targets[0])
 	}
-	if _, err := os.Stat(filepath.Join(agentsTarget, "extra-agent.md")); err != nil {
-		t.Errorf("expected extra-agent.md synced into the agents target: %v", err)
+	if _, err := os.Stat(filepath.Join(agentsTarget, "extra-agent.md")); !os.IsNotExist(err) {
+		t.Errorf("extra-agent.md must not be synced into the agents target, stat err = %v", err)
 	}
 }
 
