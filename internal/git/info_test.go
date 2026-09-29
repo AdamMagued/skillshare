@@ -222,6 +222,19 @@ func TestGetStatus(t *testing.T) {
 	}
 }
 
+func TestIsDirty_ErrorIncludesGitStderr(t *testing.T) {
+	repo := initTestRepo(t)
+	// A truncated index makes git status fail with a message on stderr.
+	if err := os.WriteFile(filepath.Join(repo, ".git", "index"), []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := IsDirty(repo)
+	if err == nil || !strings.Contains(err.Error(), "index") {
+		t.Fatalf("expected git's stderr in the error, got %v", err)
+	}
+}
+
 func TestIsDirtyAndGetDirtyFiles(t *testing.T) {
 	repo := initTestRepo(t)
 

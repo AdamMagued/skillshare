@@ -523,6 +523,10 @@ func IsDirty(repoPath string) (bool, error) {
 	cmd.Dir = repoPath
 	out, err := cmd.Output()
 	if err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && len(exitErr.Stderr) > 0 {
+			return false, fmt.Errorf("%w: %s", err, strings.TrimSpace(string(exitErr.Stderr)))
+		}
 		return false, err
 	}
 	return strings.TrimSpace(string(out)) != "", nil
