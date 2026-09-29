@@ -1690,7 +1690,6 @@
   "sync.last.error": "エラー",
   "sync.last.never": "まだ同期していません。",
   "sync.last.openLog": "log を開く",
-  "sync.handNote": "同期を押すまで何も書き込まれません",
   "gitSync.changes.title": "このマシンでの変更",
   "gitSync.changes.file": "変更されたファイル",
   "gitSync.changes.change": "変更",

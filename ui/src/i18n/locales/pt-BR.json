@@ -1690,7 +1690,6 @@
   "sync.last.error": "Erro",
   "sync.last.never": "Nenhuma sincronização ainda.",
   "sync.last.openLog": "Abrir log",
-  "sync.handNote": "nada é gravado até você clicar em Sincronizar",
   "gitSync.changes.title": "Alterações nesta máquina",
   "gitSync.changes.file": "Arquivos alterados",
   "gitSync.changes.change": "Alteração",

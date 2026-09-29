@@ -1690,7 +1690,6 @@
   "sync.last.error": "خطا",
   "sync.last.never": "هنوز همگام‌سازی انجام نشده است.",
   "sync.last.openLog": "باز کردن log",
-  "sync.handNote": "تا روی همگام‌سازی نزنید چیزی نوشته نمی‌شود",
   "gitSync.changes.title": "تغییرات روی این دستگاه",
   "gitSync.changes.file": "فایل‌های تغییریافته",
   "gitSync.changes.change": "تغییر",

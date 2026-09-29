@@ -1690,7 +1690,6 @@
   "sync.last.error": "오류",
   "sync.last.never": "아직 동기화한 적이 없습니다.",
   "sync.last.openLog": "log 열기",
-  "sync.handNote": "동기화를 누르기 전엔 아무것도 쓰지 않아요",
   "gitSync.changes.title": "이 컴퓨터의 변경 사항",
   "gitSync.changes.file": "변경된 파일",
   "gitSync.changes.change": "변경",

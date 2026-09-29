@@ -1690,7 +1690,6 @@
   "sync.last.error": "Galat",
   "sync.last.never": "Belum pernah sinkronisasi.",
   "sync.last.openLog": "Buka log",
-  "sync.handNote": "tidak ada yang ditulis sebelum menekan Sinkronkan",
   "gitSync.changes.title": "Perubahan di mesin ini",
   "gitSync.changes.file": "File yang berubah",
   "gitSync.changes.change": "Perubahan",

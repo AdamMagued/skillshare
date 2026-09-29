@@ -1690,7 +1690,6 @@
   "sync.last.error": "错误",
   "sync.last.never": "尚未同步过。",
   "sync.last.openLog": "打开日志",
-  "sync.handNote": "按下同步前什么都不会写入",
   "gitSync.changes.title": "本机上的变更",
   "gitSync.changes.file": "变更的文件",
   "gitSync.changes.change": "变更",

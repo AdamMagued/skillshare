@@ -352,7 +352,6 @@ export default function SyncPage() {
             <Link to="/log" className="ss-btn sm">{t('sync.last.openLog')}</Link>
           </div>
           <p className="mt-3.5 px-1 text-[13px] leading-relaxed text-ink-3">{t('sync.backupNote')} <Link to="/backup" className="font-semibold">{t('sync.backupLink')}</Link></p>
-          <p className="ss-hand ss-only-playful ml-2 mt-[18px] max-w-[150px]">{t('sync.handNote')}</p>
         </aside>
       </div>
 
