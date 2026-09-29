@@ -182,9 +182,16 @@ func (s *Server) handleBatchUninstallSkills(w http.ResponseWriter, body batchUni
 				continue
 			}
 
-			if dirty, _ := git.IsDirty(repoPath); !body.Force && dirty {
+			if !body.Force {
+				dirty, err := git.IsDirty(repoPath)
+				if err != nil {
+					res.Error = fmt.Sprintf("failed to check git status: %v", err)
+				} else if dirty {
+					res.Error = "uncommitted changes (use force to override)"
+				}
+			}
+			if res.Error != "" {
 				res.Success = false
-				res.Error = "uncommitted changes (use force to override)"
 				results = append(results, res)
 				failed++
 				if firstErr == "" {

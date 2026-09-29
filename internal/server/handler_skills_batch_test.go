@@ -412,3 +412,20 @@ func TestHandleBatchUninstall_RemovesTargetOverrides(t *testing.T) {
 		t.Errorf("expected no target overrides after uninstall, got %v", overrides)
 	}
 }
+
+func TestHandleBatchSetTargets_SaveFailureReported(t *testing.T) {
+	s, src := newTestServer(t)
+	addTrackedRepoSkill(t, src)
+	// A directory at the metadata path makes the atomic rename in Save fail.
+	if err := os.MkdirAll(filepath.Join(src, install.MetadataFileName), 0755); err != nil {
+		t.Fatalf("block metadata file: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/resources/batch/targets", bytes.NewBufferString(`{"folder":"_caveman","target":"claude"}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d: %s", rr.Code, rr.Body.String())
+	}
+}

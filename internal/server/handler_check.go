@@ -32,6 +32,13 @@ type skillCheckResult struct {
 	Kind        string `json:"kind,omitempty"`
 }
 
+// checkTrackedRepo checks one tracked repo with the same logic as the CLI:
+// auth-aware fetch and a reported dirty-check error.
+func checkTrackedRepo(name, repoPath string) repoCheckResult {
+	out := check.ParallelCheckRepos([]check.RepoCheckInput{{Name: name, RepoPath: repoPath}}, nil)[0]
+	return repoCheckResult{Name: out.Name, Status: out.Status, Behind: out.Behind, Message: out.Message}
+}
+
 func (s *Server) handleCheck(w http.ResponseWriter, r *http.Request) {
 	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
@@ -43,23 +50,7 @@ func (s *Server) handleCheck(w http.ResponseWriter, r *http.Request) {
 
 	var repoResults []repoCheckResult
 	for _, repo := range repos {
-		repoPath := filepath.Join(sourceDir, repo)
-		result := repoCheckResult{Name: repo}
-
-		if isDirty, _ := git.IsDirty(repoPath); isDirty {
-			result.Status = "dirty"
-			result.Message = "has uncommitted changes"
-		} else if behind, err := git.GetBehindCount(repoPath); err != nil {
-			result.Status = "error"
-			result.Message = err.Error()
-		} else if behind == 0 {
-			result.Status = "up_to_date"
-		} else {
-			result.Status = "behind"
-			result.Behind = behind
-		}
-
-		repoResults = append(repoResults, result)
+		repoResults = append(repoResults, checkTrackedRepo(repo, filepath.Join(sourceDir, repo)))
 	}
 
 	// Group skills by repo URL+branch for efficient checking

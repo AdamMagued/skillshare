@@ -124,7 +124,11 @@ func (s *Server) handleBatchSetTargets(w http.ResponseWriter, r *http.Request) {
 	// Save the overrides before unlocking: every API request reloads skillsStore
 	// from disk, so an override left unsaved here can be dropped by the next one.
 	if overridden {
-		s.skillsStore.Save(s.cfg.EffectiveSkillsSource()) //nolint:errcheck
+		if err := s.skillsStore.Save(s.cfg.EffectiveSkillsSource()); err != nil {
+			s.mu.Unlock()
+			writeError(w, http.StatusInternalServerError, "failed to save target overrides: "+err.Error())
+			return
+		}
 	}
 	s.mu.Unlock()
 
@@ -141,8 +145,12 @@ func (s *Server) handleBatchSetTargets(w http.ResponseWriter, r *http.Request) {
 		for name, h := range hashes {
 			s.skillsStore.SetFileHashes(name, h)
 		}
-		s.skillsStore.Save(s.cfg.EffectiveSkillsSource()) //nolint:errcheck
+		err := s.skillsStore.Save(s.cfg.EffectiveSkillsSource())
 		s.mu.Unlock()
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to save file hashes: "+err.Error())
+			return
+		}
 	}
 
 	s.writeOpsLog("batch-set-targets", "ok", start, map[string]any{
@@ -232,8 +240,13 @@ func (s *Server) handleSetSkillTargets(w http.ResponseWriter, r *http.Request) {
 				if hashes, err := install.ComputeFileHashes(d.SourcePath); err == nil {
 					s.mu.Lock()
 					s.skillsStore.SetFileHashes(d.RelPath, hashes)
-					s.skillsStore.Save(s.cfg.EffectiveSkillsSource()) //nolint:errcheck
+					err := s.skillsStore.Save(s.cfg.EffectiveSkillsSource())
 					s.mu.Unlock()
+
+					if err != nil {
+						writeError(w, http.StatusInternalServerError, "failed to update skill: "+err.Error())
+						return
+					}
 				}
 			}
 		}

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"skillshare/internal/check"
-	"skillshare/internal/git"
 	"skillshare/internal/install"
 )
 
@@ -102,23 +101,7 @@ func (s *Server) handleCheckStream(w http.ResponseWriter, r *http.Request) {
 		default:
 		}
 
-		repoPath := filepath.Join(sourceDir, repo)
-		result := repoCheckResult{Name: repo}
-
-		if isDirty, _ := git.IsDirty(repoPath); isDirty {
-			result.Status = "dirty"
-			result.Message = "has uncommitted changes"
-		} else if behind, err := git.GetBehindCount(repoPath); err != nil {
-			result.Status = "error"
-			result.Message = err.Error()
-		} else if behind == 0 {
-			result.Status = "up_to_date"
-		} else {
-			result.Status = "behind"
-			result.Behind = behind
-		}
-
-		repoResults = append(repoResults, result)
+		repoResults = append(repoResults, checkTrackedRepo(repo, filepath.Join(sourceDir, repo)))
 		checked.Add(1)
 	}
 

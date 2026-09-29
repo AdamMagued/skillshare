@@ -128,3 +128,26 @@ func TestHandleBatchUninstall_GlobalMode_GitignorePath(t *testing.T) {
 		t.Fatal("expected _team-skills/ to be removed from global source .gitignore")
 	}
 }
+
+func TestHandleBatchUninstall_DirtyCheckErrorBlocksRepo(t *testing.T) {
+	s, src := newTestServer(t)
+	repoDir := addTrackedRepoWithBrokenIndex(t, src, "_team")
+
+	b, _ := json.Marshal(batchUninstallRequest{Names: []string{"_team"}})
+	req := httptest.NewRequest(http.MethodPost, "/api/uninstall", bytes.NewReader(b))
+	rr := httptest.NewRecorder()
+	s.handleBatchUninstall(rr, req)
+
+	var resp struct {
+		Summary batchUninstallSummary `json:"summary"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v (%s)", err, rr.Body.String())
+	}
+	if resp.Summary.Failed != 1 || resp.Summary.Succeeded != 0 {
+		t.Fatalf("expected 1 failed / 0 succeeded, got %+v", resp.Summary)
+	}
+	if _, err := os.Stat(repoDir); err != nil {
+		t.Fatalf("expected repo to stay in place: %v", err)
+	}
+}
