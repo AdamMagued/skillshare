@@ -590,9 +590,7 @@ func cmdUninstall(args []string) error {
 			err := cmdUninstallAgents(agentsDir, opts, config.ProjectConfigPath(cwd), trash.ProjectAgentTrashDir(cwd), start)
 			return err
 		}
-		err := cmdUninstallProject(rest, cwd)
-		logUninstallOp(config.ProjectConfigPath(cwd), uninstallOpNames(rest), 0, start, err)
-		return err
+		return cmdUninstallProject(rest, cwd)
 	}
 
 	opts, showHelp, parseErr := parseUninstallArgs(rest)

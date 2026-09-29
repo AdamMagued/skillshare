@@ -395,80 +395,60 @@ func TestUninstallModes_SingleNextSteps(t *testing.T) {
 	project.AssertAnyOutputContains(t, "Run 'skillshare sync' to clean up symlinks")
 }
 
-func TestUninstallModes_Oplog(t *testing.T) {
+func TestUninstallModes_OplogSkipsUnexecutedRuns(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 	setupGlobalUninstall(sb)
 	projectRoot := sb.SetupProjectDir("claude")
-	projectCfg := projectConfigPath(projectRoot)
+	sb.CreateSkill("keep", map[string]string{"SKILL.md": "# K"})
+	sb.CreateProjectSkill(projectRoot, "keep", map[string]string{"SKILL.md": "# K"})
 
-	// Resolve failure: project logs an error entry, global logs nothing.
+	// Resolve failure, text dry-run, declined prompt and help write no entry.
 	sb.RunCLI("uninstall", "missing", "--force", "-g").AssertFailure(t)
+	sb.RunCLI("uninstall", "keep", "--dry-run", "-g").AssertSuccess(t)
+	sb.RunCLIWithInput("n\n", "uninstall", "keep", "-g").AssertSuccess(t)
+	sb.RunCLI("uninstall", "--help", "-g").AssertSuccess(t)
 	if e := lastUninstallOp(t, sb.ConfigPath); e != nil {
-		t.Errorf("global resolve failure should not be logged, got %+v", e)
+		t.Errorf("global unexecuted runs should not be logged, got %+v", e)
 	}
+
 	sb.RunCLIInDir(projectRoot, "uninstall", "missing", "--force", "-p").AssertFailure(t)
-	if e := lastUninstallOp(t, projectCfg); e == nil || e.Status != "error" || e.Args["name"] != "missing" {
-		t.Errorf("project resolve failure should log an error entry, got %+v", e)
+	sb.RunCLIInDir(projectRoot, "uninstall", "keep", "--dry-run", "-p").AssertSuccess(t)
+	sb.RunCLIInDirWithInput(projectRoot, "n\n", "uninstall", "keep", "-p").AssertSuccess(t)
+	sb.RunCLIInDir(projectRoot, "uninstall", "--help", "-p").AssertSuccess(t)
+	if e := lastUninstallOp(t, projectConfigPath(projectRoot)); e != nil {
+		t.Errorf("project unexecuted runs should not be logged, got %+v", e)
 	}
+}
 
-	// Text dry-run: project logs ok, global logs nothing.
+func TestUninstallModes_OplogJSONDryRun(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	setupGlobalUninstall(sb)
 	sb.CreateSkill("dry", map[string]string{"SKILL.md": "# D"})
-	sb.CreateProjectSkill(projectRoot, "dry", map[string]string{"SKILL.md": "# D"})
-	sb.RunCLI("uninstall", "dry", "--dry-run", "-g").AssertSuccess(t)
-	if e := lastUninstallOp(t, sb.ConfigPath); e != nil {
-		t.Errorf("global text dry-run should not be logged, got %+v", e)
-	}
-	sb.RunCLIInDir(projectRoot, "uninstall", "dry", "--dry-run", "-p").AssertSuccess(t)
-	if e := lastUninstallOp(t, projectCfg); e == nil || e.Status != "ok" || e.Args["name"] != "dry" {
-		t.Errorf("project dry-run should log an ok entry, got %+v", e)
-	}
 
-	// JSON dry-run: global logs ok.
 	sb.RunCLI("uninstall", "dry", "--dry-run", "--json", "-g").AssertSuccess(t)
 	if e := lastUninstallOp(t, sb.ConfigPath); e == nil || e.Status != "ok" {
 		t.Errorf("global JSON dry-run should log an ok entry, got %+v", e)
 	}
-
-	// Partial resolve: global records partial + succeeded; project records ok only.
-	sb.CreateSkill("real", map[string]string{"SKILL.md": "# R"})
-	sb.CreateProjectSkill(projectRoot, "real", map[string]string{"SKILL.md": "# R"})
-	sb.RunCLI("uninstall", "real", "ghost", "--force", "-g").AssertSuccess(t)
-	if e := lastUninstallOp(t, sb.ConfigPath); e == nil || e.Status != "partial" || e.Args["succeeded"] != float64(1) {
-		t.Errorf("global partial uninstall should log partial with succeeded=1, got %+v", e)
-	}
-	sb.RunCLIInDir(projectRoot, "uninstall", "real", "ghost", "--force", "-p").AssertSuccess(t)
-	e := lastUninstallOp(t, projectCfg)
-	if e == nil || e.Status != "ok" {
-		t.Fatalf("project partial uninstall should log ok, got %+v", e)
-	}
-	if _, ok := e.Args["succeeded"]; ok {
-		t.Errorf("project oplog should not record succeeded, got %+v", e.Args)
-	}
 }
 
-func TestUninstallModes_OplogOnCancelAndHelp(t *testing.T) {
+func TestUninstallModes_OplogRecordsPartial(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 	setupGlobalUninstall(sb)
 	projectRoot := sb.SetupProjectDir("claude")
-	projectCfg := projectConfigPath(projectRoot)
-	sb.CreateSkill("keep", map[string]string{"SKILL.md": "# K"})
-	sb.CreateProjectSkill(projectRoot, "keep", map[string]string{"SKILL.md": "# K"})
+	sb.CreateSkill("real", map[string]string{"SKILL.md": "# R"})
+	sb.CreateProjectSkill(projectRoot, "real", map[string]string{"SKILL.md": "# R"})
 
-	sb.RunCLIWithInput("n\n", "uninstall", "keep", "-g").AssertSuccess(t)
-	sb.RunCLI("uninstall", "--help", "-g").AssertSuccess(t)
-	if e := lastUninstallOp(t, sb.ConfigPath); e != nil {
-		t.Errorf("global cancel/help should not be logged, got %+v", e)
+	sb.RunCLI("uninstall", "real", "ghost", "--force", "-g").AssertSuccess(t)
+	if e := lastUninstallOp(t, sb.ConfigPath); e == nil || e.Status != "partial" || e.Args["succeeded"] != float64(1) {
+		t.Errorf("global partial uninstall should log partial with succeeded=1, got %+v", e)
 	}
 
-	sb.RunCLIInDirWithInput(projectRoot, "n\n", "uninstall", "keep", "-p").AssertSuccess(t)
-	if e := lastUninstallOp(t, projectCfg); e == nil || e.Status != "ok" || e.Args["name"] != "keep" {
-		t.Errorf("project cancel should log an ok entry, got %+v", e)
-	}
-	sb.RunCLIInDir(projectRoot, "uninstall", "--help", "-p").AssertSuccess(t)
-	if e := lastUninstallOp(t, projectCfg); e == nil || e.Args["name"] != "--help" {
-		t.Errorf("project help should log the raw --help arg, got %+v", e)
+	sb.RunCLIInDir(projectRoot, "uninstall", "real", "ghost", "--force", "-p").AssertSuccess(t)
+	if e := lastUninstallOp(t, projectConfigPath(projectRoot)); e == nil || e.Status != "partial" || e.Args["succeeded"] != float64(1) {
+		t.Errorf("project partial uninstall should log partial with succeeded=1, got %+v", e)
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"skillshare/internal/config"
 	"skillshare/internal/install"
@@ -39,6 +40,7 @@ func performProjectUninstallQuiet(target *uninstallTarget, trashDir string) (typ
 }
 
 func cmdUninstallProject(args []string, root string) error {
+	start := time.Now()
 	opts, showHelp, err := parseUninstallArgs(args)
 	if showHelp {
 		printUninstallHelp()
@@ -433,10 +435,12 @@ func cmdUninstallProject(args []string, root string) error {
 		}
 	}
 
+	var finalErr error
 	if len(failed) > 0 && len(succeeded) == 0 {
-		return fmt.Errorf("all uninstalls failed")
+		finalErr = fmt.Errorf("all uninstalls failed")
 	}
-	return nil
+	logUninstallOp(config.ProjectConfigPath(root), uninstallOpNames(args), len(succeeded), start, finalErr)
+	return finalErr
 }
 
 func confirmProjectUninstall(target *uninstallTarget) (bool, error) {
