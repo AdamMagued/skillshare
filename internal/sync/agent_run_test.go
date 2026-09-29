@@ -58,3 +58,19 @@ func TestRunAgentSync_InvalidFilterFailsOnlyThatTarget(t *testing.T) {
 		t.Fatalf("expected good target synced, got %+v", r)
 	}
 }
+
+func TestRunAgentSync_PruneErrorBecomesWarning(t *testing.T) {
+	// A dry run skips creating the target, so prune reads a path that is a file.
+	targetPath := filepath.Join(t.TempDir(), "agents")
+	os.WriteFile(targetPath, []byte("not a directory"), 0644)
+
+	results := RunAgentSync([]AgentTarget{{Name: "claude", Path: targetPath}}, nil,
+		AgentRunOptions{Source: t.TempDir(), DryRun: true, ResolveExtension: noExtension})
+
+	r := results[0]
+	if r.PruneErr == nil || !slices.ContainsFunc(r.Warnings, func(w string) bool {
+		return strings.HasPrefix(w, "claude: agents prune failed: ")
+	}) {
+		t.Fatalf("expected prune failure warning, got %+v", r)
+	}
+}

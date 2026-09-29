@@ -36,8 +36,8 @@ type AgentTargetResult struct {
 	Updated  []string
 	Skipped  []string
 	Pruned   []string
-	Synced   bool // sync or transform returned results, possibly partial
-	PruneErr error
+	Synced   bool  // sync or transform returned results, possibly partial
+	PruneErr error // also reported in Warnings; the sync itself stands
 	Warnings []string
 	Err      error // invalid filter or extension; nothing was synced
 	SyncErr  error // sync or transform failure
@@ -104,6 +104,9 @@ func runAgentTarget(t AgentTarget, agents []resource.DiscoveredResource, opts Ag
 		res.Pruned, res.PruneErr = PruneOrphanAgentCopies(t.Path, filtered, outputExt, opts.DryRun)
 	case "merge":
 		res.Pruned, res.PruneErr = PruneOrphanAgentLinks(t.Path, filtered, opts.DryRun)
+	}
+	if res.PruneErr != nil {
+		res.Warnings = append(res.Warnings, fmt.Sprintf("%s: agents prune failed: %v", t.Name, res.PruneErr))
 	}
 	return res
 }
