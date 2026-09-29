@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"skillshare/internal/config"
 	"skillshare/internal/git"
 	"skillshare/internal/install"
 	"skillshare/internal/sync"
@@ -320,16 +319,7 @@ func (s *Server) handleBatchUninstallSkills(w http.ResponseWriter, body batchUni
 			log.Printf("warning: failed to save metadata: %v", err)
 		}
 
-		if s.IsProjectMode() {
-			if rErr := config.ReconcileProjectSkills(
-				s.projectRoot, s.projectCfg, s.skillsStore, s.cfg.EffectiveSkillsSource()); rErr != nil {
-				log.Printf("warning: failed to reconcile project skills config: %v", rErr)
-			}
-		} else {
-			if rErr := config.ReconcileGlobalSkills(s.cfg, s.skillsStore); rErr != nil {
-				log.Printf("warning: failed to reconcile global skills config: %v", rErr)
-			}
-		}
+		s.reconcileSkillsConfig(s.cfg.EffectiveSkillsSource())
 	}
 
 	status := "ok"

@@ -26,6 +26,20 @@ func (s *Server) reloadSkillsStore() {
 	}
 }
 
+// reconcileSkillsConfig syncs the skills config with the metadata store,
+// logging failures as warnings so the calling operation still succeeds.
+func (s *Server) reconcileSkillsConfig(sourceDir string) {
+	if s.IsProjectMode() {
+		if rErr := config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.skillsStore, sourceDir); rErr != nil {
+			log.Printf("warning: failed to reconcile project skills config: %v", rErr)
+		}
+	} else {
+		if rErr := config.ReconcileGlobalSkills(s.cfg, s.skillsStore); rErr != nil {
+			log.Printf("warning: failed to reconcile global skills config: %v", rErr)
+		}
+	}
+}
+
 func discoverInstallSource(source *install.Source) (*install.DiscoveryResult, error) {
 	if source.IsGit() {
 		if source.HasSubdir() {
@@ -296,15 +310,7 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 		} else {
 			s.reloadSkillsStore()
 		}
-		if s.IsProjectMode() {
-			if rErr := config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.skillsStore, s.cfg.EffectiveSkillsSource()); rErr != nil {
-				log.Printf("warning: failed to reconcile project skills config: %v", rErr)
-			}
-		} else {
-			if rErr := config.ReconcileGlobalSkills(s.cfg, s.skillsStore); rErr != nil {
-				log.Printf("warning: failed to reconcile global skills config: %v", rErr)
-			}
-		}
+		s.reconcileSkillsConfig(s.cfg.EffectiveSkillsSource())
 	}
 
 	writeJSON(w, map[string]any{
@@ -423,15 +429,7 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 		// Reconcile config after tracked repo install
 		if trackedKind == "skill" {
 			s.reloadSkillsStore()
-			if s.IsProjectMode() {
-				if rErr := config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.skillsStore, s.cfg.EffectiveSkillsSource()); rErr != nil {
-					log.Printf("warning: failed to reconcile project skills config: %v", rErr)
-				}
-			} else {
-				if rErr := config.ReconcileGlobalSkills(s.cfg, s.skillsStore); rErr != nil {
-					log.Printf("warning: failed to reconcile global skills config: %v", rErr)
-				}
-			}
+			s.reconcileSkillsConfig(s.cfg.EffectiveSkillsSource())
 		}
 
 		args := map[string]any{
@@ -513,15 +511,7 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 
 	// Reconcile config after single install
 	s.reloadSkillsStore()
-	if s.IsProjectMode() {
-		if rErr := config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.skillsStore, s.cfg.EffectiveSkillsSource()); rErr != nil {
-			log.Printf("warning: failed to reconcile project skills config: %v", rErr)
-		}
-	} else {
-		if rErr := config.ReconcileGlobalSkills(s.cfg, s.skillsStore); rErr != nil {
-			log.Printf("warning: failed to reconcile global skills config: %v", rErr)
-		}
-	}
+	s.reconcileSkillsConfig(s.cfg.EffectiveSkillsSource())
 
 	okArgs := map[string]any{
 		"source":           body.Source,

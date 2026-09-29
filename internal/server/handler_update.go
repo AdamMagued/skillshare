@@ -517,15 +517,7 @@ func (s *Server) handleRehydrateTrackedRepos(w http.ResponseWriter, r *http.Requ
 	if st, lerr := install.LoadMetadataWithMigration(sourceDir, ""); lerr == nil && st != nil {
 		s.skillsStore = st
 	}
-	if s.IsProjectMode() {
-		if rErr := config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.skillsStore, sourceDir); rErr != nil {
-			log.Printf("warning: failed to reconcile project skills config: %v", rErr)
-		}
-	} else {
-		if rErr := config.ReconcileGlobalSkills(s.cfg, s.skillsStore); rErr != nil {
-			log.Printf("warning: failed to reconcile global skills config: %v", rErr)
-		}
-	}
+	s.reconcileSkillsConfig(sourceDir)
 
 	rehydrated, failed := 0, 0
 	for _, res := range results {
