@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 	"time"
 
 	"skillshare/internal/backup"
@@ -431,7 +430,7 @@ func (s *Server) computeContextCost(skills []ssync.DiscoveredSkill) map[string]a
 
 	var maxAlways, maxOnDemand int
 	var worstAlwaysSkills, worstOnDemandSkills []skillToken
-	var worstAlwaysTargets, worstOnDemandTargets []string
+	var worstAlwaysTarget, worstOnDemandTarget string
 
 	cfgMode := s.cfg.Mode
 	if cfgMode == "" {
@@ -461,16 +460,18 @@ func (s *Server) computeContextCost(skills []ssync.DiscoveredSkill) map[string]a
 		if at > maxAlways {
 			maxAlways = at
 			worstAlwaysSkills = perSkill
-			worstAlwaysTargets = []string{name}
-		} else if at > 0 && at == maxAlways {
-			worstAlwaysTargets = append(worstAlwaysTargets, name)
+			worstAlwaysTarget = name
+		} else if at > 0 && at == maxAlways && name < worstAlwaysTarget {
+			worstAlwaysTarget = name
+			worstAlwaysSkills = perSkill
 		}
 		if ot > maxOnDemand {
 			maxOnDemand = ot
 			worstOnDemandSkills = perSkill
-			worstOnDemandTargets = []string{name}
-		} else if ot > 0 && ot == maxOnDemand {
-			worstOnDemandTargets = append(worstOnDemandTargets, name)
+			worstOnDemandTarget = name
+		} else if ot > 0 && ot == maxOnDemand && name < worstOnDemandTarget {
+			worstOnDemandTarget = name
+			worstOnDemandSkills = perSkill
 		}
 	}
 
@@ -538,17 +539,15 @@ func (s *Server) computeContextCost(skills []ssync.DiscoveredSkill) map[string]a
 
 	var warns []warning
 	if t := budget.AlwaysLoadedThreshold(); t > 0 && maxAlways > t {
-		sort.Strings(worstAlwaysTargets)
 		warns = append(warns, warning{
-			Type: "always_loaded", Target: strings.Join(worstAlwaysTargets, ", "),
+			Type: "always_loaded", Target: worstAlwaysTarget,
 			Actual: maxAlways, Budget: t,
 			TopOffenders: topN(worstAlwaysSkills, 3, true),
 		})
 	}
 	if t := budget.OnDemandThreshold(); t > 0 && maxOnDemand > t {
-		sort.Strings(worstOnDemandTargets)
 		warns = append(warns, warning{
-			Type: "on_demand", Target: strings.Join(worstOnDemandTargets, ", "),
+			Type: "on_demand", Target: worstOnDemandTarget,
 			Actual: maxOnDemand, Budget: t,
 			TopOffenders: topN(worstOnDemandSkills, 3, false),
 		})
