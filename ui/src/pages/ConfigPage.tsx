@@ -266,7 +266,7 @@ export default function ConfigPage() {
   };
 
   const handleRevert = () => {
-    configFile.reset();
+    activeFile?.reset();
     setShowRevertDialog(false);
   };
 
