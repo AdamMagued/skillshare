@@ -408,6 +408,7 @@ targets:
       global: "~/.omp/agent/AGENTS.md"
       project: "AGENTS.md"
       import: true
+    files: [APPEND_SYSTEM.md]
     aliases: [oh-my-pi]
   - name: ona
     skills:
@@ -455,6 +456,7 @@ targets:
     instructions:
       global: "~/.pi/agent/AGENTS.md"
       project: "AGENTS.md"
+    files: [APPEND_SYSTEM.md]
   - name: pochi
     skills:
       global: "~/.pochi/skills"

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -13,11 +13,12 @@ vi.mock('../api/client', async (load) => ({
   ...await load<typeof import('../api/client')>(),
   api: {
     listTargets: vi.fn(), updateTarget: vi.fn(), availableTargets: vi.fn(), getTargetInstructions: vi.fn(),
-    previewSyncMatrix: vi.fn(), listExtraExtensions: vi.fn(),
+    previewSyncMatrix: vi.fn(), listExtraExtensions: vi.fn(), listTargetFiles: vi.fn(),
   },
 }));
 // The file editor needs a data router; these tests look at the page around it.
 vi.mock('../components/instructions/TargetInstructions', () => ({ default: () => null }));
+vi.mock('../components/targetFiles/TargetFileTab', () => ({ default: () => null }));
 vi.mock('../api/mcp', async (load) => ({ ...await load<typeof import('../api/mcp')>(), mcpApi: { list: vi.fn() } }));
 
 const target = (over: Partial<Target>) => ({
@@ -44,6 +45,7 @@ describe('Target detail skills switch', () => {
     vi.mocked(api.listExtraExtensions).mockResolvedValue({ extensions: [] });
     vi.mocked(mcpApi.list).mockResolvedValue({ paths: {}, source: { targets: [], servers: {} } } as never);
     vi.mocked(api.updateTarget).mockResolvedValue({ success: true });
+    vi.mocked(api.listTargetFiles).mockResolvedValue({ target: 'gemini', project: false, root: '', files: [] });
   });
 
   it('shows a target with skills off as not synced, naming the folder it reads, and resumes it', async () => {
@@ -83,5 +85,50 @@ describe('Target detail skills switch', () => {
     view('gemini?tab=instructions', [target({ name: 'gemini' })]);
     expect(await screen.findByRole('heading', { name: 'gemini' })).toBeInTheDocument();
     expect(await screen.findByText('~/.gemini/GEMINI.md')).toBeInTheDocument();
+  });
+});
+
+describe('Target detail file tabs', () => {
+  const file = (path: string) => ({ path, abs: `/home/me/.pi/agent/${path}`, builtin: false, exists: true, size: 1 });
+  const tabs = () => screen.findByRole('navigation', { name: 'Target sections' });
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(api.availableTargets).mockResolvedValue({ targets: [] });
+    vi.mocked(api.getTargetInstructions).mockResolvedValue({ supported: true, path: '/home/me/.pi/agent/AGENTS.md', read_order: [] } as never);
+    vi.mocked(api.previewSyncMatrix).mockResolvedValue({ entries: [] });
+    vi.mocked(api.listExtraExtensions).mockResolvedValue({ extensions: [] });
+    vi.mocked(mcpApi.list).mockResolvedValue({ paths: {}, source: { targets: [], servers: {} } } as never);
+    vi.mocked(api.listTargetFiles).mockResolvedValue({ target: 'pi', project: false, root: '/home/me/.pi/agent', files: [file('SYSTEM.md'), file('APPEND_SYSTEM.md'), file('prompts/review.md')] });
+  });
+
+  it('shows three file tabs and puts the rest in a menu', async () => {
+    const user = userEvent.setup();
+    view('pi', [target({ name: 'pi' })]);
+    const nav = await tabs();
+    expect(await within(nav).findByRole('link', { name: 'APPEND_SYSTEM.md' })).toBeInTheDocument();
+    expect(within(nav).queryByRole('link', { name: 'prompts/review.md' })).not.toBeInTheDocument();
+    await user.click(within(nav).getByRole('button', { name: /\+1 more file/ }));
+    expect(screen.getByRole('menuitem', { name: 'prompts/review.md' })).toHaveAttribute('href', '/targets/pi?tab=file&path=prompts%2Freview.md');
+  });
+
+  it('swaps an open hidden file into the last visible slot', async () => {
+    view('pi?tab=file&path=prompts%2Freview.md', [target({ name: 'pi' })]);
+    const nav = await tabs();
+    expect(await within(nav).findByRole('link', { name: 'prompts/review.md' })).toHaveClass('on');
+    expect(within(nav).queryByRole('link', { name: 'APPEND_SYSTEM.md' })).not.toBeInTheDocument();
+    expect(screen.getByText('~/.pi/agent/prompts/review.md')).toBeInTheDocument();
+  });
+
+  it('offers adding a file only when the target has a place for them', async () => {
+    view('pi', [target({ name: 'pi' })]);
+    expect(await screen.findByRole('button', { name: 'Add file' })).toBeInTheDocument();
+  });
+
+  it('hides the add button when the target cannot add files', async () => {
+    vi.mocked(api.listTargetFiles).mockResolvedValue({ target: 'pi', project: false, root: '', files: [file('SYSTEM.md')] });
+    view('pi', [target({ name: 'pi' })]);
+    const nav = await tabs();
+    expect(await within(nav).findByRole('link', { name: 'SYSTEM.md' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add file' })).not.toBeInTheDocument();
   });
 });

@@ -246,6 +246,11 @@
                 "extension": { "type": "string", "description": "Convert each agent through an extension before writing it to this target (copy mode; an unset mode becomes copy). A bare name resolves under the extensions directory; a path (containing a separator or starting with '.') is used directly.", "examples": ["opencode-agents", "codex-agents"] }
               }
             },
+            "files": {
+              "type": "array",
+              "description": "Extra plain files this tool reads besides its instruction file, shown as tabs in the dashboard. Relative to the tool's folder in the project (the parent of its skills directory). Removing an entry never deletes the file.",
+              "items": { "type": "string", "minLength": 1, "examples": ["prompts/review.md"] }
+            },
             "instructions": {
               "type": "object",
               "description": "The instruction file (CLAUDE.md, AGENTS.md, ...) this tool reads, for a tool skillshare does not know. Overrides the built-in file. Relative to the project root.",

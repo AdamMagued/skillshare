@@ -69,7 +69,10 @@ type targetSpec struct {
 	Agents       targetPathPair     `yaml:"agents,omitempty"`
 	AlsoScans    targetAlsoScans    `yaml:"also_scans,omitempty"`
 	Instructions targetInstructions `yaml:"instructions,omitempty"`
-	Aliases      []string           `yaml:"aliases,omitempty"`
+	// Files are plain files the tool reads besides its instruction file,
+	// relative to its file root (see TargetFileRoot).
+	Files   []string `yaml:"files,omitempty"`
+	Aliases []string `yaml:"aliases,omitempty"`
 }
 
 type targetsFile struct {

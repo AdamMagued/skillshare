@@ -255,6 +255,30 @@ targets:
 대시보드는 target을 추가할 때 **사용자 지정 대상** 대화 상자에서, 또는 나중에 target의 지침 탭에서 이 필드를 작성합니다. target이 공유 파일을 사용하는 동안에는
 변경하거나 제거하지 않습니다. 제거해도 파일은 삭제되지 않습니다.
 
+#### 그 밖의 파일 {#target-files}
+
+도구는 지침 파일 외에도 Pi의 `APPEND_SYSTEM.md` 같은 일반 파일을 읽을 수 있습니다.
+대시보드는 이런 파일을 각각 target 페이지의 탭으로 보여 줍니다. skillshare는 `pi`와
+`omp`에 `APPEND_SYSTEM.md`를 추가하며, `files`에는 사용자가 추가한 파일이 나열됩니다.
+
+```yaml
+targets:
+  pi:
+    files:
+      - SYSTEM.md
+      - prompts/review.md
+```
+
+각 항목은 도구 폴더 기준 상대 경로입니다. pi의 경우 global config에서는 `~/.pi/agent`,
+프로젝트에서는 `.pi`입니다. 항목에 하위 폴더를 쓸 수 있지만 그 폴더를 벗어날 수는 없습니다.
+절대 경로, `..`, 폴더 밖을 가리키는 링크 폴더는 거부됩니다. 이 폴더는 codex의 `~/.codex`나
+계정의 [`config_dir`](#agent-config-dir)처럼 도구 자체의 config 폴더이며, skillshare가 알지
+못하면 skills 폴더의 상위 폴더입니다. 폴더가 홈 디렉터리나 프로젝트 루트가 되는 target에는
+**+** 버튼이 없습니다.
+
+대시보드는 탭을 추가하거나 제거할 때 이 필드를 작성합니다. 탭을 제거해도 파일은 삭제되지
+않습니다.
+
 #### Skills 끄기 {#skills-enabled}
 
 `skills.enabled: false`는 target으로의 skill 동기화를 중지하고, skillshare는 agents, MCP 서버, 지침을 계속 관리합니다. 다른 target의 skills 폴더를 이미 읽는 도구에 사용하면 그 도구가 각 skill을 두 번 찾지 않게 됩니다.

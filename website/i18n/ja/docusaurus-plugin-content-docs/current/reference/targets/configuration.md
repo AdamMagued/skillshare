@@ -257,6 +257,30 @@ targets:
 ダッシュボードは、Target を追加するときの **カスタムターゲット** ダイアログ、または後から Target のファイルのタブでこのフィールドを書き込みます。Target が共有ファイルを
 使っている間は、変更や削除を拒否します。このフィールドを削除してもファイルは削除されません。
 
+#### その他のファイル {#target-files}
+
+ツールは、自身のファイル以外の通常のファイルも読むことがあります。たとえば Pi の
+`APPEND_SYSTEM.md` です。ダッシュボードでは、それぞれのファイルが Target のページのタブとして表示されます。
+skillshare は `pi` と `omp` に `APPEND_SYSTEM.md` を追加します。`files` には自分で追加したファイルが並びます。
+
+```yaml
+targets:
+  pi:
+    files:
+      - SYSTEM.md
+      - prompts/review.md
+```
+
+各エントリはツールのフォルダーからの相対パスです。pi の場合、グローバル Config では `~/.pi/agent`、
+プロジェクトでは `.pi` です。サブフォルダーを指定できますが、そのフォルダーの外には出られません。
+絶対パス、`..`、フォルダーの外を指すリンクを含むフォルダーは拒否されます。このフォルダーはツール自身の
+Config フォルダーで、codex なら `~/.codex`、アカウントなら [`config_dir`](#agent-config-dir) です。
+skillshare がそれを把握していない場合は、skills フォルダーの 1 つ上のフォルダーになります。フォルダーが
+ホームディレクトリやプロジェクトルートになる Target には **+** ボタンがありません。
+
+ダッシュボードは、タブを追加または外したときにこのフィールドを書き込みます。タブを外してもファイルは
+削除されません。
+
 #### Skill のオフ {#skills-enabled}
 
 `skills.enabled: false` にすると、その Target への Skill の Sync を停止し、skillshare は agents、MCP サーバー、instructions の管理を続けます。別の Target の skills フォルダーをすでに読んでいるツールに使うと、各 Skill を 2 回見つけるのを防げます。

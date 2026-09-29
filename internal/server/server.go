@@ -429,6 +429,11 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("POST /api/targets/{name}/instructions/convert", s.handleConvertTargetInstructions)
 	s.mux.HandleFunc("PUT /api/targets/{name}/instructions/setup", s.handlePutTargetInstructionsSetup)
 	s.mux.HandleFunc("DELETE /api/targets/{name}/instructions/setup", s.handleDeleteTargetInstructionsSetup)
+	s.mux.HandleFunc("GET /api/targets/{name}/files", s.handleListTargetFiles)
+	s.mux.HandleFunc("POST /api/targets/{name}/files", s.handleAddTargetFile)
+	s.mux.HandleFunc("DELETE /api/targets/{name}/files", s.handleRemoveTargetFile)
+	s.mux.HandleFunc("GET /api/targets/{name}/files/content", s.handleGetTargetFileContent)
+	s.mux.HandleFunc("PUT /api/targets/{name}/files/content", s.handlePutTargetFileContent)
 
 	// Instruction files: shared files (tool targets are global only) and the project AGENTS.md
 	s.mux.HandleFunc("GET /api/instructions", s.handleListSharedInstructions)

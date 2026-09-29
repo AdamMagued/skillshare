@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowDownToLine, CirclePause, Folder, Target as TargetIcon } from 'lucide-react';
+import { ArrowDownToLine, CirclePause, Folder, Plus, Target as TargetIcon } from 'lucide-react';
 import { api, type Target } from '../api/client';
 import { mcpApi } from '../api/mcp';
 import Button from '../components/Button';
@@ -17,6 +17,9 @@ import RemoveTargetDialog from '../components/targets/RemoveTargetDialog';
 import SkillsOffDialog from '../components/targets/SkillsOffDialog';
 import TargetMCP from '../components/targets/TargetMCP';
 import TargetInstructions from '../components/instructions/TargetInstructions';
+import AddFileDialog from '../components/targetFiles/AddFileDialog';
+import FileTabMenu from '../components/targetFiles/FileTabMenu';
+import TargetFileTab from '../components/targetFiles/TargetFileTab';
 import { mcpClient, serverCount } from '../components/mcp/mcpView';
 import { refreshTargets } from '../components/targets/targetView';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
@@ -24,6 +27,8 @@ import { fileName, shortenHome } from '../lib/paths';
 import { useT } from '../i18n';
 
 type Kind = 'skill' | 'agent';
+// File tabs (the instruction file first) past this many go into a menu.
+const MAX_FILE_TABS = 3;
 const draftOf = (target: Target) => ({
   include: target.include ?? [], exclude: target.exclude ?? [], mode: target.mode || 'merge', naming: target.targetNaming || 'flat',
   agentInclude: target.agentInclude ?? [], agentExclude: target.agentExclude ?? [], agentMode: target.agentMode || 'merge',
@@ -63,11 +68,13 @@ function TargetEditor({ target, targets }: { target: Target; targets: Target[] }
   const client = mcpClient(target.name);
   const mcpPath = mcp.data?.paths[client];
   // Until the list arrives, loading or failing, the tab stays so it can say which.
-  const tab: Kind | 'mcp' | 'instructions' = params.get('tab') === 'instructions' ? 'instructions'
+  const filePath = params.get('tab') === 'file' ? params.get('path') ?? '' : '';
+  const tab: Kind | 'mcp' | 'instructions' | 'file' = filePath ? 'file' : params.get('tab') === 'instructions' ? 'instructions'
     : target.agentPath && params.get('tab') === 'agents' ? 'agent' : params.get('tab') === 'mcp' && (mcpPath || !mcp.data) ? 'mcp' : 'skill';
   const kind: Kind = tab === 'agent' ? 'agent' : 'skill';
   const tabs = (['skill', 'agent', 'mcp', 'instructions'] as const).filter((k) => k === 'skill' || k === 'instructions' || (k === 'agent' ? target.agentPath : mcpPath || tab === 'mcp'));
   const instructions = useQuery({ queryKey: queryKeys.instructions.target(target.name), queryFn: () => api.getTargetInstructions(target.name) });
+  const files = useQuery({ queryKey: queryKeys.targetFiles.list(target.name), queryFn: () => api.listTargetFiles(target.name) });
   const syncTab = tab === 'skill' || tab === 'agent';
   const saved = draftOf(target);
   const [draft, setDraft] = useState<Draft>(saved);
@@ -76,6 +83,7 @@ function TargetEditor({ target, targets }: { target: Target; targets: Target[] }
   const [collecting, setCollecting] = useState(false);
   const [stoppingSkills, setStoppingSkills] = useState(false);
   const [resuming, setResuming] = useState(false);
+  const [addingFile, setAddingFile] = useState(false);
   const skillsOn = target.skillsEnabled !== false;
   const available = useQuery({ queryKey: queryKeys.targets.available, queryFn: () => api.availableTargets(), staleTime: staleTimes.targets, enabled: tab === 'skill' });
   // While skills are on the target list leaves skillsReadFrom out, so the confirm dialog asks available-targets.
@@ -146,6 +154,17 @@ function TargetEditor({ target, targets }: { target: Target; targets: Target[] }
   // Name the tab after the file this target actually reads (CLAUDE.md, GEMINI.md, …).
   const instructionsTab = instructions.data?.supported && instructions.data.path ? fileName(instructions.data.path) : 'AGENTS.md';
   const tabLabel = (k: (typeof tabs)[number]) => (k === 'agent' ? 'Agents' : k === 'mcp' ? 'MCP' : k === 'instructions' ? instructionsTab : 'Skills');
+  const tabLink = (k: (typeof tabs)[number]) => (k === 'agent' ? '?tab=agents' : k === 'mcp' ? '?tab=mcp' : k === 'instructions' ? '?tab=instructions' : '?');
+  // The instruction file and the other files the tool reads; the open one always shows, taking the last slot if it has to.
+  const fileTabs = [
+    ...(tabs.includes('instructions') ? [{ id: 'instructions', label: instructionsTab, to: tabLink('instructions') }] : []),
+    ...(files.data?.files ?? []).map((f) => ({ id: `file:${f.path}`, label: f.path, to: `?tab=file&path=${encodeURIComponent(f.path)}` })),
+  ];
+  const activeFile = fileTabs.find((f) => f.id === (tab === 'file' ? `file:${filePath}` : tab));
+  let shownFiles = fileTabs.slice(0, MAX_FILE_TABS);
+  if (activeFile && !shownFiles.includes(activeFile)) shownFiles = [...shownFiles.slice(0, -1), activeFile];
+  const hiddenFiles = fileTabs.filter((f) => !shownFiles.includes(f));
+  const openFile = files.data?.files.find((f) => f.path === filePath);
   const resume = async () => {
     setResuming(true);
     try {
@@ -158,7 +177,7 @@ function TargetEditor({ target, targets }: { target: Target; targets: Target[] }
       setResuming(false);
     }
   };
-  const subtitle = tab === 'mcp' ? mcpPath ?? '' : tab === 'instructions' ? (instructions.data?.supported ? instructions.data.path ?? '' : '') : agent ? target.agentPath ?? '' : target.path;
+  const subtitle = tab === 'file' ? openFile?.abs ?? '' : tab === 'mcp' ? mcpPath ?? '' : tab === 'instructions' ? (instructions.data?.supported ? instructions.data.path ?? '' : '') : agent ? target.agentPath ?? '' : target.path;
   return (
     <div className="animate-fade-in">
       <PageHeader
@@ -177,16 +196,32 @@ function TargetEditor({ target, targets }: { target: Target; targets: Target[] }
 
       {tabs.length > 1 && (
         <nav className="ss-tabs mb-7" aria-label={t('targetDetail.tabs')}>
-          {tabs.map((k) => (
-            <Link key={k} to={k === 'agent' ? '?tab=agents' : k === 'mcp' ? '?tab=mcp' : k === 'instructions' ? '?tab=instructions' : '?'} replace className={tab === k ? 'on' : ''}>
+          {tabs.filter((k) => k !== 'instructions').map((k) => (
+            <Link key={k} to={tabLink(k)} replace className={tab === k ? 'on' : ''}>
               {tabLabel(k)}
               {tabCount(k) !== null && <span className="ss-cnt">{tabCount(k)}</span>}
             </Link>
           ))}
+          {shownFiles.map((f) => (
+            <Link key={f.id} to={f.to} replace className={f === activeFile ? 'on' : ''} title={f.label}>
+              <span className="max-w-[180px] truncate">{f.label}</span>
+              {f.id === 'instructions' && tabCount('instructions') !== null && <span className="ss-cnt">{tabCount('instructions')}</span>}
+            </Link>
+          ))}
+          {hiddenFiles.length > 0 && <FileTabMenu files={hiddenFiles} />}
+          {files.data?.root && (
+            <span>
+              <button type="button" className="grid h-6 w-6 place-items-center rounded-full border border-dashed border-line-2 text-ink-3 hover:border-ink hover:text-ink" aria-label={t('targetFiles.add')} title={t('targetFiles.add')} onClick={() => setAddingFile(true)}>
+                <Plus size={14} />
+              </button>
+            </span>
+          )}
         </nav>
       )}
 
-      {tab === 'instructions' ? (
+      {tab === 'file' ? (
+        <TargetFileTab key={filePath} target={target.name} path={filePath} project={files.data?.project ?? false} />
+      ) : tab === 'instructions' ? (
         <TargetInstructions name={target.name} />
       ) : tab === 'mcp' ? (
         mcp.data ? <TargetMCP name={client} data={mcp.data} /> : mcp.error ? <div className="ss-note bad"><span className="flex-1">{mcp.error.message}</span></div> : <PageSkeleton />
@@ -300,6 +335,17 @@ function TargetEditor({ target, targets }: { target: Target; targets: Target[] }
             setStoppingSkills(false);
             refreshTargets(queryClient);
             toast(t(removed === 1 ? 'targetDetail.skillsOff.stopped.one' : 'targetDetail.skillsOff.stopped.other', { name: target.name, count: removed }), 'success');
+          }}
+        />
+      )}
+      {addingFile && files.data?.root && (
+        <AddFileDialog
+          target={target.name}
+          root={files.data.root}
+          onClose={() => setAddingFile(false)}
+          onAdded={(path) => {
+            setAddingFile(false);
+            navigate(`?tab=file&path=${encodeURIComponent(path)}`, { replace: true });
           }}
         />
       )}

@@ -254,6 +254,26 @@ targets:
 Dashboard 會在新增 Target 時從 **自訂目標** 對話框寫入這個欄位，之後也可以在 Target 的檔案分頁修改。當 Target 正在使用共用檔案時，
 它會拒絕變更或移除此欄位。移除它不會刪除該檔案。
 
+#### 其他檔案 {#target-files}
+
+除了指示檔案，工具也可能讀取其他一般檔案，例如 Pi 的 `APPEND_SYSTEM.md`。Dashboard 會在 Target 頁面上把每個檔案顯示成一個分頁。
+skillshare 會為 `pi` 與 `omp` 加上 `APPEND_SYSTEM.md`；`files` 列出的是你自己加入的檔案。
+
+```yaml
+targets:
+  pi:
+    files:
+      - SYSTEM.md
+      - prompts/review.md
+```
+
+每個項目都是相對於工具資料夾的路徑：在 global config 中，pi 是 `~/.pi/agent`；在專案中是 `.pi`。項目可以指向子資料夾，
+但不能離開該資料夾：絕對路徑、`..`，以及連結到資料夾外的資料夾都會被拒絕。這個資料夾是工具自己的設定資料夾，
+例如 codex 的 `~/.codex`，或某個帳號的 [`config_dir`](#agent-config-dir)；skillshare 不知道時，則是 skills 資料夾的上一層。
+如果 Target 的資料夾會是你的家目錄或專案根目錄，就不會有 **+** 按鈕。
+
+Dashboard 會在你新增或移除分頁時寫入這個欄位。移除分頁不會刪除檔案。
+
 #### 關閉 Skills {#skills-enabled}
 
 `skills.enabled: false` 會停止同步 Skill 到某個 Target，同時 skillshare 仍繼續管理它的 agents、MCP servers 與指示檔案。適用於已經會讀取另一個 Target 之 Skill 資料夾的工具，避免它找到每個 Skill 兩次。

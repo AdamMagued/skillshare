@@ -341,3 +341,29 @@ func findRepoRoot(t *testing.T) string {
 		dir = parent
 	}
 }
+
+func TestSchema_TargetsAllowFiles(t *testing.T) {
+	root := findRepoRoot(t)
+	cases := map[string]func(defs map[string]any) any{
+		"schemas/config.schema.json": func(defs map[string]any) any {
+			return defs["targetConfig"]
+		},
+		"schemas/project-config.schema.json": func(defs map[string]any) any {
+			return defs["projectTargetEntry"].(map[string]any)["oneOf"].([]any)[1]
+		},
+	}
+	for file, target := range cases {
+		data, err := os.ReadFile(filepath.Join(root, file))
+		if err != nil {
+			t.Fatalf("read %s: %v", file, err)
+		}
+		var schema map[string]any
+		if err := json.Unmarshal(data, &schema); err != nil {
+			t.Fatalf("%s: invalid JSON: %v", file, err)
+		}
+		props := target(schema["$defs"].(map[string]any)).(map[string]any)["properties"].(map[string]any)
+		if files, ok := props["files"].(map[string]any); !ok || files["type"] != "array" {
+			t.Errorf("%s: target missing 'files' array property", file)
+		}
+	}
+}

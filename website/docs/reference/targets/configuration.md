@@ -258,6 +258,31 @@ target, or later from the target's instruction tab. It refuses to change or remo
 it while the target uses shared files. Removing it doesn't delete
 the file.
 
+#### Other files {#target-files}
+
+Besides its instruction file, a tool may read other plain files, such as Pi's
+`APPEND_SYSTEM.md`. The dashboard shows each one as a tab on the target's page.
+skillshare adds `APPEND_SYSTEM.md` for `pi` and `omp`; `files` lists the ones you add.
+
+```yaml
+targets:
+  pi:
+    files:
+      - SYSTEM.md
+      - prompts/review.md
+```
+
+Each entry is relative to the tool's folder: `~/.pi/agent` for pi in the global
+config, `.pi` in a project. Entries may name a subfolder, but can't leave that folder:
+absolute paths, `..`, and folders that link outside it are refused. The folder is the
+tool's own config folder, such as `~/.codex` for codex or an account's
+[`config_dir`](#agent-config-dir); when skillshare knows none, it is the folder above
+the skills folder. A target whose folder would be your home directory or the project
+root has no **+** button.
+
+The dashboard writes this field when you add or remove a tab. Removing a tab doesn't
+delete the file.
+
 #### Skills off {#skills-enabled}
 
 `skills.enabled: false` stops syncing skills to a target while skillshare keeps managing its agents, MCP servers and instructions. Use it for a tool that already reads another target's skills folder, so it does not find each skill twice.

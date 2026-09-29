@@ -384,6 +384,28 @@ Removing the setting doesn't delete the file. skillshare refuses to change or re
 the location while the target uses shared files; switch it back to its own file
 first.
 
+## Other files a tool reads
+
+Some tools read more than one file. Pi and oh-my-pi, for example, add
+`APPEND_SYSTEM.md` to the end of their default system prompt, so their target pages
+have an **APPEND_SYSTEM.md** tab next to the instruction file tab. It edits the file
+the same way; saving creates it if it doesn't exist yet.
+
+To add another file, click **+** at the end of the tabs and enter its name, such as
+`SYSTEM.md` or `prompts/review.md`. The name is relative to the tool's folder, shown
+in front of the box, and must stay inside it. Files you added show **Added by you**
+and a **Remove from tabs** button, which only takes the tab away; the file stays and
+the tool still reads it. The list is saved on the target as
+[`files`](../../reference/targets/configuration.md#target-files).
+
+A target shows up to three file tabs, the instruction file included. The rest go
+into a **+N more files** menu; the file you open from it takes the last visible place.
+
+**Share with Extras** opens **Extras** → **Add extra** filled in for that file: a
+single-file extra with the file's name, targeting its folder. Once the file is linked,
+its tab shows **Shared · &lt;name&gt;** and **View in Extras**, and saving writes
+through to the shared source.
+
 ## Projects
 
 Run `skillshare ui -p` in the project. In a project, every target reads the one

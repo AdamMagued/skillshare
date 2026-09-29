@@ -112,6 +112,10 @@ type TargetConfig struct {
 	// skillshare does not know or to override the built-in file.
 	Instructions *TargetInstructionsConfig `yaml:"instructions,omitempty"`
 
+	// Files are extra plain files the tool reads, relative to its file root
+	// (see TargetFileRoot), added by the user to those skillshare knows.
+	Files []string `yaml:"files,omitempty"`
+
 	defaultTargetNaming string `yaml:"-"`
 	// derivedSkills and derivedAgents are the paths expandAgentConfigDirs filled in.
 	derivedSkills, derivedAgents string `yaml:"-"`

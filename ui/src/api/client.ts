@@ -242,6 +242,27 @@ export interface TargetInstructions {
   default_path?: string; // the built-in file, used when no location is set
 }
 
+/** Another file a target's tool reads, shown as its own tab on the target page. */
+export interface TargetFile {
+  path: string; // relative to the list's root, with /
+  abs: string;
+  builtin: boolean; // skillshare knows the tool reads it; the user can't remove it
+  exists: boolean;
+  size: number;
+  link_to?: string;
+  link_shared?: string; // the extra the file links to
+}
+
+export interface TargetFileList {
+  target: string;
+  project: boolean;
+  root: string; // where added files may live; empty when the target can't add any
+  files: TargetFile[];
+}
+
+/** Why adding a target file was refused (`reason` of a target_file_invalid_path error). */
+export type TargetFileRefusal = 'outside' | 'absolute' | 'empty' | 'is_dir' | 'listed' | 'no_root';
+
 /** A tool that reads a target's skills but keeps its own instruction file. */
 export interface InstructionsRider {
   name: string;
@@ -783,6 +804,23 @@ export const api = {
     }),
   removeTargetInstructionsSetup: (name: string) =>
     apiFetch<{ success: boolean }>(`/targets/${encodeURIComponent(name)}/instructions/setup`, { method: 'DELETE' }),
+  // A target's other files
+  listTargetFiles: (name: string) =>
+    apiFetch<TargetFileList>(`/targets/${encodeURIComponent(name)}/files`),
+  getTargetFile: (name: string, path: string) =>
+    apiFetch<TargetFile & { content: string }>(`/targets/${encodeURIComponent(name)}/files/content?path=${encodeURIComponent(path)}`),
+  putTargetFile: (name: string, path: string, content: string) =>
+    apiFetch<TargetFile & { content: string }>(`/targets/${encodeURIComponent(name)}/files/content?path=${encodeURIComponent(path)}`, {
+      method: 'PUT',
+      body: JSON.stringify({ content }),
+    }),
+  addTargetFile: (name: string, path: string) =>
+    apiFetch<TargetFileList>(`/targets/${encodeURIComponent(name)}/files`, {
+      method: 'POST',
+      body: JSON.stringify({ path }),
+    }),
+  removeTargetFile: (name: string, path: string) =>
+    apiFetch<TargetFileList>(`/targets/${encodeURIComponent(name)}/files?path=${encodeURIComponent(path)}`, { method: 'DELETE' }),
   listSharedInstructions: () =>
     apiFetch<{ files: SharedInstructionsFile[]; targets: SharedInstructionsTarget[]; file_links: boolean }>('/instructions'),
   createSharedInstructions: (body: { name: string; content?: string; from_target?: string }) =>

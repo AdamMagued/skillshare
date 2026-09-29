@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ellipsis, FileText, FoldVertical, Folder, FolderPlus, Link2, Plus, Puzzle, RefreshCw, Trash2, X, Zap } from 'lucide-react';
@@ -70,6 +70,18 @@ interface Draft {
 }
 
 const newDraft = (): Draft => ({ id: crypto.randomUUID(), path: '', mode: 'merge', flatten: false, extension: '', as: '' });
+
+/** A single-file extra to start from, as a target page's "Share with Extras" asks for it. */
+interface FilePrefill {
+  file: string;
+  target: string; // the folder holding the file
+}
+
+/** An extra name from a file name: APPEND_SYSTEM.md → APPEND_SYSTEM, .goosehints → goosehints. */
+const nameFromFile = (file: string) => {
+  const base = file.trim().replace(/^.*[\\/]/, '').replace(/^\.+/, '');
+  return (base.replace(/\.[^.]*$/, '') || base).replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^[_-]+/, '');
+};
 
 /** Folder · File name · Mode for a single-file extra, shared by the Add extra dialog and the inline Add target row. */
 function FileDraftFields({ draft, onChange, fileName, known, disabled }: {
@@ -193,23 +205,30 @@ function FileDraftHints({ fileName }: { fileName: string }) {
   );
 }
 
-function AddExtraDialog({ onClose, onCreated, extensions, known, sharedDir, folders }: {
+function AddExtraDialog({ onClose, onCreated, extensions, known, sharedDir, folders, initial }: {
   onClose: () => void;
   onCreated: (agents: boolean) => void;
   extensions: string[];
   known: AvailableTarget[];
   sharedDir: string;
   folders: string[]; // folders in sharedDir that single-file extras already use
+  initial?: FilePrefill;
 }) {
   const { toast } = useToast();
   const t = useT();
-  const [name, setName] = useState('');
-  const [single, setSingle] = useState(false);
-  const [file, setFile] = useState('');
+  const [name, setName] = useState(initial ? nameFromFile(initial.file) : '');
+  // A single file's name follows its file name until the user types one.
+  const [nameTyped, setNameTyped] = useState(false);
+  const [single, setSingle] = useState(Boolean(initial));
+  const [file, setFile] = useState(initial?.file ?? '');
+  const changeFile = (next: string) => {
+    setFile(next);
+    if (!nameTyped) setName(nameFromFile(next));
+  };
   const [custom, setCustom] = useState(false);
   const [source, setSource] = useState('');
   const [folder, setFolder] = useState('');
-  const [drafts, setDrafts] = useState<Draft[]>(() => [newDraft()]);
+  const [drafts, setDrafts] = useState<Draft[]>(() => [{ ...newDraft(), path: initial?.target ?? '' }]);
   const [saving, setSaving] = useState(false);
   const title = t('extras.addExtraTitle');
   const valid = drafts.filter((d) => d.path.trim());
@@ -264,9 +283,9 @@ function AddExtraDialog({ onClose, onCreated, extensions, known, sharedDir, fold
           <div className="ss-fld">
             <label htmlFor="extra-name">{t('extras.modal.name')}</label>
             <span className="ss-inp">
-              <input id="extra-name" autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder={t('extras.modal.namePlaceholder')} disabled={saving} />
+              <input id="extra-name" autoFocus value={name} onChange={(e) => { setName(e.target.value); setNameTyped(e.target.value !== ''); }} placeholder={t('extras.modal.namePlaceholder')} disabled={saving} />
             </span>
-            <span className="hp">{t(custom || single ? 'extras.modal.nameHintCustom' : 'extras.modal.nameHint')}</span>
+            <span className="hp">{t(single ? 'extras.modal.nameHintFile' : custom ? 'extras.modal.nameHintCustom' : 'extras.modal.nameHint')}</span>
           </div>
           <div className="ss-fld">
             <span id="extra-kind" className="text-[13px] font-semibold">{t('extras.modal.sync')}</span>
@@ -317,7 +336,7 @@ function AddExtraDialog({ onClose, onCreated, extensions, known, sharedDir, fold
                 )}
                 <span className="font-mono text-ink-3">{sourceSep}</span>
                 <span className={`ss-inp flex-[2] ${isPathLike(fileName) ? 'err' : ''}`}>
-                  <input value={file} onChange={(e) => setFile(e.target.value)} placeholder="CONVENTIONS.md" aria-label={t('extras.modal.fileName')} aria-invalid={isPathLike(fileName)} disabled={saving} />
+                  <input value={file} onChange={(e) => changeFile(e.target.value)} placeholder="CONVENTIONS.md" aria-label={t('extras.modal.fileName')} aria-invalid={isPathLike(fileName)} disabled={saving} />
                 </span>
               </div>
               {/* Folders other single-file extras use, one click to share one. */}
@@ -443,7 +462,22 @@ export default function ExtrasPage() {
     return [...new Set(dirs.filter((d) => d.replace(/[\\/][^\\/]*$/, '') === parent).map((d) => d.slice(parent.length + 1)))];
   }, [data, sharedDir]);
 
-  const [showAdd, setShowAdd] = useState(false);
+  // ?add=file&target=<folder>&file=<name> opens Add extra ready to share that file.
+  const [prefill, setPrefill] = useState<FilePrefill | null>(() => {
+    const target = params.get('target') ?? '';
+    const file = params.get('file') ?? '';
+    return params.get('add') === 'file' && file ? { file, target } : null;
+  });
+  const [showAdd, setShowAdd] = useState(prefill !== null);
+  const prefillInUrl = params.get('add') === 'file';
+  useEffect(() => {
+    if (!prefillInUrl) return;
+    setParams((prev) => {
+      const p = new URLSearchParams(prev);
+      ['add', 'target', 'file'].forEach((k) => p.delete(k));
+      return p;
+    }, { replace: true });
+  }, [prefillInUrl, setParams]);
   const [creatingShared, setCreatingShared] = useState(false);
   const [addingTo, setAddingTo] = useState<string | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; items: ContextMenuItem[] } | null>(null);
@@ -679,9 +713,10 @@ export default function ExtrasPage() {
 
       {showAdd && (
         <AddExtraDialog
-          onClose={() => setShowAdd(false)}
+          onClose={() => { setShowAdd(false); setPrefill(null); }}
           onCreated={(agents) => {
             setShowAdd(false);
+            setPrefill(null);
             invalidate();
             if (agents) setParams({ tab: 'instructions' }, { replace: true });
           }}
@@ -689,6 +724,7 @@ export default function ExtrasPage() {
           known={known}
           sharedDir={sharedDir}
           folders={sharedFolders}
+          initial={prefill ?? undefined}
         />
       )}
       <SkillContextMenu open={!!menu} anchorPoint={menu ?? undefined} items={menu?.items ?? []} onClose={() => setMenu(null)} />

@@ -35,9 +35,9 @@ vi.mock('../api/client', async (load) => {
   };
 });
 
-const renderPage = () => render(
+const renderPage = (url = '/extras') => render(
   <QueryClientProvider client={new QueryClient()}>
-    <I18nProvider><ToastProvider><MemoryRouter><ExtrasPage /></MemoryRouter></ToastProvider></I18nProvider>
+    <I18nProvider><ToastProvider><MemoryRouter initialEntries={[url]}><ExtrasPage /></MemoryRouter></ToastProvider></I18nProvider>
   </QueryClientProvider>,
 );
 
@@ -88,6 +88,18 @@ describe('Extras page in a project', () => {
     });
   });
 
+  // Issue #300: a single file's name defaults to its file name without the extension.
+  it('names a single-file extra after its file until a name is typed', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: 'Add extra' }));
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getByRole('radio', { name: 'Single file' }));
+    await user.type(within(dialog).getAllByRole('textbox', { name: 'File name' })[0], 'APPEND_SYSTEM.md');
+    expect(within(dialog).getByLabelText('Name')).toHaveValue('APPEND_SYSTEM');
+    expect(within(dialog).getByText('Shown in the list. The file name is a good choice.')).toBeInTheDocument();
+  });
+
   // Issue #300: several single files can share one folder of the shared extras folder.
   it('creates a single-file extra in a source folder named differently from the extra', async () => {
     const user = userEvent.setup();
@@ -120,5 +132,15 @@ describe('Extras page in a project', () => {
     await user.click(await within(dialog).findByRole('button', { name: 'conventions' }));
     expect(within(dialog).getByRole('textbox', { name: 'Source folder' })).toHaveValue('conventions');
     vi.mocked(api.getOverview).mockResolvedValue({} as never);
+  });
+
+  // A target page's "Share with Extras" link.
+  it('opens Add extra ready to share a target file', async () => {
+    renderPage('/extras?add=file&target=%2Fhome%2Fme%2F.pi%2Fagent&file=APPEND_SYSTEM.md');
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('radio', { name: 'Single file' })).toHaveAttribute('aria-checked', 'true');
+    expect(within(dialog).getByLabelText('Name')).toHaveValue('APPEND_SYSTEM');
+    expect(within(dialog).getAllByRole('textbox', { name: 'File name' })[0]).toHaveValue('APPEND_SYSTEM.md');
+    expect(within(dialog).getByRole('textbox', { name: 'Folder' })).toHaveValue('/home/me/.pi/agent');
   });
 });

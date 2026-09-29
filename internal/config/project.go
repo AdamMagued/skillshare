@@ -34,6 +34,9 @@ type ProjectTargetEntry struct {
 	// Instructions is the user-set instruction file (relative to the project root).
 	Instructions *TargetInstructionsConfig
 
+	// Files are extra files the tool reads, relative to its file root.
+	Files []string
+
 	wasMigrated         bool   // true if flat fields were migrated during unmarshal; not serialized
 	defaultTargetNaming string `yaml:"-"`
 }
@@ -54,6 +57,7 @@ func (t *ProjectTargetEntry) UnmarshalYAML(value *yaml.Node) error {
 		Agents  *ResourceTargetConfig `yaml:"agents"`
 
 		Instructions *TargetInstructionsConfig `yaml:"instructions"`
+		Files        []string                  `yaml:"files"`
 	}
 	if err := value.Decode(&decoded); err != nil {
 		return err
@@ -66,6 +70,7 @@ func (t *ProjectTargetEntry) UnmarshalYAML(value *yaml.Node) error {
 	t.Skills = decoded.Skills
 	t.Agents = decoded.Agents
 	t.Instructions = decoded.Instructions
+	t.Files = decoded.Files
 
 	// Migrate legacy flat fields into Skills sub-key.
 	hasFlatFields := t.Path != "" || t.Mode != "" || len(t.Include) > 0 || len(t.Exclude) > 0
@@ -109,9 +114,10 @@ func (t ProjectTargetEntry) MarshalYAML() (interface{}, error) {
 	hasInclude := len(t.Include) > 0
 	hasExclude := len(t.Exclude) > 0
 	hasInstructions := t.Instructions != nil
+	hasFiles := len(t.Files) > 0
 
 	// New format: write skills/agents sub-keys
-	if hasSkills || hasAgents || hasInstructions {
+	if hasSkills || hasAgents || hasInstructions || hasFiles {
 		obj := map[string]any{"name": t.Name}
 		if hasSkills {
 			obj["skills"] = t.Skills
@@ -121,6 +127,9 @@ func (t ProjectTargetEntry) MarshalYAML() (interface{}, error) {
 		}
 		if hasInstructions {
 			obj["instructions"] = t.Instructions
+		}
+		if hasFiles {
+			obj["files"] = t.Files
 		}
 		return obj, nil
 	}
@@ -533,6 +542,7 @@ func ResolveProjectTargets(projectRoot string, cfg *ProjectConfig) (map[string]T
 			ic := *entry.Instructions
 			tc.Instructions = &ic
 		}
+		tc.Files = append([]string(nil), entry.Files...)
 
 		// Resolve Agents sub-key: from entry config or builtin defaults.
 		ac := entry.AgentsConfig()

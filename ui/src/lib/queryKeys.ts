@@ -62,6 +62,11 @@ export const queryKeys = {
     locationRestorePreview: (name: string, path: string) => ['instructions', 'location-restore-preview', name, path] as const,
     project: ['instructions', 'project'] as const,
   },
+  // Everything under `target-files`, so invalidating a target's list also refreshes its files.
+  targetFiles: {
+    list: (name: string) => ['target-files', name] as const,
+    content: (name: string, path: string) => ['target-files', name, 'content', path] as const,
+  },
   mcp: ['mcp'] as const,
   plugins: ['plugins'] as const,
   // Under `plugins`, so invalidating that key refreshes both.

@@ -254,6 +254,26 @@ targets:
 控制台会在添加 target 时从 **自定义目标** 对话框写入这个字段，之后也可以在 target 的文件标签页中修改。当 target 正在使用共享文件时，控制台会拒绝更改或移除它。
 移除它不会删除文件。
 
+#### 其他文件 {#target-files}
+
+除了指示文件，工具还可能读取其他普通文件，例如 Pi 的 `APPEND_SYSTEM.md`。控制台会在 target 页面上
+为每个文件显示一个标签页。skillshare 会为 `pi` 和 `omp` 加上 `APPEND_SYSTEM.md`；`files` 列出你自己添加的文件。
+
+```yaml
+targets:
+  pi:
+    files:
+      - SYSTEM.md
+      - prompts/review.md
+```
+
+每个条目都相对于该工具的文件夹：在全局配置中，pi 是 `~/.pi/agent`；在项目中是 `.pi`。条目可以指定子文件夹，
+但不能离开该文件夹：绝对路径、`..` 以及链接到外部的文件夹都会被拒绝。这个文件夹是该工具自己的配置文件夹，
+例如 codex 的 `~/.codex`，或某个账号的 [`config_dir`](#agent-config-dir)；当 skillshare 不知道时，
+则是 skills 文件夹的上一层。如果 target 的文件夹会是你的主目录或项目根目录，就不会有 **+** 按钮。
+
+控制台会在你添加或移除标签页时写入这个字段。移除标签页不会删除文件。
+
 #### 关闭 Skills {#skills-enabled}
 
 `skills.enabled: false` 会停止向某个 target 同步 skills，同时 skillshare 仍继续管理它的 agents、MCP server 和指示文件。适用于已经会读取另一个 target 的 skills 文件夹的工具，避免它找到每个 skill 两次。
