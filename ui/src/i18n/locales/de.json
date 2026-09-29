@@ -1076,6 +1076,7 @@
   "extras.modal.sourceFolder": "Quellordner",
   "extras.modal.sourceFolderHint": "Extras im selben Ordner synchronisieren jeweils ihre eigene Datei.",
   "extras.modal.sourceFolderInvalid": "Gib einen Ordnernamen ein, keinen Pfad.",
+  "extras.modal.existingFolders": "Vorhanden:",
   "extras.modal.agentsNote": "Ein Extra mit der Datei AGENTS.md erscheint im Tab AGENTS.md.",
   "extras.hint.fileAs": "Lass den Dateinamen leer, um {file} zu behalten.",
   "extras.hint.fileModes": "merge verlinkt die Datei · copy schreibt eine Kopie · import fügt eine @-Zeile hinzu, nur für Tools, die @-Importe lesen.",

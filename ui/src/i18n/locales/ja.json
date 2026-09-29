@@ -1076,6 +1076,7 @@
   "extras.modal.sourceFolder": "ソースフォルダー",
   "extras.modal.sourceFolderHint": "同じフォルダーの extra は、それぞれ自分のファイルを同期します。",
   "extras.modal.sourceFolderInvalid": "パスではなくフォルダー名を入力してください。",
+  "extras.modal.existingFolders": "既存のフォルダ：",
   "extras.modal.agentsNote": "ファイルが AGENTS.md の extra は「AGENTS.md」タブに表示されます。",
   "extras.hint.fileAs": "ファイル名を空にすると {file} のままになります。",
   "extras.hint.fileModes": "merge はファイルをリンク · copy はコピーを書き込み · import は @ 行を追加（@ インポートを読むツールのみ）。",

@@ -296,11 +296,17 @@ function AddExtraDialog({ onClose, onCreated, extensions, known, sharedDir, fold
             ) : single ? (
               <>
                 <span className={`ss-inp ${isPathLike(folderName) ? 'err' : ''}`}>
-                  <input value={folder} onChange={(e) => setFolder(e.target.value)} list="extra-folders" placeholder={name.trim() || t('extras.modal.namePlaceholder')} aria-label={t('extras.modal.sourceFolder')} aria-invalid={isPathLike(folderName)} disabled={saving} />
+                  <input value={folder} onChange={(e) => setFolder(e.target.value)} placeholder={name.trim() || t('extras.modal.namePlaceholder')} aria-label={t('extras.modal.sourceFolder')} aria-invalid={isPathLike(folderName)} disabled={saving} />
                 </span>
-                <datalist id="extra-folders">
-                  {folders.map((f) => <option key={f} value={f} />)}
-                </datalist>
+                {/* Folders other single-file extras use, one click to share one. */}
+                {folders.length > 0 && (
+                  <span className="flex flex-wrap items-center gap-1.5 text-[12.5px] text-ink-3">
+                    {t('extras.modal.existingFolders')}
+                    {folders.map((f) => (
+                      <button key={f} type="button" className={`ss-tag font-mono hover:text-ink ${folderName === f ? '!text-ink' : ''}`} aria-pressed={folderName === f} onClick={() => setFolder(f)} disabled={saving}>{f}</button>
+                    ))}
+                  </span>
+                )}
                 <span className={`hp ${isPathLike(folderName) ? 'text-bad' : ''}`}>{t(isPathLike(folderName) ? 'extras.modal.sourceFolderInvalid' : 'extras.modal.sourceFolderHint')}</span>
               </>
             ) : (

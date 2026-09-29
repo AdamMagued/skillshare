@@ -1076,6 +1076,7 @@
   "extras.modal.sourceFolder": "來源資料夾",
   "extras.modal.sourceFolderHint": "同一個資料夾裡的 extra 各自同步自己的檔案。",
   "extras.modal.sourceFolderInvalid": "請輸入資料夾名稱，不是路徑。",
+  "extras.modal.existingFolders": "現有資料夾：",
   "extras.modal.agentsNote": "檔案是 AGENTS.md 的 extra 會顯示在「AGENTS.md」分頁。",
   "extras.hint.fileAs": "檔名留空就沿用 {file}。",
   "extras.hint.fileModes": "merge 連結檔案 · copy 寫入副本 · import 加一行 @，只適用於會讀 @ import 的工具。",

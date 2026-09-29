@@ -98,7 +98,7 @@ describe('Extras page in a project', () => {
     await user.click(within(dialog).getByRole('radio', { name: 'Single file' }));
     const [fileInput] = within(dialog).getAllByRole('textbox', { name: 'File name' });
     await user.type(fileInput, 'review.md');
-    await user.type(within(dialog).getByRole('combobox', { name: 'Source folder' }), 'prompts');
+    await user.type(within(dialog).getByRole('textbox', { name: 'Source folder' }), 'prompts');
     await user.type(within(dialog).getByRole('textbox', { name: 'Folder' }), '.claude/commands');
     expect(within(dialog).getByText(/\/extras\/prompts\/review\.md/)).toBeInTheDocument();
     await user.click(within(dialog).getByRole('button', { name: 'Create' }));
@@ -109,5 +109,17 @@ describe('Extras page in a project', () => {
       file: 'review.md',
       targets: [{ path: '.claude/commands', mode: 'merge' }],
     });
+  });
+
+  it('fills the source folder from a folder another single-file extra uses', async () => {
+    vi.mocked(api.getOverview).mockResolvedValue({ extrasSource: '/p/.skillshare/extras' } as never);
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: 'Add extra' }));
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getByRole('radio', { name: 'Single file' }));
+    await user.click(await within(dialog).findByRole('button', { name: 'conventions' }));
+    expect(within(dialog).getByRole('textbox', { name: 'Source folder' })).toHaveValue('conventions');
+    vi.mocked(api.getOverview).mockResolvedValue({} as never);
   });
 });

@@ -1076,6 +1076,7 @@
   "extras.modal.sourceFolder": "Carpeta de origen",
   "extras.modal.sourceFolderHint": "Los extras de la misma carpeta sincronizan cada uno su propio archivo.",
   "extras.modal.sourceFolderInvalid": "Escribe un nombre de carpeta, no una ruta.",
+  "extras.modal.existingFolders": "Existentes:",
   "extras.modal.agentsNote": "Un extra cuyo archivo es AGENTS.md aparece en la pestaña AGENTS.md.",
   "extras.hint.fileAs": "Deja vacío el nombre de archivo para conservar {file}.",
   "extras.hint.fileModes": "merge enlaza el archivo · copy escribe una copia · import añade una línea @, solo para herramientas que leen importaciones @.",

@@ -1076,6 +1076,7 @@
   "extras.modal.sourceFolder": "Folder sumber",
   "extras.modal.sourceFolderHint": "Extra dalam folder yang sama masing-masing menyinkronkan filenya sendiri.",
   "extras.modal.sourceFolderInvalid": "Masukkan nama folder, bukan path.",
+  "extras.modal.existingFolders": "Yang ada:",
   "extras.modal.agentsNote": "Extra dengan file AGENTS.md muncul di tab AGENTS.md.",
   "extras.hint.fileAs": "Kosongkan Nama file untuk tetap memakai {file}.",
   "extras.hint.fileModes": "merge menautkan file · copy menulis salinan · import menambahkan baris @, hanya untuk alat yang membaca impor @.",
