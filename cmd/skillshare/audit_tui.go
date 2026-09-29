@@ -379,7 +379,7 @@ func (m auditTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.termWidth = msg.Width
 		m.termHeight = msg.Height
 		panelHeight := m.auditPanelHeight()
-		if m.termWidth >= 70 {
+		if m.termWidth >= tuiNarrowSplitWidth {
 			m.list.SetSize(auditListWidth(m.termWidth), panelHeight)
 		} else {
 			m.list.SetSize(msg.Width, panelHeight)
@@ -387,7 +387,7 @@ func (m auditTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.MouseMsg:
-		if m.termWidth >= 70 {
+		if m.termWidth >= tuiNarrowSplitWidth {
 			leftWidth := auditListWidth(m.termWidth)
 			if msg.X > leftWidth {
 				switch msg.Button {
@@ -461,8 +461,8 @@ func (m auditTUIModel) View() string {
 		return ""
 	}
 
-	// Narrow terminal (<70 cols): vertical fallback
-	if m.termWidth < 70 {
+	// Narrow terminal (below tuiNarrowSplitWidth): vertical fallback
+	if m.termWidth < tuiNarrowSplitWidth {
 		return m.viewVertical()
 	}
 

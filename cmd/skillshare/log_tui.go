@@ -137,7 +137,7 @@ func (m logTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if panelHeight < 6 {
 			panelHeight = 6
 		}
-		if m.termWidth >= 70 {
+		if m.termWidth >= tuiNarrowSplitWidth {
 			m.list.SetSize(logListWidth(m.termWidth), panelHeight)
 		} else {
 			// Narrow fallback: vertical layout, list takes full width
@@ -199,7 +199,7 @@ func (m logTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.MouseMsg:
-		if !m.loading && !m.showStats && m.termWidth >= 70 {
+		if !m.loading && !m.showStats && m.termWidth >= tuiNarrowSplitWidth {
 			leftWidth := logListWidth(m.termWidth)
 			if msg.X > leftWidth {
 				// Right panel: scroll detail with mouse wheel
@@ -511,8 +511,8 @@ func (m logTUIModel) View() string {
 		return b.String()
 	}
 
-	// Narrow terminal (<70 cols): vertical fallback
-	if m.termWidth < 70 {
+	// Narrow terminal (below tuiNarrowSplitWidth): vertical fallback
+	if m.termWidth < tuiNarrowSplitWidth {
 		return m.viewVertical()
 	}
 

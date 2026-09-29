@@ -122,6 +122,10 @@ func formatDurationShort(d time.Duration) string {
 // Minimum terminal width for horizontal split; below this use vertical layout.
 const tuiMinSplitWidth = 80
 
+// Minimum terminal width for the audit and log split panels, which need less
+// room than tuiMinSplitWidth; below this they use a vertical layout.
+const tuiNarrowSplitWidth = 70
+
 // renderHorizontalSplit renders a left-right split with a vertical border column.
 // leftContent and rightContent are pre-rendered strings.
 func renderHorizontalSplit(leftContent, rightContent string, leftWidth, rightWidth, panelHeight int) string {
