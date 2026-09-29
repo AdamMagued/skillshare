@@ -1,11 +1,11 @@
-import { apiFetch, BASE, createSSEStream } from './http';
+import { apiFetch, BASE, createSSEStream, kindQuery } from './http';
 import type { AuditAllResponse, AuditPolicy, AuditRulesResponse, AuditSkillResponse, CompiledRulesResponse } from './types/audit';
 
 export const auditApi = {
   auditAll: (kind?: 'skills' | 'agents') =>
-    apiFetch<AuditAllResponse>(`/audit${kind ? '?kind=' + kind : ''}`),
+    apiFetch<AuditAllResponse>(`/audit${kindQuery(kind)}`),
   auditSkill: (name: string, kind?: 'skill' | 'agent') =>
-    apiFetch<AuditSkillResponse>(`/audit/${encodeURIComponent(name)}${kind === 'agent' ? '?kind=agent' : ''}`),
+    apiFetch<AuditSkillResponse>(`/audit/${encodeURIComponent(name)}${kindQuery(kind === 'agent' ? kind : undefined)}`),
   auditAllStream: (
     onStart: (total: number) => void,
     onProgress: (scanned: number) => void,
@@ -13,7 +13,7 @@ export const auditApi = {
     onError: (err: Error) => void,
     kind?: 'skills' | 'agents',
   ): EventSource =>
-    createSSEStream(BASE + `/audit/stream${kind ? '?kind=' + kind : ''}`, {
+    createSSEStream(BASE + `/audit/stream${kindQuery(kind)}`, {
       start: (d) => onStart(d.total),
       progress: (d) => onProgress(d.scanned),
       done: onDone,

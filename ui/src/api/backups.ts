@@ -1,4 +1,4 @@
-import { apiFetch } from './http';
+import { apiFetch, kindQuery } from './http';
 import type { BackupListResponse, FileBackup, FileBackupVersions, RestoreValidateResponse, TrashListResponse } from './types/backups';
 
 export const backupsApi = {
@@ -36,17 +36,17 @@ export const backupsApi = {
   listTrash: () => apiFetch<TrashListResponse>('/trash'),
   restoreTrash: (name: string, kind?: 'skill' | 'agent') =>
     apiFetch<{ success: boolean }>(
-      `/trash/${encodeURIComponent(name)}/restore${kind ? `?kind=${encodeURIComponent(kind)}` : ''}`,
+      `/trash/${encodeURIComponent(name)}/restore${kindQuery(kind)}`,
       { method: 'POST' },
     ),
   deleteTrash: (name: string, kind?: 'skill' | 'agent') =>
     apiFetch<{ success: boolean }>(
-      `/trash/${encodeURIComponent(name)}${kind ? `?kind=${encodeURIComponent(kind)}` : ''}`,
+      `/trash/${encodeURIComponent(name)}${kindQuery(kind)}`,
       { method: 'DELETE' },
     ),
   emptyTrash: (kind: 'skill' | 'agent' | 'all' = 'all') =>
     apiFetch<{ success: boolean; removed: number }>(
-      `/trash/empty${kind ? `?kind=${encodeURIComponent(kind)}` : ''}`,
+      `/trash/empty${kindQuery(kind)}`,
       { method: 'POST' },
     ),
 };

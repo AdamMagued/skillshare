@@ -70,6 +70,11 @@ export function parseApiErrorPayload(data: any, status: number, statusText: stri
   return { code, message, params };
 }
 
+// kindQuery returns the `?kind=` query for a request, or '' when no kind is given.
+export function kindQuery(kind?: string): string {
+  return kind ? `?kind=${encodeURIComponent(kind)}` : '';
+}
+
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {

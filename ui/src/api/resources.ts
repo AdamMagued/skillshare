@@ -1,27 +1,27 @@
-import { apiFetch } from './http';
+import { apiFetch, kindQuery } from './http';
 import type { BatchToggleResult, BatchUninstallRequest, BatchUninstallResult, CollectResult, CollectScanResult, CreateSkillRequest, CreateSkillResponse, Overview, Skill, SkillFileContent, TemplatesResponse } from './types/resources';
 
 export const resourcesApi = {
   getOverview: () => apiFetch<Overview>('/overview'),
   listSkills: (kind?: 'skill' | 'agent') =>
-    apiFetch<{ resources: Skill[] }>(kind ? `/resources?kind=${kind}` : '/resources'),
+    apiFetch<{ resources: Skill[] }>(`/resources${kindQuery(kind)}`),
   getResource: (name: string, kind?: 'skill' | 'agent') =>
     apiFetch<{ resource: Skill; skillMdContent: string; files: string[] }>(
-      `/resources/${encodeURIComponent(name)}${kind ? `?kind=${kind}` : ''}`
+      `/resources/${encodeURIComponent(name)}${kindQuery(kind)}`
     ),
   deleteResource: (name: string, kind?: 'skill' | 'agent') =>
     apiFetch<{ success: boolean }>(
-      `/resources/${encodeURIComponent(name)}${kind ? `?kind=${kind}` : ''}`,
+      `/resources/${encodeURIComponent(name)}${kindQuery(kind)}`,
       { method: 'DELETE' }
     ),
   disableResource: (name: string, kind?: 'skill' | 'agent') =>
     apiFetch<{ success: boolean; name: string; disabled: boolean }>(
-      `/resources/${encodeURIComponent(name)}/disable${kind ? `?kind=${kind}` : ''}`,
+      `/resources/${encodeURIComponent(name)}/disable${kindQuery(kind)}`,
       { method: 'POST' }
     ),
   enableResource: (name: string, kind?: 'skill' | 'agent') =>
     apiFetch<{ success: boolean; name: string; disabled: boolean }>(
-      `/resources/${encodeURIComponent(name)}/enable${kind ? `?kind=${kind}` : ''}`,
+      `/resources/${encodeURIComponent(name)}/enable${kindQuery(kind)}`,
       { method: 'POST' }
     ),
   batchUninstall: (opts: BatchUninstallRequest) =>
@@ -74,14 +74,14 @@ export const resourcesApi = {
       path: string;
       contentType: string;
       savedAt: string;
-    }>(`/resources/${encodeURIComponent(name)}/content${kind ? `?kind=${kind}` : ''}`, {
+    }>(`/resources/${encodeURIComponent(name)}/content${kindQuery(kind)}`, {
       method: 'PUT',
       body: JSON.stringify({ content }),
     }),
   // Update source URL for a tracked skill or agent.
   updateSkillSource: (name: string, source: string, kind?: 'skill' | 'agent') =>
     apiFetch<{ success: boolean; source: string; repoUrl: string }>(
-      `/resources/${encodeURIComponent(name)}/source${kind ? `?kind=${kind}` : ''}`,
+      `/resources/${encodeURIComponent(name)}/source${kindQuery(kind)}`,
       {
         method: 'PATCH',
         body: JSON.stringify({ source }),
@@ -93,7 +93,7 @@ export const resourcesApi = {
     opts?: { editor?: string; kind?: 'skill' | 'agent' }
   ) =>
     apiFetch<{ editor: string; path: string; pid: number }>(
-      `/resources/${encodeURIComponent(name)}/open-in-editor${opts?.kind ? `?kind=${opts.kind}` : ''}`,
+      `/resources/${encodeURIComponent(name)}/open-in-editor${kindQuery(opts?.kind)}`,
       {
         method: 'POST',
         body: JSON.stringify({ editor: opts?.editor ?? 'auto' }),
