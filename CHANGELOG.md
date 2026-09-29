@@ -26,6 +26,7 @@
 - **MCP tab for `antigravity-cli`** — the `antigravity-cli` target page now has an MCP tab, showing the `~/.gemini/config/mcp_config.json` file it shares with Antigravity.
 - **Dialogs keep focus on their first field** — dialogs that focus a field when they open, such as **Add extra**, moved focus to the close button instead.
 - **Pi's logo in its brand colors** — Pi now shows its coral, blue and yellow logo instead of a black mark.
+- **Sync page lists you can scan** — the expanded **targets in sync** list was one comma-separated line mixing global targets with `<project>@<tool>` ones. It now shows logo chips, global targets apart from each project's. The **ignored** list is grouped by `.skillignore` and `.agentignore` and by folder, so a prefix such as `security/` is written once.
 
 ## [0.21.16] - 2026-09-29
 
