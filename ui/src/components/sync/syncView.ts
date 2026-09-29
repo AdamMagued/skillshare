@@ -166,7 +166,19 @@ export interface SyncRun {
   project?: { root: string; path: string };
 }
 
-/** Writes each included part in order. MCP is checked before anything is written and again right before it applies. */
+/** A target that failed to sync; the rest of the run still went ahead. */
+export interface SyncFailure {
+  target: string;
+  part: 'extra';
+  /** The extra's name */
+  extra: string;
+  error: string;
+}
+
+/**
+ * Writes each included part in order. MCP is checked before anything is written and again right before it applies.
+ * A failed target does not stop the run: it is returned in `failures`, like `skillshare sync --all` reports it.
+ */
 export async function runSync(run: SyncRun) {
   const reviewed = run.mcp;
   const recheck = async () => {
@@ -181,14 +193,19 @@ export async function runSync(run: SyncRun) {
   if (run.resources) {
     resources = await api.sync({ force: run.force, ...(run.resources !== 'both' && { kind: run.resources }), ...(run.project && { project: run.project.root }) });
   }
+  const failures: SyncFailure[] = [];
   if (run.extras) {
     const extras = await api.syncExtras({ force: run.force });
-    const failed = extras.extras.flatMap((e) => e.targets).find((e) => e.error || e.errors?.length);
-    if (failed) throw new Error(failed.error || failed.errors?.join('; '));
+    for (const e of extras.extras) {
+      for (const t of e.targets) {
+        const error = t.error || t.errors?.join('; ');
+        if (error) failures.push({ target: t.target, part: 'extra', extra: e.name, error });
+      }
+    }
   }
   if (reviewed) {
     if (run.project) await mcpApi.syncProject(run.project.path, await recheck());
     else await mcpApi.configure({}, await recheck(), true);
   }
-  return { resources };
+  return { resources, failures };
 }

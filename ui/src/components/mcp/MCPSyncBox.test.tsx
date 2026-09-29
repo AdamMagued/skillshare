@@ -23,7 +23,7 @@ describe('MCP sync box', () => {
 
   it('confirms every pending change, then writes only MCP with the reviewed plan', async () => {
     const user = userEvent.setup();
-    vi.mocked(runSync).mockResolvedValue({ resources: undefined });
+    vi.mocked(runSync).mockResolvedValue({ resources: undefined, failures: [] });
     box();
     await user.click(screen.getByRole('button', { name: 'Sync MCP' }));
     expect(screen.getByText('Also writes 1 change outside this project.')).toBeInTheDocument();

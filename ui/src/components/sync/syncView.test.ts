@@ -80,6 +80,17 @@ describe('runSync', () => {
     expect(mcpApi.configure).toHaveBeenCalledWith({}, 'after', true);
   });
 
+  it('reports a failed extras target and still applies MCP', async () => {
+    vi.mocked(mcpApi.preview).mockResolvedValue(plan);
+    vi.mocked(api.syncExtras).mockResolvedValueOnce({ extras: [{ name: 'rules', targets: [
+      { target: 'claude', mode: 'merge', synced: 0, skipped: 0, pruned: 0, error: 'permission denied' },
+      { target: 'codex', mode: 'merge', synced: 1, skipped: 0, pruned: 0 },
+    ] }] });
+    const { failures } = await runSync(run);
+    expect(failures).toEqual([{ target: 'claude', part: 'extra', extra: 'rules', error: 'permission denied' }]);
+    expect(mcpApi.configure).toHaveBeenCalled();
+  });
+
   it('stops before MCP when its changes differ after syncing resources', async () => {
     vi.mocked(mcpApi.preview).mockResolvedValueOnce(plan).mockResolvedValueOnce({ ...plan, revision: 'after', changes: [{ ...change, action: 'remove' }] });
     await expect(runSync(run)).rejects.toThrow(MCP_CHANGED);

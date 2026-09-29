@@ -11,7 +11,7 @@ import PageHeader from '../components/PageHeader';
 import Spinner from '../components/Spinner';
 import { useToast } from '../components/Toast';
 import { describeMessage, mcpClient, targetLabel } from '../components/mcp/mcpView';
-import { countChanges, countEdited, extraGroups, groupByFolder, groupInSync, MCP_CHANGED, mcpGroups, resourceGroups, runSync, type ChangeGroup, type Part, type RowIcon } from '../components/sync/syncView';
+import { countChanges, countEdited, extraGroups, groupByFolder, groupInSync, MCP_CHANGED, mcpGroups, resourceGroups, runSync, type ChangeGroup, type Part, type RowIcon, type SyncFailure } from '../components/sync/syncView';
 import SkillsOffDialog from '../components/targets/SkillsOffDialog';
 import { joinList, refreshTargets } from '../components/targets/targetView';
 import { formatDateTime, formatRelativeTime, useI18n, useT } from '../i18n';
@@ -73,6 +73,7 @@ export default function SyncPage() {
   const [running, setRunning] = useState(false);
   const [runError, setRunError] = useState('');
   const [outcome, setOutcome] = useState<SyncResponse | null>(null);
+  const [failures, setFailures] = useState<SyncFailure[]>([]);
   const [stopping, setStopping] = useState('');
 
   const plan = mcp.data?.plan;
@@ -107,14 +108,16 @@ export default function SyncPage() {
     setRunning(true);
     setRunError('');
     setOutcome(null);
+    setFailures([]);
     try {
-      const { resources: result } = await runSync({
+      const { resources: result, failures: failed } = await runSync({
         resources: parts.has('skill') && parts.has('agent') ? 'both' : parts.has('skill') ? 'skill' : parts.has('agent') ? 'agent' : null,
         extras: parts.has('extra') && !!extras.data?.extras.length,
         mcp: parts.has('mcp') && plan && !plan.blocked && plan.changes.some((c) => c.action !== 'unchanged') ? plan : null,
         force,
       });
       setOutcome(result ?? null);
+      setFailures(failed);
       toast(t('sync.toast.done'), 'success');
     } catch (err) {
       const message = (err as Error).message;
@@ -187,6 +190,7 @@ export default function SyncPage() {
             </div>
           )}
           {parts.has('mcp') && mcp.data?.previewError && <div className="ss-note bad"><AlertCircle size={16} /><span className="flex-1">{mcp.data.previewError}</span></div>}
+          {failures.map((f) => <div key={`${f.extra}/${f.target}`} className="ss-note bad"><AlertCircle size={16} /><span className="flex-1">{f.extra} → {f.target}: {f.error}</span></div>)}
           {outcome?.warnings?.map((w) => <div key={w} className="ss-note warn"><TriangleAlert size={16} /><span className="flex-1">{w}</span></div>)}
           {!!outcome?.path_overlap && (
             <div className="ss-note warn !items-center">
