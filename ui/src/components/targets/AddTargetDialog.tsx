@@ -135,7 +135,7 @@ export default function AddTargetDialog({ available, initial, existing, targets 
     const on = !custom && draft.name === a.name;
     const reads = a.readsFrom?.length ? a.readsFrom : null;
     return (
-      <div key={a.name} className={`ss-r !block !p-0 ${on ? 'rounded-xl !bg-surface shadow-[inset_0_0_0_1.5px_var(--ink)]' : ''}`}>
+      <div key={a.name} className={`ss-r !block !p-0 ${on ? 'sel' : ''}`}>
         <button
           type="button"
           role="radio"
