@@ -190,6 +190,8 @@ skillshare uninstall --group frontend --dry-run
 skillshare uninstall my-skill --json
 ```
 
+**Safety:** Tracked repos with uncommitted changes are skipped, and repos whose git status cannot be read fail. Use `--force` to override both.
+
 **Group auto-detection:** When uninstalling a directory that contains sub-skills, the confirmation prompt shows `Uninstalling group (N skills)` with a list of contained skills.
 
 **Undo:** `skillshare trash restore <name>` to recover. See [trash.md](trash.md).

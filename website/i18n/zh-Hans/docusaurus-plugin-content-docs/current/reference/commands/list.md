@@ -323,6 +323,7 @@ skillshare install owner/repo -s vue-patterns --into frontend
 |------|---------|
 | `✓` | Up-to-date, no local changes |
 | `!` | Has uncommitted changes |
+| `!` + warning | Git status unknown (could not be read); a warning line names the repo and error |
 
 ## Agent 支持
 

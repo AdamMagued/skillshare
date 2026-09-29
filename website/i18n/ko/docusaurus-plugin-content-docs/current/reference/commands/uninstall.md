@@ -173,6 +173,7 @@ skillshare uninstall frontend/hooks -G frontend --force  # hooks removed once
 tracked repository(`_`로 시작하는 폴더)의 경우:
 
 - 커밋되지 않은 변경 사항을 확인합니다(재정의하려면 `--force` 사용)
+- skillshare가 repo의 git status를 읽을 수 없으면 `failed to check git status`로 실패합니다. 배치의 다른 항목은 계속 제거되며, `--force`를 사용하면 이 확인을 건너뜁니다
 - `.gitignore`에서 항목을 자동으로 제거합니다
 - uninstall 시 `_` 접두사는 선택 사항입니다
 
@@ -294,7 +295,7 @@ Project mode에서 uninstall은 다음을 수행합니다.
 - `.skillshare/config.yaml`의 `skills:` 목록에서 skill 항목을 제거합니다(remote skill의 경우)
 - `.skillshare/.gitignore`에서 항목을 제거합니다(remote/tracked skill의 경우)
 - `.skillshare/skills.lock.json`에서 skill의 고정을 제거합니다(group의 경우 그 아래의 모든 고정)
-- tracked repo의 경우: 커밋되지 않은 변경 사항을 확인합니다(재정의하려면 `--force` 사용)
+- tracked repo의 경우: 커밋되지 않은 변경 사항을 확인하고, git status를 읽을 수 없으면 실패합니다(둘 다 재정의하려면 `--force` 사용)
 - `_` 접두사는 선택 사항입니다 — 자동 감지됨
 
 ```bash

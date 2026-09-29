@@ -311,6 +311,7 @@ skillshare install owner/repo -s vue-patterns --into frontend
 |------|------|
 | `✓` | 最新，沒有本地變更 |
 | `!` | 有未提交的變更 |
+| `!` + 警告 | Git 狀態不明（無法讀取）；會有一行警告指出該 repo 與錯誤 |
 
 ## Agent 支援
 

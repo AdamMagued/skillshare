@@ -613,7 +613,7 @@ skillshare sync --all             # 同步 skills + agents + extras + MCP
 | `--dry-run` | `-n` | 预览变更但不写入 |
 | `--force` | `-f` | 覆盖 target 上冲突的文件 |
 
-extras sync 发生错误时，`--json` 会以非零状态退出。对单文件 extra，`--dry-run` 也会指出哪些修改将在替换前备份。
+extras sync 发生错误时，`--json` 会以非零状态退出。无论是否使用 `--json`，只要有 extras target 失败，`sync --all` 也会以非零状态退出。source 目录不存在的 extra 会被跳过并显示提示，而不会被创建。对单文件 extra，`--dry-run` 也会指出哪些修改将在替换前备份。
 
 :::info 两种模式都支持
 `sync extras` 在 global mode 和 project mode 下都能运行。使用 `sync --all`

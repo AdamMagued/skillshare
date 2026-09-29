@@ -311,6 +311,7 @@ skillshare install owner/repo -s vue-patterns --into frontend
 |------|---------|
 | `✓` | 최신 상태, 로컬 변경 없음 |
 | `!` | 커밋되지 않은 변경 사항 있음 |
+| `!` + 경고 | git 상태를 알 수 없음(읽을 수 없음). 경고 줄에 repo와 오류가 표시됨 |
 
 ## Agent Support
 

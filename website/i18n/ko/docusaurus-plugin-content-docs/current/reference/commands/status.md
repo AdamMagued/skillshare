@@ -76,7 +76,7 @@ source 디렉터리 위치, skill 개수, 마지막 수정 시간을 표시합�
 
 `--track`으로 설치된 git repository를 나열합니다. 다음을 표시합니다.
 - repository별 skill 개수
-- git 상태(up-to-date 또는 변경 사항 있음)
+- git 상태(up-to-date, 변경 사항 있음, 또는 git status를 읽을 수 없으면 unknown. 경고에 repo와 오류가 표시됨)
 
 ### Targets
 
@@ -196,6 +196,8 @@ skillshare status --json
   "version": "0.17.0"
 }
 ```
+
+git status를 읽을 수 없는 tracked repo는 `"status": "unknown"`이 되고 `message`에 오류가 담깁니다. 이때 `dirty`는 false이며 의미가 없습니다.
 
 `source.skillignore` 필드는 `.skillignore` 또는 `.skillignore.local` file이 하나 이상 존재할 때만 나타납니다. 없을 경우: `"skillignore": { "active": false }`. `files` 배열은 존재하는 경우 `.skillignore.local` 경로를 포함합니다. text mode에서는 `.skillignore.local`이 적용 중이면 source 줄에 `.local active`가 표시됩니다.
 

@@ -395,6 +395,8 @@ skillshare update _team-skills
 skillshare update _team-skills --force
 ```
 
+如果 skillshare 無法讀取該儲存庫的 git status，該儲存庫的更新會以 `failed to check git status` 失敗；`--force` 會略過此檢查。
+
 ## 更新後
 
 執行 `skillshare sync` 將變更分發到所有 targets：
@@ -446,6 +448,8 @@ skillshare update team-skills -p
 # 選項 2：捨棄並強制更新
 skillshare update team-skills -p --force
 ```
+
+如果 skillshare 無法讀取該儲存庫的 git status，該儲存庫的更新會以 `failed to check git status` 失敗；`--force` 會略過此檢查。
 
 ### 典型工作流程
 

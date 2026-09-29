@@ -76,7 +76,7 @@ Version
 
 列出以 `--track` 安裝的 git 儲存庫，顯示：
 - 每個儲存庫的 skill 數量
-- Git 狀態（已是最新或有變更）
+- Git 狀態（已是最新、有變更，或無法讀取 git status 時為 unknown；警告會指出該儲存庫與錯誤）
 
 ### Targets
 
@@ -196,6 +196,8 @@ skillshare status --json
   "version": "0.17.0"
 }
 ```
+
+無法讀取 git status 的 tracked repo 會顯示 `"status": "unknown"`，`message` 中包含錯誤訊息；此時 `dirty` 為 false，且不具意義。
 
 `source.skillignore` 欄位只有在至少存在一個 `.skillignore` 或 `.skillignore.local` 檔案時才會出現。若不存在則為：`"skillignore": { "active": false }`。`files` 陣列在有 `.skillignore.local` 時也會包含其路徑。在文字模式下，若有任何 `.skillignore.local` 生效，source 那一行會顯示 `.local active`。
 

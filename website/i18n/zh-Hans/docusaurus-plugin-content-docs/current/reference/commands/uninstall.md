@@ -178,6 +178,7 @@ skillshare uninstall frontend/hooks -G frontend --force  # hooks removed once
 对于 tracked repositories（以 `_` 开头的文件夹）：
 
 - 检查是否有未提交的更改（使用 `--force` 覆盖）
+- 当 skillshare 无法读取该仓库的 git status 时，以 `failed to check git status` 失败；批次中的其他项目仍会被移除，`--force` 会跳过此检查
 - 自动从 `.gitignore` 中移除该条目
 - Uninstall 时 `_` 前缀是可选的
 
@@ -299,7 +300,7 @@ skillshare uninstall team-skills -p                # Tracked repo (_ prefix opti
 - 从 `.skillshare/config.yaml` 的 `skills:` 列表中移除该 skill 的条目（对于远程 skills）
 - 从 `.skillshare/.gitignore` 中移除该条目（对于远程/tracked skills）
 - 从 `.skillshare/skills.lock.json` 中移除该 skill 的固定（对于 group，则移除其下的所有固定）
-- 对于 tracked repos：检查是否有未提交的更改（使用 `--force` 覆盖）
+- 对于 tracked repos：检查是否有未提交的更改，并在无法读取 git status 时失败（使用 `--force` 可同时覆盖两者）
 - `_` 前缀是可选的——会自动检测
 
 ```bash

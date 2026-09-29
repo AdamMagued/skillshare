@@ -395,6 +395,8 @@ skillshare update _team-skills
 skillshare update _team-skills --force
 ```
 
+skillshare가 repo의 git status를 읽을 수 없으면 해당 repo의 업데이트는 `failed to check git status`로 실패합니다. `--force`를 사용하면 이 확인을 건너뜁니다.
+
 ## 업데이트 후
 
 모든 target에 변경 사항을 배포하려면 `skillshare sync`를 실행하세요:
@@ -446,6 +448,8 @@ skillshare update team-skills -p
 # 옵션 2: 버리고 강제 업데이트
 skillshare update team-skills -p --force
 ```
+
+skillshare가 repo의 git status를 읽을 수 없으면 해당 repo의 업데이트는 `failed to check git status`로 실패합니다. `--force`를 사용하면 이 확인을 건너뜁니다.
 
 ### 일반적인 워크플로
 

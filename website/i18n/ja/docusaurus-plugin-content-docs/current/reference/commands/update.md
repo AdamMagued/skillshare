@@ -395,6 +395,8 @@ skillshare update _team-skills
 skillshare update _team-skills --force
 ```
 
+skillshare がリポジトリの git status を読み取れない場合、そのリポジトリの更新は `failed to check git status` で失敗します。`--force` を使うとこのチェックをスキップします。
+
 ## 更新後
 
 `skillshare sync` を実行して、すべての targets に変更を反映します。
@@ -446,6 +448,8 @@ skillshare update team-skills -p
 # オプション 2: 破棄して強制更新する
 skillshare update team-skills -p --force
 ```
+
+skillshare がリポジトリの git status を読み取れない場合、そのリポジトリの更新は `failed to check git status` で失敗します。`--force` を使うとこのチェックをスキップします。
 
 ### 典型的なワークフロー
 

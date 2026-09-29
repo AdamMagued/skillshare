@@ -173,6 +173,7 @@ skillshare uninstall frontend/hooks -G frontend --force  # hooks removed once
 For tracked repositories (folders starting with `_`):
 
 - Checks for uncommitted changes (use `--force` to override)
+- Fails with `failed to check git status` when skillshare cannot read the repo's git status; other items in the batch are still removed, and `--force` skips the check
 - Automatically removes the entry from `.gitignore`
 - The `_` prefix is optional when uninstalling
 
@@ -294,7 +295,7 @@ In project mode, uninstall:
 - Removes the skill's entry from `.skillshare/config.yaml` `skills:` list (for remote skills)
 - Removes the entry from `.skillshare/.gitignore` (for remote/tracked skills)
 - Removes the skill's pin from `.skillshare/skills.lock.json` (for a group, every pin under it)
-- For tracked repos: checks for uncommitted changes (use `--force` to override)
+- For tracked repos: checks for uncommitted changes, and fails when the git status cannot be read (use `--force` to override both)
 - The `_` prefix is optional — auto-detected
 
 ```bash

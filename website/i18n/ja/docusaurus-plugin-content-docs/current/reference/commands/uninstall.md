@@ -173,6 +173,7 @@ skillshare uninstall frontend/hooks -G frontend --force  # hooks は 1 回だけ
 tracked repositories（`_` で始まるフォルダ）の場合:
 
 - 未コミットの変更を確認します（上書きするには `--force` を使用）
+- skillshare がリポジトリの git status を読み取れない場合は `failed to check git status` で失敗します。バッチ内の他の項目は引き続き削除され、`--force` を使うとこのチェックをスキップします
 - `.gitignore` からエントリを自動的に削除します
 - uninstall 時に `_` prefix は省略可能です
 
@@ -294,7 +295,7 @@ project mode では、uninstall は以下を行います:
 - `.skillshare/config.yaml` の `skills:` リストから skill のエントリを削除（remote skill の場合）
 - `.skillshare/.gitignore` からエントリを削除（remote/tracked skill の場合）
 - `.skillshare/skills.lock.json` から skill の固定を削除（グループの場合は、その配下のすべての固定）
-- tracked repos の場合: 未コミットの変更を確認（上書きするには `--force` を使用）
+- tracked repos の場合: 未コミットの変更を確認し、git status を読み取れない場合は失敗（どちらも `--force` で上書き可能）
 - `_` prefix は省略可能 — 自動検出される
 
 ```bash
