@@ -3,9 +3,9 @@ import { AlertCircle, CircleCheck, TriangleAlert } from 'lucide-react';
 import AgentIcon from '../AgentIcon';
 import Button from '../Button';
 import { useT } from '../../i18n';
-import type { SyncFailure } from './syncView';
+import { failureExplanation, type SyncFailure } from './syncView';
 
-const PART_TAG: Record<SyncFailure['part'], string> = { skill: 'Skills', agent: 'Agents', extra: 'Extras' };
+const PART_TAG: Record<SyncFailure['part'], string> = { skill: 'Skills', agent: 'Agents', extra: 'Extras', config: 'Config' };
 
 interface Props {
   failures: SyncFailure[];
@@ -38,6 +38,7 @@ export default function SyncResult({ failures, warnings, synced, force, onForce 
                   <span className="font-semibold">{f.target}</span>
                   <span className="ss-tag">{f.extra ? `${PART_TAG[f.part]} · ${f.extra}` : PART_TAG[f.part]}</span>
                 </div>
+                <Explanation failure={f} />
                 <span className="break-words font-mono text-[12px] text-ink-2">{f.error}</span>
               </div>
               {f.conflict && !force ? (
@@ -63,4 +64,11 @@ export default function SyncResult({ failures, warnings, synced, force, onForce 
       )}
     </section>
   );
+}
+
+/** What went wrong, in plain words, when the error is a known case. */
+function Explanation({ failure }: { failure: SyncFailure }) {
+  const t = useT();
+  const key = failureExplanation(failure);
+  return key ? <span className="text-[13px]">{t(key)}</span> : null;
 }

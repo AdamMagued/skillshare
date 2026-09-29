@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api, type DiffTarget, type Target } from '../../api/client';
 import { mcpApi, type MCPPlan } from '../../api/mcp';
-import { countChanges, countEdited, extraGroups, groupByFolder, groupInSync, MCP_CHANGED, mcpGroups, otherWarnings, pendingCount, resourceGroups, runSync } from './syncView';
+import { countChanges, countEdited, extraGroups, failureExplanation, groupByFolder, groupInSync, MCP_CHANGED, mcpGroups, otherWarnings, pendingCount, resourceGroups, runSync, type SyncFailure } from './syncView';
 
 vi.mock('../../api/client', async (load) => ({ ...await load<typeof import('../../api/client')>(), api: { sync: vi.fn(), syncExtras: vi.fn() } }));
 vi.mock('../../api/mcp', async (load) => ({ ...await load<typeof import('../../api/mcp')>(), mcpApi: { preview: vi.fn(), configure: vi.fn() } }));
@@ -149,5 +149,26 @@ describe('otherWarnings', () => {
       warnings: ['codex: sync failed: denied', 'backup skipped'],
       failed: [{ target: 'codex', part: 'skill' as const, error: 'denied', message: 'codex: sync failed: denied' }] };
     expect(otherWarnings(res)).toEqual(['backup skipped']);
+  });
+});
+
+describe('failureExplanation', () => {
+  const failure = (error: string, extra: Partial<SyncFailure> = {}): SyncFailure => ({ target: 'codex', part: 'skill', error, ...extra });
+
+  it.each([
+    ['symlink conflict', failure('conflict - symlink points to /x (use --force to override)', { conflict: true }), 'sync.result.why.conflict'],
+    ['permission denied', failure('mkdir /home/me/.codex/skills: permission denied'), 'sync.result.why.permission'],
+    ['read-only file system', failure('open /mnt/skills/a: read-only file system'), 'sync.result.why.readOnly'],
+    ['not a directory', failure('mkdir /home/me/.codex/skills: not a directory'), 'sync.result.why.notDir'],
+    ['no such file or directory', failure('lstat /home/me/.codex: no such file or directory'), 'sync.result.why.missing'],
+    ['Windows access denial', failure('mkdir C:\\Users\\me\\.codex\\skills: Access is denied.'), 'sync.result.why.permission'],
+    ['Windows missing path', failure('open C:\\x: The system cannot find the path specified.'), 'sync.result.why.missing'],
+    ['invalid target settings', failure('unknown mode "mirror"', { part: 'config' }), 'sync.result.why.config'],
+  ])('explains a %s', (_, f, key) => {
+    expect(failureExplanation(f)).toBe(key);
+  });
+
+  it('leaves an unknown error unexplained', () => {
+    expect(failureExplanation(failure('disk quota exceeded'))).toBeNull();
   });
 });

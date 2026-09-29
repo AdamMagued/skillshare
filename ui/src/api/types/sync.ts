@@ -59,7 +59,8 @@ export function formatTokenK(n: number): string {
 /** A target that failed to sync while the others went ahead. */
 export interface SyncTargetFailure {
   target: string;
-  part: 'skill' | 'agent';
+  /** 'config': the target's settings are invalid, so it was skipped */
+  part: 'skill' | 'agent' | 'config';
   error: string;
   /** The same text as its entry in warnings */
   message: string;

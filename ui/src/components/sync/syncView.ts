@@ -169,12 +169,33 @@ export interface SyncRun {
 /** A target that failed to sync; the rest of the run still went ahead. */
 export interface SyncFailure {
   target: string;
-  part: 'skill' | 'agent' | 'extra';
+  /** 'config': the target's settings are invalid, so it was skipped */
+  part: 'skill' | 'agent' | 'extra' | 'config';
   /** The extra's name, for an extras target */
   extra?: string;
   error: string;
   /** A symlink points elsewhere; Force replaces it */
   conflict?: boolean;
+}
+
+// OS error texts (Go's syscall messages) and the explanation each gets; read-only first, as it also denies writes.
+const KNOWN_ERRORS: [string, string][] = [
+  ['read-only file system', 'sync.result.why.readOnly'],
+  ['permission denied', 'sync.result.why.permission'],
+  ['access is denied', 'sync.result.why.permission'],
+  ['not a directory', 'sync.result.why.notDir'],
+  ['the directory name is invalid', 'sync.result.why.notDir'],
+  ['no such file or directory', 'sync.result.why.missing'],
+  ['cannot find the path specified', 'sync.result.why.missing'],
+  ['cannot find the file specified', 'sync.result.why.missing'],
+];
+
+/** An i18n key explaining a failed target in plain words, or null when the error is not a known case. */
+export function failureExplanation(f: SyncFailure): string | null {
+  if (f.part === 'config') return 'sync.result.why.config';
+  if (f.conflict) return 'sync.result.why.conflict';
+  const error = f.error.toLowerCase();
+  return KNOWN_ERRORS.find(([text]) => error.includes(text))?.[1] ?? null;
 }
 
 /** The sync warnings that are not also reported as a failed target. */
