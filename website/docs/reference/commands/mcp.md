@@ -621,7 +621,7 @@ With `--json`, the report has this shape:
       "name": "docs",
       "ok": false,
       "findings": [
-        { "level": "error", "check": "env", "target": "", "message": "bearerToken reads DOCS_TOKEN, which is not set" },
+        { "level": "error", "check": "env", "target": "", "message": "bearerToken reads DOCS_TOKEN, which is not set", "subject": "DOCS_TOKEN" },
         { "level": "warning", "check": "sync", "target": "claude", "message": "not synced yet; run skillshare sync mcp" }
       ]
     }
@@ -633,6 +633,13 @@ With `--json`, the report has this shape:
 `check` is one of `env`, `command`, `url`, `dns`, `client-rule`, `sync` or `targets`.
 `target` names the Agent or account, and is empty when the finding is about the
 server itself.
+`subject` names the variable, command or host for `env`, `command` and `dns`
+findings, and is omitted otherwise.
+
+In the dashboard, the **Check** button on the MCP page runs the same check. It runs
+only when clicked, shows a summary above the server list and each error or warning
+under its server, and keeps nothing after the page reloads. Variables are read from
+the terminal that started `skillshare ui`.
 
 ## Stop managing a server {#stop-managing-a-server}
 
