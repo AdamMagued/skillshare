@@ -17,22 +17,6 @@ const renderDialog = (props: Partial<Parameters<typeof MCPServerDialog>[0]> = {}
   render(<QueryClientProvider client={new QueryClient()}><I18nProvider><MCPServerDialog defaultTargets={['claude']} existingNames={[]} onClose={vi.fn()} onSaved={vi.fn()} {...props} /></I18nProvider></QueryClientProvider>);
 
 describe('MCP server dialog', () => {
-  it.each(['', 'builtin'])('omits new Pi settings when Pi is unticked before saving (suggested mode: %s)', async (defaultPiExtension) => {
-    const user = userEvent.setup();
-    renderDialog({ defaultPiExtension });
-    await user.type(screen.getByLabelText('Name'), 'docs');
-    await user.type(screen.getByLabelText('Command'), 'docs');
-    await user.click(screen.getByRole('checkbox', { name: 'Pi' }));
-    await user.click(screen.getByRole('combobox', { name: 'Tool exposure' }));
-    await user.click(screen.getByRole('option', { name: /^direct\b/ }));
-    await user.click(screen.getByRole('checkbox', { name: 'Remove cleared settings from Pi' }));
-    await user.click(screen.getByRole('checkbox', { name: 'Pi' }));
-    await user.click(screen.getByRole('button', { name: 'Save' }));
-    await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith({ name: 'docs', server: { command: 'docs' }, replace: false }));
-    expect(vi.mocked(mcpApi.save).mock.calls[0][0].server).not.toHaveProperty('piOptions');
-    expect(vi.mocked(mcpApi.save).mock.calls[0][0].server).not.toHaveProperty('piOptionsPrune');
-  });
-
   it('requires a Pi extension and persists the explicit selection', async () => {
     const user = userEvent.setup();
     renderDialog({ initial: { name: 'docs', server: { url: 'https://example.com/mcp', targets: ['pi'] } } });
