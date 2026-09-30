@@ -110,7 +110,7 @@ export default function MCPConfigView({ mutation }: { mutation: MCPMutation }) {
 export function MCPConfigDialog({ mutation, onClose }: { mutation: MCPMutation; onClose: () => void }) {
   const t = useT();
   return (
-    <DialogShell open onClose={onClose} padding="none" ariaLabel={t('mcp.viewConfig')} className="!max-w-[720px]">
+    <DialogShell open onClose={onClose} padding="none" ariaLabel={t('mcp.viewConfig')} className="!max-w-[880px]">
       <div className="dh">
         <div className="flex min-w-0 flex-col gap-1"><h2 className="ss-h2">{t('mcp.viewConfig')}</h2><p className="truncate font-mono text-xs text-ink-3">{mutation.name}</p></div>
         <IconButton icon={<X size={16} />} label={t('common.close')} onClick={onClose} />

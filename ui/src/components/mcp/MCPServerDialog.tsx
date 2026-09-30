@@ -310,7 +310,7 @@ export default function MCPServerDialog({ initial, defaultTargets, existingNames
   };
 
   return (
-    <DialogShell open onClose={onClose} padding="none" preventClose={saving} ariaLabel={title} className="!max-w-[720px]">
+    <DialogShell open onClose={onClose} padding="none" preventClose={saving} ariaLabel={title} className="!max-w-[880px]">
       <div className="dh">
         <h2 className="ss-h2">{viewing ? t('mcp.viewConfig') : title}</h2>
         <button type="button" className="ss-ib" aria-label={t('common.close')} onClick={onClose} disabled={saving}><X size={16} /></button>
