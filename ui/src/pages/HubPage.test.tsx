@@ -174,3 +174,24 @@ it('gives an added hub a label no other hub has', async () => {
   await waitFor(() => expect(api.putHubConfig).toHaveBeenCalled());
   expect(vi.mocked(api.putHubConfig).mock.calls[0][0].hubs[1].label).toBe('skillshare-hub.json (2)');
 });
+
+it('opens on the built-in hub and stars it when no default is saved', async () => {
+  vi.mocked(hubDrafts.list).mockResolvedValue([]);
+  vi.mocked(api.getHubConfig).mockResolvedValue({ hubs: [{ label: 'acme', url: 'https://acme.dev/hub.json' }], default: '' });
+  renderPage();
+  const builtIn = await screen.findByRole('button', { name: /Skillshare Hub/ });
+  await waitFor(() => expect(builtIn).toHaveAttribute('aria-current', 'true'));
+  expect(within(builtIn).getByLabelText('Default')).toBeInTheDocument();
+  expect(within(screen.getByRole('button', { name: /acme/ })).queryByLabelText('Default')).not.toBeInTheDocument();
+});
+
+it('opens on the saved default hub without offering to make it the default', async () => {
+  vi.mocked(hubDrafts.list).mockResolvedValue([]);
+  vi.mocked(api.getHubConfig).mockResolvedValue({ hubs: [{ label: 'acme', url: 'https://acme.dev/hub.json' }], default: 'Acme' });
+  renderPage();
+  const acme = await screen.findByRole('button', { name: /acme/ });
+  await waitFor(() => expect(acme).toHaveAttribute('aria-current', 'true'));
+  expect(within(acme).getByLabelText('Default')).toBeInTheDocument();
+  expect(within(screen.getByRole('button', { name: /Skillshare Hub/ })).queryByLabelText('Default')).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Make default' })).not.toBeInTheDocument();
+});

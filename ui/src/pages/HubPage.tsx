@@ -38,7 +38,7 @@ export default function HubPage() {
     queryFn: () => api.getHubConfig(),
     staleTime: staleTimes.config,
   });
-  const { data: drafts = [] } = useQuery({ queryKey: queryKeys.hub.drafts, queryFn: () => hubDrafts.list() });
+  const { data: drafts = [], isPending: draftsPending } = useQuery({ queryKey: queryKeys.hub.drafts, queryFn: () => hubDrafts.list() });
 
   // A subscription to one of the user's own published hubs is the same hub; show it once.
   const saved = useMemo(() => {
@@ -46,8 +46,9 @@ export default function HubPage() {
     const rest = (config?.hubs ?? []).filter((h) => !sameURL(h.url, COMMUNITY.url) && !own.some((u) => sameURL(u, h.url)));
     return [COMMUNITY, ...rest];
   }, [config, drafts]);
+  // With no default saved, `search --hub` falls back to the built-in hub, so that one is the default.
   const isDefault = (hub: HubSavedEntry) =>
-    Boolean(config?.default) && hub.label.toLowerCase() === config!.default.toLowerCase();
+    config?.default ? hub.label.toLowerCase() === config.default.toLowerCase() : hub.builtIn === true;
 
   const items: HubListItem[] = [
     ...saved.map((h) => ({ key: h.url, label: h.label, sub: h.url, mine: false, isDefault: isDefault(h) })),
@@ -62,7 +63,9 @@ export default function HubPage() {
   ];
 
   // Open on the user's own hub when there is one; that is the one they came to work on.
-  const selected = picked && items.some((i) => i.key === picked) ? picked : drafts[0] ? DRAFT + drafts[0].id : picked;
+  // Otherwise open on the hub installs come from, once it is known there is no own hub.
+  const fallback = draftsPending ? null : (items.find((i) => i.isDefault) ?? items[0])?.key ?? null;
+  const selected = picked && items.some((i) => i.key === picked) ? picked : drafts[0] ? DRAFT + drafts[0].id : fallback;
   const draftId = selected?.startsWith(DRAFT) ? selected.slice(DRAFT.length) : undefined;
   const hub = draftId ? undefined : saved.find((h) => h.url === selected);
   const current = items.find((i) => i.key === selected);
