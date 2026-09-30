@@ -105,6 +105,8 @@ _skillshare() {
                         '--dry-run[Preview changes]' \
                         '--json[JSON output]' \
                         '--no-dns[Skip host lookups]' \
+                        '--live[check: start or call each server]' \
+                        '--timeout[check --live: per-server timeout]:duration:' \
                         '--no-tui[Disable interactive menus]' \
                         $global_flags \
                         '--help[Show help]'

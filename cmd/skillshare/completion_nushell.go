@@ -71,6 +71,8 @@ export extern "skillshare mcp" [
     --dry-run(-n)
     --json
     --no-dns # Skip host lookups
+    --live # check: start or call each server
+    --timeout: string # check --live: per-server timeout, such as 10s
     --no-tui
     --project(-p)
     --global(-g)

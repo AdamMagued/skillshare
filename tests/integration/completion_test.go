@@ -75,6 +75,8 @@ func TestCompletion_MCPCheck_AllShells(t *testing.T) {
 		result.AssertSuccess(t)
 		result.AssertOutputContains(t, subcommands)
 		result.AssertOutputContains(t, "no-dns")
+		result.AssertOutputContains(t, "live")
+		result.AssertOutputContains(t, "timeout")
 	}
 }
 

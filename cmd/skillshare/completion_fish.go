@@ -48,6 +48,8 @@ complete -c skillshare -n '__fish_skillshare_using_command mcp' -l direct-tools 
 complete -c skillshare -n '__fish_skillshare_using_command mcp' -l pi-options -r -d 'builtin or adapter: other per-server fields as JSON'
 complete -c skillshare -n '__fish_skillshare_using_command mcp' -l pi-options-prune -d 'Remove only owned unchanged Pi fields (=false disables)'
 complete -c skillshare -n '__fish_skillshare_using_command mcp' -l no-dns -d 'Skip host lookups'
+complete -c skillshare -n '__fish_skillshare_using_command mcp' -l live -d 'check: start or call each server'
+complete -c skillshare -n '__fish_skillshare_using_command mcp' -l timeout -r -d 'check --live: per-server timeout'
 complete -c skillshare -n '__fish_skillshare_using_command mcp' -a 'add check import list remove restore'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a status -d 'Show status of all targets'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a diff -d 'Show differences between source and targets'
