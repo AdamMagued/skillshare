@@ -213,7 +213,7 @@ JSON 条目会按照文件自身的缩进方式，逐字段单独一行写入。
 在 project mode 中无法被选中。右侧的 **Sync** 框列出了尚未写入的
 更改：勾选某个 client 只会编辑 source。**Sync MCP** 会列出这些更改，并在你确认后
 只写入 MCP 配置文件，同时为每个文件保留一份备份。同一个框中分隔线下方，
-有 server 时会出现 **检查**，用于[检查这些 server](#check-servers-before-an-agent-starts-them)；**Backups and restore**
+有 server 时会出现 **检查**，用于[检查这些 server](#check-servers-before-an-agent-starts-them)；**备份与还原**
 用于浏览这些备份。在其下方，**Agents** 列出了此机器上检测到的 client。当某个
 client 的 MCP 文件存在，或该 client 用于保存设置的文件夹存在时，就算作
 已检测到，因此即使是全新安装、还没有 MCP 文件，也仍会出现在列表中。在 project mode 下，
@@ -464,7 +464,7 @@ mcp:
 - **Skillshare 自身定义的 server 不需要这个方法。** 只需在该 server 上取消选择
   该 Agent，下一次同步就会移除它的条目。
 
-在仪表盘中，这就是 **关闭全局服务器** 按钮。在 project mode 中它位于 **Servers** 标题旁边；
+在仪表盘中，这就是 **关闭全局服务器** 按钮。在 project mode 中它位于 **服务器** 标题旁边；
 在项目的 MCP 标签页中，则位于 **添加服务器** 旁边。
 
 ## 通过 global 配置管理多个项目 {#manage-several-projects-from-the-global-config}

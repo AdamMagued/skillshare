@@ -209,7 +209,7 @@ JSON 항목은 파일 자체의 들여쓰기에 맞춰 필드마다 한 줄씩 �
 client는 project mode에서 선택할 수 없습니다. 오른쪽의 **Sync** 박스는 아직 작성되지
 않은 변경 사항을 나열합니다: client를 체크하면 source만 편집됩니다. **Sync MCP**는 그
 변경 사항을 나열하고, 확인하면 MCP 설정 파일만 작성하며 각 파일의 백업을 남깁니다. 같은 박스의 구분선 아래에서는 서버가 있으면
-**검사**로 [서버를 검사](#check-servers-before-an-agent-starts-them)하고, **Backups and restore**로 그 백업을 살펴볼 수 있습니다.
+**검사**로 [서버를 검사](#check-servers-before-an-agent-starts-them)하고, **백업 및 복원**로 그 백업을 살펴볼 수 있습니다.
 그 아래의 **Agents**는 이 머신에서 감지된 client를
 나열합니다. client의 MCP 파일이 존재하거나, 해당 client가 설정을 보관하는 폴더가
 존재하면 감지된 것으로 간주하므로, MCP 파일이 아직 없는 새 설치도 표시됩니다. project
@@ -464,7 +464,7 @@ mcp:
 - **Skillshare가 직접 정의하는 서버는 이것이 필요 없습니다.** 대신 해당 서버에서
   Agent 선택을 해제하면, 다음 sync에서 그 항목이 제거됩니다.
 
-대시보드에서는 **전역 서버 끄기** 버튼이 이에 해당합니다. project mode에서는 **Servers** 제목 옆에,
+대시보드에서는 **전역 서버 끄기** 버튼이 이에 해당합니다. project mode에서는 **서버** 제목 옆에,
 프로젝트의 MCP 탭에서는 **서버 추가** 옆에 있습니다.
 
 ## Manage several projects from the global config {#manage-several-projects-from-the-global-config}

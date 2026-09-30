@@ -181,7 +181,7 @@ Dashboard 只會提供目前 scope 與主機平台可用的目的地。每個 se
 右側的 **Sync** 框會列出尚未寫入的變更：勾選某個 client 只會編輯 source。
 **Sync MCP** 會列出這些變更，確認後只寫入 MCP 設定檔，並為每個檔案保留備份。
 同一個框中分隔線下方，有 server 時會出現 **檢查**，可[檢查這些 servers](#check-servers-before-an-agent-starts-them)；
-**Backups and restore** 則可瀏覽這些備份。
+**備份與還原** 則可瀏覽這些備份。
 下方的 **Agents** 會列出這台機器上偵測到的 clients。
 當某個 client 的 MCP 檔案存在，或該 client 用來存放設定的資料夾存在時，就算做偵測到，
 所以剛安裝、還沒有 MCP 檔案的 client 也會顯示出來。在 project mode 中，
@@ -433,7 +433,7 @@ mcp:
 - **Skillshare 自己定義的 server 不需要這麼做。** 改為在該 server 上取消選擇
   該 Agent，下一次同步就會移除它的項目。
 
-在 dashboard 中，這是 **關閉全域伺服器** 按鈕。在 project mode 中它位於 **Servers** 標題旁；
+在 dashboard 中，這是 **關閉全域伺服器** 按鈕。在 project mode 中它位於 **伺服器** 標題旁；
 在 project 的 MCP 分頁中，則位於 **新增伺服器** 旁邊。
 
 ## Manage several projects from the global config {#manage-several-projects-from-the-global-config}
