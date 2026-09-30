@@ -325,7 +325,8 @@ func printMCPHelp() {
 
 Commands:
   add [name]        Guided setup, or --url URL / -- command args...
-  check [name...]   Verify variables, commands, hosts and sync state (--no-dns)
+  check [name...]   Verify variables, commands, hosts and sync state (--no-dns);
+                    --live also starts or calls each server [--timeout 10s]
   edit [name]       Interactive editor, or update --url / --target / -- command
   import [name]     Import --from <client> or --file <JSON/TOML/YAML file>
   list             Browse connections and per-client sync status (default)

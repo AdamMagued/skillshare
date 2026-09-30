@@ -32,6 +32,8 @@ type CheckServer struct {
 	Project  string         `json:"project,omitempty"`
 	OK       bool           `json:"ok"`
 	Findings []CheckFinding `json:"findings"`
+	// Live is what the server reported about itself; only CheckOptions.Live probes it.
+	Live *CheckLive `json:"live,omitempty"`
 }
 
 type CheckSummary struct {
@@ -53,6 +55,13 @@ type CheckOptions struct {
 	LookupEnv  func(string) (string, bool)
 	LookPath   func(string) (string, error)
 	LookupHost func(context.Context, string) ([]string, error)
+	// Live starts each stdio server and sends requests to each remote one, after the
+	// static checks; nothing else in a check does either.
+	Live bool
+	// Timeout bounds each live probe; zero means DefaultLiveTimeout.
+	Timeout time.Duration
+	// ClientVersion is the clientInfo version a live probe sends.
+	ClientVersion string
 }
 
 // dnsTimeout bounds each host lookup, the only network access a check makes.
@@ -60,7 +69,7 @@ const dnsTimeout = 3 * time.Second
 
 // Check verifies the source's servers, including those under each mcp.projects root, without
 // starting them or sending requests: referenced variables are set, commands resolve, hosts
-// resolve, and the plan has each entry in sync.
+// resolve, and the plan has each entry in sync. Only opts.Live then probes the servers.
 func (s *Service) Check(opts CheckOptions) (*CheckReport, error) {
 	if opts.LookupEnv == nil {
 		opts.LookupEnv = os.LookupEnv
@@ -171,6 +180,9 @@ func (s *Service) Check(opts CheckOptions) (*CheckReport, error) {
 	for _, c := range synced {
 		result := byKey[checkKey{c.Root, c.Name}]
 		result.Findings = append(result.Findings, syncFinding(c))
+	}
+	if opts.Live {
+		s.checkLive(source, report, opts)
 	}
 	for i := range report.Servers {
 		result := &report.Servers[i]

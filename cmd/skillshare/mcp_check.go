@@ -3,28 +3,53 @@ package main
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"skillshare/internal/mcp"
 	"skillshare/internal/theme"
 	"skillshare/internal/ui"
 )
 
-// runMCPCheck is read-only: it writes no file and no operation log entry.
+const mcpCheckUsage = "skillshare mcp check [name...] [--json] [--no-dns] [--live [--timeout <duration>]]"
+
+// runMCPCheck is read-only: it writes no file and no operation log entry. Only --live
+// starts servers or sends requests to them.
 func runMCPCheck(service *mcp.Service, args []string) error {
-	var opts mcp.CheckOptions
+	opts := mcp.CheckOptions{ClientVersion: version}
 	asJSON := false
-	for _, arg := range args {
-		switch arg {
-		case "--json":
+	timeout := ""
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch {
+		case arg == "--json":
 			asJSON = true
-		case "--no-dns":
+		case arg == "--no-dns":
 			opts.SkipDNS = true
-		default:
-			if strings.HasPrefix(arg, "-") {
-				return fmt.Errorf("unknown mcp check argument %q; usage: skillshare mcp check [name...] [--json] [--no-dns]", arg)
+		case arg == "--live":
+			opts.Live = true
+		case arg == "--timeout":
+			if i+1 >= len(args) {
+				return fmt.Errorf("--timeout requires a duration such as 10s")
 			}
+			i++
+			timeout = args[i]
+		case strings.HasPrefix(arg, "--timeout="):
+			timeout = strings.TrimPrefix(arg, "--timeout=")
+		case strings.HasPrefix(arg, "-"):
+			return fmt.Errorf("unknown mcp check argument %q; usage: %s", arg, mcpCheckUsage)
+		default:
 			opts.Names = append(opts.Names, arg)
 		}
+	}
+	if timeout != "" {
+		if !opts.Live {
+			return fmt.Errorf("--timeout only applies with --live")
+		}
+		d, err := time.ParseDuration(timeout)
+		if err != nil || d <= 0 {
+			return fmt.Errorf("--timeout needs a positive duration such as 10s or 1m, got %q", timeout)
+		}
+		opts.Timeout = d
 	}
 	report, err := service.Check(opts)
 	if err != nil {

@@ -1,5 +1,6 @@
 // Package mcp manages portable MCP declarations and native client configuration.
-// It never starts servers, resolves credentials, or performs network requests.
+// It never starts servers, resolves credentials, or performs network requests, except
+// for the live probe that `mcp check --live` asks for explicitly.
 package mcp
 
 import (

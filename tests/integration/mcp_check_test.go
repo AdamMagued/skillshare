@@ -95,3 +95,64 @@ func TestMCPCheckProjects(t *testing.T) {
 	r.AssertOutputContains(t, "docs  (project ~/work/app)")
 	r.AssertOutputContains(t, "2 server(s) checked: 1 error(s)")
 }
+
+// tinyMCPServer answers server/discover and tools/list, one JSON-RPC message per line.
+const tinyMCPServer = `#!/bin/sh
+while IFS= read -r line; do
+  id=$(printf '%s\n' "$line" | sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p')
+  case "$line" in
+    *'"server/discover"'*) printf '{"jsonrpc":"2.0","id":%s,"result":{"resultType":"complete","supportedVersions":["2026-07-28"],"capabilities":{"tools":{}},"_meta":{"io.modelcontextprotocol/serverInfo":{"name":"tiny","version":"0.1.0"}}}}\n' "$id" ;;
+    *'"tools/list"'*) printf '{"jsonrpc":"2.0","id":%s,"result":{"resultType":"complete","tools":[{"name":"echo","inputSchema":{"type":"object"}}]}}\n' "$id" ;;
+  esac
+done
+`
+
+func TestMCPCheckLive(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	script := filepath.Join(sb.Home, "tiny-mcp.sh")
+	if err := os.WriteFile(script, []byte(tinyMCPServer), 0755); err != nil {
+		t.Fatal(err)
+	}
+	sb.WriteConfig("targets: {}\nmcp:\n  targets: [claude]\n  servers:\n    tiny:\n      command: sh\n      args: [" + script + "]\n    down:\n      url: http://127.0.0.1:1/mcp\n")
+
+	r := sb.RunCLI("mcp", "check", "tiny", "--json", "-g")
+	r.AssertSuccess(t)
+	if strings.Contains(r.Stdout, `"live"`) {
+		t.Fatalf("a check without --live probed the server:\n%s", r.Stdout)
+	}
+
+	r = sb.RunCLI("mcp", "check", "--live", "--timeout", "5s", "--json", "--no-dns", "-g")
+	r.AssertExitCode(t, 1)
+	var report struct {
+		Servers []struct {
+			Name string `json:"name"`
+			OK   bool   `json:"ok"`
+			Live *struct {
+				ProtocolVersion string `json:"protocolVersion"`
+				ServerInfo      struct {
+					Name string `json:"name"`
+				} `json:"serverInfo"`
+				Tools int `json:"tools"`
+			} `json:"live"`
+		} `json:"servers"`
+	}
+	if err := json.Unmarshal([]byte(r.Stdout), &report); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, r.Stdout)
+	}
+	down, tiny := report.Servers[0], report.Servers[1]
+	if tiny.Live == nil || tiny.Live.ServerInfo.Name != "tiny" || tiny.Live.ProtocolVersion != "2026-07-28" || tiny.Live.Tools != 1 || !tiny.OK {
+		t.Fatalf("tiny: %+v", tiny)
+	}
+	if down.Live != nil || down.OK {
+		t.Fatalf("an unreachable server must fail: %+v", down)
+	}
+
+	r = sb.RunCLI("mcp", "check", "tiny", "--live", "-g")
+	r.AssertSuccess(t)
+	r.AssertOutputContains(t, "responds: tiny 0.1.0, protocol 2026-07-28, 1 tool(s)")
+
+	r = sb.RunCLI("mcp", "check", "--timeout", "5s", "-g")
+	r.AssertFailure(t)
+	r.AssertAnyOutputContains(t, "--timeout only applies with --live")
+}
