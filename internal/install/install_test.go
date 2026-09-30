@@ -515,6 +515,12 @@ func TestWrapGitError(t *testing.T) {
 			wantSubstr: "repository not found",
 		},
 		{
+			name:       "ssh publickey denied — suggests ssh -T",
+			stderr:     "git@git.company.com: Permission denied (publickey).\nfatal: Could not read from remote repository.\n\nPlease make sure you have the correct access rights\nand the repository exists.\n",
+			err:        errors.New("exit status 128"),
+			wantSubstr: "Permission denied (publickey).\n       check your SSH key: ssh -T git@git.company.com",
+		},
+		{
 			name:       "empty stderr falls back to err",
 			stderr:     "",
 			err:        errors.New("exit status 1"),
@@ -565,6 +571,36 @@ func TestExtractGitFatal(t *testing.T) {
 			stderr: "pre-push hook rejected branch\n" +
 				"error: failed to push some refs to 'https://github.com/org/repo.git'",
 			want: "pre-push hook rejected branch; error: failed to push some refs to 'https://github.com/org/repo.git'",
+		},
+		{
+			name:   "ssh publickey denied keeps reason",
+			stderr: "Cloning into '/tmp/x'...\ngit@git.company.com: Permission denied (publickey).\nfatal: Could not read from remote repository.\n\nPlease make sure you have the correct access rights\nand the repository exists.\n",
+			want:   "Could not read from remote repository — git@git.company.com: Permission denied (publickey).",
+		},
+		{
+			name:   "ssh host key verification keeps reason",
+			stderr: "Host key verification failed.\r\nfatal: Could not read from remote repository.\n\nPlease make sure you have the correct access rights\nand the repository exists.\n",
+			want:   "Could not read from remote repository — Host key verification failed.",
+		},
+		{
+			name:   "ssh unresolved hostname keeps reason",
+			stderr: "ssh: Could not resolve hostname git.company.com: Name or service not known\nfatal: Could not read from remote repository.\n\nPlease make sure you have the correct access rights\nand the repository exists.\n",
+			want:   "Could not read from remote repository — ssh: Could not resolve hostname git.company.com: Name or service not known",
+		},
+		{
+			name:   "ssh connection refused skips known-hosts warning",
+			stderr: "ssh: connect to host git.company.com port 22: Connection refused\nwarning: unrelated\nfatal: Could not read from remote repository.\n\nPlease make sure you have the correct access rights\nand the repository exists.\n",
+			want:   "Could not read from remote repository — ssh: connect to host git.company.com port 22: Connection refused",
+		},
+		{
+			name:   "ssh connection timed out keeps reason",
+			stderr: "ssh: connect to host git.company.com port 22: Operation timed out\nfatal: Could not read from remote repository.\n\nPlease make sure you have the correct access rights\nand the repository exists.\n",
+			want:   "Could not read from remote repository — ssh: connect to host git.company.com port 22: Operation timed out",
+		},
+		{
+			name:   "remote read failure without reason unchanged",
+			stderr: "fatal: Could not read from remote repository.",
+			want:   "Could not read from remote repository.",
 		},
 		{
 			name:   "no fatal or hint prefix",

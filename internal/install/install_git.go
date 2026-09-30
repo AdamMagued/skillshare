@@ -89,7 +89,11 @@ func WrapGitError(stderr string, err error, tokenAuthAttempted bool) error {
 	}
 	if s != "" {
 		// Extract the fatal/error line from verbose git output, strip hint lines
-		return fmt.Errorf("%s", extractGitFatal(s))
+		msg := extractGitFatal(s)
+		if login := sshPublickeyLogin(msg); login != "" {
+			msg += "\n       check your SSH key: ssh -T " + login
+		}
+		return fmt.Errorf("%s", msg)
 	}
 	// When stderr is empty, extract exit code for a more actionable message
 	var exitErr *exec.ExitError
@@ -110,11 +114,33 @@ func WrapGitError(stderr string, err error, tokenAuthAttempted bool) error {
 	return err
 }
 
+// gitRemoteReadFatal is git's generic message when the transport (usually ssh)
+// fails; the reason is on the line ssh printed before it.
+const gitRemoteReadFatal = "Could not read from remote repository."
+
+// sshPublickeyLogin returns "user@host" when msg carries an ssh
+// "user@host: Permission denied (publickey)." reason, otherwise "".
+func sshPublickeyLogin(msg string) string {
+	i := strings.Index(msg, ": Permission denied (publickey")
+	if i < 0 {
+		return ""
+	}
+	login := msg[:i]
+	if j := strings.LastIndex(login, " "); j >= 0 {
+		login = login[j+1:]
+	}
+	if !strings.Contains(login, "@") {
+		return ""
+	}
+	return login
+}
+
 // extractGitFatal extracts the "fatal:" or "error:" line from git stderr,
 // stripping verbose "hint:" lines. If no fatal/error line is found, returns
-// the original text with hint lines removed.
+// the original text with hint lines removed. For the generic remote-read
+// failure it keeps the preceding transport line that explains it.
 func extractGitFatal(stderr string) string {
-	var fatal string
+	var fatal, reason string
 	var nonHint []string
 	for _, line := range strings.Split(stderr, "\n") {
 		trimmed := strings.TrimSpace(line)
@@ -126,6 +152,9 @@ func extractGitFatal(stderr string) string {
 		}
 		if strings.HasPrefix(trimmed, "fatal: ") {
 			fatal = strings.TrimPrefix(trimmed, "fatal: ")
+			if fatal == gitRemoteReadFatal && reason == "" {
+				reason = lastTransportLine(nonHint)
+			}
 		} else if strings.HasPrefix(trimmed, "error: ") {
 			fatal = strings.TrimPrefix(trimmed, "error: ")
 		}
@@ -135,12 +164,29 @@ func extractGitFatal(stderr string) string {
 		if strings.Contains(fatal, "failed to push some refs") && len(nonHint) > 1 {
 			return strings.Join(nonHint, "; ")
 		}
+		if fatal == gitRemoteReadFatal && reason != "" {
+			return strings.TrimSuffix(fatal, ".") + " — " + reason
+		}
 		return fatal
 	}
 	if len(nonHint) > 0 {
 		return strings.Join(nonHint, "; ")
 	}
 	return stderr
+}
+
+// lastTransportLine returns the last line before a remote-read failure that
+// explains it, skipping git's own progress and warning chatter.
+func lastTransportLine(lines []string) string {
+	for i := len(lines) - 1; i >= 0; i-- {
+		l := lines[i]
+		if strings.HasPrefix(l, "Cloning into") || strings.HasPrefix(l, "warning:") ||
+			strings.HasPrefix(l, "fatal:") || strings.HasPrefix(l, "error:") {
+			continue
+		}
+		return l
+	}
+	return ""
 }
 
 // cloneRepo performs a git clone (quiet mode for cleaner output).
