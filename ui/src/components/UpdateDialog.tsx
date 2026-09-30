@@ -37,7 +37,8 @@ export default function UpdateDialog() {
   });
 
   const data = isMockMode ? mockData : realData;
-  const hasUpdate = data?.cliUpdateAvailable || data?.skillUpdateAvailable;
+  // Dev builds always report a simulated update; stay quiet unless ?update-test asks for the flow.
+  const hasUpdate = !data?.cliDevMode && (data?.cliUpdateAvailable || data?.skillUpdateAvailable);
 
   useEffect(() => {
     if (!hasUpdate) return;
