@@ -15,6 +15,7 @@
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-blue" alt="Platform">
   <a href="https://goreportcard.com/report/github.com/runkids/skillshare"><img src="https://goreportcard.com/badge/github.com/runkids/skillshare" alt="Go Report Card"></a>
   <a href="https://deepwiki.com/runkids/skillshare"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
+  <a href="https://ko-fi.com/williehung"><img src="https://img.shields.io/badge/Support-skillshare-FF5E5B?logo=kofi&logoColor=white" alt="Support skillshare on Ko-fi"></a>
 </p>
 
 <p align="center">
@@ -353,7 +354,17 @@ Thanks to everyone who helped shape skillshare.
 
 ---
 
-If you find skillshare useful, consider giving it a ⭐
+## Support skillshare ❤️
+
+skillshare is free and open source.
+
+If skillshare saves you time, consider buying me a coffee.
+Every contribution helps with ongoing development, cross-platform testing,
+documentation, and maintenance.
+
+[☕ Buy me a coffee](https://ko-fi.com/williehung)
+
+You can also help by giving skillshare a ⭐ on GitHub!
 
 ## Star History
 

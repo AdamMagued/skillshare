@@ -44,6 +44,7 @@ All notable changes to skillshare are documented here. For the full commit histo
 ### Bug Fixes
 
 - **Shell completion matches the CLI** — completion offered commands that did not work: `backup restore` backed up a target named `restore`, `extras mode` only printed help, `install --source` failed as an unknown option, and `hub index --audit-skills` was rejected. Those are gone. bash, zsh, fish, PowerShell and Nushell now complete `mcp check` with `--live`, `--timeout` and `--no-dns`, subcommands such as `backup files` and `audit rules`, and flags no shell offered before.
+- **SSH failures say why** — installing or loading a hub over SSH that failed showed only "Could not read from remote repository.". The message now keeps SSH's reason, such as `Permission denied (publickey)`, `Host key verification failed` or an unresolved host, and a denied key suggests `ssh -T user@host`.
 - **Dashboard target links open the target** — target rows on the dashboard, the Playful pin notes and the "needs attention" entries opened the target list. They now open that target's page.
 - **Chinese dashboard says 目標 and 目标** — buttons and messages such as "從 target 匯入" mixed the English word into Traditional and Simplified Chinese. They now say 目標 and 目标.
 - **Hubs page opens on the default hub** — with no default hub saved, the Hubs page opened with nothing selected and Skillshare Hub had no default star, although `search --hub` already falls back to it. The page now stars Skillshare Hub in that case and opens on the default hub when you have no hub of your own.
