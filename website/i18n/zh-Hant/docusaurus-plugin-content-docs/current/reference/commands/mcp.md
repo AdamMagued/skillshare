@@ -176,10 +176,12 @@ JSON 項目會依照檔案本身的縮排，一行寫入一個欄位。若 Skill
 仍然寫在同一行，會回報為 `update` 並重新排版寫入。它不擁有的項目，
 以及有人手動格式化過的項目，會保留原有排版。
 
-Dashboard 只會提供目前 scope 與主機平台可用的目的地。每個 server 各佔一列；
-右側的計數按鈕會開啟該 server 的完整 client 清單。僅限 Global 的 clients 在 project mode 中無法選擇。
+Dashboard 只會提供目前 scope 與主機平台可用的目的地。每個 server 各佔一列，名稱下方以 chips
+顯示它會寫入的 clients；右側的計數按鈕會開啟該 server 的完整 client 清單。僅限 Global 的 clients 在 project mode 中無法選擇。
 右側的 **Sync** 框會列出尚未寫入的變更：勾選某個 client 只會編輯 source。
 **Sync MCP** 會列出這些變更，確認後只寫入 MCP 設定檔，並為每個檔案保留備份。
+同一個框中分隔線下方，有 server 時會出現 **檢查**，可[檢查這些 servers](#check-servers-before-an-agent-starts-them)；
+**Backups and restore** 則可瀏覽這些備份。
 下方的 **Agents** 會列出這台機器上偵測到的 clients。
 當某個 client 的 MCP 檔案存在，或該 client 用來存放設定的資料夾存在時，就算做偵測到，
 所以剛安裝、還沒有 MCP 檔案的 client 也會顯示出來。在 project mode 中，
@@ -431,8 +433,8 @@ mcp:
 - **Skillshare 自己定義的 server 不需要這麼做。** 改為在該 server 上取消選擇
   該 Agent，下一次同步就會移除它的項目。
 
-在 dashboard 中，這是 **新增伺服器** 旁邊的 **關閉全域伺服器** 按鈕。它會出現在
-project mode，以及 project 的 MCP 分頁中。
+在 dashboard 中，這是 **關閉全域伺服器** 按鈕。在 project mode 中它位於 **Servers** 標題旁；
+在 project 的 MCP 分頁中，則位於 **新增伺服器** 旁邊。
 
 ## Manage several projects from the global config {#manage-several-projects-from-the-global-config}
 
@@ -619,10 +621,11 @@ skillshare mcp check --no-dns
 `project` 是該 server 所屬的 `mcp.projects` 根目錄，以絕對路徑表示（開頭的 `~` 會被展開）；
 global server 則省略此欄位。`summary` 會計算報告中的每個 server，包含 project servers。
 
-在 dashboard 中，MCP 頁面上的 **檢查** 按鈕會執行同樣的檢查。它只在點擊時執行，會在 server 清單上方顯示摘要，
-並在每個 server 下方顯示它的 error 或 warning；重新載入頁面後不會保留任何內容。MCP 頁面只列出 global
-servers，因此它的摘要與各列都不包含 project servers，即使與某個 global server 同名也一樣；請用 CLI 檢查
-這些 servers。變數是從啟動 `skillshare ui` 的終端機讀取。
+在 dashboard 中，MCP 頁面 Sync 框中的 **檢查** 按鈕會執行同樣的檢查。它在有 servers 可檢查時才會出現，
+只在點擊時執行，會在 server 清單上方顯示摘要，並在每個 server 下方顯示它的 error 或 warning；
+重新載入頁面後不會保留任何內容。MCP 頁面只列出 global servers，因此它的摘要與各列都不包含
+project servers，即使與某個 global server 同名也一樣。project 的 MCP 分頁在它的 Sync 框中
+有自己的 **檢查**，會回報該 project 自己的 servers。變數是從啟動 `skillshare ui` 的終端機讀取。
 
 ### 即時探測 servers {#probe-servers-live}
 

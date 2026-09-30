@@ -51,7 +51,9 @@ Agents, and review the changes. **Save and sync** applies the settings immediate
 In the dashboard, **Add server** takes either shape: fill in the fields, or paste
 a configuration. The paste side also loads a file, which is the browser's
 equivalent of `mcp import --file`. Pasted JSON is recognized automatically; for
-TOML, choose whether it came from Codex or Grok. **Import from a target** is
+TOML, choose whether it came from Codex or Grok. When the paste holds one server
+and Pi is ticked, the dialog also shows the Pi settings of the form: mode, tool
+exposure and other Pi settings. **Import from a target** is
 separate and reads the servers an installed Agent already has. Either way the
 dashboard uses the same source, validation, preview and conflict rules as the
 CLI. **Sync MCP**, in the MCP page's Sync box, writes the MCP config files only. The

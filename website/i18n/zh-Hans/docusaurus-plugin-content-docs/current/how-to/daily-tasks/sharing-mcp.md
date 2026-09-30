@@ -50,7 +50,8 @@ Agent，并检查变更内容。**Save and sync** 会立即应用设置；
 在控制台中，**Add server** 接受两种形式：填写字段，或粘贴
 一份配置。粘贴选项也可以加载一个文件，其作用相当于浏览器版本的
 `mcp import --file`。粘贴的 JSON 会被自动识别；对于
-TOML，则需要选择它来自 Codex 还是 Grok。**Import from a target** 是
+TOML，则需要选择它来自 Codex 还是 Grok。如果粘贴的内容只有一个服务器且勾选了 Pi，
+对话框还会显示表单中的 Pi 设置：模式、工具暴露方式和其他 Pi 设置。**Import from a target** 是
 另一个独立功能，用于读取某个已安装 Agent 已有的服务器。无论哪种方式，
 控制台都使用与 CLI 相同的来源、验证、预览与冲突规则。MCP 页面 Sync 框中的
 **Sync MCP** 只写入 MCP 配置文件。Sync 页面也提供

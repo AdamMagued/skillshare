@@ -209,10 +209,12 @@ JSON 条目会按照文件自身的缩进方式，逐字段单独一行写入。
 按分行格式写入。它不拥有的条目，以及由人工手动格式化的条目，会保留原有的格式。
 
 仪表盘只提供当前作用域和主机平台下可用的目标位置。每个 server 是
-一行；右侧的计数按钮会打开该 server 的完整 client 列表。仅限 Global 的 client
+一行，名称下方以 chip 显示它会写入的 client；右侧的计数按钮会打开该 server 的完整 client 列表。仅限 Global 的 client
 在 project mode 中无法被选中。右侧的 **Sync** 框列出了尚未写入的
 更改：勾选某个 client 只会编辑 source。**Sync MCP** 会列出这些更改，并在你确认后
-只写入 MCP 配置文件，同时为每个文件保留一份备份。在其下方，**Agents** 列出了此机器上检测到的 client。当某个
+只写入 MCP 配置文件，同时为每个文件保留一份备份。同一个框中分隔线下方，
+有 server 时会出现 **检查**，用于[检查这些 server](#check-servers-before-an-agent-starts-them)；**Backups and restore**
+用于浏览这些备份。在其下方，**Agents** 列出了此机器上检测到的 client。当某个
 client 的 MCP 文件存在，或该 client 用于保存设置的文件夹存在时，就算作
 已检测到，因此即使是全新安装、还没有 MCP 文件，也仍会出现在列表中。在 project mode 下，
 当项目拥有自己的 MCP 文件，或该 client 在全局范围内被检测到时，就会列出该 client。
@@ -462,8 +464,8 @@ mcp:
 - **Skillshare 自身定义的 server 不需要这个方法。** 只需在该 server 上取消选择
   该 Agent，下一次同步就会移除它的条目。
 
-在仪表盘中，这就是 **添加服务器** 旁边的 **关闭全局服务器** 按钮。它会出现在
-project mode，以及项目的 MCP 标签页中。
+在仪表盘中，这就是 **关闭全局服务器** 按钮。在 project mode 中它位于 **Servers** 标题旁边；
+在项目的 MCP 标签页中，则位于 **添加服务器** 旁边。
 
 ## 通过 global 配置管理多个项目 {#manage-several-projects-from-the-global-config}
 
@@ -649,10 +651,11 @@ server 报告的名称；在 `live` 登录 warning 中表示资源元数据 URL�
 `project` 是该 server 所在的 `mcp.projects` 根目录，以绝对路径表示（开头的 `~` 会被展开）；
 global server 则省略此字段。`summary` 统计报告中的每个 server，包括项目 server。
 
-在仪表盘中，MCP 页面上的 **检查** 按钮会运行同样的检查。它只在点击时运行，会在 server 列表上方显示摘要，
-并在每个 server 下方显示它的 error 或 warning；重新加载页面后不会保留任何内容。MCP 页面只列出 global
-server，因此它的摘要和各行都不包含项目 server，即使与某个 global server 同名也是如此；请用 CLI 检查
-这些 server。变量从启动 `skillshare ui` 的终端中读取。
+在仪表盘中，MCP 页面 Sync 框中的 **检查** 按钮会运行同样的检查。它在有 server 可检查时才会出现，
+只在点击时运行，会在 server 列表上方显示摘要，并在每个 server 下方显示它的 error 或 warning；
+重新加载页面后不会保留任何内容。MCP 页面只列出 global server，因此它的摘要和各行都不包含
+项目 server，即使与某个 global server 同名也是如此。项目的 MCP 标签页在其 Sync 框中
+有自己的 **检查**，用于报告该项目自己的 server。变量从启动 `skillshare ui` 的终端中读取。
 
 ### 实时探测 server {#probe-servers-live}
 

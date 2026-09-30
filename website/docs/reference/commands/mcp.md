@@ -210,11 +210,13 @@ Skillshare owns that still sits on one line is reported as an `update` and writt
 laid out. Entries it does not own, and entries someone formatted by hand, keep their layout.
 
 The dashboard only offers destinations available in the current scope and host
-platform. Each server is one row; the count button on the right opens the full
-client list for that server. Global-only clients cannot be selected in project mode.
+platform. Each server is one row, with the clients it goes to as chips under its name;
+the count button on the right opens the full client list for that server. Global-only clients cannot be selected in project mode.
 The **Sync** box on the right lists the changes not yet written: ticking a client
 only edits the source. **Sync MCP** lists those changes and, after you confirm, writes
-only the MCP config files, keeping a backup of each.
+only the MCP config files, keeping a backup of each. Under a line in the same box,
+**Check** [checks the servers](#check-servers-before-an-agent-starts-them) once there
+are any, and **Backups and restore** browses those backups.
 Below it, **Agents** lists the clients detected on this machine. A client counts as
 detected when its MCP file exists, or when the folder that client keeps its settings in
 exists, so a fresh install with no MCP file yet still appears. In project mode a client
@@ -469,8 +471,8 @@ mcp:
 - **A server Skillshare itself defines does not need this.** Unselect the Agent on
   that server instead, and the next sync removes its entry.
 
-In the dashboard, this is the **Turn off a global server** button beside **Add
-server**. It appears in project mode and on a project's MCP tab.
+In the dashboard, this is the **Turn off a global server** button. In project mode it
+sits beside the **Servers** heading; on a project's MCP tab, beside **Add server**.
 
 ## Manage several projects from the global config {#manage-several-projects-from-the-global-config}
 
@@ -665,11 +667,12 @@ metadata URL of a `live` sign-in warning; it is omitted otherwise.
 expanded), and is omitted for a global server. `summary` counts every server in the
 report, project servers included.
 
-In the dashboard, the **Check** button on the MCP page runs the same check. It runs
-only when clicked, shows a summary above the server list and each error or warning
-under its server, and keeps nothing after the page reloads. The MCP page lists global
-servers only, so its summary and rows leave project servers out, even one that shares
-a global server's name; check those with the CLI. Variables are read from
+In the dashboard, the **Check** button in the MCP page's Sync box runs the same check.
+It appears once there are servers to check, runs only when clicked, shows a summary
+above the server list and each error or warning under its server, and keeps nothing
+after the page reloads. The MCP page lists global servers only, so its summary and rows
+leave project servers out, even one that shares a global server's name. A project's
+MCP tab has its own **Check** in its Sync box, which reports that project's own servers. Variables are read from
 the terminal that started `skillshare ui`.
 
 ### Probe servers live {#probe-servers-live}
