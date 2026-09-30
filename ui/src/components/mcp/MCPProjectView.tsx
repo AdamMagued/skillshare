@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pencil, Plug, Plus, PowerOff, Trash2 } from 'lucide-react';
+import { Pencil, Plus, PowerOff, Trash2 } from 'lucide-react';
 import { mcpApi, mcpOffTargets, mcpTargets, type MCPMutation, type MCPServer } from '../../api/mcp';
 import AgentIcon from '../AgentIcon';
 import Button from '../Button';
@@ -206,27 +206,24 @@ export default function MCPProjectView({ data, root, offered, onChanged, onRemov
                 const stillOn = off ? targets.filter((x) => (server.targets ?? defaults).includes(x) && !written.includes(x)) : [];
                 const stale = off && entry.targets && [...entry.targets].sort().join() !== [...to].sort().join();
                 return (
-                  <div key={n} className="ss-r">
-                    <span className="ss-cat sm mcp"><Plug size={14} /></span>
-                    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                      <span className="flex items-center gap-2">
-                        <span title={n} className="truncate font-mono font-semibold">{n}</span>
-                        {off && <span className="ss-tag warn">{t('mcp.projects.offBadge')}</span>}
-                        {changes.some((c) => c.name === n && writes(c)) && <span className="ss-tag warn">{t('plugins.pending')}</span>}
-                      </span>
-                      <span className="truncate text-xs text-ink-3">{server.url ? 'http' : 'stdio'} · <span className="font-mono">{describeEndpoint(server)}</span></span>
-                      <span id={`mcp-sw-${n}`} className="flex flex-col text-xs">
-                        {reason && <span className="text-ink-3">{reason}</span>}
-                        {stillOn.length > 0 && <span className="text-warn">{t('mcp.projects.stillOn', { targets: stillOn.map(targetLabel).join(', ') })}</span>}
-                        {stale && <span className="text-warn">{t('mcp.projects.staleSwitch')} <button type="button" className="underline disabled:opacity-50" disabled={busy} onClick={() => void toggleGlobal(n, false)}>{t('mcp.projects.matchProject')}</button></span>}
-                      </span>
+                  <div key={n} className="ss-r !items-stretch !flex-col !gap-2 !py-3">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span title={n} className="max-w-[45%] shrink-0 truncate font-mono font-semibold">{n}</span>
+                      {off && <span className="ss-tag warn">{t('mcp.projects.offBadge')}</span>}
+                      {changes.some((c) => c.name === n && writes(c)) && <span className="ss-tag warn">{t('plugins.pending')}</span>}
+                      <span className="min-w-0 flex-1 truncate font-mono text-xs text-ink-3">{describeEndpoint(server)}</span>
+                      {off && written.length > 0 && (
+                        <span className="ss-stack" role="img" aria-label={t('mcp.projects.offIn', { targets: written.map(targetLabel).join(', ') })} title={t('mcp.projects.offIn', { targets: written.map(targetLabel).join(', ') })}>
+                          {written.map((x) => <span key={x} className="ss-at"><AgentIcon target={x} size={13} /></span>)}
+                        </span>
+                      )}
+                      <button type="button" role="switch" aria-checked={!off} aria-label={n} aria-describedby={`mcp-sw-${n}`} className={`ss-sw ${off ? '' : 'on'} disabled:opacity-50`} disabled={busy || (!off && to.length === 0) || Boolean(entry && !off)} onClick={() => void toggleGlobal(n, off)}><i /></button>
                     </span>
-                    {off && written.length > 0 && (
-                      <span className="ss-stack" role="img" aria-label={t('mcp.projects.offIn', { targets: written.map(targetLabel).join(', ') })} title={t('mcp.projects.offIn', { targets: written.map(targetLabel).join(', ') })}>
-                        {written.map((x) => <span key={x} className="ss-at"><AgentIcon target={x} size={13} /></span>)}
-                      </span>
-                    )}
-                    <button type="button" role="switch" aria-checked={!off} aria-label={n} aria-describedby={`mcp-sw-${n}`} className={`ss-sw ${off ? '' : 'on'} disabled:opacity-50`} disabled={busy || (!off && to.length === 0) || Boolean(entry && !off)} onClick={() => void toggleGlobal(n, off)}><i /></button>
+                    <span id={`mcp-sw-${n}`} className="flex flex-col text-xs empty:hidden">
+                      {reason && <span className="text-ink-3">{reason}</span>}
+                      {stillOn.length > 0 && <span className="text-warn">{t('mcp.projects.stillOn', { targets: stillOn.map(targetLabel).join(', ') })}</span>}
+                      {stale && <span className="text-warn">{t('mcp.projects.staleSwitch')} <button type="button" className="underline disabled:opacity-50" disabled={busy} onClick={() => void toggleGlobal(n, false)}>{t('mcp.projects.matchProject')}</button></span>}
+                    </span>
                   </div>
                 );
               })}
