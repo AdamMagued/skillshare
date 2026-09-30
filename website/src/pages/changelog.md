@@ -9,6 +9,45 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.22.2] - 2026-09-30
+
+### New Features
+
+#### MCP
+
+- **Check servers before an Agent starts them** — `skillshare mcp check` tells you whether each server will work as synced: a `fromEnv` variable that is unset, a `command` not found on `PATH`, a remote host that does not resolve, a server an Agent's rule refuses, and an Agent entry that conflicts with the source or is not synced yet. It starts nothing, writes nothing and never prints variable values. It exits 1 when it finds an error, so it fits in scripts. In the global config it also checks the servers under `mcp.projects` and names their project.
+  ```bash
+  skillshare mcp check
+  skillshare mcp check docs github --json
+  skillshare mcp check --no-dns    # skip the DNS lookup of remote hosts
+  ```
+- **Probe servers live** — `mcp check --live` also starts each local server, or sends one request to each remote server, reports its name, version, protocol version and number of tools, and stops it again. A server that needs sign-in is a warning; Skillshare never signs in. Each probe gets 10 seconds, or `--timeout`, and configured values are removed from every message.
+  ```bash
+  skillshare mcp check --live --timeout 30s
+  ```
+- **Pi built-in MCP** — Pi 0.99.0 includes MCP, and `piExtension: builtin` syncs servers into `~/.pi/agent/mcp.json` (`.pi/mcp.json` in a project) with no extension to install. `piOptions` takes Pi's per-server fields such as `exposure` and `toolExposure`, and import keeps them. A new server that goes to Pi without a mode now uses `builtin`; before, `mcp add --target pi` without `--pi-extension` failed. Existing servers keep their mode.
+  ```bash
+  skillshare mcp add docs --url https://example.com/mcp --target pi --pi-options '{"exposure":"deferred"}' --no-tui
+  ```
+- **Remove cleared Pi settings** — clearing a Pi setting stops managing it and leaves its value in Pi. `--pi-options-prune`, or **Remove cleared settings from Pi** in the dashboard, removes the fields Skillshare wrote that nobody has changed since.
+  ```bash
+  skillshare mcp edit docs --pi-options '{}' --pi-options-prune --no-tui
+  ```
+
+#### Dashboard
+
+- **Check MCP servers** — the MCP page and each project's MCP tab have a **Check** button in the Sync box once there are servers to check. It runs the same check as `mcp check` without `--live`, with a summary above the list and each problem under its server.
+- **See every file Sync writes for a server** — **View what each Agent gets** lists the Skillshare source and every target Agent's file, with its path and format (JSON, JSONC, TOML, YAML), and shows the one you pick with syntax highlighting. It counts the files Sync writes and names the scope: global, or the project.
+- **Pi settings in the server dialog** — a Pi server chooses its Pi MCP mode, built-in by default, its tool exposure, other Pi settings as JSON, and **Remove cleared settings from Pi**. When a pasted snippet holds one server, the paste tab shows the same Pi settings.
+- **Tidier MCP page** — the header keeps only **Import from a target** and **Add server**; **Check** and **Backups and restore** moved into the Sync box. Each server row shows its command next to its name and the Agents it goes to as chips below, and the Pi chip shows the Pi mode. Project MCP tabs use the same rows, and the MCP dialogs are wider.
+
+### Bug Fixes
+
+- **Shell completion matches the CLI** — completion offered commands that did not work: `backup restore` backed up a target named `restore`, `extras mode` only printed help, `install --source` failed as an unknown option, and `hub index --audit-skills` was rejected. Those are gone. bash, zsh, fish, PowerShell and Nushell now complete `mcp check` with `--live`, `--timeout` and `--no-dns`, subcommands such as `backup files` and `audit rules`, and flags no shell offered before.
+- **Dashboard target links open the target** — target rows on the dashboard, the Playful pin notes and the "needs attention" entries opened the target list. They now open that target's page.
+- **Chinese dashboard says 目標 and 目标** — buttons and messages such as "從 target 匯入" mixed the English word into Traditional and Simplified Chinese. They now say 目標 and 目标.
+- **MCP restore preview keeps its size** — switching backups resized the restore dialog while the preview loaded. It now stays the same size.
+
 ## [0.22.1] - 2026-09-30
 
 ### Bug Fixes
