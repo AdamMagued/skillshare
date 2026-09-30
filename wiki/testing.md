@@ -44,6 +44,8 @@ docker exec "$CONTAINER" bash -lc 'cd /workspace && make check'
 
 Start with the specific package or test that proves the change. Broaden only when new risk, failure evidence, or a release gate requires it. Base retries on new evidence and distinguish pre-existing failures from regressions.
 
+Real-shell completion tests (`TestCompletion_{Zsh,Fish}_Completes*`) skip when zsh or fish is missing, as in the devcontainer. To run them, start a throwaway container from the devcontainer image with the checkout at `/workspace` and the Go cache volumes, install `zsh fish` with apt-get there only, then `make build` and `go test ./tests/integration -run 'Completion' -count=1`.
+
 ## Stateful CLI Isolation
 
 Use a fresh `ssenv` for tests that modify configuration or state:
