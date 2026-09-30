@@ -95,6 +95,8 @@
   "mcp.viewConfig": "Lihat yang diterima tiap Agent",
   "mcp.viewConfigShort": "Lihat isinya",
   "mcp.viewConfigHint": "Hanya baca. Beginilah Sync menulis server ini ke file Agent; bagian lain file itu tidak diubah.",
+  "mcp.viewConfigFiles.one": "Sync menulis {count} file",
+  "mcp.viewConfigFiles.other": "Sync menulis {count} file",
   "mcp.nameTaken": "Server dengan nama ini sudah ada.",
   "analyze.breakdown.description": "Deskripsi",
   "analyze.empty.description": "Konfigurasikan target dan sinkronkan skill untuk melihat data analisis",

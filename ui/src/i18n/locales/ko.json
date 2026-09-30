@@ -95,6 +95,8 @@
   "mcp.viewConfig": "각 Agent에 기록될 설정 보기",
   "mcp.viewConfigShort": "내용 보기",
   "mcp.viewConfigHint": "읽기 전용입니다. Sync는 이 서버를 이 형태로 Agent 파일에 기록하며, 파일의 나머지는 그대로 둡니다.",
+  "mcp.viewConfigFiles.one": "Sync가 파일 {count}개에 기록합니다",
+  "mcp.viewConfigFiles.other": "Sync가 파일 {count}개에 기록합니다",
   "mcp.nameTaken": "같은 이름의 서버가 이미 있습니다.",
   "analyze.breakdown.description": "설명",
   "analyze.empty.description": "대상을 설정하고 skills을 동기화하여 분석 데이터를 확인하세요",

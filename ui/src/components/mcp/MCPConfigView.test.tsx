@@ -1,12 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
 import { mcpApi, type MCPMutation } from '../../api/mcp';
 import { I18nProvider } from '../../i18n';
 import MCPConfigView from './MCPConfigView';
 
 vi.mock('../CopyButton', () => ({ default: () => null }));
-vi.mock('../../api/mcp', async (load) => ({ ...await load<typeof import('../../api/mcp')>(), mcpApi: { render: vi.fn() } }));
+vi.mock('../../api/mcp', async (load) => ({ ...await load<typeof import('../../api/mcp')>(), mcpApi: { render: vi.fn(), list: vi.fn(() => new Promise(() => {})) } }));
 
 it('keeps the previous native preview while a changed draft is rendering', async () => {
   const client = new QueryClient();
@@ -26,10 +26,52 @@ it('keeps the previous native preview while a changed draft is rendering', async
   expect(await screen.findByText('updated native preview')).toBeInTheDocument();
 });
 
-it('names the only Agent instead of offering a one-option picker', async () => {
-  vi.mocked(mcpApi.render).mockResolvedValue({ rendered: [{ target: 'pi', path: '/pi/mcp.json', content: 'native' }] });
-  const mutation: MCPMutation = { name: 'docs', server: { command: 'docs', targets: ['pi'] } };
+const rendered = { rendered: [
+  { target: 'claude', path: '/home/me/.claude.json', content: 'claude file' },
+  { target: 'codex', path: '/home/me/.codex/config.toml', content: 'codex file' },
+  { target: 'pi', path: '/home/me/.pi/agent/mcp.json', error: 'Pi is too old' },
+] };
+const showAll = () => {
+  vi.mocked(mcpApi.render).mockResolvedValue(rendered);
+  const mutation: MCPMutation = { name: 'docs', server: { command: 'docs', targets: ['claude', 'codex', 'pi'] } };
   render(<QueryClientProvider client={new QueryClient()}><I18nProvider><MCPConfigView mutation={mutation} /></I18nProvider></QueryClientProvider>);
-  expect(await screen.findByText('native')).toBeInTheDocument();
-  expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+};
+
+it('lists the source and every target Agent', async () => {
+  showAll();
+  await screen.findByText('claude file');
+  expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual([
+    expect.stringContaining('Skillshare source'), expect.stringContaining('Claude'), expect.stringContaining('Codex'), expect.stringContaining('Pi'),
+  ]);
+});
+
+it('shows the first Agent file by default', async () => {
+  showAll();
+  expect(await screen.findByText('claude file')).toBeInTheDocument();
+});
+
+it('shows the file of the item picked from the list', async () => {
+  showAll();
+  await screen.findByText('claude file');
+  fireEvent.click(screen.getByRole('button', { name: /Codex/ }));
+  expect(screen.getByText('codex file')).toBeInTheDocument();
+});
+
+it('shows the source as JSON when it is picked', async () => {
+  showAll();
+  await screen.findByText('claude file');
+  fireEvent.click(screen.getByRole('button', { name: /Skillshare source/ }));
+  expect(screen.getByText(/"command": "docs"/)).toBeInTheDocument();
+});
+
+it('marks only the Agent whose render failed', async () => {
+  showAll();
+  await screen.findByText('claude file');
+  expect(within(screen.getByRole('button', { name: /Codex/ })).queryByText('Pi is too old')).not.toBeInTheDocument();
+  expect(within(screen.getByRole('button', { name: /Pi/ })).getByText('Pi is too old')).toBeInTheDocument();
+});
+
+it('counts only the files Sync writes', async () => {
+  showAll();
+  expect(await screen.findByText('Sync writes 2 files')).toBeInTheDocument();
 });

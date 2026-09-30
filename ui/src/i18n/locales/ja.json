@@ -95,6 +95,8 @@
   "mcp.viewConfig": "各 Agent に書き込まれる設定を表示",
   "mcp.viewConfigShort": "内容を見る",
   "mcp.viewConfigHint": "読み取り専用。Sync はこのサーバーをこの形で Agent のファイルに書き込みます。ファイルの他の部分は変更しません。",
+  "mcp.viewConfigFiles.one": "Sync は {count} 個のファイルに書き込みます",
+  "mcp.viewConfigFiles.other": "Sync は {count} 個のファイルに書き込みます",
   "mcp.nameTaken": "この名前のサーバーはすでにあります。",
   "analyze.breakdown.description": "説明",
   "analyze.empty.description": "ターゲットを設定してスキルを同期すると分析データが表示されます",

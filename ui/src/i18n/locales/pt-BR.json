@@ -95,6 +95,8 @@
   "mcp.viewConfig": "Ver o que cada Agent recebe",
   "mcp.viewConfigShort": "Ver conteúdo",
   "mcp.viewConfigHint": "Somente leitura. É assim que o Sync grava este servidor no arquivo do Agent; o resto do arquivo não é alterado.",
+  "mcp.viewConfigFiles.one": "O Sync grava {count} arquivo",
+  "mcp.viewConfigFiles.other": "O Sync grava {count} arquivos",
   "mcp.nameTaken": "Já existe um servidor com este nome.",
   "analyze.breakdown.description": "Descrição",
   "analyze.empty.description": "Configure destinos e sincronize skills para ver os dados de análise",

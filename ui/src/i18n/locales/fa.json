@@ -95,6 +95,8 @@
   "mcp.viewConfig": "دیدن آنچه هر Agent دریافت می‌کند",
   "mcp.viewConfigShort": "مشاهده محتوا",
   "mcp.viewConfigHint": "فقط خواندنی. Sync این سرور را به همین شکل در فایل Agent می‌نویسد و بقیهٔ فایل دست‌نخورده می‌ماند.",
+  "mcp.viewConfigFiles.one": "Sync در {count} فایل می‌نویسد",
+  "mcp.viewConfigFiles.other": "Sync در {count} فایل می‌نویسد",
   "mcp.nameTaken": "سروری با این نام از قبل وجود دارد.",
   "analyze.breakdown.description": "توضیحات",
   "analyze.empty.description": "هدف‌ها را پیکربندی کنید و اسکیل‌ها را همگام کنید تا داده‌های تحلیل را ببینید",

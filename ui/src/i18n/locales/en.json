@@ -95,6 +95,8 @@
   "mcp.viewConfig": "View what each Agent gets",
   "mcp.viewConfigShort": "View them",
   "mcp.viewConfigHint": "Read only. This is how Sync writes this server into the Agent's file; the rest of that file is left as it is.",
+  "mcp.viewConfigFiles.one": "Sync writes {count} file",
+  "mcp.viewConfigFiles.other": "Sync writes {count} files",
   "mcp.nameTaken": "A server with this name already exists.",
   "audit.empty.allPassed.description": "No malicious patterns or security threats detected",
   "audit.empty.noFilterMatch.description": "Try lowering Min Severity below {minSeverity}",

@@ -95,6 +95,8 @@
   "mcp.viewConfig": "檢視各 Agent 會寫入的設定",
   "mcp.viewConfigShort": "檢視內容",
   "mcp.viewConfigHint": "唯讀。Sync 會這樣把這個伺服器寫進該 Agent 的檔案，檔案裡其他內容不會動。",
+  "mcp.viewConfigFiles.one": "Sync 會寫入 {count} 個檔案",
+  "mcp.viewConfigFiles.other": "Sync 會寫入 {count} 個檔案",
   "mcp.nameTaken": "已有同名的伺服器。",
   "analyze.breakdown.description": "描述",
   "analyze.empty.description": "設定目標並同步 skills 後即可查看分析資料",

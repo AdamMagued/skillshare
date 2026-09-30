@@ -46,7 +46,7 @@ export const mcpClient = (target: string) => MCP_CLIENTS[target] ?? target;
 export const serverCount = (data: { source: { servers?: Record<string, MCPServer>; targets: string[] | null }; paths: Record<string, string> }, target: string) =>
   data.paths[target] ? Object.values(data.source.servers ?? {}).filter((s) => !s.disabled && (s.targets ?? data.source.targets ?? []).includes(target)).length : 0;
 
-const inside = (root: string, path: string) => path.startsWith(root + '/') || path.startsWith(root + '\\');
+export const inside = (root: string, path: string) => path.startsWith(root + '/') || path.startsWith(root + '\\');
 
 /** The mcp.projects root a change belongs to, if any. */
 // The plan says so outright, because Claude Code's off list is written to the global file

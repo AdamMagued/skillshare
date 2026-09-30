@@ -95,6 +95,8 @@
   "mcp.viewConfig": "Anzeigen, was jeder Agent bekommt",
   "mcp.viewConfigShort": "Ansehen",
   "mcp.viewConfigHint": "Nur lesbar. So schreibt Sync diesen Server in die Datei des Agent; der Rest der Datei bleibt unverändert.",
+  "mcp.viewConfigFiles.one": "Sync schreibt {count} Datei",
+  "mcp.viewConfigFiles.other": "Sync schreibt {count} Dateien",
   "mcp.nameTaken": "Ein Server mit diesem Namen existiert bereits.",
   "analyze.breakdown.description": "Beschreibung",
   "analyze.empty.description": "Ziele konfigurieren und Skills synchronisieren, um Analysedaten zu sehen",
