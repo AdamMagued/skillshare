@@ -78,17 +78,20 @@ export default function MCPRestoreDialog({ backups, initialId, onClose, onRestor
         </div>
         <div className="ss-fld">
           <span className="text-[13px] font-semibold">{t('mcp.restorePreview')}</span>
-          {preview.isPending ? (
-            <Spinner size="sm" />
-          ) : preview.error || error ? (
-            <div className="ss-note bad" role="alert"><span className="flex-1">{error || preview.error?.message}</span></div>
-          ) : (
-            <div className="ss-code">
-              {preview.data?.changes.map((c) => (
-                <span key={c.name} className={`block ${c.action === 'conflict' ? 'del' : ''}`}>{`${c.action.padEnd(9)} ${c.name}`}</span>
-              ))}
-            </div>
-          )}
+          {/* Keep the centered dialog still while the selected backup's preview changes. */}
+          <div role="region" aria-label={t('mcp.restorePreview')} aria-busy={preview.isPending} className="h-28 overflow-auto">
+            {preview.isPending ? (
+              <div className="ss-code flex h-full items-center justify-center"><Spinner size="sm" /></div>
+            ) : preview.error || error ? (
+              <div className="ss-note bad min-h-full" role="alert"><span className="flex-1">{error || preview.error?.message}</span></div>
+            ) : (
+              <div className="ss-code min-h-full">
+                {preview.data?.changes.map((c) => (
+                  <span key={c.name} className={`block ${c.action === 'conflict' ? 'del' : ''}`}>{`${c.action.padEnd(9)} ${c.name}`}</span>
+                ))}
+              </div>
+            )}
+          </div>
           <span className="hp">{t('mcp.restoreHint')}</span>
         </div>
       </div>
