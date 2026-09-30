@@ -80,9 +80,11 @@ type Server struct {
 	// DirectTools is pi-mcp-adapter's directTools: true, false, "search" or a list of
 	// tool names. Only Pi receives it.
 	DirectTools any `yaml:"directTools,omitempty" json:"directTools,omitempty"`
-	// PiOptions are pi-mcp-adapter fields Skillshare has no setting for, such as
+	// PiOptions are builtin or adapter fields Skillshare has no setting for, such as
 	// excludeTools. They are written into Pi's entry as given.
-	PiOptions map[string]any `yaml:"piOptions,omitempty" json:"piOptions,omitempty"`
+	PiOptions PiOptions `yaml:"piOptions,omitempty" json:"piOptions,omitempty"`
+	// PiOptionsPrune removes cleared fields only when the ledger owns their unchanged values.
+	PiOptionsPrune bool `yaml:"piOptionsPrune,omitempty" json:"piOptionsPrune,omitempty"`
 	// Disabled is the whole entry: it turns off, for one project, a server that the
 	// Agent's global config defines. Unselecting an Agent already covers a server
 	// Skillshare defines, so a disabled server carries no command or url.
@@ -149,8 +151,8 @@ func validateTargets(targets []string) error {
 
 // Validate checks a portable server without executing or connecting to it.
 func (s Server) Validate(name string) error {
-	if s.PiExtension != "" && s.PiExtension != "pi-mcp-adapter" && s.PiExtension != "pi-mcp-extension" {
-		return fmt.Errorf("MCP %s: piExtension must be pi-mcp-adapter or pi-mcp-extension", name)
+	if s.PiExtension != "" && s.PiExtension != "builtin" && s.PiExtension != "pi-mcp-adapter" && s.PiExtension != "pi-mcp-extension" {
+		return fmt.Errorf("MCP %s: piExtension must be builtin, pi-mcp-adapter or pi-mcp-extension", name)
 	}
 	for key := range s.Env {
 		if !envName.MatchString(key) {

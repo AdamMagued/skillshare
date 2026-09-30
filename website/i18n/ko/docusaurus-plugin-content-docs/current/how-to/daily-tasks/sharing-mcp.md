@@ -10,9 +10,8 @@ MCP를 사용하면 Agent가 다른 프로그램이나 서비스가 제공하는
 
 지원되는 MCP 클라이언트에는 Claude Code, Codex(CLI, IDE 확장, ChatGPT 데스크톱 앱이 하나의 설정을
 공유), Cursor, VS Code, OpenCode, Kilo Code, Grok CLI, Antigravity(AGY), Amp, Claude Desktop, Cline,
-Copilot CLI, Factory, Gemini CLI, Goose, Junie, Kiro, LM Studio, Warp, Windsurf가 포함됩니다. Pi는
-[직접 선택하는](/docs/reference/commands/mcp#pi-choose-your-mcp-extension) 서드파티 MCP 확장을
-통해 작동합니다. 각 클라이언트의 [대상 및 인증 제한](/docs/reference/commands/mcp#native-destinations)을
+Copilot CLI, Factory, Gemini CLI, Goose, Junie, Kiro, LM Studio, Warp, Windsurf가 포함됩니다. Pi ≥ 0.99.0에는 MCP가 내장되어 있으며 [확장 모드도 선택할 수 있습니다](/docs/reference/commands/mcp#pi-choose-your-mcp-extension).
+[대상 및 인증 제한](/docs/reference/commands/mcp#native-destinations)을
 참고하세요. 대시보드에는 현재 스코프에서 사용 가능한 클라이언트가 표시됩니다.
 
 예를 들어, Amp, Gemini CLI, Kiro와 Playwright를 공유하려면:
@@ -53,6 +52,12 @@ MCP 제공자로부터 받은 URL이나 JSON을 붙여넣고, 이름을 지정�
 서버를 읽어옵니다. 어느 경우든 대시보드는 CLI와 동일한 소스, 검증, 미리보기, 충돌 규칙을
 사용합니다. MCP 페이지의 Sync 박스에 있는 **Sync MCP**는 MCP 설정 파일만 작성합니다.
 Sync 페이지에는 Skill, Agent, 추가 항목, MCP를 위한 **Sync all resources**도 있습니다.
+
+Pi 가져오기 원본 메뉴는 내장, `pi-mcp-adapter`, `pi-mcp-extension`을 각각 제공하며 선택한
+파일만 읽습니다. 내장과 extension은 `mcp.json`, adapter는 `mcp-adapter.json`을 사용합니다.
+표시 경로는 현재 범위, `PI_CODING_AGENT_DIR`, 계정 디렉터리를 따릅니다. 프로젝트에서는
+해당 프로젝트의 `.pi/`를 읽습니다. 개인 server와 인증 정보는 전역 파일에 두고, 프로젝트
+파일은 신뢰할 수 있는 프로젝트에서만 사용하세요.
 
 ![MCP 페이지: server마다 한 행과 해당 Agent, 그리고 Sync 상자](/img/mcp-servers.png)
 

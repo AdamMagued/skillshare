@@ -11,9 +11,8 @@ configuration. It does not run a gateway or keep a background server alive.
 Supported MCP clients include Claude Code, Codex (the CLI, the IDE extension and the
 ChatGPT desktop app share one config), Cursor, VS Code, OpenCode,
 Kilo Code, Grok CLI, Antigravity (AGY), Amp, Claude Desktop, Cline, Copilot CLI, Factory,
-Gemini CLI, Goose, Junie, Kiro, LM Studio, Warp and Windsurf. Pi works through a
-third-party MCP extension that you
-[choose explicitly](/docs/reference/commands/mcp#pi-choose-your-mcp-extension). See the
+Gemini CLI, Goose, Junie, Kiro, LM Studio, Warp and Windsurf. Pi ≥ 0.99.0 includes MCP; choose built-in or an extension
+[explicitly](/docs/reference/commands/mcp#pi-choose-your-mcp-extension). See the
 [destination and authentication limits](/docs/reference/commands/mcp#native-destinations)
 for each client. The dashboard shows the clients available in your current scope.
 
@@ -57,6 +56,13 @@ separate and reads the servers an installed Agent already has. Either way the
 dashboard uses the same source, validation, preview and conflict rules as the
 CLI. **Sync MCP**, in the MCP page's Sync box, writes the MCP config files only. The
 Sync page also has **Sync all resources** for skills, agents, extras and MCP.
+
+For Pi, the import source menu offers built-in, `pi-mcp-adapter`, and
+`pi-mcp-extension` separately and reads only the selected file. Built-in and
+extension use `mcp.json`; adapter uses `mcp-adapter.json`. The displayed paths
+follow the current scope, `PI_CODING_AGENT_DIR`, and any account directory.
+Project imports read `.pi/` inside that project. Keep personal servers and
+credentials in the global file; use project files only in trusted projects.
 
 ![MCP page: one row per server with its Agents, and the Sync box](/img/mcp-servers.png)
 

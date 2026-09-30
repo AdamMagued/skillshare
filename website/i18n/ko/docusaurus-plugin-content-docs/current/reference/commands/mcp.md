@@ -33,9 +33,10 @@ skillshare sync --all
 | `--url URL` | `add`용 Streamable HTTP 엔드포인트 |
 | `-- command args...` | `add`용 로컬 실행 파일과 리터럴 인자 |
 | `--disabled` | project mode에서 `add`와 함께 사용: Agent의 global 설정이 정의한 서버를 끕니다. [아래](#turn-off-a-global-server-in-one-project) 참고 |
-| `--pi-extension PACKAGE` | target에 Pi가 있으면 필수, `add`, `edit` 또는 `import`와 함께 사용: `pi-mcp-adapter` 또는 `pi-mcp-extension` 중 Pi에 설치한 것. [아래](#pi-choose-your-mcp-extension) 참고 |
+| `--pi-extension MODE` | `builtin` (Pi ≥ 0.99.0), `pi-mcp-adapter`, `pi-mcp-extension`. [Pi](#pi-choose-your-mcp-extension) |
 | `--direct-tools VALUE` | `pi-mcp-adapter`를 사용하는 Pi, `add` 또는 `edit`와 함께 사용: `true`, `false`, `search`, 또는 쉼표로 구분한 도구 이름. [아래](#pi-direct-tools) 참고 |
-| `--pi-options JSON` | `pi-mcp-adapter`를 사용하는 Pi, `add` 또는 `edit`와 함께 사용: 그 밖의 adapter 필드를 JSON 객체로 전달; `{}`는 이를 비웁니다. [아래](#pi-options) 참고 |
+| `--pi-options JSON` | `builtin` / `pi-mcp-adapter`: per-server JSON. [Pi](#pi-options) |
+| `--pi-options-prune` | `piOptionsPrune: true`; `--pi-options-prune=false` → `false`. [Pi](#pi-options) |
 | `--from CLIENT` | import할 기존 client, 또는 `--file`의 형식 |
 | `--file PATH` | 네이티브 JSON/JSONC, TOML 또는 Goose YAML; `.toml`은 기본적으로 Codex로 처리되며, 다른 형식은 MCP 섹션에서 감지됨; 명시적인 방언을 지정하려면 `--from` 사용 |
 | `--sync` | 저장 후 동기화; noninteractive add/import/remove는 그렇지 않으면 저장만 함 |
@@ -117,7 +118,8 @@ source가 한 번 저장되기 전에 검증되며, 이후의 네이티브 파�
 | `transport` | 선택적으로 `stdio` 또는 `streamable-http`; 생략 시 추론됨 |
 | `targets` | 선택적 수신 client; `mcp.targets`를 재정의. 빈 목록이면 서버를 Skillshare에만 유지합니다. [아래](#keep-a-server-without-syncing-it) 참고 |
 | `directTools` | `pi-mcp-adapter`를 사용하는 Pi 전용: `true`, `false`, `"search"` 또는 도구 이름 목록. [아래](#pi-direct-tools) 참고 |
-| `piOptions` | `pi-mcp-adapter`를 사용하는 Pi 전용: 그 밖의 adapter 필드로, Pi의 항목에 그대로 작성됩니다. [아래](#pi-options) 참고 |
+| `piOptions` | `builtin` / `pi-mcp-adapter`: per-server JSON. [Pi](#pi-options) |
+| `piOptionsPrune` | `false`: preserve native values; `true`: remove owned unchanged fields. [Pi](#pi-options) |
 | `disabled` | `true`만 가능, 다른 연결 필드 불가, 그리고 project가 scope 안에 있어야 합니다: project mode이거나 `mcp.projects` 아래의 root. [아래](#turn-off-a-global-server-in-one-project) 참고 |
 
 Client ID는 `claude`, `codex`, `cursor`, `vscode`, `opencode`, `kilocode`,
@@ -316,7 +318,7 @@ Project 대상은 선택한 프로젝트 루트를 기준으로 합니다. 프�
 
 ### Another account of an Agent {#accounts}
 
-[Agent의 다른 계정](/docs/reference/targets/configuration#agent-config-dir)으로 선언된 target은 `claude`(`CLAUDE_CONFIG_DIR`), `codex`(`CODEX_HOME`), `pi`(`PI_CODING_AGENT_DIR`)에 대해 MCP target이기도 합니다. 그 서버는 해당 Agent의 형식으로, 계정 자체의 파일에 작성됩니다. Claude는 `<config_dir>/.claude.json`, Codex는 `<config_dir>/config.toml`, Pi는 `<config_dir>/mcp-adapter.json`입니다.
+[Agent의 다른 계정](/docs/reference/targets/configuration#agent-config-dir)으로 선언된 target은 `claude`(`CLAUDE_CONFIG_DIR`), `codex`(`CODEX_HOME`), `pi`(`PI_CODING_AGENT_DIR`)에 대해 MCP target이기도 합니다. 그 서버는 해당 Agent의 형식으로, 계정 자체의 파일에 작성됩니다. Claude는 `<config_dir>/.claude.json`, Codex는 `<config_dir>/config.toml`, Pi 내장은 `<config_dir>/mcp.json`, pi-mcp-adapter는 `<config_dir>/mcp-adapter.json`입니다.
 
 ```yaml
 targets:
@@ -355,6 +357,7 @@ Agent는 자체 global MCP 파일과 프로젝트 파일을 함께 읽습니다.
 | OpenCode | 예 | `opencode.json`: `"NAME": {"enabled": false}` |
 | Kilo Code | 예 | `kilo.jsonc`: `"NAME": {"enabled": false}` |
 | Pi with `pi-mcp-adapter` | 예 | `.pi/mcp-adapter.json`: `"NAME": {"disabled": true}` |
+| Pi 내장 | 아니요 | 완전한 항목 필요: command/url이 있는 서버에 `piOptions: {enabled: false}` 사용 |
 | Pi with `pi-mcp-extension` | 아니요 | disable 필드가 없음 |
 | Codex | 아니요 | 아래 참고 |
 | Every other client | 아니요 | 하나를 선택하면 오류가 발생하며 아무것도 작성되지 않음 |
@@ -616,6 +619,7 @@ plan은 `existing entry is not managed` 충돌을 보고하고, 그 항목에 �
   `"type": "stdio"`, 빈 `env`, 헤더 이름 대소문자처럼 Agent가 채우는 기본값은
   변경으로 간주되지 않습니다. `enabled: false`나 `disabled: true`로 관리되는 서버를
   끄는 것은 충돌로 보고됩니다.
+  Pi 내장 모드는 예외입니다. `enabled`만 변경하면 소유권 충돌이 발생하지 않습니다. 동기화 시 source의 `piOptions.enabled`가 우선합니다.
 - Claude Code가 `~/.claude.json`에서 하는 것처럼 Agent가 같은 파일의 관련 없는
   설정을 다시 쓰는 동안에도 미리보기는 유효하게 유지됩니다. 해당 파일의 MCP 항목이
   변경된 경우에만 새 미리보기가 필요합니다.
@@ -654,29 +658,17 @@ plan은 `existing entry is not managed` 충돌을 보고하고, 그 항목에 �
   이 디렉터리를 이식 가능한 매니페스트로 공유하지 마세요.
 
 
-## Pi: choose your MCP extension {#pi-choose-your-mcp-extension}
+## Pi: MCP 모드 선택 {#pi-choose-your-mcp-extension}
 
-Pi는 [pi-mcp-adapter](https://pi.dev/packages/pi-mcp-adapter) 또는
-[pi-mcp-extension](https://pi.dev/packages/pi-mcp-extension) 중 하나를 통해 MCP를
-사용할 수 있습니다. 이들은 Pi 웹사이트에 나열된 서드파티 패키지이며, 내장 Pi
-기능이 아닙니다. Pi에는 **하나만** 설치하세요.
+Pi ≥ 0.99.0에는 [MCP가 내장](https://github.com/earendil-works/pi/blob/v0.99.0/packages/coding-agent/docs/mcp.md)되어 있습니다. 새 설정에는 `builtin`을 선택할 수 있고 기존 adapter／extension 설정은 유지됩니다. UI와 터미널에서 세 모드를 선택합니다. 스크립트는 `--pi-extension builtin`, `pi-mcp-adapter`, `pi-mcp-extension`을 명시합니다.
 
-```bash
-pi install npm:pi-mcp-adapter
-```
-
-설치 후 Pi를 재시작하세요. Skillshare의 MCP 폼에서 **Pi**를 선택한 다음, 설치한
-패키지를 선택하세요. import 대화 상자도 동일한 선택지를 제공합니다. 터미널에서는
-`mcp add` / `mcp edit`이 선택을 안내하며, 스크립트는 반드시 `--pi-extension`을
-제공해야 합니다.
+개인 서버와 자격 증명이 있는 서버는 `~/.pi/agent/mcp.json`에 두세요. `.pi/mcp.json`은 신뢰하는 프로젝트에 필요한 서버만 사용합니다. 같은 이름의 project entry는 global entry 전체를 대체합니다. Skillshare는 미리 보기와 백업을 제공하며 파일을 편집합니다. 프로젝트 신뢰, 서버 실행, 확장 설치, OAuth 인증은 처리하지 않습니다.
 
 ```bash
-skillshare mcp add docs --url https://example.com/mcp --target pi --pi-extension pi-mcp-adapter --no-tui
+skillshare mcp add docs --url https://example.com/mcp --target pi --pi-extension builtin --pi-options '{"exposure":"deferred"}' --no-tui
 skillshare sync mcp --dry-run
 skillshare sync mcp
 ```
-
-저장된 서버 정의는 다음과 같습니다.
 
 ```yaml
 mcp:
@@ -684,41 +676,44 @@ mcp:
     docs:
       url: https://example.com/mcp
       targets: [pi]
-      piExtension: pi-mcp-adapter
+      piExtension: builtin
+      piOptions:
+        exposure: deferred
+        timeout: 120
+        toolExposure:
+          get_*: codemode
+          delete_*: hidden
 ```
 
-다른 패키지를 사용하려면 install 명령과 선택지 모두에서 `pi-mcp-extension`을
-사용하세요. Skillshare source 안에서 Pi를 대상으로 하는 모든 서버는 동일한 패키지를
-선택해야 합니다.
+간단한 Pi 설정에는 `pi mcp add`를 쓰고 project 파일에는 `-l`을 추가하세요. 명령이 지원하지 않는 설정은 `mcp.json`을 직접 편집합니다. 동기화 후 `/reload` 또는 새 session을 사용하세요. `pi mcp list`는 활성 서버 모두를 시작하여 연결을 확인하며 `pi mcp login NAME`은 사용자 승인이 필요합니다.
 
-| Package | Native output | What to do after sync |
+| Mode | Global file | Project file |
 |---|---|---|
-| `pi-mcp-adapter` | `command`/`args` 또는 `url`; `${VARIABLE}` 참조 | Pi 재시작/재로드; `/mcp-adapter`로 연결 확인. 도구는 필요 시 연결됨 |
-| `pi-mcp-extension` | 명시적인 `transport: stdio` 또는 `streamable-http` | Pi 재시작; 새 서버는 기본적으로 `/mcp:start <server>`로 수동 시작. 기존 `lifecycle` 설정은 유지됨 |
-
-| Package | Global file | Project file |
-|---|---|---|
+| `builtin` | `~/.pi/agent/mcp.json` | `.pi/mcp.json` |
 | `pi-mcp-adapter` | `~/.pi/agent/mcp-adapter.json` | `.pi/mcp-adapter.json` |
 | `pi-mcp-extension` | `~/.pi/agent/mcp.json` | `.pi/mcp.json` |
 
-Skillshare는 이러한 Pi 전용 파일을 사용하며, adapter가 공유하는
-`.mcp.json`이나 `~/.config/mcp/mcp.json` 입력은 사용하지 않습니다. 프로젝트 항목은
-동일한 이름의 global 항목을 재정의합니다. adapter의 경우, global
-`PI_CODING_AGENT_DIR` 오버라이드가 존중됩니다. extension은 이 오버라이드를
-존중하지 않으므로, global sync는 extension이 무시할 파일을 작성하는 대신 이를
-거부합니다.
+기존 확장은 선택한 패키지만 설치하고 Pi를 재시작하세요. `/mcp`를 등록하는 확장이 session의 내장 MCP를 대체할 수 있습니다. `directTools`와 기본값은 adapter 전용이며 내장 exposure로 자동 변환하지 않습니다.
 
-`pi-mcp-adapter` 3.0부터는 `mcp.json`을 더 이상 읽지 않고 `mcp-adapter.json`을
-읽습니다. 다음 `skillshare sync mcp`에서 Skillshare는 adapter 서버를
-`mcp-adapter.json`에 작성하고, 이전에 `mcp.json`에 작성했던 항목을 제거합니다.
-`mcp.json`에 직접 추가한 항목은 그대로 남습니다. Pi의 경고에 따라 이미 파일 이름을
-바꿨다면, Skillshare는 옮겨진 항목을 계속 관리합니다.
+### 내장 도구 노출 모드
 
-adapter는 환경 변수와 HTTP 헤더에서 `fromEnv`를 지원합니다. extension은 환경
-참조를 보간하지 **않습니다**: 일치하는 stdio 변수(예: `TOKEN: {fromEnv: TOKEN}`)는
-대신 Pi의 프로세스에서 상속되며, 변수 이름 변경과 환경 기반 HTTP 자격 증명은
-거부됩니다. 이런 경우에는 adapter를 사용하세요. Skillshare는 시크릿 값을 절대
-읽거나 복사하지 않습니다.
+`exposure`는 `codemode`(기본), `codemode-deferred`, `deferred`, `direct`, `hidden`을 지원합니다. `toolExposure`는 도구 이름이나 와일드카드를 받습니다. 정확한 이름이 우선이며 패턴은 첫 일치가 적용됩니다. 가져오기와 JSON／YAML 변환은 순서를 유지합니다.
+
+exposure 선택과 JSON은 같은 값을 사용합니다. 미설정이면 Pi의 값을 유지하고 새 항목은 Pi 기본값을 사용합니다. JSON으로 `toolExposure`, `timeout`(양수 초), `cwd`, `enabled`, `oauth`를 설정합니다. 알려진 내장 필드는 검증하고 사용자 지정 Pi의 알 수 없는 필드는 유지합니다.
+
+같은 범위의 Pi 서버는 같은 모드를 사용해야 합니다. 내장 모드 이름은 영문자, 숫자, `_`, `-`만 허용합니다. 여러 서버를 이전할 때 원본 설정의 모든 항목을 함께 변경하세요.
+
+`builtin`과 `pi-mcp-adapter`는 전역 Pi 디렉터리에 `PI_CODING_AGENT_DIR`을 적용합니다. `pi-mcp-extension`은 항상 `~/.pi/agent/mcp.json`을 읽으며 이 재정의와 Pi 계정을 지원하지 않습니다. 이 extension의 전역 동기화는 재정의를 거부합니다.
+
+| 모드 | 네이티브 출력 | 동기화 후 작업 |
+|---|---|---|
+| `builtin` | `command`/`args` 또는 `url`, `${NAME}` 참조 | `/reload` 또는 새 Pi 세션. `/mcp`에서 연결과 OAuth 승인 확인. |
+| `pi-mcp-adapter` | `command`/`args` 또는 `url`, `${NAME}` 참조 | Pi 재시작/다시 로드 후 `/mcp-adapter`로 확인. 도구 사용 시 연결. |
+| `pi-mcp-extension` | 명시적 `transport: stdio` 또는 `streamable-http` | Pi 재시작. 새 서버는 `/mcp:start <server>`로 수동 시작. 기존 `lifecycle` 유지. |
+
+`pi-mcp-adapter` 3.0부터 `mcp.json` 대신 `mcp-adapter.json`을 읽습니다. 다음 동기화에서 Skillshare는 관리하는 adapter 항목을 이동하고 수동 항목은 `mcp.json`에 남깁니다. 이미 파일 이름을 바꿨다면 변경되지 않은 이동 항목의 관리를 유지합니다. Skillshare는 Pi 전용 파일을 사용하며 adapter 공유 입력인 `.mcp.json`과 `~/.config/mcp/mcp.json`은 사용하지 않습니다.
+
+adapter는 환경 변수와 HTTP 헤더의 `fromEnv`를 지원합니다. `pi-mcp-extension`은 참조를 치환하지 않습니다. `TOKEN: {fromEnv: TOKEN}`처럼 이름이 일치하는 stdio 변수는 Pi 프로세스에서 상속합니다. 변수 이름 변경과 환경 변수 기반 HTTP 자격 증명은 거부됩니다. 이 경우 builtin 또는 adapter를 사용하세요. Skillshare는 자격 증명을 해석하지 않습니다.
 
 ### Direct tools {#pi-direct-tools}
 
@@ -778,54 +773,23 @@ mcp:
 [`mcp.projects`](#manage-several-projects-from-the-global-config) 아래의 프로젝트는
 자체 `directTools`를 가질 수 있으며, 이는 해당 프로젝트의 global 기본값을 대체합니다.
 기본값을 편집하는 명령은 없습니다. `config.yaml`에서 설정하거나, 대시보드의 MCP
-페이지에 있는 **기본값**에서 설정하세요. 이 항목은 Pi가 기본 target 중 하나일 때
-나타납니다.
+페이지에 있는 **기본값**에서 설정하세요. 이 항목은 이 범위에 Pi를 대상으로 하는 활성 `pi-mcp-adapter` 서버가 있을 때 나타납니다.
 
-`--from pi`로 import하면 Pi 전용 파일을 읽습니다. `directTools`가 있는 항목은 해당
-값과 함께, 그리고 `pi-mcp-adapter`가 선택된 상태로 import됩니다. 이 필드는
-adapter에만 있기 때문입니다. import한 연결을 저장할 때
-`--pi-extension`을 선택하세요. 파일만으로는 어떤 패키지가 설치되어 있는지 식별할
-수 없습니다. 지원되지 않는 레거시 SSE는 계속 차단됩니다. OAuth와 패키지 전용
-옵션은 Pi 안에서 계속 관리됩니다. Sync 성공은 구성이 작성되었음을 의미할 뿐, 확장이
-설치되었거나 서버가 연결되었음을 의미하지 않습니다.
+### 기타 Pi 설정 {#pi-options}
 
-### Other adapter settings {#pi-options}
+`piOptions`는 `builtin` 또는 `pi-mcp-adapter`의 서버별 필드이며 Pi만 받습니다. 가져오기는 필드를 유지하고 식별할 수 있는 평문 자격 증명을 참조로 바꿉니다. `mcp-adapter.json`은 adapter를 식별하지만 `mcp.json`은 내장 또는 extension 설정일 수 있으므로 모드를 확인하세요.
 
-`pi-mcp-adapter`에는 `excludeTools`, `approveTools`처럼 Skillshare가 설정으로 제공하는
-것보다 더 많은 서버별 필드가 있습니다. 이런 필드를 `piOptions` 아래에 두면 Pi 파일의
-해당 서버 항목에 그대로 작성됩니다:
+`--from` 없이 `--file`과 `--pi-extension`을 쓰면 감지된 입력 형식이 Pi여야 합니다. 선택한 모드는 파싱 단계부터 적용됩니다. 연결 필드만 있어 형식이 모호한 파일에는 `--from pi`를 지정하세요. 내장의 `exposure` 또는 `toolExposure`를 adapter 모드로 가져오면 adapter 지원 여부를 확인하라는 경고가 표시되며, `directTools`로 변환하지 않습니다. extension 모드는 지원하지 않는 필드를 경고하고 제외합니다.
 
-```yaml
-mcp:
-  servers:
-    github:
-      command: npx
-      args: [-y, "@modelcontextprotocol/server-github"]
-      piExtension: pi-mcp-adapter
-      targets: [pi]
-      piOptions:
-        excludeTools: ["*emulator*"]
-        approveTools: ["delete_*", "merge_pull_request"]
-```
+JSON 또는 필드를 지우면 기본적으로 관리를 중지하고 Pi 값을 유지합니다. “지운 설정을 Pi에서 제거” 또는 `--pi-options-prune`은 Skillshare가 쓰고 이후 변경되지 않은 필드만 제거합니다. 수동 필드는 유지하고 변경된 관리 필드는 동기화를 차단합니다. UI에서 끄거나 YAML에서 `piOptionsPrune: false`로 설정하면 기본 정책으로 돌아갑니다.
 
-명령줄에서는 `mcp add` 또는 `mcp edit`에 JSON 객체를 전달하세요. 이 값은 `piOptions`
-전체를 대체하며, `{}`는 이를 비웁니다. 대시보드에서는 서버 대화 상자의 **Direct tools**
-아래에 동일한 입력란이 있으며, 저장하기 전에 입력한 텍스트가 JSON 객체인지 확인합니다.
-Pi에 체크되어 있고 **Direct tools** 또는 **Other adapter settings**가 설정된 서버는 행에
-아이콘이 표시됩니다: 마우스를 올리면 어떤 항목이 설정되었는지 보이고, 클릭하면 대화 상자가
-열립니다. 편집 중에 Pi 체크를 해제해도 두 값은 source에 유지되므로, Pi를 다시 체크하면
-되돌아옵니다.
+연결 필드는 메인 양식을 사용합니다. 최상위 `settings`와 `autoEnableCodemode`는 Pi에서 직접 편집하며 동기화는 이를 유지합니다. 자격 증명은 환경 변수 참조로 설정하세요. 내장 모드에서는 portable env／headers의 `!command` 리터럴은 거부되므로 명령 기반 자격 증명은 Pi에 남겨 두세요. 모드별 초안은 유지하고 선택한 모드만 저장합니다.
+
+
+CLI에서 끄려면 `--pi-options-prune=false`를 지정하세요. adapter env/header에서 `!`로 시작하는 리터럴은 `!!`로 이스케이프하고 가져올 때 복원합니다. Pi options의 명령 값은 `oauth.clientId` 같은 비밀이 아닌 필드에서도 거부됩니다.
 
 ```bash
-skillshare mcp edit github --pi-options '{"excludeTools":["*emulator*"]}'
+skillshare mcp edit docs --pi-options '{"exposure":"direct"}' --no-tui
+skillshare mcp edit docs --pi-options '{}' --pi-options-prune --no-tui
+skillshare mcp edit docs --pi-options-prune=false --no-tui
 ```
-
-- Skillshare는 필드 이름이나 값을 검사하지 않습니다. 이를 아는 것은 adapter뿐입니다.
-- Skillshare가 직접 작성하는 필드는 여기서 거부됩니다: `command`, `args`, `env`, `url`,
-  `headers`, `transport`, `enabled`, `disabled`, `directTools`.
-- 값은 있는 그대로 복사됩니다. 자격 증명은 여기가 아니라 `fromEnv`를 사용해 `env` 또는
-  `headers`에 두세요.
-- `directTools`와 마찬가지로, `piOptions`에서 제거한 필드는 Pi 파일에 그대로 남습니다.
-  Pi 파일에서 직접 삭제하세요.
-- `piExtension: pi-mcp-adapter`가 필요하며 `disabled`와 함께 사용할 수 없습니다. 다른
-  Agent는 이 값을 받지 않으며, `import --from pi`는 이 필드들을 다시 읽어오지 않습니다.

@@ -11,9 +11,7 @@ MCP は、Agent が別のプログラムやサービスが提供するツール�
 対応する MCP クライアントには Claude Code、Codex（CLI、IDE 拡張機能、ChatGPT デスクトップアプリは
 1つの設定を共有します）、Cursor、VS Code、OpenCode、Kilo Code、Grok CLI、Antigravity (AGY)、
 Amp、Claude Desktop、Cline、Copilot CLI、Factory、Gemini CLI、Goose、Junie、Kiro、LM Studio、
-Warp、Windsurf が含まれます。Pi は
-[明示的に選択する](/docs/reference/commands/mcp#pi-choose-your-mcp-extension)
-サードパーティの MCP 拡張機能を通じて動作します。各クライアントの
+Warp、Windsurf が含まれます。Pi ≥ 0.99.0 は MCP を内蔵し、[拡張モードも選べます](/docs/reference/commands/mcp#pi-choose-your-mcp-extension)。
 [送信先と認証の制限](/docs/reference/commands/mcp#native-destinations)を参照してください。ダッシュボードには、
 現在の scope で利用可能なクライアントが表示されます。
 
@@ -56,6 +54,13 @@ Codex 由来か Grok 由来かを選択します。**Import from a target** は�
 プレビュー、競合ルールを使用します。MCP ページの Sync ボックスにある **Sync MCP** は、MCP の設定ファイルだけを
 書き込みます。Sync ページには、skills、agents、extras、MCP をまとめて Sync するための
 **Sync all resources** もあります。
+
+Pi のインポート元メニューでは内蔵、`pi-mcp-adapter`、`pi-mcp-extension` を個別に選び、
+選択したファイルだけを読み込みます。内蔵と extension は `mcp.json`、adapter は
+`mcp-adapter.json` を使います。表示パスは現在のスコープ、`PI_CODING_AGENT_DIR`、
+アカウントのディレクトリに従います。プロジェクトではその `.pi/` を読み込みます。
+個人用 server と認証情報はグローバルファイルに置き、プロジェクトファイルは信頼できる
+プロジェクトでのみ使ってください。
 
 ![MCP ページ: server ごとに 1 行と送り先の Agent、そして Sync ボックス](/img/mcp-servers.png)
 

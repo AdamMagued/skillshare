@@ -11,9 +11,7 @@ MCP 让 Agent 能够使用由其他程序或服务提供的工具。Skillshare
 受支持的 MCP 客户端包括 Claude Code、Codex（CLI、IDE 扩展与
 ChatGPT 桌面应用共享同一份配置）、Cursor、VS Code、OpenCode、
 Kilo Code、Grok CLI、Antigravity（AGY）、Amp、Claude Desktop、Cline、Copilot CLI、Factory、
-Gemini CLI、Goose、Junie、Kiro、LM Studio、Warp 与 Windsurf。Pi 则透过一个
-[你明确选择](/docs/reference/commands/mcp#pi-choose-your-mcp-extension) 的
-第三方 MCP 扩展来运作。各客户端的
+Gemini CLI、Goose、Junie、Kiro、LM Studio、Warp 与 Windsurf。Pi ≥ 0.99.0 已内置 MCP，也可[选择扩展模式](/docs/reference/commands/mcp#pi-choose-your-mcp-extension)。
 [目的地与身份验证限制](/docs/reference/commands/mcp#native-destinations)
 请参见相应说明。控制台会显示你目前范围内可用的客户端。
 
@@ -57,6 +55,11 @@ TOML，则需要选择它来自 Codex 还是 Grok。**Import from a target** 是
 控制台都使用与 CLI 相同的来源、验证、预览与冲突规则。MCP 页面 Sync 框中的
 **Sync MCP** 只写入 MCP 配置文件。Sync 页面也提供
 **Sync all resources**，用于同步 Skill、Agent、extras 与 MCP。
+
+Pi 的导入来源菜单分别提供内置、`pi-mcp-adapter` 与 `pi-mcp-extension`，只读取所选的文件。
+内置与 extension 使用 `mcp.json`；adapter 使用 `mcp-adapter.json`。显示的路径遵循当前范围、
+`PI_CODING_AGENT_DIR` 与自定义账号目录。项目导入读取该项目的 `.pi/`。
+个人服务器与凭据请保留在全局文件；项目文件只应用于受信任的项目。
 
 ![MCP 页面：每个 server 一行并列出其 Agents，以及 Sync 区块](/img/mcp-servers.png)
 

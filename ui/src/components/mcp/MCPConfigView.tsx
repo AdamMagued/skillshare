@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { mcpApi, type MCPMutation } from '../../api/mcp';
 import { X } from 'lucide-react';
 import Button from '../Button';
@@ -22,11 +22,13 @@ export default function MCPConfigView({ mutation }: { mutation: MCPMutation }) {
   const targets = mutation.server?.targets ?? [];
   const [picked, setPicked] = useState('');
   const shown = targets.includes(picked) ? picked : targets[0];
-  // A local call that touches no file, so it is simply asked again whenever the server changes.
-  const view = useQuery({ queryKey: [...queryKeys.mcp, 'render', JSON.stringify(mutation)], queryFn: () => mcpApi.render(mutation), placeholderData: (prev) => prev });
+  // Pi previews read native settings and ownership; keep the previous view while refreshing.
+  const view = useQuery({ queryKey: [...queryKeys.mcp, 'render', JSON.stringify(mutation)], queryFn: () => mcpApi.render(mutation), placeholderData: keepPreviousData });
   const rendered = view.data?.rendered.find((r) => r.target === shown);
   return (
     <>
+      <span className="text-[13px] font-semibold">{t('mcp.sourceConfig')}</span>
+      <div className="ss-pre"><pre>{JSON.stringify({ [mutation.name ?? 'server']: mutation.server }, null, 2)}</pre></div>
       <div className="flex items-center gap-2.5">
         <Select className="w-[200px] shrink-0" value={shown} onChange={setPicked} options={targets.map((x) => ({ value: x, label: targetLabel(x) }))} />
         {rendered && <span className="min-w-0 flex-1 truncate font-mono text-xs text-ink-3" title={rendered.path}>{shortenHome(rendered.path)}</span>}

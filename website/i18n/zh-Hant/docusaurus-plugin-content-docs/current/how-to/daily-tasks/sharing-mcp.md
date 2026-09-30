@@ -10,9 +10,8 @@ MCP 讓一個 Agent 能使用其他程式或服務提供的工具。Skillshare �
 支援的 MCP client 包含 Claude Code、Codex（CLI、IDE 擴充功能與 ChatGPT 桌面應用程式共用同一份設定）、
 Cursor、VS Code、OpenCode、Kilo Code、Grok CLI、Antigravity（AGY）、Amp、Claude Desktop、
 Cline、Copilot CLI、Factory、Gemini CLI、Goose、Junie、Kiro、LM Studio、Warp 與 Windsurf。
-Pi 是透過第三方 MCP 擴充功能運作，你需要
-[明確選擇](/docs/reference/commands/mcp#pi-choose-your-mcp-extension)。
-各 client 的[目的地與驗證限制](/docs/reference/commands/mcp#native-destinations)請參閱該頁。
+Pi ≥ 0.99.0 已內建 MCP，也可[選擇擴充模式](/docs/reference/commands/mcp#pi-choose-your-mcp-extension)。
+[目的地與驗證限制](/docs/reference/commands/mcp#native-destinations)請參閱該頁。
 Dashboard 會顯示目前範圍內可用的 client。
 
 舉例來說，將 Playwright 分享給 Amp、Gemini CLI 與 Kiro：
@@ -51,6 +50,11 @@ skillshare mcp add
 會讀取已安裝的 Agent 目前已有的伺服器設定。無論哪種方式，dashboard 都使用與 CLI 相同的來源、
 驗證、預覽與衝突規則。MCP 頁面 Sync 框中的 **Sync MCP** 只會寫入 MCP 設定檔。
 Sync 頁面也提供 **Sync all resources**，可同步 Skills、agents、extras 與 MCP。
+
+Pi 的匯入來源選單分別提供內建、`pi-mcp-adapter` 與 `pi-mcp-extension`，只讀取所選的檔案。
+內建與 extension 使用 `mcp.json`；adapter 使用 `mcp-adapter.json`。顯示的路徑遵循目前範圍、
+`PI_CODING_AGENT_DIR` 與自訂帳號目錄。專案匯入讀取該專案的 `.pi/`。
+個人伺服器與憑證請保留在全域檔案；專案檔案只應用於受信任的專案。
 
 ![MCP 頁面：每個 server 一列並列出其 Agents，以及 Sync 區塊](/img/mcp-servers.png)
 

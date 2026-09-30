@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -20,6 +21,24 @@ type clientFormat struct {
 // so nativePath gives the adapter's file. Refs: #298.
 func piExtensionPath(adapterPath string) string {
 	return filepath.Join(filepath.Dir(adapterPath), "mcp.json")
+}
+
+// The older extension ignores Pi's global directory override and cannot use accounts.
+func (s *Service) piModePath(mode string) (string, error) {
+	if mode == "pi-mcp-extension" && s.ProjectRoot == "" {
+		if s.account != "" {
+			return "", fmt.Errorf("pi-mcp-extension always reads ~/.pi/agent/mcp.json and cannot use account %s", s.account)
+		}
+		scoped := *s
+		scoped.ConfigDirs = maps.Clone(s.ConfigDirs)
+		delete(scoped.ConfigDirs, "pi")
+		s = &scoped
+	}
+	path, err := s.nativePath("pi")
+	if mode == "builtin" || mode == "pi-mcp-extension" {
+		path = piExtensionPath(path)
+	}
+	return path, err
 }
 
 var clientFormats = map[string]clientFormat{
@@ -214,7 +233,7 @@ func renderAdditionalClient(target string, format clientFormat, s Server) (map[s
 
 func additionalManagedFields(target string) []string {
 	if target == "pi" {
-		return []string{"command", "args", "env", "url", "headers", "transport", "disabled", "enabled"}
+		return []string{"type", "command", "args", "env", "url", "headers", "transport", "disabled", "enabled"}
 	}
 	format, ok := clientFormats[target]
 	if !ok {

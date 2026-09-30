@@ -1,26 +1,20 @@
 import { useContext, useState } from 'react';
 import { Check, KeyRound, Link2, Plus, SquareTerminal, X } from 'lucide-react';
-import { mcpApi, mcpOffTargets, type MCPServer, type MCPValue } from '../../api/mcp';
+import { mcpApi, mcpOffTargets, type MCPServer } from '../../api/mcp';
 import AgentIcon from '../AgentIcon';
 import Button from '../Button';
 import CodeEditor from '../CodeEditor';
 import DialogShell from '../DialogShell';
 import SegmentedControl from '../SegmentedControl';
-import { Select } from '../Input';
+import { Checkbox, Select } from '../Input';
 import { useT } from '../../i18n';
+import { useAppContext } from '../../context/AppContext';
 import PiExtensionField from './PiExtensionField';
-import DirectToolsField, { directToolsComplete, directToolsDraft, directToolsValue } from './DirectToolsField';
+import DirectToolsField, { directToolsValue } from './DirectToolsField';
 import MCPConfigView from './MCPConfigView';
-import { describeError, joinCommand, parsePiOptions, splitCommand, targetLabel } from './mcpView';
+import { describeError, targetLabel, piExposures } from './mcpView';
 import { MCPTargetOrder } from './targetOrder';
-
-// Mirrors mcp.serverName
-const NAME = /^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$/;
-
-interface EnvRow { id: string; key: string; fromEnv: boolean; value: string }
-
-const envRows = (env: Record<string, MCPValue> = {}): EnvRow[] =>
-  Object.entries(env).map(([key, v]) => ({ id: crypto.randomUUID(), key, fromEnv: typeof v !== 'string', value: typeof v === 'string' ? v : v.fromEnv }));
+import { initialServerDraft, validateServerDraft, type DraftPatch, type EnvRow, type ServerDraft, type ServerValidation } from './mcpServerDraft';
 
 const valueMap = (rows: EnvRow[]) => Object.fromEntries(rows.filter((r) => r.key.trim()).map((r) => [r.key.trim(), r.fromEnv ? { fromEnv: r.value.trim() } : r.value]));
 
@@ -81,41 +75,194 @@ interface Props {
   onSaved: () => void;
 }
 
+interface ServerFormProps {
+  draft: ServerDraft;
+  validation: ServerValidation;
+  patch: DraftPatch;
+  setPiOptions: (text: string) => void;
+  off: boolean;
+  saving: boolean;
+  editing: boolean;
+  order: readonly string[];
+  visibleTargets: Set<string>;
+  isProject: boolean;
+  onMode: Props['onMode'];
+  onSave: () => Promise<void>;
+  error: string;
+}
+
+function ServerForm({ draft, validation, patch, setPiOptions, off, saving, editing, order, visibleTargets, isProject, onMode, onSave, error }: ServerFormProps) {
+  const t = useT();
+  const { name, http, targets } = draft;
+  const { nameError } = validation;
+  const selectedTargets = new Set(targets);
+  return (
+    <form id="mcp-server" className="db" onSubmit={(e) => { e.preventDefault(); void onSave(); }}>
+      {/* Pasting a snippet only makes sense for a server, not for an off switch. */}
+      {onMode && !off && (
+        <SegmentedControl<'form' | 'paste'>
+          className="self-start"
+          value="form"
+          onChange={onMode}
+          options={[{ value: 'form', label: t('mcp.manualTab') }, { value: 'paste', label: t('mcp.pasteTab') }]}
+        />
+      )}
+      {off && <div className="ss-note inf"><span className="flex-1">{t('mcp.offHint')}</span></div>}
+      <div className="grid grid-cols-2 gap-3.5">
+        <div className="ss-fld">
+          <label htmlFor="mcp-name">{off ? t('mcp.offName') : t('mcp.name')}</label>
+          <span className={`ss-inp ${nameError ? 'err' : ''}`}>
+            <input id="mcp-name" autoFocus={!editing} value={name} onChange={(e) => patch({ name: e.target.value })} placeholder="github" disabled={editing || saving} />
+          </span>
+          {nameError && <span className="hp !text-bad">{nameError}</span>}
+        </div>
+        {!off && (
+          <div className="ss-fld">
+            <span className="text-[13px] font-semibold">{t('mcp.transport')}</span>
+            <SegmentedControl
+              className="self-start"
+              value={http ? 'streamable-http' : 'stdio'}
+              onChange={(v) => patch({ http: v === 'streamable-http' })}
+              options={[{ value: 'stdio', label: 'stdio' }, { value: 'streamable-http', label: 'streamable-http' }]}
+            />
+          </div>
+        )}
+      </div>
+
+      {!off && <ConnectionFields draft={draft} patch={patch} saving={saving} />}
+
+      <div className="ss-fld">
+        <span className="text-[13px] font-semibold">{off ? t('mcp.offTargets') : t('mcp.targets')}</span>
+        <div className="flex flex-wrap gap-x-5 gap-y-3">
+          {order.filter((target) => visibleTargets.has(target)).map((target) => {
+            const on = selectedTargets.has(target);
+            return (
+              <button
+                key={target}
+                type="button"
+                role="checkbox"
+                aria-checked={on}
+                className={`ss-tgl ${on ? 'on' : ''}`}
+                onClick={() => patch({ targets: selectedTargets.has(target) ? targets.filter((x) => x !== target) : [...targets, target] })}
+                disabled={saving || (target === 'claude-desktop' && http && !on)}
+              >
+                <span className="ic"><AgentIcon target={target} size={20} /><i><Check size={9} strokeWidth={3.5} /></i></span>
+                {targetLabel(target)}{target === 'claude-desktop' && <span className="ss-tag">stdio</span>}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      {targets.includes('pi') && <PiServerFields draft={draft} validation={validation} off={off} patch={patch} setPiOptions={setPiOptions} saving={saving} isProject={isProject} />}
+      {error && <div className="ss-note bad"><span className="flex-1">{error}</span></div>}
+    </form>
+  );
+}
+
+function ConnectionFields({ draft, patch, saving }: Pick<ServerFormProps, 'draft' | 'patch' | 'saving'>) {
+  const t = useT();
+  const { http, url, tokenEnv, command, headers, env } = draft;
+  return (
+    <>
+      {http ? (
+        <>
+          <div className="ss-fld">
+            <label htmlFor="mcp-url">URL</label>
+            <span className="ss-inp font-mono">
+              <Link2 size={15} className="shrink-0 text-ink-3" />
+              <input id="mcp-url" value={url} onChange={(e) => patch({ url: e.target.value })} placeholder="https://example.com/mcp" disabled={saving} />
+            </span>
+          </div>
+          <div className="ss-fld">
+            <label htmlFor="mcp-token">{t('mcp.tokenEnv')}</label>
+            <span className="ss-inp font-mono">
+              <KeyRound size={15} className="shrink-0 text-ink-3" />
+              <input id="mcp-token" value={tokenEnv} onChange={(e) => patch({ tokenEnv: e.target.value })} placeholder="DOCS_API_KEY" disabled={saving} />
+            </span>
+            <span className="hp">{t('mcp.tokenEnvHint')}</span>
+          </div>
+          <ValueRows label={t('mcp.headers')} hint={t('mcp.headersHint')} keyLabel={t('mcp.headerName')} keyPlaceholder="X-Api-Key" addLabel={t('mcp.addHeader')} removeLabel={t('mcp.removeHeader')} rows={headers} onChange={(headers) => patch({ headers })} disabled={saving} />
+        </>
+      ) : (
+        <>
+          <div className="ss-fld">
+            <label htmlFor="mcp-command">{t('mcp.command')}</label>
+            <span className="ss-inp font-mono">
+              <SquareTerminal size={15} className="shrink-0 text-ink-3" />
+              <input id="mcp-command" value={command} onChange={(e) => patch({ command: e.target.value })} placeholder="npx -y @modelcontextprotocol/server-github" disabled={saving} />
+            </span>
+            <span className="hp">{t('mcp.commandHint')}</span>
+          </div>
+          <ValueRows label={t('mcp.environment')} hint={t('mcp.environmentHint')} keyLabel={t('mcp.envName')} keyPlaceholder="API_KEY" addLabel={t('mcp.addVariable')} removeLabel={t('mcp.removeVariable')} rows={env} onChange={(env) => patch({ env })} disabled={saving} />
+        </>
+      )}
+    </>
+  );
+}
+
+function PiServerFields({ draft, validation, patch, setPiOptions, off, saving, isProject }: Pick<ServerFormProps, 'draft' | 'validation' | 'patch' | 'setPiOptions' | 'off' | 'saving' | 'isProject'>) {
+  const t = useT();
+  const { piExtension, directTools, prune, modeDrafts } = draft;
+  const { options, optionsError, keepsOptions, adapter, piOptions } = validation;
+  return (
+    <>
+      {!off && <PiExtensionField value={piExtension} onChange={(piExtension) => patch({ piExtension })} disabled={saving} project={isProject} />}
+      {piExtension === 'builtin' && <div className="ss-fld">
+        <Select label={t('mcp.piExposure')} value={String(options.value?.exposure ?? '')} disabled={saving || Boolean(optionsError)} onChange={(value) => {
+          const next = { ...options.value };
+          if (value) next.exposure = value; else delete next.exposure;
+          setPiOptions(JSON.stringify(next, null, 2));
+        }} options={[{ value: '', label: t('mcp.directToolsUnset'), note: `· ${t('mcp.piExposureUnset')}` }, ...piExposures.map((value) => ({ value, label: value, note: `· ${t(`mcp.piExposure.${value}`)}` }))]} />
+        <span className="hp">{t('mcp.piExposureHint')}</span>
+      </div>}
+      {adapter && <DirectToolsField value={directTools} onChange={(directTools) => patch({ directTools })} disabled={saving} />}
+      {keepsOptions && <div className="ss-fld">
+        <label>{t('mcp.piOptions')}</label>
+        <CodeEditor value={piOptions} onChange={setPiOptions} lang="json" placeholder={piExtension === 'builtin' ? '{\n  "timeout": 120,\n  "toolExposure": {"delete_*": "hidden"}\n}' : '{\n  "excludeTools": ["delete_*"]\n}'} ariaLabel={t('mcp.piOptions')} disabled={saving} minHeight="96px" />
+        {optionsError ? <span className="hp !text-bad">{optionsError}</span> : <span className="hp">{t('mcp.piOptionsHint')}</span>}
+        <Checkbox label={t('mcp.piPrune')} checked={prune} onChange={(prune) => patch({ prune })} disabled={saving} />
+        <span className="hp">{t('mcp.piPruneHint')}</span>
+      </div>}
+      {Object.entries(modeDrafts).some(([mode, text]) => mode !== piExtension && text.trim()) && <div className="ss-note inf"><span>{t('mcp.piDraftHint')}</span></div>}
+    </>
+  );
+}
+
+function ServerFooter({ targets, off, complete, canSave, saving, onView, onClose }: { targets: string[]; off: boolean; complete: boolean; canSave: boolean; saving: boolean; onView: () => void; onClose: () => void }) {
+  const t = useT();
+  return (
+    <div className="df">
+      <span className="flex-1 text-[13px]">
+        {targets.length === 0
+          ? (off ? <span className="ss-st warn">{t('mcp.pickTarget')}</span> : <span className="text-ink-2">{t('mcp.noTargetsNote')}</span>)
+          : <span className="text-ink-2">{t(targets.length === 1 ? 'mcp.writes.one' : 'mcp.writes.other', { count: targets.length })}{complete && <button type="button" className="ss-more ml-1.5" onClick={() => onView()}>{t('mcp.viewConfigShort')}</button>}</span>}
+      </span>
+      <Button variant="ghost" onClick={onClose} disabled={saving}>{t('common.cancel')}</Button>
+      <Button type="submit" form="mcp-server" variant="primary" loading={saving} disabled={!canSave}>{t('common.save')}</Button>
+    </div>
+  );
+}
+
 /** Add or edit one source server. Saving only changes the source; Sync writes the config files. */
 export default function MCPServerDialog({ initial, defaultTargets, defaultPiExtension = '', existingNames, availableTargets: offered, project, off: offKind = false, onMode, onClose, onSaved }: Props) {
   const t = useT();
+  const { isProjectMode } = useAppContext();
   const order = useContext(MCPTargetOrder);
   const availableTargets = offered ?? order;
   const server = initial?.server;
   // The entry point already chose which kind of entry this is, so the dialog never asks again.
   const off = initial ? Boolean(server?.disabled) : offKind;
   const offTargets = mcpOffTargets;
-  const [piExtension, setPiExtension] = useState(server?.piExtension ?? defaultPiExtension);
-  const [name, setName] = useState(initial?.name ?? '');
-  const [http, setHttp] = useState(Boolean(server?.url));
-  const [directTools, setDirectTools] = useState(() => directToolsDraft(server?.directTools));
-  const [piOptions, setPiOptions] = useState(() => (server?.piOptions ? JSON.stringify(server.piOptions, null, 2) : ''));
-  const [command, setCommand] = useState(server?.command ? joinCommand([server.command, ...(server.args ?? [])]) : '');
-  const [env, setEnv] = useState(() => envRows(server?.env));
-  const [headers, setHeaders] = useState(() => envRows(server?.headers));
+  const [draft, setDraft] = useState(() => initialServerDraft(server, initial?.name ?? '', defaultTargets, defaultPiExtension, off));
+  const patch: DraftPatch = (change) => setDraft((prev) => ({ ...prev, ...change }));
+  const { piExtension, directTools, prune, http, url, tokenEnv, headers, env, targets } = draft;
+  const setPiOptions = (text: string) => setDraft((prev) => ({ ...prev, modeDrafts: { ...prev.modeDrafts, [prev.piExtension]: text } }));
   const [viewing, setViewing] = useState(false);
-  const [url, setUrl] = useState(server?.url ?? '');
-  const [tokenEnv, setTokenEnv] = useState(server?.bearerToken?.fromEnv ?? '');
-  const [targets, setTargets] = useState<string[]>(server?.targets ?? (off ? defaultTargets.filter((x) => offTargets.includes(x)) : defaultTargets));
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-
-  const trimmed = name.trim();
-  const taken = !initial && existingNames.includes(trimmed);
-  const nameError = trimmed && !NAME.test(trimmed) ? t('mcp.nameHint') : taken ? t('mcp.nameTaken') : '';
-  const words = splitCommand(command);
-  // Adapter settings stay in the source while Pi is unticked, so ticking it again brings them back (#289).
-  const keepsAdapter = !off && piExtension === 'pi-mcp-adapter';
-  const adapter = keepsAdapter && targets.includes('pi');
-  const options = keepsAdapter ? parsePiOptions(piOptions) : {};
-  const optionsError = options.invalid ? t('mcp.piOptionsInvalid') : options.taken ? t('mcp.piOptionsTaken', { field: options.taken }) : '';
-  const canSave = Boolean(trimmed) && !nameError && (targets.length > 0 || !off) && (off || (http ? url.trim() !== '' : words.length > 0)) && (!targets.includes('pi') || off || Boolean(piExtension)) && (piExtension !== 'pi-mcp-adapter' || directToolsComplete(directTools)) && !optionsError && !saving;
-  const title = t(off ? (initial ? 'mcp.editOff' : 'mcp.addOff') : (initial ? 'mcp.editServer' : 'mcp.addServer'));
+  const validation = validateServerDraft(draft, off, Boolean(initial), existingNames, t);
+  const { trimmed, words, keepsAdapter, keepsOptions, options, title } = validation;
+  const canSave = validation.canSave && !saving;
   const visibleTargets = new Set([...availableTargets, ...targets].filter((x) => !off || offTargets.includes(x)));
 
   /** The server as the fields describe it right now. */
@@ -135,15 +282,16 @@ export default function MCPServerDialog({ initial, defaultTargets, defaultPiExte
         };
     const transport = http ? 'streamable-http' : 'stdio';
     if (server?.transport === transport) next.transport = transport;
-    if (piExtension) next.piExtension = piExtension;
+    if (piExtension && (targets.includes('pi') || server?.piExtension)) next.piExtension = piExtension;
+    if (next.piExtension && keepsOptions && prune) next.piOptionsPrune = true;
     const direct = directToolsValue(directTools);
-    if (direct !== undefined && keepsAdapter) next.directTools = direct;
-    if (options.value && Object.keys(options.value).length > 0) next.piOptions = options.value;
+    if (next.piExtension && direct !== undefined && keepsAdapter) next.directTools = direct;
+    if (next.piExtension && options.value && Object.keys(options.value).length > 0) next.piOptions = options.value;
     return next;
   };
   const ordered = order.filter((x) => targets.includes(x));
-  const complete = Boolean(trimmed) && !nameError && ordered.length > 0 && (off || (http ? url.trim() !== '' : words.length > 0));
-  const mutation = { name: trimmed, server: { ...build(), targets: ordered } };
+  const complete = validation.complete && ordered.length > 0;
+  const mutation = { project, name: trimmed, server: { ...build(), targets: ordered } };
 
   const save = async () => {
     if (!canSave) return;
@@ -169,111 +317,8 @@ export default function MCPServerDialog({ initial, defaultTargets, defaultPiExte
         <button type="button" className="ss-ib" aria-label={t('common.close')} onClick={onClose} disabled={saving}><X size={16} /></button>
       </div>
       {/* The view takes the whole body, so a long file has room; the fields live in state and come back as they were. */}
-      {viewing ? <div className="db"><MCPConfigView mutation={mutation} /></div> : <form id="mcp-server" className="db" onSubmit={(e) => { e.preventDefault(); void save(); }}>
-        {/* Pasting a snippet only makes sense for a server, not for an off switch. */}
-        {onMode && !off && (
-          <SegmentedControl<'form' | 'paste'>
-            className="self-start"
-            value="form"
-            onChange={onMode}
-            options={[{ value: 'form', label: t('mcp.manualTab') }, { value: 'paste', label: t('mcp.pasteTab') }]}
-          />
-        )}
-        {off && <div className="ss-note inf"><span className="flex-1">{t('mcp.offHint')}</span></div>}
-        <div className="grid grid-cols-2 gap-3.5">
-          <div className="ss-fld">
-            <label htmlFor="mcp-name">{off ? t('mcp.offName') : t('mcp.name')}</label>
-            <span className={`ss-inp ${nameError ? 'err' : ''}`}>
-              <input id="mcp-name" autoFocus={!initial} value={name} onChange={(e) => setName(e.target.value)} placeholder="github" disabled={Boolean(initial) || saving} />
-            </span>
-            {nameError && <span className="hp !text-bad">{nameError}</span>}
-          </div>
-          {!off && (
-            <div className="ss-fld">
-              <span className="text-[13px] font-semibold">{t('mcp.transport')}</span>
-              <SegmentedControl
-                className="self-start"
-                value={http ? 'streamable-http' : 'stdio'}
-                onChange={(v) => setHttp(v === 'streamable-http')}
-                options={[{ value: 'stdio', label: 'stdio' }, { value: 'streamable-http', label: 'streamable-http' }]}
-              />
-            </div>
-          )}
-        </div>
-
-        {off ? null : http ? (
-          <>
-            <div className="ss-fld">
-              <label htmlFor="mcp-url">URL</label>
-              <span className="ss-inp font-mono">
-                <Link2 size={15} className="shrink-0 text-ink-3" />
-                <input id="mcp-url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com/mcp" disabled={saving} />
-              </span>
-            </div>
-            <div className="ss-fld">
-              <label htmlFor="mcp-token">{t('mcp.tokenEnv')}</label>
-              <span className="ss-inp font-mono">
-                <KeyRound size={15} className="shrink-0 text-ink-3" />
-                <input id="mcp-token" value={tokenEnv} onChange={(e) => setTokenEnv(e.target.value)} placeholder="DOCS_API_KEY" disabled={saving} />
-              </span>
-              <span className="hp">{t('mcp.tokenEnvHint')}</span>
-            </div>
-            <ValueRows label={t('mcp.headers')} hint={t('mcp.headersHint')} keyLabel={t('mcp.headerName')} keyPlaceholder="X-Api-Key" addLabel={t('mcp.addHeader')} removeLabel={t('mcp.removeHeader')} rows={headers} onChange={setHeaders} disabled={saving} />
-          </>
-        ) : (
-          <>
-            <div className="ss-fld">
-              <label htmlFor="mcp-command">{t('mcp.command')}</label>
-              <span className="ss-inp font-mono">
-                <SquareTerminal size={15} className="shrink-0 text-ink-3" />
-                <input id="mcp-command" value={command} onChange={(e) => setCommand(e.target.value)} placeholder="npx -y @modelcontextprotocol/server-github" disabled={saving} />
-              </span>
-              <span className="hp">{t('mcp.commandHint')}</span>
-            </div>
-            <ValueRows label={t('mcp.environment')} hint={t('mcp.environmentHint')} keyLabel={t('mcp.envName')} keyPlaceholder="API_KEY" addLabel={t('mcp.addVariable')} removeLabel={t('mcp.removeVariable')} rows={env} onChange={setEnv} disabled={saving} />
-          </>
-        )}
-
-        <div className="ss-fld">
-          <span className="text-[13px] font-semibold">{off ? t('mcp.offTargets') : t('mcp.targets')}</span>
-          <div className="flex flex-wrap gap-x-5 gap-y-3">
-            {order.filter((target) => visibleTargets.has(target)).map((target) => {
-              const on = targets.includes(target);
-              return (
-                <button
-                  key={target}
-                  type="button"
-                  role="checkbox"
-                  aria-checked={on}
-                  className={`ss-tgl ${on ? 'on' : ''}`}
-                  onClick={() => setTargets((prev) => (prev.includes(target) ? prev.filter((x) => x !== target) : [...prev, target]))}
-                  disabled={saving || (target === 'claude-desktop' && http && !on)}
-                >
-                  <span className="ic"><AgentIcon target={target} size={20} /><i><Check size={9} strokeWidth={3.5} /></i></span>
-                  {targetLabel(target)}{target === 'claude-desktop' && <span className="ss-tag">stdio</span>}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-        {targets.includes('pi') && !off && <PiExtensionField value={piExtension} onChange={setPiExtension} disabled={saving} />}
-        {adapter && <DirectToolsField value={directTools} onChange={setDirectTools} disabled={saving} />}
-        {adapter && <div className="ss-fld">
-          <label>{t('mcp.piOptions')}</label>
-          <CodeEditor value={piOptions} onChange={setPiOptions} lang="json" placeholder={'{\n  "excludeTools": ["delete_*"]\n}'} ariaLabel={t('mcp.piOptions')} disabled={saving} minHeight="96px" />
-          {optionsError ? <span className="hp !text-bad">{optionsError}</span> : <span className="hp">{t('mcp.piOptionsHint')}</span>}
-        </div>}
-        {error && <div className="ss-note bad"><span className="flex-1">{error}</span></div>}
-      </form>}
-      {viewing ? <div className="df"><Button variant="secondary" onClick={() => setViewing(false)}>{t('common.back')}</Button></div> : <div className="df">
-        <span className="flex-1 text-[13px]">
-          {targets.length === 0
-            ? (off ? <span className="ss-st warn">{t('mcp.pickTarget')}</span> : <span className="text-ink-2">{t('mcp.noTargetsNote')}</span>)
-            : <span className="text-ink-2">{t(targets.length === 1 ? 'mcp.writes.one' : 'mcp.writes.other', { count: targets.length })}{/* ponytail: the preview renders global paths only; give /api/mcp/render a project to show it here too. */}{complete && !project && <button type="button" className="ss-more ml-1.5" onClick={() => setViewing(true)}>{t('mcp.viewConfigShort')}</button>}</span>}
-        </span>
-        <Button variant="ghost" onClick={onClose} disabled={saving}>{t('common.cancel')}</Button>
-        <Button type="submit" form="mcp-server" variant="primary" loading={saving} disabled={!canSave}>{t('common.save')}</Button>
-      </div>}
+      {viewing ? <div className="db"><MCPConfigView mutation={mutation} /></div> : <ServerForm draft={draft} validation={validation} patch={patch} setPiOptions={setPiOptions} off={off} saving={saving} editing={Boolean(initial)} order={order} visibleTargets={visibleTargets} isProject={Boolean(project) || isProjectMode} onMode={onMode} onSave={save} error={error} />}
+      {viewing ? <div className="df"><Button variant="secondary" onClick={() => setViewing(false)}>{t('common.back')}</Button></div> : <ServerFooter targets={targets} off={off} complete={complete} canSave={canSave} saving={saving} onView={() => setViewing(true)} onClose={onClose} />}
     </DialogShell>
   );
 }

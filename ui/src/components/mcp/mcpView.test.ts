@@ -20,6 +20,14 @@ describe('MCP view helpers', () => {
     expect(rows.map(row => [row.name, Boolean(row.server), Object.keys(row.cells)])).toEqual([['docs', true, ['claude']], ['old', false, ['codex']]]);
   });
 
+  it('keeps a Pi migration pending when its current file is already unchanged', () => {
+    const plan: MCPPlan = { revision: 'r', sourcePath: '/c.yaml', blocked: false, changes: [
+      { ...change('docs', 'pi', 'remove'), path: '/pi/mcp-adapter.json' },
+      { ...change('docs', 'pi', 'unchanged'), path: '/pi/mcp.json' },
+    ] };
+    expect(buildMatrix({ docs: { command: 'docs', piExtension: 'builtin' } }, plan)[0].cells.pi.action).toBe('remove');
+  });
+
   // A key that stops short of the whole sentence leaves the rest of the English message
   // appended to its translation, which only shows up in a locale that is not English.
   it('translates all of a conflict message and keeps only the path', () => {

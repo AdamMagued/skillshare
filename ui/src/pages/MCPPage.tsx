@@ -32,6 +32,251 @@ import { queryKeys } from '../lib/queryKeys';
 import { useMcpQuery } from '../hooks/useSharedQueries';
 
 const copy = (text: string) => void navigator.clipboard?.writeText(text);
+const inGlobalScope = (change: MCPChange) => !change.root;
+
+function mcpPageModel(data: MCPList | undefined, order: readonly string[]) {
+  const servers = data?.source.servers ?? {};
+  const defaults = data?.source.targets ?? [];
+  const targetsOf = (name: string) => servers[name]?.targets ?? defaults;
+  const changes = data?.plan?.changes ?? [];
+  // mcp.projects puts a server of the same name into other folders; this list is the global
+  // files only. A project's off switch for Claude Code lands in a global path, so ask the
+  // change which scope it came from rather than trusting the path alone.
+  const rows = data ? buildMatrix(servers, data.plan && { ...data.plan, changes: changes.filter(inGlobalScope) }) : [];
+  // The plan still covers every project's files, so the sync box counts them.
+  const roots = Object.keys(data?.source.projects ?? {});
+  const conflicts = changes.filter((c) => c.action === 'conflict');
+  const detected = new Set(data?.detected);
+  const files = order.filter((x) => data?.paths[x]);
+  const matrixTargets = new Set([...files, ...rows.flatMap((row) => [...targetsOf(row.name), ...Object.keys(row.cells)])]);
+  const undetected = files.filter((x) => !detected.has(x));
+  const showSync = Boolean(data?.plan && (rows.length > 0 || roots.length > 0) && (changes.some(writes) || conflicts.length === 0));
+  return { servers, defaults, targetsOf, changes, rows, roots, conflicts, detected, files, matrixTargets, undetected, showSync };
+}
+
+type MCPList = Awaited<ReturnType<typeof mcpApi.list>>;
+type PageModel = ReturnType<typeof mcpPageModel>;
+type ImportRequest = { conflict?: { target: string; name: string }; from?: string; project?: string };
+
+function MCPHeader({ backups, isProjectMode, onBackups, onImport, onOff, onAdd }: { backups: boolean; isProjectMode: boolean; onBackups: () => void; onImport: () => void; onOff: () => void; onAdd: () => void }) {
+  const t = useT();
+  return (
+    <PageHeader
+      title="MCP"
+      subtitle={t('mcp.subtitle')}
+      actions={<span className="flex items-center gap-2.5" data-tour="mcp-actions">
+        {backups ? <Button variant="ghost" onClick={onBackups}><Archive size={15} />{t('mcp.backupsButton')}</Button> : null}
+        <Button variant="secondary" onClick={onImport}><Download size={15} />{t('mcp.importFromTarget')}</Button>
+        {/* Only a project file can turn off a server the Agent defines globally. */}
+        {isProjectMode && <Button variant="ghost" onClick={onOff}><PowerOff size={15} />{t('mcp.addOff')}</Button>}
+        <Button variant="primary" onClick={onAdd}><Plus size={15} />{t('mcp.addServer')}</Button>
+      </span>}
+    />
+  );
+}
+
+function MCPFilesRail({ data, model, allFiles, onShowAll }: { data: MCPList; model: PageModel; allFiles: boolean; onShowAll: () => void }) {
+  const t = useT();
+  const { toast } = useToast();
+  const { files, undetected, detected } = model;
+  return (
+    <RailSection title={t('layout.nav.agents')} count={files.length}>
+      {/* The file name is enough to recognise; the full path is one hover or one copy away. */}
+      <RailGroup label={t('mcp.fileDetected')} count={files.length - undetected.length}>
+        {files.filter((x) => detected.has(x)).map((target) => (
+          <RailRow key={target} target={target} label={targetLabel(target)} right={<>
+            <span className="max-w-[130px] truncate font-mono text-xs text-ink-3" title={data.paths[target]}>{data.paths[target].split(/[\\/]/).pop()}</span>
+            <button type="button" className="ss-ib" aria-label={`${t('mcp.copyPath')} · ${targetLabel(target)}`} onClick={() => { copy(data.paths[target]); toast(t('mcp.copied'), 'success'); }}><Copy size={14} /></button>
+          </>} />
+        ))}
+      </RailGroup>
+      {undetected.length > 0 && (
+        <RailGroup label={t('mcp.notDetected')} count={undetected.length} right={
+          <button type="button" className="ss-ib !h-6 !w-6" aria-expanded={allFiles} aria-label={t('mcp.moreFiles', { count: undetected.length })} onClick={() => onShowAll()}><ChevronDown size={14} className={allFiles ? 'rotate-180' : ''} /></button>
+        }>
+          {allFiles && <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 pt-0.5 text-[13px] text-ink-2">{undetected.map((target) => <span key={target} className="truncate" title={data.paths[target]}>{targetLabel(target)}</span>)}</div>}
+        </RailGroup>
+      )}
+    </RailSection>
+  );
+}
+
+interface ContentProps {
+  data: MCPList;
+  model: PageModel;
+  order: readonly string[];
+  allFiles: boolean;
+  onShowAll: () => void;
+  busy: boolean;
+  onToggle: (name: string, target: string, on: boolean) => void;
+  onMenu: (e: React.MouseEvent<HTMLButtonElement>, name: string) => void;
+  onImport: (request: ImportRequest) => void;
+  onAdd: () => void;
+  onSettings: (settings: MCPSettings) => void;
+  resolve: MCPResolve;
+}
+
+function MCPContent({ data, model, order, allFiles, onShowAll, busy, onToggle, onMenu, onImport, onAdd, onSettings, resolve }: ContentProps) {
+  const t = useT();
+  const { toast } = useToast();
+  const { rows, roots, changes, conflicts, servers, defaults, matrixTargets, files, targetsOf, showSync } = model;
+  const conflictText = (c: MCPChange) => {
+    const params = { target: targetLabel(c.target), name: c.name };
+    if (c.message?.startsWith('existing entry is not managed')) return t('mcp.conflict.unmanaged', params);
+    if (c.message?.startsWith('Agent configuration changed')) return t('mcp.conflict.changed', params);
+    return `${params.target} · ${c.name}: ${describeMessage(t, c.message)}`;
+  };
+
+  return (
+    <RailLayout rail={<>
+      {showSync && data.plan && <MCPSyncBox changes={changes} roots={roots} plan={data.plan} />}
+
+      <MCPFilesRail data={data} model={model} allFiles={allFiles} onShowAll={onShowAll} />
+    </>}>
+      {changes.filter(isShadowed).map((c) => (
+        <div key={`${c.target}:${c.name}`} className="ss-note warn">
+          <AlertCircle size={16} />
+          <span className="flex-1">{targetLabel(c.target)} · <span className="font-mono">{c.name}</span>: {describeMessage(t, c.message)}</span>
+        </div>
+      ))}
+      {conflicts.length > 0 && (
+        <div className="ss-note warn !items-center">
+          <AlertCircle size={16} className="self-start mt-0.5" />
+          <div className="flex flex-1 flex-col gap-2">
+            {conflicts.map((c, i) => (
+              <div key={`${c.path}:${c.target}:${c.name}`} className="flex items-center gap-3">
+                <span className="flex-1">
+                  {i === 0 && <b>{t(conflicts.length === 1 ? 'mcp.conflictLead.one' : 'mcp.conflictLead.other', { count: conflicts.length })} </b>}
+                  {conflictText(c)}
+                  {/* One server can conflict in several folders, so a project's row says which. */}
+                  {projectOf(roots, c) && <span className="text-ink-2"> · {shortenHome(projectOf(roots, c)!)}</span>}
+                </span>
+                {isResolvable(c) && <>
+                  {canImportConflict(c) && <Button size="sm" variant="secondary" disabled={busy} onClick={() => void resolve(c.target, c.name, 'import', projectOf(roots, c))}>{t('mcp.importFromAgent', { target: targetLabel(c.target) })}</Button>}
+                  <Button size="sm" variant="secondary" disabled={busy} onClick={() => void resolve(c.target, c.name, 'replace')}>{t('mcp.replace')}</Button>
+                </>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      <MCPUnmanagedNote entries={data.unmanaged.filter((u) => !u.project)} onImport={(from) => onImport({ from })} />
+      {rows.length > 0 ? (
+        <MCPServerList rows={rows} targets={order.filter((x) => matrixTargets.has(x))} targetsOf={targetsOf} onToggle={onToggle} onMenu={onMenu} disabled={busy} />
+      ) : (
+        <EmptyState
+          icon={Plug}
+          title={t('mcp.empty')}
+          description={t('mcp.emptyHint')}
+          action={<div className="flex gap-2">
+            <Button variant="secondary" onClick={() => onImport({})}><Download size={15} />{t('mcp.importFromTarget')}</Button>
+            <Button variant="primary" onClick={onAdd}><Plus size={15} />{t('mcp.addServer')}</Button>
+          </div>}
+        />
+      )}
+      <MCPDefaults targets={defaults} servers={servers} accounts={data.source.accounts} directTools={data.source.directTools} offered={files} onSave={onSettings} />
+      <div className="flex items-center gap-1 px-1 text-xs text-ink-3">
+        <span className="min-w-0 truncate">{t('mcp.source')}: <span className="font-mono" title={data.source.path}>{shortenHome(data.source.path)}</span></span>
+        <button type="button" className="ss-ib" aria-label={t('mcp.copySource')} onClick={() => { copy(data.source.path); toast(t('mcp.copied'), 'success'); }}><Copy size={14} /></button>
+      </div>
+    </RailLayout>
+  );
+}
+
+function MCPEditDialog({ data, model, editing, piSetupName, addingOff, addMode, onMode, onClose, onSaved }: { data: MCPList; model: PageModel; editing: string; piSetupName: string | null; addingOff: boolean; addMode: 'form' | 'paste'; onMode: (mode: 'form' | 'paste') => void; onClose: () => void; onSaved: () => void }) {
+  const { servers, defaults, targetsOf, files } = model;
+  return (
+    editing === '' && addMode === 'paste' ? (
+      <MCPImportDialog
+        source="paste"
+        servers={servers}
+        defaultTargets={defaults}
+        paths={data.paths}
+        detected={data.detected}
+        onMode={onMode}
+        onClose={onClose}
+        onImported={onSaved}
+      />
+    ) : (
+      <MCPServerDialog
+        off={editing === '' && addingOff}
+        defaultPiExtension={Object.values(servers).find((s) => s.piExtension)?.piExtension}
+        initial={editing ? { name: editing, server: piSetupName === editing ? { ...servers[editing], targets: [...targetsOf(editing), 'pi'] } : servers[editing] } : undefined}
+        defaultTargets={defaults}
+        existingNames={Object.keys(servers)}
+        availableTargets={files}
+        onMode={editing === '' ? onMode : undefined}
+        onClose={onClose}
+        onSaved={onSaved}
+      />
+    )
+  );
+}
+
+function importContext(data: MCPList, model: PageModel, importing: ImportRequest) {
+  const { servers, defaults, roots } = model;
+  const defaultPath = importing.conflict ? data.plan?.changes.find((c) => c.target === importing.conflict?.target && c.name === importing.conflict?.name && projectOf(roots, c) === importing.project)?.path : data.unmanaged.find((u) => u.target === importing.from && u.project === importing.project)?.path;
+  const importServers = importing.project ? data.source.projects?.[importing.project]?.servers ?? {} : servers;
+  const defaultTargets = importing.project ? data.source.projects?.[importing.project]?.targets ?? defaults : defaults;
+  return { defaultPath, servers: importServers, defaultTargets };
+}
+
+function MCPAgentImport({ data, model, importing, onClose, onImported }: { data: MCPList; model: PageModel; importing: ImportRequest; onClose: () => void; onImported: () => void }) {
+  const context = importContext(data, model, importing);
+  return (
+    <MCPImportDialog
+      source="target"
+      // A project's conflict is read from and imported into that project, not the global source.
+      project={importing.project}
+      importSources={data.importSources?.[importing.project ?? '']}
+      defaultPath={context.defaultPath}
+      servers={context.servers}
+      defaultTargets={context.defaultTargets}
+      paths={data.paths}
+      detected={data.detected}
+      conflict={importing.conflict}
+      defaultFrom={importing.from}
+      onClose={onClose}
+      onImported={onImported}
+    />
+  );
+}
+
+function MCPPageErrors({ error, previewError }: { error: Error | null; previewError?: string }) {
+  const t = useT();
+  return <>
+      {error && <div className="ss-note bad mb-4"><span className="flex-1">{error.message}</span></div>}
+      {previewError && <div className="ss-note bad mb-4"><AlertCircle size={16} /><span className="flex-1">{describeError(t, previewError)}</span></div>}
+  </>;
+}
+
+function legacyMCPPath(params: URLSearchParams) {
+  const opened = params.get('project');
+  if (opened) return projectUrl(opened, 'mcp');
+  return params.get('tab') === 'projects' ? '/projects' : null;
+}
+
+function MCPReplaceDialog({ replace, busy, onClose, onApply }: { replace: { plan: MCPPlan; mutation: MCPMutation } | null; busy: boolean; onClose: () => void; onApply: () => Promise<void> }) {
+  const t = useT();
+  return (
+    <DialogShell open={Boolean(replace)} onClose={onClose} padding="none" preventClose={busy} ariaLabel={t('mcp.replace')} className="!max-w-[640px]">
+      {replace && <>
+        <div className="dh">
+          <h2 className="ss-h2">{t('mcp.replace')}</h2>
+          <button type="button" className="ss-ib" aria-label={t('common.close')} onClick={onClose} disabled={busy}><X size={16} /></button>
+        </div>
+        <div className="db">
+          <MCPPreview plan={replace.plan} />
+        </div>
+        <div className="df">
+          <span className="flex-1 text-[13px] text-ink-2">{t('mcp.backupNote')}</span>
+          <Button variant="ghost" onClick={onClose} disabled={busy}>{t('common.cancel')}</Button>
+          <Button variant="primary" loading={busy} disabled={replace.plan.blocked} onClick={onApply}>{t('mcp.saveSync')}</Button>
+        </div>
+      </>}
+    </DialogShell>
+  );
+}
 
 export default function MCPPage() {
   const t = useT();
@@ -45,7 +290,7 @@ export default function MCPPage() {
   const [editing, setEditing] = useState<string | null>(null); // '' adds a new server
   // Adding takes two shapes: fill the fields, or paste a snippet. Both end up saving one source server.
   const [addMode, setAddMode] = useState<'form' | 'paste'>('form');
-  const [importing, setImporting] = useState<{ conflict?: { target: string; name: string }; from?: string; project?: string } | null>(null);
+  const [importing, setImporting] = useState<ImportRequest | null>(null);
   const [removing, setRemoving] = useState('');
   const [viewing, setViewing] = useState('');
   const [backupsOpen, setBackupsOpen] = useState(false);
@@ -69,22 +314,8 @@ export default function MCPPage() {
 
   if (isPending) return <PageSkeleton />;
 
-  const servers = data?.source.servers ?? {};
-  const defaults = data?.source.targets ?? [];
-  const targetsOf = (name: string) => servers[name]?.targets ?? defaults;
-  const changes = data?.plan?.changes ?? [];
-  // mcp.projects puts a server of the same name into other folders; this list is the global
-  // files only. A project's off switch for Claude Code lands in a global path, so ask the
-  // change which scope it came from rather than trusting the path alone.
-  const globalPaths = Object.values(data?.paths ?? {});
-  const rows = data ? buildMatrix(servers, data.plan && { ...data.plan, changes: changes.filter((c) => !c.root && globalPaths.includes(c.path)) }) : [];
-  // The plan still covers every project's files, so the sync box counts them.
-  const roots = Object.keys(data?.source.projects ?? {});
-  const conflicts = changes.filter((c) => c.action === 'conflict');
-  const detected = new Set(data?.detected);
-  const files = order.filter((x) => data?.paths[x]);
-  const matrixTargets = new Set([...files, ...rows.flatMap((row) => [...targetsOf(row.name), ...Object.keys(row.cells)])]);
-  const undetected = files.filter((x) => !detected.has(x));
+  const model = mcpPageModel(data, order);
+  const { servers, targetsOf } = model;
 
   const toggle = (name: string, target: string, on: boolean) => {
     if (target === 'pi' && on && !servers[name].piExtension) { setPiSetupName(name); setEditing(name); return; }
@@ -143,166 +374,30 @@ export default function MCPPage() {
     });
   };
 
-  const conflictText = (c: MCPChange) => {
-    const params = { target: targetLabel(c.target), name: c.name };
-    if (c.message?.startsWith('existing entry is not managed')) return t('mcp.conflict.unmanaged', params);
-    if (c.message?.startsWith('Agent configuration changed')) return t('mcp.conflict.changed', params);
-    return `${params.target} · ${c.name}: ${describeMessage(t, c.message)}`;
-  };
-
   // Projects moved to their own page; links to the old tab still land somewhere useful.
-  const opened = params.get('project');
-  if (opened) return <Navigate to={projectUrl(opened, 'mcp')} replace />;
-  if (params.get('tab') === 'projects') return <Navigate to="/projects" replace />;
+  const redirected = legacyMCPPath(params);
+  if (redirected) return <Navigate to={redirected} replace />;
 
   return (
     <MCPTargetOrder.Provider value={order}>
     <div className="animate-fade-in">
-      <PageHeader
-        title="MCP"
-        subtitle={t('mcp.subtitle')}
-        actions={<span className="flex items-center gap-2.5" data-tour="mcp-actions">
-          {data?.backups.length ? <Button variant="ghost" onClick={() => setBackupsOpen(true)}><Archive size={15} />{t('mcp.backupsButton')}</Button> : null}
-          <Button variant="secondary" onClick={() => setImporting({})}><Download size={15} />{t('mcp.importFromTarget')}</Button>
-          {/* Only a project file can turn off a server the Agent defines globally. */}
-          {isProjectMode && <Button variant="ghost" onClick={() => { setAddingOff(true); setAddMode('form'); setEditing(''); }}><PowerOff size={15} />{t('mcp.addOff')}</Button>}
-          <Button variant="primary" onClick={() => { setAddingOff(false); setAddMode('form'); setEditing(''); }}><Plus size={15} />{t('mcp.addServer')}</Button>
-        </span>}
-      />
+      <MCPHeader backups={Boolean(data?.backups.length)} isProjectMode={isProjectMode} onBackups={() => setBackupsOpen(true)} onImport={() => setImporting({})} onOff={() => { setAddingOff(true); setAddMode('form'); setEditing(''); }} onAdd={() => { setAddingOff(false); setAddMode('form'); setEditing(''); }} />
 
-      {error && <div className="ss-note bad mb-4"><span className="flex-1">{error.message}</span></div>}
-      {data?.previewError && <div className="ss-note bad mb-4"><AlertCircle size={16} /><span className="flex-1">{describeError(t, data.previewError)}</span></div>}
+      <MCPPageErrors error={error} previewError={data?.previewError} />
 
       {data && (
-        <RailLayout rail={<>
-          {data.plan && (rows.length > 0 || roots.length > 0) && (changes.some(writes) || conflicts.length === 0) && <MCPSyncBox changes={changes} roots={roots} plan={data.plan} />}
-
-          <RailSection title={t('layout.nav.agents')} count={files.length}>
-            {/* The file name is enough to recognise; the full path is one hover or one copy away. */}
-            <RailGroup label={t('mcp.fileDetected')} count={files.length - undetected.length}>
-              {files.filter((x) => detected.has(x)).map((target) => (
-                <RailRow key={target} target={target} label={targetLabel(target)} right={<>
-                  <span className="max-w-[130px] truncate font-mono text-xs text-ink-3" title={data.paths[target]}>{data.paths[target].split(/[\\/]/).pop()}</span>
-                  <button type="button" className="ss-ib" aria-label={`${t('mcp.copyPath')} · ${targetLabel(target)}`} onClick={() => { copy(data.paths[target]); toast(t('mcp.copied'), 'success'); }}><Copy size={14} /></button>
-                </>} />
-              ))}
-            </RailGroup>
-            {undetected.length > 0 && (
-              <RailGroup label={t('mcp.notDetected')} count={undetected.length} right={
-                <button type="button" className="ss-ib !h-6 !w-6" aria-expanded={allFiles} aria-label={t('mcp.moreFiles', { count: undetected.length })} onClick={() => setAllFiles(!allFiles)}><ChevronDown size={14} className={allFiles ? 'rotate-180' : ''} /></button>
-              }>
-                {allFiles && <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 pt-0.5 text-[13px] text-ink-2">{undetected.map((target) => <span key={target} className="truncate" title={data.paths[target]}>{targetLabel(target)}</span>)}</div>}
-              </RailGroup>
-            )}
-          </RailSection>
-        </>}>
-          {changes.filter(isShadowed).map((c) => (
-            <div key={`${c.target}:${c.name}`} className="ss-note warn">
-              <AlertCircle size={16} />
-              <span className="flex-1">{targetLabel(c.target)} · <span className="font-mono">{c.name}</span>: {describeMessage(t, c.message)}</span>
-            </div>
-          ))}
-          {conflicts.length > 0 && (
-            <div className="ss-note warn !items-center">
-              <AlertCircle size={16} className="self-start mt-0.5" />
-              <div className="flex flex-1 flex-col gap-2">
-                {conflicts.map((c, i) => (
-                  <div key={`${c.path}:${c.target}:${c.name}`} className="flex items-center gap-3">
-                    <span className="flex-1">
-                      {i === 0 && <b>{t(conflicts.length === 1 ? 'mcp.conflictLead.one' : 'mcp.conflictLead.other', { count: conflicts.length })} </b>}
-                      {conflictText(c)}
-                      {/* One server can conflict in several folders, so a project's row says which. */}
-                      {projectOf(roots, c) && <span className="text-ink-2"> · {shortenHome(projectOf(roots, c)!)}</span>}
-                    </span>
-                    {isResolvable(c) && <>
-                      {canImportConflict(c) && <Button size="sm" variant="secondary" disabled={busy} onClick={() => void resolve(c.target, c.name, 'import', projectOf(roots, c))}>{t('mcp.importFromAgent', { target: targetLabel(c.target) })}</Button>}
-                      <Button size="sm" variant="secondary" disabled={busy} onClick={() => void resolve(c.target, c.name, 'replace')}>{t('mcp.replace')}</Button>
-                    </>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          <MCPUnmanagedNote entries={data.unmanaged.filter((u) => !u.project)} onImport={(from) => setImporting({ from })} />
-          {rows.length > 0 ? (
-            <MCPServerList rows={rows} targets={order.filter((x) => matrixTargets.has(x))} targetsOf={targetsOf} onToggle={(n, x, on) => void toggle(n, x, on)} onMenu={openMenu} disabled={busy} />
-          ) : (
-            <EmptyState
-              icon={Plug}
-              title={t('mcp.empty')}
-              description={t('mcp.emptyHint')}
-              action={<div className="flex gap-2">
-                <Button variant="secondary" onClick={() => setImporting({})}><Download size={15} />{t('mcp.importFromTarget')}</Button>
-                <Button variant="primary" onClick={() => { setAddingOff(false); setAddMode('form'); setEditing(''); }}><Plus size={15} />{t('mcp.addServer')}</Button>
-              </div>}
-            />
-          )}
-          <MCPDefaults targets={defaults} directTools={data.source.directTools} offered={files} onSave={(settings) => void saveSettings(settings)} />
-          <div className="flex items-center gap-1 px-1 text-xs text-ink-3">
-            <span className="min-w-0 truncate">{t('mcp.source')}: <span className="font-mono" title={data.source.path}>{shortenHome(data.source.path)}</span></span>
-            <button type="button" className="ss-ib" aria-label={t('mcp.copySource')} onClick={() => { copy(data.source.path); toast(t('mcp.copied'), 'success'); }}><Copy size={14} /></button>
-          </div>
-        </RailLayout>
+        <MCPContent data={data} model={model} order={order} allFiles={allFiles} onShowAll={() => setAllFiles(!allFiles)} busy={busy} onToggle={(n, x, on) => void toggle(n, x, on)} onMenu={openMenu} onImport={setImporting} onAdd={() => { setAddingOff(false); setAddMode('form'); setEditing(''); }} onSettings={(settings) => void saveSettings(settings)} resolve={resolve} />
       )}
 
-      {editing !== null && data && (editing === '' && addMode === 'paste' ? (
-        <MCPImportDialog
-          source="paste"
-          servers={servers}
-          defaultTargets={defaults}
-          paths={data.paths}
-          detected={data.detected}
-          onMode={setAddMode}
-          onClose={() => setEditing(null)}
-          onImported={() => done(t('mcp.toast.saved'))}
-        />
-      ) : (
-        <MCPServerDialog
-          off={editing === '' && addingOff}
-          defaultPiExtension={Object.values(servers).find((s) => s.piExtension)?.piExtension}
-          initial={editing ? { name: editing, server: piSetupName === editing ? { ...servers[editing], targets: [...targetsOf(editing), 'pi'] } : servers[editing] } : undefined}
-          defaultTargets={defaults}
-          existingNames={Object.keys(servers)}
-          availableTargets={files}
-          onMode={editing === '' ? setAddMode : undefined}
-          onClose={() => setEditing(null)}
-          onSaved={() => done(t('mcp.toast.saved'))}
-        />
-      ))}
+      {editing !== null && data && (<MCPEditDialog data={data} model={model} editing={editing} piSetupName={piSetupName} addingOff={addingOff} addMode={addMode} onMode={setAddMode} onClose={() => setEditing(null)} onSaved={() => done(t('mcp.toast.saved'))} />
+      )}
       {importing && data && (
-        <MCPImportDialog
-          source="target"
-          // A project's conflict is read from and imported into that project, not the global source.
-          project={importing.project}
-          servers={importing.project ? data.source.projects?.[importing.project]?.servers ?? {} : servers}
-          defaultTargets={importing.project ? data.source.projects?.[importing.project]?.targets ?? defaults : defaults}
-          paths={data.paths}
-          detected={data.detected}
-          conflict={importing.conflict}
-          defaultFrom={importing.from}
-          onClose={() => setImporting(null)}
-          onImported={() => { setImporting(null); refresh(); }}
-        />
+        <MCPAgentImport data={data} model={model} importing={importing} onClose={() => setImporting(null)} onImported={() => { setImporting(null); refresh(); }} />
       )}
       {viewing && servers[viewing] && <MCPConfigDialog mutation={{ name: viewing, server: { ...servers[viewing], targets: order.filter((x) => targetsOf(viewing).includes(x)) } }} onClose={() => setViewing('')} />}
-      {removing && <MCPRemoveDialog name={removing} inScope={(c) => !c.root && globalPaths.includes(c.path)} onClose={() => setRemoving('')} onSaved={() => done(t('mcp.toast.removed', { name: removing }))} />}
+      {removing && <MCPRemoveDialog name={removing} inScope={inGlobalScope} onClose={() => setRemoving('')} onSaved={() => done(t('mcp.toast.removed', { name: removing }))} />}
       {backupsOpen && data && <MCPRestoreDialog backups={data.backups} onClose={() => setBackupsOpen(false)} onRestored={() => done(t('mcp.toast.restored'))} />}
-      <DialogShell open={Boolean(replace)} onClose={() => setReplace(null)} padding="none" preventClose={busy} ariaLabel={t('mcp.replace')} className="!max-w-[640px]">
-        {replace && <>
-          <div className="dh">
-            <h2 className="ss-h2">{t('mcp.replace')}</h2>
-            <button type="button" className="ss-ib" aria-label={t('common.close')} onClick={() => setReplace(null)} disabled={busy}><X size={16} /></button>
-          </div>
-          <div className="db">
-            <MCPPreview plan={replace.plan} />
-          </div>
-          <div className="df">
-            <span className="flex-1 text-[13px] text-ink-2">{t('mcp.backupNote')}</span>
-            <Button variant="ghost" onClick={() => setReplace(null)} disabled={busy}>{t('common.cancel')}</Button>
-            <Button variant="primary" loading={busy} disabled={replace.plan.blocked} onClick={applyReplace}>{t('mcp.saveSync')}</Button>
-          </div>
-        </>}
-      </DialogShell>
+      <MCPReplaceDialog replace={replace} busy={busy} onClose={() => setReplace(null)} onApply={applyReplace} />
       <SkillContextMenu open={!!menu} anchorPoint={menu ?? undefined} items={menu?.items ?? []} onClose={() => setMenu(null)} />
     </div>
     </MCPTargetOrder.Provider>

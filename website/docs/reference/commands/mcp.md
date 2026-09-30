@@ -33,9 +33,10 @@ skillshare sync --all
 | `--url URL` | Streamable HTTP endpoint for `add` |
 | `-- command args...` | Local executable and literal arguments for `add` |
 | `--disabled` | Project mode, with `add`: turn off a server the Agent's global config defines. See [below](#turn-off-a-global-server-in-one-project) |
-| `--pi-extension PACKAGE` | Required when Pi is a target, with `add`, `edit` or `import`: `pi-mcp-adapter` or `pi-mcp-extension`, the one installed in Pi. See [below](#pi-choose-your-mcp-extension) |
+| `--pi-extension MODE` | `builtin` (Pi ≥ 0.99.0), `pi-mcp-adapter`, `pi-mcp-extension`. [Pi](#pi-choose-your-mcp-extension) |
 | `--direct-tools VALUE` | Pi with `pi-mcp-adapter`, with `add` or `edit`: `true`, `false`, `search`, or tool names separated by commas. See [below](#pi-direct-tools) |
-| `--pi-options JSON` | Pi with `pi-mcp-adapter`, with `add` or `edit`: other adapter fields as a JSON object; `{}` clears them. See [below](#pi-options) |
+| `--pi-options JSON` | `builtin` / `pi-mcp-adapter`: per-server JSON. [Pi](#pi-options) |
+| `--pi-options-prune` | `piOptionsPrune: true`; `--pi-options-prune=false` → `false`. [Pi](#pi-options) |
 | `--from CLIENT` | Existing client to import, or the format of `--file` |
 | `--file PATH` | Native JSON/JSONC, TOML or Goose YAML; `.toml` defaults to Codex, other formats are detected from their MCP section; use `--from` for an explicit dialect |
 | `--sync` | Save and synchronize; noninteractive add/import/remove otherwise save only |
@@ -120,7 +121,8 @@ Skillshare config. The schema is `schemas/mcp.schema.json` in the repository.
 | `transport` | Optional `stdio` or `streamable-http`; inferred when omitted |
 | `targets` | Optional receiving clients; overrides `mcp.targets`. An empty list keeps the server in Skillshare only. See [below](#keep-a-server-without-syncing-it) |
 | `directTools` | Pi with `pi-mcp-adapter` only: `true`, `false`, `"search"` or a list of tool names. See [below](#pi-direct-tools) |
-| `piOptions` | Pi with `pi-mcp-adapter` only: other adapter fields, written into Pi's entry as given. See [below](#pi-options) |
+| `piOptions` | `builtin` / `pi-mcp-adapter`: per-server JSON. [Pi](#pi-options) |
+| `piOptionsPrune` | `false`: preserve native values; `true`: remove owned unchanged fields. [Pi](#pi-options) |
 | `disabled` | `true` only, no other connection fields, and a project must be in scope: project mode, or a root under `mcp.projects`. See [below](#turn-off-a-global-server-in-one-project) |
 
 Client IDs are `claude`, `codex`, `cursor`, `vscode`, `opencode`, `kilocode`,
@@ -324,7 +326,7 @@ server approval and authentication remain the receiving Agent's responsibility.
 
 ### Another account of an Agent {#accounts}
 
-A target declared as [another account of an Agent](/docs/reference/targets/configuration#agent-config-dir) is an MCP target too, for `claude` (`CLAUDE_CONFIG_DIR`), `codex` (`CODEX_HOME`) and `pi` (`PI_CODING_AGENT_DIR`). Its servers are written in that Agent's format, into the account's own file: `<config_dir>/.claude.json` for Claude, `<config_dir>/config.toml` for Codex, `<config_dir>/mcp-adapter.json` for Pi.
+A target declared as [another account of an Agent](/docs/reference/targets/configuration#agent-config-dir) is an MCP target too, for `claude` (`CLAUDE_CONFIG_DIR`), `codex` (`CODEX_HOME`) and `pi` (`PI_CODING_AGENT_DIR`). Its servers are written in that Agent's format, into the account's own file: `<config_dir>/.claude.json` for Claude, `<config_dir>/config.toml` for Codex, `<config_dir>/mcp.json` for Pi built-in, or `<config_dir>/mcp-adapter.json` for pi-mcp-adapter.
 
 ```yaml
 targets:
@@ -363,6 +365,7 @@ This works with four clients only:
 | OpenCode | Yes | `opencode.json`: `"NAME": {"enabled": false}` |
 | Kilo Code | Yes | `kilo.jsonc`: `"NAME": {"enabled": false}` |
 | Pi with `pi-mcp-adapter` | Yes | `.pi/mcp-adapter.json`: `"NAME": {"disabled": true}` |
+| Pi built-in | No | Requires a complete entry: use `piOptions: {enabled: false}` on a server with command/url |
 | Pi with `pi-mcp-extension` | No | It has no disable field |
 | Codex | No | See below |
 | Every other client | No | Selecting one is an error; nothing is written |
@@ -628,6 +631,7 @@ and writes no files until you choose for that entry:
   Defaults an Agent fills in, such as `"type": "stdio"`, an empty `env` or
   header name case, are not changes. Turning a managed server off with
   `enabled: false` or `disabled: true` is reported as a conflict.
+  Pi built-in is an exception: changing `enabled` alone does not cause an ownership conflict. A source `piOptions.enabled` still takes precedence on sync.
 - A preview stays valid while an Agent rewrites unrelated settings in the same
   file, as Claude Code does with `~/.claude.json`. Only a change to that file's
   MCP entries requires a new preview.
@@ -669,27 +673,17 @@ and writes no files until you choose for that entry:
   directory as a portable manifest.
 
 
-## Pi: choose your MCP extension {#pi-choose-your-mcp-extension}
+## Pi: choose your MCP mode {#pi-choose-your-mcp-extension}
 
-Pi can use MCP through either [pi-mcp-adapter](https://pi.dev/packages/pi-mcp-adapter)
-or [pi-mcp-extension](https://pi.dev/packages/pi-mcp-extension). These are third-party
-packages listed on Pi's website, not built-in Pi features. Install **one** in Pi:
+Pi ≥ 0.99.0 includes [built-in MCP](https://github.com/earendil-works/pi/blob/v0.99.0/packages/coding-agent/docs/mcp.md). Choose `builtin` for new setups; existing adapter and extension definitions keep their mode. The dashboard and terminal selector offer all three modes. Scripts explicitly use `--pi-extension builtin`, `pi-mcp-adapter`, or `pi-mcp-extension`.
 
-```bash
-pi install npm:pi-mcp-adapter
-```
-
-Restart Pi after installation. In Skillshare's MCP form, select **Pi**, then choose
-the package you installed. The import dialog offers the same choice. In the terminal,
-`mcp add` / `mcp edit` guide the selection; scripts must supply `--pi-extension`:
+Personal servers and servers with credentials belong in `~/.pi/agent/mcp.json`. Use `.pi/mcp.json` only for servers the project needs, in trusted projects. Project entries replace the entire global entry with the same name. Skillshare edits files directly with preview and backup; it does not trust projects, launch servers, install extensions, or authorize OAuth.
 
 ```bash
-skillshare mcp add docs --url https://example.com/mcp --target pi --pi-extension pi-mcp-adapter --no-tui
+skillshare mcp add docs --url https://example.com/mcp --target pi --pi-extension builtin --pi-options '{"exposure":"deferred"}' --no-tui
 skillshare sync mcp --dry-run
 skillshare sync mcp
 ```
-
-The saved server definition is:
 
 ```yaml
 mcp:
@@ -697,40 +691,44 @@ mcp:
     docs:
       url: https://example.com/mcp
       targets: [pi]
-      piExtension: pi-mcp-adapter
+      piExtension: builtin
+      piOptions:
+        exposure: deferred
+        timeout: 120
+        toolExposure:
+          get_*: codemode
+          delete_*: hidden
 ```
 
-For the other package, use `pi-mcp-extension` in both the install command and the
-selection. Every server targeting Pi within a Skillshare source must choose the
-same package.
+For simple Pi-only setup, `pi mcp add` edits the global file; add `-l` for a project. Edit `mcp.json` directly for options the command does not cover. After Skillshare sync, use `/reload` or a new Pi session. `pi mcp list` checks connections by starting every enabled server; `pi mcp login NAME` requires user approval.
 
-| Package | Native output | What to do after sync |
+| Mode | Global file | Project file |
 |---|---|---|
-| `pi-mcp-adapter` | `command`/`args` or `url`; `${VARIABLE}` references | Restart/reload Pi; use `/mcp-adapter` to inspect connections. Tools connect on demand. |
-| `pi-mcp-extension` | Explicit `transport: stdio` or `streamable-http` | Restart Pi; new servers default to manual start with `/mcp:start <server>`. Existing `lifecycle` settings are preserved. |
-
-| Package | Global file | Project file |
-|---|---|---|
+| `builtin` | `~/.pi/agent/mcp.json` | `.pi/mcp.json` |
 | `pi-mcp-adapter` | `~/.pi/agent/mcp-adapter.json` | `.pi/mcp-adapter.json` |
 | `pi-mcp-extension` | `~/.pi/agent/mcp.json` | `.pi/mcp.json` |
 
-Skillshare uses these Pi-specific files, not the adapter's shared `.mcp.json` or
-`~/.config/mcp/mcp.json` inputs. Project entries override global entries with the
-same name. For the adapter, a global `PI_CODING_AGENT_DIR` override is honored.
-The extension does not honor that override; global sync refuses it rather than
-writing a file the extension would ignore.
+Legacy extensions require installing only the selected package and restarting Pi. An extension registering `/mcp` can replace Pi built-in MCP for that session. `directTools` and its defaults apply only to the adapter; they do not map automatically to built-in exposure.
 
-`pi-mcp-adapter` 3.0 stopped reading `mcp.json` and reads `mcp-adapter.json`
-instead. On the next `skillshare sync mcp`, Skillshare writes its adapter servers
-to `mcp-adapter.json` and removes the entries it had written to `mcp.json`. Entries
-you added to `mcp.json` yourself stay there. If you already renamed the file as
-Pi's warning suggests, Skillshare keeps managing the entries you moved.
+### Built-in exposure
 
-The adapter supports `fromEnv` in environment variables and HTTP headers.
-The extension does **not** interpolate environment references: matching stdio
-variables (for example `TOKEN: {fromEnv: TOKEN}`) are inherited from Pi's process
-instead; renaming variables and environment-backed HTTP credentials are rejected.
-Use the adapter for those cases. Skillshare never reads or copies secret values.
+`exposure` accepts `codemode` (Pi default), `codemode-deferred`, `deferred`, `direct`, or `hidden`. `toolExposure` accepts individual tool names or wildcard patterns. Exact matches win; the first matching wildcard wins. Skillshare preserves wildcard order through import and JSON/YAML conversion.
+
+The exposure selector and JSON editor use the same value. An unset field preserves the native value; a new entry uses Pi defaults. Use JSON for `toolExposure`, `timeout` (positive seconds), `cwd`, `enabled`, and `oauth`. Known built-in values are validated; unknown per-server fields remain available for custom Pi builds.
+
+All Pi servers in one scope must use the same mode. Built-in names allow only letters, digits, `_`, and `-`. Change all entries in the source together when migrating several servers.
+
+`builtin` and `pi-mcp-adapter` honor `PI_CODING_AGENT_DIR` for the global Pi directory. `pi-mcp-extension` always reads `~/.pi/agent/mcp.json`: it ignores this override and cannot use Pi accounts. Global sync refuses an override for this extension.
+
+| Mode | Native output | What to do after sync |
+|---|---|---|
+| `builtin` | `command`/`args` or `url`; `${NAME}` references | Run `/reload` or start a new Pi session; use `/mcp` to inspect connections and authorize OAuth. |
+| `pi-mcp-adapter` | `command`/`args` or `url`; `${NAME}` references | Restart/reload Pi; use `/mcp-adapter` to inspect connections. Tools connect on demand. |
+| `pi-mcp-extension` | Explicit `transport: stdio` or `streamable-http` | Restart Pi; new servers default to manual start with `/mcp:start <server>`. Existing `lifecycle` settings are preserved. |
+
+`pi-mcp-adapter` 3.0 stopped reading `mcp.json` and reads `mcp-adapter.json` instead. On the next sync, Skillshare moves its managed adapter entries to `mcp-adapter.json`; manually added entries stay in `mcp.json`. If you already renamed the file, Skillshare keeps managing the unchanged entries you moved. Skillshare uses these Pi-specific files, not the adapter's shared `.mcp.json` or `~/.config/mcp/mcp.json` inputs.
+
+The adapter supports `fromEnv` in environment variables and HTTP headers. `pi-mcp-extension` does not interpolate references: matching stdio variables such as `TOKEN: {fromEnv: TOKEN}` are inherited from Pi's process. Renaming variables and environment-backed HTTP credentials are rejected. Use builtin or the adapter for those cases. Skillshare never resolves credentials.
 
 ### Direct tools {#pi-direct-tools}
 
@@ -789,52 +787,23 @@ mcp:
 A project under [`mcp.projects`](#manage-several-projects-from-the-global-config) can
 hold its own `directTools`, which replaces the global default for that project. No
 command edits the default. Set it in `config.yaml`, or in the dashboard under
-**Defaults** on the MCP page, where it appears once Pi is one of the default targets.
+**Defaults** on the MCP page, where it appears when this scope has an active `pi-mcp-adapter` server targeting Pi.
 
-Import with `--from pi` reads the Pi-specific file. An entry that has `directTools`
-is imported with it and with `pi-mcp-adapter` selected, since only the adapter has
-that field. Choose `--pi-extension` when
-saving an imported connection; a file alone cannot identify which package is
-installed. Unsupported legacy SSE remains blocked. OAuth and package-only options
-stay managed in Pi. Sync success means the configuration was written, not that
-an extension is installed or a server has connected.
+### Other Pi settings {#pi-options}
 
-### Other adapter settings {#pi-options}
+`piOptions` holds per-server fields for `builtin` or `pi-mcp-adapter`. Only Pi receives them. Import preserves these fields and replaces recognizable literal credentials with references. `mcp-adapter.json` identifies the adapter; `mcp.json` may be built-in or extension configuration, so confirm the mode when importing.
 
-`pi-mcp-adapter` has more per-server fields than Skillshare has settings for, such as
-`excludeTools` and `approveTools`. Put them under `piOptions` and they are written into
-the server's entry in Pi's file as given:
+With `--file` and `--pi-extension` but no `--from`, the detected input format must be Pi. The selected mode applies while parsing; use `--from pi` for an ambiguous connection-only file. Importing built-in `exposure` or `toolExposure` into adapter mode warns that adapter support must be checked; it does not convert these fields to `directTools`. Extension mode warns about unsupported fields and omits them.
 
-```yaml
-mcp:
-  servers:
-    github:
-      command: npx
-      args: [-y, "@modelcontextprotocol/server-github"]
-      piExtension: pi-mcp-adapter
-      targets: [pi]
-      piOptions:
-        excludeTools: ["*emulator*"]
-        approveTools: ["delete_*", "merge_pull_request"]
-```
+Clearing the JSON or removing a field stops managing it and keeps its native value by default. Enable **Remove cleared settings from Pi**, or pass `--pi-options-prune`, to remove only fields Skillshare previously wrote that remain unchanged. Manual fields stay; changed owned fields block sync. Turning the option off in the UI, or setting `piOptionsPrune: false` in YAML, restores the default policy.
 
-From the command line, pass a JSON object to `mcp add` or `mcp edit`. It replaces the
-whole of `piOptions`, and `{}` clears it. The dashboard has the same box in the server
-dialog, under **Direct tools**, and checks that the text is a JSON object before saving.
-A server ticked for Pi with **Direct tools** or **Other adapter settings** set shows them
-on a line under its endpoint; other adapter settings only say that they are set. Unticking
-Pi while editing keeps both in the source, so ticking Pi again brings them back.
+Connection fields belong in the main form, not `piOptions`. Top-level `settings` and `autoEnableCodemode` are not server options: edit them directly in Pi; sync preserves them. Keep credentials in environment references. Built-in mode refuses literal `!command` values in portable env/headers; command-based Pi credentials must remain in Pi. Mode changes retain separate form drafts; only the selected mode is saved.
+
+
+Pass `--pi-options-prune=false` to turn this option off from the CLI. Adapter env/header literals beginning with `!` are escaped as `!!` and restored on import. Command values in Pi options are rejected, including non-secret fields such as `oauth.clientId`.
 
 ```bash
-skillshare mcp edit github --pi-options '{"excludeTools":["*emulator*"]}'
+skillshare mcp edit docs --pi-options '{"exposure":"direct"}' --no-tui
+skillshare mcp edit docs --pi-options '{}' --pi-options-prune --no-tui
+skillshare mcp edit docs --pi-options-prune=false --no-tui
 ```
-
-- Skillshare does not check the field names or values. Only the adapter knows them.
-- Fields Skillshare writes itself are refused here: `command`, `args`, `env`, `url`,
-  `headers`, `transport`, `enabled`, `disabled` and `directTools`.
-- The values are copied literally. Keep credentials in `env` or `headers` with
-  `fromEnv`, not here.
-- Like `directTools`, a field removed from `piOptions` stays in Pi's file. Delete it
-  there.
-- It needs `piExtension: pi-mcp-adapter` and cannot be combined with `disabled`. No
-  other Agent receives it, and `import --from pi` does not read these fields back.

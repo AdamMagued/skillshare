@@ -9,7 +9,7 @@ describe('MCP server list', () => {
     render(<I18nProvider><MCPServerList rows={[{ name: 'docs', server, cells: {} }]} targets={['pi']} targetsOf={() => ['pi']} onToggle={vi.fn()} onMenu={vi.fn()} /></I18nProvider>);
     const line = screen.getByText('take_screenshot, list_pages').parentElement!;
     expect(line).toHaveTextContent('Direct tools');
-    expect(line).toHaveTextContent('Other adapter settings');
+    expect(line).toHaveTextContent('Other Pi settings');
     expect(line).not.toHaveTextContent('secret_');
   });
 });

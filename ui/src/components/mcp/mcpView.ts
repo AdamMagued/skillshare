@@ -19,7 +19,9 @@ export function buildMatrix(servers: Record<string, MCPServer>, plan: MCPPlan | 
   const rows = new Map<string, MatrixRow>(Object.entries(servers).map(([name, server]) => [name, { name, server, cells: {} }]));
   for (const change of plan?.changes ?? []) {
     const row = rows.get(change.name) ?? { name: change.name, cells: {} };
-    row.cells[change.target] = change;
+    const previous = row.cells[change.target];
+    // A Pi migration can affect two files for one target; unchanged must not hide pending work.
+    if (previous?.action !== 'conflict' && !(change.action === 'unchanged' && previous && writes(previous))) row.cells[change.target] = change;
     rows.set(change.name, row);
   }
   return [...rows.values()];
@@ -27,6 +29,11 @@ export function buildMatrix(servers: Record<string, MCPServer>, plan: MCPPlan | 
 
 /** Every MCP target in display order; accounts of an Agent follow the Agents, by name. */
 export const mcpOrder = (accounts?: Record<string, unknown>) => [...mcpTargets, ...Object.keys(accounts ?? {}).sort()];
+
+/** Adapter defaults only apply to active servers sent to Pi in this scope. */
+export const usesPiAdapter = (servers: Record<string, MCPServer>, targets: string[], accounts?: Record<string, { agent: string }>) =>
+  Object.values(servers).some((server) => !server.disabled && server.piExtension === 'pi-mcp-adapter' &&
+    (server.targets ?? targets).some((target) => target === 'pi' || accounts?.[target]?.agent === 'pi'));
 
 /** A change that Sync applies; `adopt` only records an entry the Agent already has. `unchanged` and `conflict` do nothing. */
 export const writes = (change: { action: string }) => ['add', 'adopt', 'update', 'remove'].includes(change.action);
@@ -77,6 +84,7 @@ const conflictKeys: Record<string, string> = {
   [shadowMessage]: 'mcp.claudeLocalShadow',
   'managed by another Skillshare config': 'mcp.conflictOtherConfig',
   'left over from a Skillshare config that was removed; import it or explicitly replace this entry': 'mcp.conflictOrphaned',
+  'Pi setting changed since sync; import it before removing the cleared setting': 'mcp.conflictChanged',
   'Agent configuration changed; import it or explicitly replace this entry': 'mcp.conflictChanged',
   'existing entry is not managed; import it to explicitly adopt it': 'mcp.conflictUnmanaged',
   'entry changed after the backup; restore would overwrite newer changes': 'mcp.conflictAfterBackup',
@@ -114,16 +122,36 @@ export const describeError = (t: (key: string, params?: Record<string, string>) 
 };
 
 /** Pi entry fields Skillshare writes from the server's own settings; the backend refuses them in piOptions. */
-const piOwnFields = ['command', 'args', 'env', 'url', 'headers', 'transport', 'disabled', 'enabled', 'directTools'];
+const piOwnFields = new Set(['command', 'args', 'env', 'url', 'headers', 'transport', 'disabled', 'enabled', 'directTools', 'type', 'settings', 'autoEnableCodemode']);
+
+export const piExposures = ['codemode', 'codemode-deferred', 'deferred', 'direct', 'hidden'];
 
 /** piOptions as typed. An empty box sets nothing; `invalid` is text that is not a JSON object, `taken` a field Skillshare writes. */
-export const parsePiOptions = (text: string): { value?: Record<string, unknown>; invalid?: true; taken?: string } => {
+export const parsePiOptions = (text: string, mode?: string): { value?: Record<string, unknown>; invalid?: true; taken?: string; bad?: string } => {
   if (!text.trim()) return {};
   try {
     const value: unknown = JSON.parse(text);
     if (!value || typeof value !== 'object' || Array.isArray(value)) return { invalid: true };
-    const taken = Object.keys(value).find((key) => piOwnFields.includes(key));
-    return taken ? { taken } : { value: value as Record<string, unknown> };
+    const taken = Object.keys(value).find((key) => piOwnFields.has(key) && !(key === 'enabled' && mode === 'builtin'));
+    if (taken) return { taken };
+    const options = value as Record<string, unknown>;
+    if (mode === 'builtin') {
+      const object = (v: unknown): v is Record<string, unknown> => Boolean(v) && typeof v === 'object' && !Array.isArray(v);
+      if ('exposure' in options && !piExposures.includes(options.exposure as string)) return { bad: 'exposure' };
+      if ('toolExposure' in options && (!object(options.toolExposure) || Object.values(options.toolExposure).some((v) => !piExposures.includes(v as string)))) return { bad: 'toolExposure' };
+      if ('timeout' in options && (typeof options.timeout !== 'number' || options.timeout <= 0)) return { bad: 'timeout' };
+      if ('cwd' in options && typeof options.cwd !== 'string') return { bad: 'cwd' };
+      if ('enabled' in options && typeof options.enabled !== 'boolean') return { bad: 'enabled' };
+      if ('oauth' in options) {
+        if (!object(options.oauth)) return { bad: 'oauth' };
+        for (const key of ['clientId', 'clientSecret', 'callbackUrl', 'scope']) {
+          if (key in options.oauth && typeof options.oauth[key] !== 'string') return { bad: `oauth.${key}` };
+        }
+        const port = options.oauth.callbackPort;
+        if (port !== undefined && (!Number.isInteger(port) || Number(port) < 1 || Number(port) > 65535)) return { bad: 'oauth.callbackPort' };
+      }
+    }
+    return { value: options };
   } catch {
     return { invalid: true };
   }

@@ -157,21 +157,73 @@ type Rendered struct {
 
 // RenderNative writes the server into an empty file per target, so the wrapper key and the
 // format (JSON, TOML, YAML) come from the code that writes the real file, not from a guess
-// made in the dashboard. Nothing is read from the environment or written to disk.
+// made in the dashboard. Existing Pi-only settings are included with native secrets redacted; nothing is executed or written.
 func (s *Service) RenderNative(name string, server Server) []Rendered {
 	// The saved mcp.directTools default is what sync would write; an unreadable config has none.
 	if source, err := LoadSource(s.ConfigPath); err == nil {
-		server = server.withDirectToolsDefault(source.DirectTools)
+		defaults := source.DirectTools
+		if project, ok := source.Projects[s.ProjectRoot]; ok && project.DirectTools != nil {
+			defaults = project.DirectTools
+		}
+		server = server.withDirectToolsDefault(defaults)
+		scoped := *s
+		scoped.accounts = source.Accounts
+		s = &scoped
 	}
 	out := make([]Rendered, 0, len(server.Targets))
 	for _, target := range server.Targets {
 		r := Rendered{Target: target}
-		path, native, _ := s.destination(target, server)
+		client, agent := s.forTarget(target)
+		path, native, err := client.destination(agent, server)
 		r.Path = path
-		err := s.checkScope(name, target, server)
+		if err == nil {
+			err = client.checkScope(name, agent, server)
+		}
 		var entry map[string]any
 		if err == nil {
-			entry, err = Render(target, server)
+			entry, err = Render(agent, server)
+		}
+		if err == nil && agent == "pi" {
+			data, _, _, readErr := safeRead(path)
+			var current *Native
+			if readErr == nil {
+				current, readErr = ParseNative("pi", data)
+			}
+			if readErr != nil {
+				err = readErr
+			} else {
+				before := current.Entries[name]
+				entry = withAgentFields("pi", before, entry)
+				if server.PiOptionsPrune {
+					state, _, stateErr := s.loadLedger()
+					if stateErr != nil {
+						err = stateErr
+					} else {
+						own := state.Entries[ownershipKey("pi", path, name)]
+						if own.Owner == s.ConfigPath {
+							for key, hash := range own.PiFields {
+								if _, set := server.PiOptions[key]; set || key == "directTools" && server.DirectTools != nil {
+									continue
+								}
+								if value, exists := before[key]; exists {
+									if piFieldHash(value) != hash {
+										err = fmt.Errorf("Pi setting changed since sync: %s", key)
+										break
+									}
+									delete(entry, key)
+								}
+							}
+						}
+					}
+				}
+				// The preview may include manually configured OAuth/custom fields. Never
+				// copy their secret values into an API response.
+				for key, value := range entry {
+					if _, specified := server.PiOptions[key]; !specified && key != "command" && key != "args" && key != "env" && key != "url" && key != "headers" {
+						entry[key] = redactPiOption(key, value)
+					}
+				}
+			}
 		}
 		var n *Native
 		if err == nil {

@@ -24,10 +24,11 @@ export function Checkbox({
   hideLabel = false,
 }: CheckboxProps) {
   const id = useId();
+  // Keep the absolute, hidden input inside its label when the browser scrolls focus into view.
   return (
     <label
       htmlFor={id}
-      className={`inline-flex items-center gap-2 select-none ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${className}`}
+      className={`relative inline-flex items-center gap-2 select-none ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${className}`}
     >
       <input
         id={id}

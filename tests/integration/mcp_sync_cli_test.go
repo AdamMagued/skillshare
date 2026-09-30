@@ -13,6 +13,17 @@ import (
 
 const mcpDocsConfig = "mcp:\n  targets: [claude]\n  servers:\n    docs:\n      url: https://example.com/mcp\n"
 
+func TestMCPSyncRejectsPiFlags(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig("targets: {}\n" + mcpDocsConfig)
+	for _, flags := range [][]string{{"--pi-extension", "builtin"}, {"--pi-options", `{}`}, {"--pi-options-prune"}, {"--pi-options-prune=false"}} {
+		r := sb.RunCLI(append([]string{"sync", "mcp", "-g"}, flags...)...)
+		r.AssertFailure(t)
+		r.AssertOutputContains(t, "sync mcp accepts only")
+	}
+}
+
 func TestMCPSyncKindAfterFlags(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

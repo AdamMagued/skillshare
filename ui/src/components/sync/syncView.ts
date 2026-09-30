@@ -109,7 +109,7 @@ export function mcpGroups(plan: MCPPlan | null | undefined): ChangeGroup[] {
       icon: MCP_ICON[c.action],
       // A switch-only entry adds or removes no server: it turns one off for a project, or back on.
       text: c.action === 'conflict' ? null : c.switch && c.action !== 'update' ? `sync.row.mcp.switch.${c.action}` : `sync.row.mcp.${c.action}`,
-      detail: c.message,
+      detail: [c.message, ...(c.fields?.added ?? []).map((key) => `+ ${key}`), ...(c.fields?.updated ?? []).map((key) => `~ ${key}`), ...(c.fields?.removed ?? []).map((key) => `− ${key}`)].filter(Boolean).join(' · ') || undefined,
       counts: c.action !== 'conflict',
       switch: c.switch,
     })),

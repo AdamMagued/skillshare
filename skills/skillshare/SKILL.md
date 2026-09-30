@@ -29,7 +29,7 @@ Check `skillshare <command> --help` if the installed version differs from these 
 - MCP uses its own receiving targets and source definitions. Read [mcp.md](references/mcp.md)
   before editing MCP settings or importing native configurations. Its Agent notes cover
   what is specific to Claude Code, Codex, OpenCode and Pi: scopes and files, names and
-  credentials they refuse, Pi's required extension choice, `directTools` and `piOptions`,
+  credentials they refuse, Pi's built-in or extension mode, `directTools` and `piOptions`,
   turning a global server off in one project, and `mcp.projects` for many folders from
   one config.
 - Plugins keep their native components together. Read [plugins.md](references/plugins.md)

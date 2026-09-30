@@ -47,19 +47,25 @@ func (s Server) validateDirectTools(name string) error {
 }
 
 func (s Server) validatePiOptions(name string) error {
-	if len(s.PiOptions) == 0 {
+	if len(s.PiOptions) == 0 && !s.PiOptionsPrune {
 		return nil
 	}
 	if s.Disabled {
 		return fmt.Errorf("MCP %s: piOptions cannot be set on a disabled entry; it only switches the server off", name)
 	}
-	if s.PiExtension != "pi-mcp-adapter" {
-		return fmt.Errorf("MCP %s: piOptions are pi-mcp-adapter settings; set piExtension: pi-mcp-adapter", name)
+	if s.PiExtension != "pi-mcp-adapter" && s.PiExtension != "builtin" {
+		return fmt.Errorf("MCP %s: piOptions require piExtension: builtin or pi-mcp-adapter", name)
 	}
-	for _, key := range append(additionalManagedFields("pi"), "directTools") {
-		if _, set := s.PiOptions[key]; set {
+	if field := piOptionCommand("", s.PiOptions); field != "" {
+		return fmt.Errorf("MCP %s: Pi option %s cannot contain a command beginning with !; keep it in Pi or use an environment reference", name, field)
+	}
+	for _, key := range append(additionalManagedFields("pi"), "directTools", "type", "settings", "autoEnableCodemode") {
+		if _, set := s.PiOptions[key]; set && !(key == "enabled" && s.PiExtension == "builtin") {
 			return fmt.Errorf("MCP %s: piOptions cannot set %s; Skillshare writes that field from the server's own settings", name, key)
 		}
+	}
+	if s.PiExtension == "builtin" {
+		return validatePiBuiltinOptions(name, s.PiOptions)
 	}
 	return nil
 }
@@ -78,7 +84,7 @@ func (s Server) withDirectToolsDefault(value any) Server {
 // hashing them would turn their next sync into a conflict.
 func agentFieldsChanged(target string, current, want map[string]any) bool {
 	for key, value := range want {
-		if slices.Contains(additionalManagedFields(target), key) {
+		if slices.Contains(additionalManagedFields(target), key) && !(target == "pi" && key == "enabled") {
 			continue
 		}
 		a, _ := json.Marshal(value)
@@ -94,10 +100,10 @@ func agentFieldsChanged(target string, current, want map[string]any) bool {
 // Sync config only: installing or starting either extension remains explicit.
 func renderPi(s Server) (map[string]any, error) {
 	if s.PiExtension == "" {
-		return nil, fmt.Errorf("Pi requires piExtension: pi-mcp-adapter or pi-mcp-extension; install that package in Pi first")
+		return nil, fmt.Errorf("Pi requires piExtension: builtin (Pi >= 0.99.0), pi-mcp-adapter or pi-mcp-extension")
 	}
 	format := clientFormats["pi"]
-	if s.PiExtension == "pi-mcp-adapter" {
+	if s.PiExtension == "pi-mcp-adapter" || s.PiExtension == "builtin" {
 		format.refPrefix = "${"
 	}
 	// The extension passes through the parent's environment, but cannot rename
@@ -132,7 +138,10 @@ func renderPi(s Server) (map[string]any, error) {
 		for _, key := range []string{"env", "headers"} {
 			values, _ := out[key].(map[string]string)
 			for name, value := range values {
-				// Adapter leading ! invokes a command. Portable literals must stay literal.
+				// Portable literals must not become executable secret commands.
+				if s.PiExtension == "builtin" && strings.HasPrefix(value, "!") {
+					return nil, fmt.Errorf("Pi built-in: a literal beginning with ! would run a command; use fromEnv instead")
+				}
 				if strings.HasPrefix(value, "!") {
 					values[name] = "!" + value
 				}

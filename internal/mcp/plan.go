@@ -23,9 +23,10 @@ type Change struct {
 	Root string `json:"root,omitempty"`
 	// Switch marks an entry that only turns a global server off for one project. Adding it
 	// turns the server off there and removing it turns it back on; no server comes or goes.
-	Switch  bool   `json:"switch,omitempty"`
-	Action  string `json:"action"`
-	Message string `json:"message,omitempty"`
+	Switch  bool          `json:"switch,omitempty"`
+	Action  string        `json:"action"`
+	Message string        `json:"message,omitempty"`
+	Fields  *FieldChanges `json:"fields,omitempty"`
 }
 
 // switchOnly reports an entry holding nothing but the switch renderDisabled writes. It reads
@@ -64,11 +65,12 @@ type Plan struct {
 }
 
 type ownership struct {
-	Owner  string `json:"owner"`
-	Target string `json:"target"`
-	Path   string `json:"path"`
-	Name   string `json:"name"`
-	Hash   string `json:"hash"`
+	Owner    string            `json:"owner"`
+	Target   string            `json:"target"`
+	Path     string            `json:"path"`
+	Name     string            `json:"name"`
+	Hash     string            `json:"hash"`
+	PiFields map[string]string `json:"piFields,omitempty"`
 }
 
 type ledger struct {
@@ -301,7 +303,7 @@ func (s *Service) renderScope(desired map[fileKey]map[string]map[string]any, ser
 			}
 			if target == "pi" {
 				if piExtension != "" && piExtension != server.PiExtension {
-					return fmt.Errorf("Pi uses one MCP extension; select the same piExtension for every Pi server")
+					return fmt.Errorf("Pi uses one MCP mode per scope; select the same piExtension for every Pi server")
 				}
 				piExtension = server.PiExtension
 			}
@@ -373,10 +375,11 @@ func (s *Service) destination(target string, server Server) (string, string, err
 		path, err := global.nativePath(target)
 		return path, claudeOffPrefix + s.ProjectRoot, err
 	}
-	path, err := s.nativePath(target)
-	if target == "pi" && server.PiExtension == "pi-mcp-extension" {
-		path = piExtensionPath(path)
+	if target == "pi" {
+		path, err := s.piModePath(server.PiExtension)
+		return path, target, err
 	}
+	path, err := s.nativePath(target)
 	return path, target, err
 }
 
@@ -425,6 +428,8 @@ func (s *Service) checkScope(name, target string, server Server) error {
 			return fmt.Errorf("pi-mcp-extension always reads ~/.pi/agent/mcp.json, so it cannot reach account %s (%s); set piExtension: pi-mcp-adapter on this server", s.account, s.ConfigDirs["pi"])
 		}
 		return fmt.Errorf("pi-mcp-extension uses ~/.pi/agent/mcp.json and does not honor PI_CODING_AGENT_DIR; unset the override before syncing")
+	case target == "pi" && server.PiExtension == "builtin" && strings.Contains(name, "."):
+		return fmt.Errorf("Pi built-in MCP %s: use letters, digits, underscores or hyphens", name)
 	case target == "grok" && (!grokServerName.MatchString(name) || strings.Contains(name, "__") || strings.HasSuffix(name, "_")):
 		return fmt.Errorf("Grok MCP %s: use a name starting with a letter or underscore, containing only letters, digits, hyphens and single underscores, and not ending in underscore", name)
 	case target == "claude" && slices.Contains(claudeReservedNames, name):
@@ -539,6 +544,22 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 			currentHash := entryHash(managedEntry(target, current))
 			want := desired[fk][name]
 			wantHash := entryHash(managedEntry(target, want))
+			prune := map[string]bool{}
+			pruneConflict := false
+			if target == "pi" && want != nil && managed && owned.Owner == source.ConfigPath && piPrunes(source, changeRoot(target, path, projectRoots), name) {
+				for field, hash := range owned.PiFields {
+					if _, set := want[field]; set {
+						continue
+					}
+					if value, exists := current[field]; exists {
+						if piFieldHash(value) != hash {
+							pruneConflict = true
+						} else {
+							prune[field] = true
+						}
+					}
+				}
+			}
 			// pi-mcp-adapter 3 tells the user to mv mcp.json to mcp-adapter.json. An entry this
 			// config owned there and that arrived unchanged is still its own. Refs: #298.
 			if !managed && target == "pi" && path != piExtensionPath(path) {
@@ -573,6 +594,8 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 				change.Switch = switchOnly(target, current)
 			}
 			switch {
+			case pruneConflict:
+				change.Action, change.Message = "conflict", "Pi setting changed since sync; import it before removing the cleared setting"
 			case managed && owned.Owner != source.ConfigPath:
 				change.Action, change.Message = "conflict", "managed by another Skillshare config: "+owned.Owner
 				// A config that is gone can never release the entry, so an explicit resolution
@@ -587,7 +610,7 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 				change.Action, change.Message = "update", "same settings, laid out one field per line"
 				f.changes[name] = withAgentFields(target, current, want)
 				p.state.Entries[key] = ownership{Owner: source.ConfigPath, Target: target, Path: path, Name: name, Hash: wantHash}
-			case currentHash == wantHash && managed && agentFieldsChanged(target, current, want):
+			case currentHash == wantHash && managed && (agentFieldsChanged(target, current, want) || len(prune) > 0):
 				change.Action = "update"
 				f.changes[name] = withAgentFields(target, current, want)
 			case currentHash == wantHash && !managed && want != nil && current != nil && !change.Switch:
@@ -625,6 +648,18 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 				f.changes[name] = withAgentFields(target, current, want)
 				p.state.Entries[key] = ownership{Owner: source.ConfigPath, Target: target, Path: path, Name: name, Hash: wantHash}
 			}
+			if updated := f.changes[name]; updated != nil {
+				for field := range prune {
+					delete(updated, field)
+				}
+			}
+			if target == "pi" && want != nil && change.Action != "conflict" {
+				if own, ok := p.state.Entries[key]; ok && own.Owner == source.ConfigPath {
+					own.PiFields = piOwnedFields(want)
+					p.state.Entries[key] = own
+				}
+			}
+			change.Fields = changedFieldNames(current, f.changes[name], change.Action)
 			if change.Action == "conflict" {
 				p.Blocked = true
 			} else if target == "claude" && want != nil && local[path][name] != nil {

@@ -38,7 +38,7 @@ export default function MCPServerList({ rows, targets, targetsOf, onToggle, onMe
         const http = Boolean(row.server?.url);
         const direct = row.server?.directTools;
         const piOptions = Object.keys(row.server?.piOptions ?? {}).length > 0;
-        const piSettings = row.server?.piExtension === 'pi-mcp-adapter' && selected.includes('pi') && (direct !== undefined || piOptions);
+        const piSettings = Boolean(row.server?.piExtension) && selected.includes('pi');
         return (
           <Fragment key={row.name}>
             <div className="ss-r">
@@ -56,6 +56,8 @@ export default function MCPServerList({ rows, targets, targetsOf, onToggle, onMe
                 {piSettings && (
                   <span className="flex min-w-0 items-center gap-1.5 whitespace-nowrap text-xs text-ink-2">
                     <AgentIcon target="pi" size={12} />
+                    <span>{row.server?.piExtension === 'builtin' ? t('mcp.piBuiltinShort') : row.server?.piExtension}</span>
+                    {row.server?.piExtension === 'builtin' && <span>· {String(row.server.piOptions?.exposure ?? 'codemode')}</span>}
                     {direct !== undefined && <><span className="text-ink-3">{t('mcp.directTools')}</span><span className={`truncate ${Array.isArray(direct) ? 'font-mono' : ''}`} title={directToolsLabel(direct)}>{directToolsLabel(direct)}</span></>}
                     {direct !== undefined && piOptions && <span className="text-ink-3">·</span>}
                     {piOptions && <span>{t('mcp.piOptions')}</span>}

@@ -67,6 +67,9 @@ func detectJSONFormat(data []byte) string {
 	v.Standardize()
 	var document map[string]json.RawMessage
 	_ = json.Unmarshal(v.Pack(), &document)
+	if document["exposure"] != nil || document["toolExposure"] != nil || document["directTools"] != nil {
+		return "pi"
+	}
 	if _, ok := document["transport"]; ok {
 		return "pi"
 	}
@@ -78,7 +81,11 @@ func detectJSONFormat(data []byte) string {
 	}
 	var servers map[string]map[string]any
 	if json.Unmarshal(document["mcpServers"], &servers) == nil {
-		for _, entry := range servers {
+		for _, name := range sortedKeys(servers) {
+			entry := servers[name]
+			if entry["exposure"] != nil || entry["toolExposure"] != nil || entry["directTools"] != nil {
+				return "pi"
+			}
 			if _, ok := entry["transport"]; ok {
 				return "pi"
 			}
@@ -114,6 +121,23 @@ func detectJSONFormat(data []byte) string {
 
 // Import parses a native file or a single JSON entry without persisting it.
 func Import(target string, data []byte, singleName string) ([]Candidate, error) {
+	return importPiMode(target, data, singleName, "")
+}
+
+// DetectImportFormat identifies a native JSON shape; ambiguous connections use Claude's shape.
+func DetectImportFormat(data []byte) string {
+	return detectJSONFormat(data)
+}
+
+// ImportPi parses an exported Pi file using the mode explicitly selected by the caller.
+func ImportPi(data []byte, singleName, mode string) ([]Candidate, error) {
+	if mode != "builtin" && mode != "pi-mcp-adapter" && mode != "pi-mcp-extension" {
+		return nil, fmt.Errorf("unsupported Pi MCP import mode %q", mode)
+	}
+	return importPiMode("pi", data, singleName, mode)
+}
+
+func importPiMode(target string, data []byte, singleName, mode string) ([]Candidate, error) {
 	if target == "" {
 		target = detectJSONFormat(data)
 	}
@@ -124,7 +148,7 @@ func Import(target string, data []byte, singleName string) ([]Candidate, error) 
 	if len(native.Entries) == 0 && singleName != "" && !isTOMLTarget(target) && target != "goose" {
 		v := native.json.Clone()
 		v.Standardize()
-		var entry map[string]any
+		var entry PiOptions
 		if json.Unmarshal(v.Pack(), &entry) != nil {
 			return nil, fmt.Errorf("invalid server JSON")
 		}
@@ -139,6 +163,7 @@ func Import(target string, data []byte, singleName string) ([]Candidate, error) 
 	out := []Candidate{}
 	for _, name := range sortedKeys(native.Entries) {
 		entry := native.Entries[name]
+		_, piTransport := entry["transport"]
 		c := Candidate{Name: name, Problems: []string{}, Warnings: []string{}}
 		normalizeClientImport(target, entry, &c)
 		if target == "antigravity" {
@@ -154,10 +179,12 @@ func Import(target string, data []byte, singleName string) ([]Candidate, error) 
 		}
 		for key, active := range map[string]any{"enabled": true, "disabled": false} {
 			if value, exists := entry[key]; exists {
-				if value != active {
+				if value != active && !(target == "pi" && key == "enabled") {
 					c.Problems = append(c.Problems, "Disabled servers cannot be imported as active connections")
 				}
-				delete(entry, key)
+				if !(target == "pi" && key == "enabled" && value == false) {
+					delete(entry, key)
+				}
 			}
 		}
 		if openCodeFormat(target) {
@@ -188,12 +215,36 @@ func Import(target string, data []byte, singleName string) ([]Candidate, error) 
 		if target == "codex" {
 			allowed = map[string]bool{"command": true, "args": true, "url": true, "env": true, "env_vars": true, "http_headers": true, "env_http_headers": true, "bearer_token_env_var": true}
 		}
-		if target == "pi" {
+		if target == "pi" && mode != "pi-mcp-extension" {
 			allowed["directTools"] = true
 			if c.Server.DirectTools = entry["directTools"]; c.Server.DirectTools != nil {
 				// Only pi-mcp-adapter has this field, so the file does identify the extension.
 				c.Server.PiExtension = "pi-mcp-adapter"
 			}
+		}
+		if target == "pi" && mode != "pi-mcp-extension" && (mode != "" || !piTransport) {
+			for key, value := range entry {
+				if !allowed[key] {
+					if mode == "pi-mcp-adapter" && (key == "exposure" || key == "toolExposure") {
+						c.Warnings = append(c.Warnings, "Pi built-in field imported as a pi-mcp-adapter option; verify adapter support: "+key)
+					}
+					if c.Server.PiOptions == nil {
+						c.Server.PiOptions = PiOptions{}
+					}
+					c.Server.PiOptions[key] = importPiOption(name, key, value, &c.Warnings)
+					allowed[key] = true
+				}
+			}
+			if len(c.Server.PiOptions) > 0 && c.Server.PiExtension == "" {
+				c.Server.PiExtension = "builtin"
+				if entry["excludeTools"] != nil || entry["approveTools"] != nil {
+					c.Server.PiExtension = "pi-mcp-adapter"
+				}
+			}
+		}
+		if target == "pi" && mode != "" {
+			c.Server.PiExtension = mode
+			c.Warnings = slices.DeleteFunc(c.Warnings, func(w string) bool { return w == piExtensionWarning })
 		}
 		// Agent-only fields such as timeouts stay in existing Agent entries on sync.
 		for _, key := range sortedKeys(entry) {
@@ -242,6 +293,12 @@ func Import(target string, data []byte, singleName string) ([]Candidate, error) 
 				value, ok := values[k].(string)
 				if !ok {
 					c.Problems = append(c.Problems, key+" values must be strings")
+					continue
+				}
+				if target == "pi" && c.Server.PiExtension == "pi-mcp-adapter" && strings.HasPrefix(value, "!!") {
+					value = strings.TrimPrefix(value, "!")
+				} else if target == "pi" && c.Server.PiExtension != "pi-mcp-extension" && strings.HasPrefix(value, "!") {
+					c.Problems = append(c.Problems, "Pi command-based credentials must remain in Pi; use an environment reference to import this connection")
 					continue
 				}
 				if openCodeFormat(target) {
@@ -372,9 +429,18 @@ func (s *Service) ImportFormat(target string) (string, error) {
 // ImportClient inspects only the selected native configuration and scope. Candidates
 // report the name that was asked for, so an account keeps its own.
 func (s *Service) ImportClient(target string) ([]Candidate, error) {
+	return s.ImportClientMode(target, "")
+}
+
+// ImportClientMode reads exactly the selected Pi mode's file. With no mode,
+// legacy callers still read both files, with adapter entries taking precedence.
+func (s *Service) ImportClientMode(target, piMode string) ([]Candidate, error) {
 	client, format, err := s.importClient(target)
 	if err != nil {
 		return nil, err
+	}
+	if piMode != "" && (format != "pi" || (piMode != "builtin" && piMode != "pi-mcp-adapter" && piMode != "pi-mcp-extension")) {
+		return nil, fmt.Errorf("unsupported Pi MCP import mode %q for %s", piMode, target)
 	}
 	path, err := client.nativePath(format)
 	if err != nil {
@@ -382,7 +448,17 @@ func (s *Service) ImportClient(target string) ([]Candidate, error) {
 	}
 	paths := []string{path}
 	if format == "pi" {
-		paths = append(paths, piExtensionPath(path))
+		switch piMode {
+		case "builtin", "pi-mcp-extension":
+			path, err = client.piModePath(piMode)
+			if err != nil {
+				return nil, err
+			}
+			paths = []string{path}
+		case "pi-mcp-adapter":
+		default:
+			paths = append(paths, piExtensionPath(path))
+		}
 	}
 	items, found := []Candidate{}, false
 	seen := map[string]bool{}
@@ -395,7 +471,11 @@ func (s *Service) ImportClient(target string) ([]Candidate, error) {
 			continue
 		}
 		found = true
-		read, err := Import(format, data, "")
+		mode := piMode
+		if format == "pi" && mode == "" && path == paths[0] {
+			mode = "pi-mcp-adapter"
+		}
+		read, err := importPiMode(format, data, "", mode)
 		if err != nil {
 			return nil, err
 		}
@@ -406,7 +486,7 @@ func (s *Service) ImportClient(target string) ([]Candidate, error) {
 			}
 			seen[item.Name] = true
 			item.From = target
-			if format == "pi" && path == paths[0] {
+			if format == "pi" && mode == "pi-mcp-adapter" {
 				// Only pi-mcp-adapter reads this file, so it does identify the extension.
 				item.Server.PiExtension = "pi-mcp-adapter"
 				item.Warnings = slices.DeleteFunc(item.Warnings, func(w string) bool { return w == piExtensionWarning })
@@ -422,6 +502,11 @@ func (s *Service) ImportClient(target string) ([]Candidate, error) {
 
 // ImportProjectClient is ImportClient reading a target's file in one mcp.projects root.
 func (s *Service) ImportProjectClient(root, target string) ([]Candidate, error) {
+	return s.ImportProjectClientMode(root, target, "")
+}
+
+// ImportProjectClientMode selects a Pi file within a configured project root.
+func (s *Service) ImportProjectClientMode(root, target, piMode string) ([]Candidate, error) {
 	source, err := LoadSource(s.ConfigPath)
 	if err != nil {
 		return nil, err
@@ -432,7 +517,58 @@ func (s *Service) ImportProjectClient(root, target string) ([]Candidate, error) 
 	}
 	scoped := *s
 	scoped.ProjectRoot = root
-	return scoped.ImportClient(target)
+	return scoped.ImportClientMode(target, piMode)
+}
+
+// ImportSource is one selectable native file and, for Pi, its parsing mode.
+type ImportSource struct {
+	Target      string `json:"target"`
+	Path        string `json:"path"`
+	PiExtension string `json:"piExtension,omitempty"`
+}
+
+// ImportSources exposes actual read paths in this scope (the empty key) and
+// configured projects. Accounts exist only in the global scope.
+func (s *Service) ImportSources(source *Source) map[string][]ImportSource {
+	scopes := map[string]*Service{"": s}
+	for root := range source.Projects {
+		scoped := *s
+		scoped.ProjectRoot = root
+		scopes[root] = &scoped
+	}
+	result := map[string][]ImportSource{}
+	for root, scope := range scopes {
+		paths := scope.ClientPaths()
+		for target, path := range scope.AccountPaths(source.Accounts) {
+			paths[target] = path
+		}
+		result[root] = []ImportSource{}
+		for _, target := range sortedKeys(paths) {
+			path := paths[target]
+			if target == "pi" || source.Accounts[target].Agent == "pi" {
+				for _, mode := range []string{"builtin", "pi-mcp-adapter", "pi-mcp-extension"} {
+					if mode == "pi-mcp-extension" && target != "pi" {
+						continue
+					}
+					file := path
+					if mode != "pi-mcp-adapter" {
+						file = piExtensionPath(path)
+					}
+					if mode == "pi-mcp-extension" {
+						var err error
+						file, err = scope.piModePath(mode)
+						if err != nil {
+							continue
+						}
+					}
+					result[root] = append(result[root], ImportSource{Target: target, Path: file, PiExtension: mode})
+				}
+			} else {
+				result[root] = append(result[root], ImportSource{Target: target, Path: path})
+			}
+		}
+	}
+	return result
 }
 
 // Unmanaged is one Agent file's servers that no Skillshare config manages and the source

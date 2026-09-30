@@ -17,10 +17,9 @@ import MCPServerList from './MCPServerList';
 import MCPSyncBox from './MCPSyncBox';
 import MCPUnmanagedNote from './MCPUnmanagedNote';
 import { TargetPill } from './TargetPicker';
-import { buildMatrix, describeEndpoint, describeError, projectOf, switchTargets, targetLabel, writes } from './mcpView';
+import { buildMatrix, describeEndpoint, describeError, projectOf, switchTargets, targetLabel, usesPiAdapter, writes } from './mcpView';
 
 type MCPList = Awaited<ReturnType<typeof mcpApi.list>>;
-
 
 interface Props {
   data: MCPList;
@@ -30,21 +29,7 @@ interface Props {
   onRemoved: () => void;
 }
 
-/** One root under mcp.projects: its defaults, the global servers it turns off, and servers of its own. */
-export default function MCPProjectView({ data, root, offered, onChanged, onRemoved }: Props) {
-  const t = useT();
-  const { toast } = useToast();
-  const directLabel = useDirectToolsLabel();
-  const [pickTargets, setPickTargets] = useState(false);
-  const [editing, setEditing] = useState<string | null>(null); // '' adds a new server
-  const [addMode, setAddMode] = useState<'form' | 'paste'>('form');
-  const [addingOff, setAddingOff] = useState(false); // the new entry is a switch, not a server
-  const [removing, setRemoving] = useState('');
-  const [dropping, setDropping] = useState(false);
-  const [importFrom, setImportFrom] = useState(''); // an Agent file of this project to import from
-  const [busy, setBusy] = useState(false);
-  const [menu, setMenu] = useState<{ x: number; y: number; items: ContextMenuItem[] } | null>(null);
-
+function projectViewModel(data: MCPList, root: string, offered: readonly string[]) {
   const project = data.source.projects?.[root] ?? {};
   const globals = data.source.servers;
   const defaults = data.source.targets ?? [];
@@ -61,6 +46,87 @@ export default function MCPProjectView({ data, root, offered, onChanged, onRemov
   // A switch that names no targets follows the project, and Pi has one only with pi-mcp-adapter.
   const targetsOf = (n: string) => own[n]?.targets ?? (own[n]?.disabled ? targets.filter((x) => x !== 'pi' || own[n].piExtension === 'pi-mcp-adapter') : targets);
   const offTargets = mcpOffTargets;
+  // Pi reads one file per project through one extension, so the project's own servers decide it.
+  const ownPi = Object.values(servers).find((x) => !x.disabled && x.piExtension)?.piExtension;
+  const switchable = (server: MCPServer) => switchTargets(ownPi ? { ...server, piExtension: ownPi } : server, defaults, targets);
+  const ownRows = buildMatrix(own, data.plan && { ...data.plan, changes: changes.filter((c) => own[c.name]) });
+  const shown = mcpTargets.filter((x) => offered.includes(x) || ownRows.some((row) => targetsOf(row.name).includes(x)));
+  return { project, globals, defaults, targets, servers, shownGlobals, roots, changes, name, unmanaged, own, targetsOf, offTargets, switchable, ownRows, shown };
+}
+
+type ProjectModel = ReturnType<typeof projectViewModel>;
+
+function ProjectSettings({ data, model, offered, pickTargets, onPickTargets, busy, save }: { data: MCPList; model: ProjectModel; offered: readonly string[]; pickTargets: boolean; onPickTargets: () => void; busy: boolean; save: (mutation: MCPMutation) => Promise<boolean> }) {
+  const t = useT();
+  const directLabel = useDirectToolsLabel();
+  const { project, targets, defaults, own, name } = model;
+  return (
+    <div className="ss-box flex flex-col gap-3.5">
+      <dl className="ss-kv !grid-cols-[110px_minmax(0,1fr)] items-center">
+        <dt>{t('mcp.targets')}</dt>
+        <dd><TargetPill selected={targets} text={project.targets ? `${targets.length}/${offered.length}` : t('mcp.projects.inherit')} expanded={pickTargets} label={t('mcp.chooseAgents', { name })} onClick={() => onPickTargets()} /></dd>
+        {usesPiAdapter(own, targets, data.source.accounts) && <>
+          <dt className="self-start pt-2.5">{t('mcp.directTools')}</dt>
+          <dd className="max-w-[320px]"><DirectToolsSetting value={project.directTools} disabled={busy} unsetLabel={t('mcp.directToolsInherit', { value: directLabel(data.source.directTools) })} onSave={(directTools) => void save({ replace: true, settings: { targets: project.targets, directTools } })} /></dd>
+        </>}
+      </dl>
+      {/* Indented to the value column of the dl above, so the expanded control
+          lines up under the pill that opened it instead of under its label:
+          its 110px label column plus the 14px column gap of .ss-kv. */}
+      {pickTargets && <div className="pl-[124px]"><ProjectTargets value={project.targets} defaults={defaults} offered={offered} disabled={busy} onChange={(next) => void save({ replace: true, settings: { targets: next, directTools: project.directTools } })} /></div>}
+    </div>
+  );
+}
+
+function ProjectServerEditor({ data, model, root, offered, editing, addingOff, addMode, onMode, onClose, onSaved }: { data: MCPList; model: ProjectModel; root: string; offered: readonly string[]; editing: string; addingOff: boolean; addMode: 'form' | 'paste'; onMode: (mode: 'form' | 'paste') => void; onClose: () => void; onSaved: () => void }) {
+  const { servers, targets, own } = model;
+  return (
+    editing === '' && addMode === 'paste' ? (
+      <MCPImportDialog
+        source="paste"
+        project={root}
+        servers={servers}
+        defaultTargets={targets}
+        availableTargets={offered}
+        paths={data.paths}
+        detected={data.detected}
+        onMode={onMode}
+        onClose={onClose}
+        onImported={onSaved}
+      />
+    ) : (
+      <MCPServerDialog
+        project={root}
+        off={editing === '' && addingOff}
+        defaultPiExtension={Object.values(own).find((s) => s.piExtension)?.piExtension}
+        initial={editing ? { name: editing, server: own[editing] } : undefined}
+        defaultTargets={targets}
+        existingNames={Object.keys(servers)}
+        availableTargets={offered}
+        onMode={editing === '' ? onMode : undefined}
+        onClose={onClose}
+        onSaved={onSaved}
+      />
+    )
+  );
+}
+
+/** One root under mcp.projects: its defaults, the global servers it turns off, and servers of its own. */
+export default function MCPProjectView({ data, root, offered, onChanged, onRemoved }: Props) {
+  const t = useT();
+  const { toast } = useToast();
+  const [pickTargets, setPickTargets] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null); // '' adds a new server
+  const [addMode, setAddMode] = useState<'form' | 'paste'>('form');
+  const [addingOff, setAddingOff] = useState(false); // the new entry is a switch, not a server
+  const [removing, setRemoving] = useState('');
+  const [dropping, setDropping] = useState(false);
+  const [importFrom, setImportFrom] = useState(''); // an Agent file of this project to import from
+  const [busy, setBusy] = useState(false);
+  const [menu, setMenu] = useState<{ x: number; y: number; items: ContextMenuItem[] } | null>(null);
+
+  const model = projectViewModel(data, root, offered);
+  const { globals, defaults, targets, servers, shownGlobals, roots, changes, name, unmanaged, own, targetsOf, offTargets, switchable, ownRows, shown } = model;
 
   const save = async (mutation: MCPMutation) => {
     setBusy(true);
@@ -77,9 +143,6 @@ export default function MCPProjectView({ data, root, offered, onChanged, onRemov
   };
 
   /** Agents where this global server can be turned off from here. */
-  // Pi reads one file per project through one extension, so the project's own servers decide it.
-  const ownPi = Object.values(servers).find((x) => !x.disabled && x.piExtension)?.piExtension;
-  const switchable = (server: MCPServer) => switchTargets(ownPi ? { ...server, piExtension: ownPi } : server, defaults, targets);
 
   // The switch names no targets: sync works out where it goes from the project's targets at
   // that moment. A stored list went stale as soon as those changed.
@@ -112,27 +175,10 @@ export default function MCPProjectView({ data, root, offered, onChanged, onRemov
     }
   };
 
-  const ownRows = buildMatrix(own, data.plan && { ...data.plan, changes: changes.filter((c) => own[c.name]) });
-  const shown = mcpTargets.filter((x) => offered.includes(x) || ownRows.some((row) => targetsOf(row.name).includes(x)));
-
   return (
     <div>
       <RailLayout pageScroll rail={data.plan && <MCPSyncBox changes={changes} roots={roots} plan={data.plan} />}>
-        <div className="ss-box flex flex-col gap-3.5">
-          <dl className="ss-kv !grid-cols-[110px_minmax(0,1fr)] items-center">
-            <dt>{t('mcp.targets')}</dt>
-            <dd><TargetPill selected={targets} text={project.targets ? `${targets.length}/${offered.length}` : t('mcp.projects.inherit')} expanded={pickTargets} label={t('mcp.chooseAgents', { name })} onClick={() => setPickTargets(!pickTargets)} /></dd>
-            {/* Only pi-mcp-adapter reads it, so it is offered once Pi is one of the project's targets. */}
-            {targets.includes('pi') && <>
-              <dt className="self-start pt-2.5">{t('mcp.directTools')}</dt>
-              <dd className="max-w-[320px]"><DirectToolsSetting value={project.directTools} disabled={busy} unsetLabel={t('mcp.directToolsInherit', { value: directLabel(data.source.directTools) })} onSave={(directTools) => void save({ replace: true, settings: { targets: project.targets, directTools } })} /></dd>
-            </>}
-          </dl>
-          {/* Indented to the value column of the dl above, so the expanded control
-              lines up under the pill that opened it instead of under its label:
-              its 110px label column plus the 14px column gap of .ss-kv. */}
-          {pickTargets && <div className="pl-[124px]"><ProjectTargets value={project.targets} defaults={defaults} offered={offered} disabled={busy} onChange={(next) => void save({ replace: true, settings: { targets: next, directTools: project.directTools } })} /></div>}
-        </div>
+        <ProjectSettings data={data} model={model} offered={offered} pickTargets={pickTargets} onPickTargets={() => setPickTargets(!pickTargets)} busy={busy} save={save} />
 
         <div className="mt-3 empty:hidden"><MCPUnmanagedNote entries={unmanaged} onImport={setImportFrom} /></div>
 
@@ -198,37 +244,14 @@ export default function MCPProjectView({ data, root, offered, onChanged, onRemov
         <Button className="flush mt-6 self-start" size="sm" variant="ghost" onClick={() => setDropping(true)}><Trash2 size={14} />{t('projects.mcp.stop')}</Button>
       </RailLayout>
 
-      {editing !== null && (editing === '' && addMode === 'paste' ? (
-        <MCPImportDialog
-          source="paste"
-          project={root}
-          servers={servers}
-          defaultTargets={targets}
-          availableTargets={offered}
-          paths={data.paths}
-          detected={data.detected}
-          onMode={setAddMode}
-          onClose={() => setEditing(null)}
-          onImported={() => { setEditing(null); onChanged(); toast(t('mcp.toast.saved'), 'success'); }}
-        />
-      ) : (
-        <MCPServerDialog
-          project={root}
-          off={editing === '' && addingOff}
-          defaultPiExtension={Object.values({ ...globals, ...own }).find((s) => s.piExtension)?.piExtension}
-          initial={editing ? { name: editing, server: own[editing] } : undefined}
-          defaultTargets={targets}
-          existingNames={Object.keys(servers)}
-          availableTargets={offered}
-          onMode={editing === '' ? setAddMode : undefined}
-          onClose={() => setEditing(null)}
-          onSaved={() => { setEditing(null); onChanged(); toast(t('mcp.toast.saved'), 'success'); }}
-        />
-      ))}
+      {editing !== null && (<ProjectServerEditor data={data} model={model} root={root} offered={offered} editing={editing} addingOff={addingOff} addMode={addMode} onMode={setAddMode} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); onChanged(); toast(t('mcp.toast.saved'), 'success'); }} />
+      )}
       {importFrom && (
         <MCPImportDialog
           source="target"
           project={root}
+          importSources={data.importSources?.[root]}
+          defaultPath={unmanaged.find((u) => u.target === importFrom)?.path}
           servers={servers}
           defaultTargets={targets}
           availableTargets={offered}

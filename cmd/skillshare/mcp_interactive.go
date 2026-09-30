@@ -83,7 +83,7 @@ func chooseMCPTargets(service *mcp.Service, servers []mcp.Server, initial []stri
 		compatible := true
 		for _, server := range servers {
 			if item.label == "pi" && server.PiExtension == "" {
-				server.PiExtension = "pi-mcp-adapter"
+				server.PiExtension = "builtin"
 			}
 			if _, err := mcp.Render(item.label, server); err != nil {
 				compatible = false
@@ -307,12 +307,16 @@ func runMCPRestore(service *mcp.Service, o mcpOptions, prompts mcpPrompts) error
 }
 
 func choosePiExtension(initial string, p mcpPrompts) (string, error) {
-	packages := []string{"pi-mcp-adapter", "pi-mcp-extension"}
-	items := []checklistItemData{
-		{label: packages[0], desc: "On-demand tools; supports environment-backed headers", preSelected: initial == packages[0]},
-		{label: packages[1], desc: "Direct tools; start with /mcp:start <server>; no header interpolation", preSelected: initial == packages[1]},
+	packages := []string{"builtin", "pi-mcp-adapter", "pi-mcp-extension"}
+	if initial == "" {
+		initial = "builtin"
 	}
-	selected, err := chooseMCP(p, checklistConfig{title: "Which MCP extension do you use in Pi?", header: "Install ONE with pi install npm:<package>. Sync only writes config; it does not install or verify the extension. Docs: https://pi.dev/packages/pi-mcp-adapter and https://pi.dev/packages/pi-mcp-extension", items: items, singleSelect: true, itemName: "extension"})
+	items := []checklistItemData{
+		{label: packages[0], desc: "Pi >= 0.99.0; built-in MCP and codemode; manage with /mcp", preSelected: initial == packages[0]},
+		{label: packages[1], desc: "On-demand proxy tools; manage with /mcp-adapter", preSelected: initial == packages[1]},
+		{label: packages[2], desc: "Direct tools; start with /mcp:start <server>", preSelected: initial == packages[2]},
+	}
+	selected, err := chooseMCP(p, checklistConfig{title: "Which MCP mode do you use in Pi?", header: "Built-in requires Pi >= 0.99.0. Third-party packages need installation. Sync writes configuration only.", items: items, singleSelect: true, itemName: "mode"})
 	if err != nil {
 		return "", err
 	}

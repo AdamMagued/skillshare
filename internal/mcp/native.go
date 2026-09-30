@@ -147,6 +147,16 @@ func ParseNative(target string, data []byte) (*Native, error) {
 		}
 		return n, nil
 	}
+	var piEntries map[string]json.RawMessage
+	if target == "pi" {
+		standard := n.json.Clone()
+		standard.Standardize()
+		var doc struct {
+			Servers map[string]json.RawMessage `json:"mcpServers"`
+		}
+		_ = json.Unmarshal(standard.Pack(), &doc)
+		piEntries = doc.Servers
+	}
 	if raw, ok := document[nativeKey(target)]; ok {
 		servers, ok := raw.(map[string]any)
 		if !ok {
@@ -156,6 +166,12 @@ func ParseNative(target string, data []byte) (*Native, error) {
 			entry, ok := raw.(map[string]any)
 			if !ok {
 				return nil, fmt.Errorf("native MCP entry must be an object")
+			}
+			if target == "pi" {
+				var options PiOptions
+				if json.Unmarshal(piEntries[name], &options) == nil && options["toolExposure"] != nil {
+					entry["toolExposure"] = options["toolExposure"]
+				}
 			}
 			n.Entries[name] = entry
 		}
@@ -400,7 +416,7 @@ func managedEntry(target string, entry map[string]any) map[string]any {
 			}
 		}
 	}
-	if out["enabled"] == true {
+	if out["enabled"] == true || target == "pi" && (out["command"] != nil || out["url"] != nil) {
 		delete(out, "enabled")
 	}
 	if out["disabled"] == false {
@@ -424,7 +440,7 @@ func withAgentFields(target string, current, want map[string]any) map[string]any
 	out := maps.Clone(want)
 	for key, value := range current {
 		// A field the config sets wins over the one in the file, e.g. Pi's directTools.
-		if _, set := want[key]; !set && !slices.Contains(additionalManagedFields(target), key) {
+		if _, set := want[key]; !set && (!slices.Contains(additionalManagedFields(target), key) || target == "pi" && key == "enabled") {
 			out[key] = value
 		}
 	}

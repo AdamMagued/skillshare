@@ -21,7 +21,7 @@ func runMCPAdd(service *mcp.Service, o mcpOptions) error {
 		}
 		return mcpAddWizard(service, o)
 	}
-	server := mcp.Server{URL: o.url, Targets: o.targets, PiExtension: o.piExtension, DirectTools: o.directTools, PiOptions: o.piOptions, Disabled: o.disabled}
+	server := mcp.Server{URL: o.url, Targets: o.targets, PiExtension: o.piExtension, DirectTools: o.directTools, PiOptions: o.piOptions, PiOptionsPrune: o.piOptionsPrune, Disabled: o.disabled}
 	if len(o.command) > 0 {
 		server.Command, server.Args = o.command[0], o.command[1:]
 	}
@@ -90,9 +90,29 @@ func runMCPImport(service *mcp.Service, o mcpOptions) error {
 		if format == "" && strings.HasSuffix(o.file, ".toml") {
 			format = "codex"
 		}
-		candidates, err = mcp.Import(format, data, o.name)
+		if o.piExtension != "" && o.from == "" {
+			if format == "" {
+				format = mcp.DetectImportFormat(data)
+			}
+			if format != "pi" {
+				return fmt.Errorf("--pi-extension requires Pi input when --from is omitted; detected %s", format)
+			}
+		}
+		if format == "pi" && o.piExtension != "" {
+			candidates, err = mcp.ImportPi(data, o.name, o.piExtension)
+		} else {
+			candidates, err = mcp.Import(format, data, o.name)
+		}
 	} else {
-		candidates, err = service.ImportClient(o.from)
+		format, formatErr := service.ImportFormat(o.from)
+		if formatErr != nil {
+			return formatErr
+		}
+		mode := ""
+		if format == "pi" {
+			mode = o.piExtension
+		}
+		candidates, err = service.ImportClientMode(o.from, mode)
 	}
 	if err != nil {
 		return err
@@ -123,7 +143,9 @@ func runMCPImport(service *mcp.Service, o mcpOptions) error {
 			return fmt.Errorf("MCP source entry exists; use --replace")
 		}
 		c.Server.Targets = o.targets
-		c.Server.PiExtension = o.piExtension
+		if o.piExtension != "" {
+			c.Server.PiExtension = o.piExtension
+		}
 		selectedTargets := c.Server.Targets
 		if selectedTargets == nil {
 			selectedTargets = source.Targets

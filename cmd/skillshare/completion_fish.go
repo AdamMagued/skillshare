@@ -43,9 +43,10 @@ complete -c skillshare -n '__fish_skillshare_using_command plugin' -l dry-run
 complete -c skillshare -n '__fish_skillshare_using_command plugin' -l json
 complete -c skillshare -n '__fish_skillshare_using_command plugin' -l no-tui
 complete -c skillshare -n __fish_skillshare_no_subcommand -a mcp -d 'Manage MCP connections'
-complete -c skillshare -n '__fish_skillshare_using_command mcp' -l pi-extension -r -a 'pi-mcp-adapter pi-mcp-extension' -d 'MCP extension installed in Pi'
+complete -c skillshare -n '__fish_skillshare_using_command mcp' -l pi-extension -r -a 'builtin pi-mcp-adapter pi-mcp-extension' -d 'Pi MCP mode'
 complete -c skillshare -n '__fish_skillshare_using_command mcp' -l direct-tools -r -a 'true false search' -d 'pi-mcp-adapter direct tools, or tool names separated by commas'
-complete -c skillshare -n '__fish_skillshare_using_command mcp' -l pi-options -r -d 'pi-mcp-adapter only: other adapter fields as a JSON object'
+complete -c skillshare -n '__fish_skillshare_using_command mcp' -l pi-options -r -d 'builtin or adapter: other per-server fields as JSON'
+complete -c skillshare -n '__fish_skillshare_using_command mcp' -l pi-options-prune -d 'Remove only owned unchanged Pi fields (=false disables)'
 complete -c skillshare -n '__fish_skillshare_using_command mcp' -a 'add import list remove restore'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a status -d 'Show status of all targets'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a diff -d 'Show differences between source and targets'

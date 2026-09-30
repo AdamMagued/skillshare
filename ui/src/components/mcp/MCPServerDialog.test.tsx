@@ -17,11 +17,27 @@ const renderDialog = (props: Partial<Parameters<typeof MCPServerDialog>[0]> = {}
   render(<QueryClientProvider client={new QueryClient()}><I18nProvider><MCPServerDialog defaultTargets={['claude']} existingNames={[]} onClose={vi.fn()} onSaved={vi.fn()} {...props} /></I18nProvider></QueryClientProvider>);
 
 describe('MCP server dialog', () => {
+  it.each(['', 'builtin'])('omits new Pi settings when Pi is unticked before saving (suggested mode: %s)', async (defaultPiExtension) => {
+    const user = userEvent.setup();
+    renderDialog({ defaultPiExtension });
+    await user.type(screen.getByLabelText('Name'), 'docs');
+    await user.type(screen.getByLabelText('Command'), 'docs');
+    await user.click(screen.getByRole('checkbox', { name: 'Pi' }));
+    await user.click(screen.getByRole('combobox', { name: 'Tool exposure' }));
+    await user.click(screen.getByRole('option', { name: /^direct\b/ }));
+    await user.click(screen.getByRole('checkbox', { name: 'Remove cleared settings from Pi' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Pi' }));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith({ name: 'docs', server: { command: 'docs' }, replace: false }));
+    expect(vi.mocked(mcpApi.save).mock.calls[0][0].server).not.toHaveProperty('piOptions');
+    expect(vi.mocked(mcpApi.save).mock.calls[0][0].server).not.toHaveProperty('piOptionsPrune');
+  });
+
   it('requires a Pi extension and persists the explicit selection', async () => {
     const user = userEvent.setup();
     renderDialog({ initial: { name: 'docs', server: { url: 'https://example.com/mcp', targets: ['pi'] } } });
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
-    await user.click(screen.getByRole('combobox', { name: 'MCP extension installed in Pi' }));
+    await user.click(screen.getByRole('combobox', { name: 'Pi MCP mode' }));
     await user.click(screen.getByRole('option', { name: 'pi-mcp-extension' }));
     expect(screen.getByText('pi install npm:pi-mcp-extension')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Save' }));
@@ -135,7 +151,7 @@ describe('MCP server dialog', () => {
     const user = userEvent.setup();
     renderDialog({ initial: { name: 'docs', server: { command: 'docs', targets: ['pi'], piExtension: 'pi-mcp-extension' } } });
     expect(screen.queryByRole('combobox', { name: 'Direct tools' })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('combobox', { name: 'MCP extension installed in Pi' }));
+    await user.click(screen.getByRole('combobox', { name: 'Pi MCP mode' }));
     await user.click(screen.getByRole('option', { name: 'pi-mcp-adapter' }));
     await user.click(screen.getByRole('combobox', { name: 'Direct tools' }));
     await user.click(screen.getByRole('option', { name: 'Only these tools' }));
@@ -169,7 +185,7 @@ describe('MCP server dialog', () => {
   it('takes other Pi adapter settings as a JSON object', async () => {
     const user = userEvent.setup();
     renderDialog({ initial: { name: 'docs', server: { command: 'docs', targets: ['pi'], piExtension: 'pi-mcp-adapter' } } });
-    const box = screen.getByLabelText('Other adapter settings');
+    const box = screen.getByLabelText('Other Pi settings');
     await user.click(box);
     await user.paste('["delete_*"]');
     expect(screen.getByText('Enter a JSON object.')).toBeInTheDocument();
@@ -180,6 +196,37 @@ describe('MCP server dialog', () => {
     await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith(expect.objectContaining({
       server: { command: 'docs', targets: ['pi'], piExtension: 'pi-mcp-adapter', piOptions: { approveTools: ['delete_*'] } },
     })));
+  });
+
+  it('uses builtin for a new Pi server and previews the project scope', async () => {
+    const user = userEvent.setup();
+    vi.mocked(mcpApi.render).mockResolvedValue({ rendered: [{ target: 'pi', path: '/project/.pi/mcp.json', content: '{"mcpServers":{}}' }] });
+    renderDialog({ defaultTargets: ['pi'], project: '/project' });
+    await user.type(screen.getByLabelText('Name'), 'docs');
+    await user.type(screen.getByLabelText('Command'), 'docs');
+    expect(screen.queryByText('pi install npm:builtin')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'View them' }));
+    await waitFor(() => expect(mcpApi.render).toHaveBeenCalledWith(expect.objectContaining({ project: '/project', server: expect.objectContaining({ piExtension: 'builtin' }) })));
+  });
+
+  it('shares exposure with JSON and retains separate mode drafts', async () => {
+    const user = userEvent.setup();
+    renderDialog({ initial: { name: 'docs', server: { command: 'docs', targets: ['pi'], piExtension: 'builtin', piOptions: { exposure: 'deferred', custom: { keep: true } } } } });
+    const box = screen.getByLabelText('Other Pi settings');
+    await user.clear(box);
+    await user.click(box);
+    await user.paste('{"exposure":"hidden","custom":{"keep":true}}');
+    expect(screen.getByRole('combobox', { name: 'Tool exposure' })).toHaveTextContent('hidden');
+    await user.click(screen.getByRole('combobox', { name: 'Tool exposure' }));
+    await user.click(screen.getByRole('option', { name: /^direct\b/ }));
+    expect(JSON.parse((box as HTMLTextAreaElement).value)).toEqual({ exposure: 'direct', custom: { keep: true } });
+    await user.click(screen.getByRole('combobox', { name: 'Pi MCP mode' }));
+    await user.click(screen.getByRole('option', { name: 'pi-mcp-adapter' }));
+    expect(screen.getByLabelText('Other Pi settings')).toHaveValue('');
+    await user.click(screen.getByRole('combobox', { name: 'Pi MCP mode' }));
+    await user.click(screen.getByRole('option', { name: 'Built-in (Pi ≥ 0.99.0)' }));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith(expect.objectContaining({ server: expect.objectContaining({ piExtension: 'builtin', piOptions: { exposure: 'direct', custom: { keep: true } } }) })));
   });
 
   it('refuses a name that is already taken', async () => {

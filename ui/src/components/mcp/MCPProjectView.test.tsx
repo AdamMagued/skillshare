@@ -22,6 +22,30 @@ const view = (servers: Data['source']['servers'], project: NonNullable<Data['sou
 const context7 = { command: 'npx', targets: ['claude', 'cursor', 'opencode'] };
 
 describe('MCP project view', () => {
+  it.each(['builtin', 'pi-mcp-extension', 'pi-mcp-adapter'])('offers project Direct tools only for its own adapter servers: %s', (piExtension) => {
+    view({ global: { command: 'npx', piExtension: 'pi-mcp-adapter', targets: ['pi'] } }, { targets: ['pi'], servers: { docs: { command: 'npx', piExtension } } });
+    expect(Boolean(screen.queryByText('Direct tools'))).toBe(piExtension === 'pi-mcp-adapter');
+  });
+
+  it('hides project adapter defaults when only global adapter servers exist', () => {
+    view({ global: { command: 'npx', piExtension: 'pi-mcp-adapter', targets: ['pi'] } }, { targets: ['pi'], directTools: 'search' });
+    expect(screen.queryByText('Direct tools')).not.toBeInTheDocument();
+  });
+
+  it('preserves hidden adapter defaults when project targets change', async () => {
+    const user = userEvent.setup();
+    view({}, { targets: ['pi'], directTools: 'search', servers: { docs: { command: 'npx', piExtension: 'builtin' } } });
+    expect(screen.queryByText('Direct tools')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Choose which agents get /work/app' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Claude' }));
+    await waitFor(() => expect(mcpApi.save).toHaveBeenLastCalledWith({ replace: true, settings: { targets: ['claude', 'pi'], directTools: 'search' }, project: '/work/app' }));
+  });
+
+  it('offers project adapter defaults for an explicit Pi target', () => {
+    view({}, { targets: ['claude'], servers: { docs: { command: 'npx', piExtension: 'pi-mcp-adapter', targets: ['pi'] } } });
+    expect(screen.getByText('Direct tools')).toBeInTheDocument();
+  });
+
   it('turns a global server off without storing targets, so the switch follows the project', async () => {
     const user = userEvent.setup();
     view({ context7 }, { targets: ['opencode'] });

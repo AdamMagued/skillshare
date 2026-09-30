@@ -29,7 +29,7 @@ func runMCPEdit(service *mcp.Service, o mcpOptions) error {
 	if o.url != "" && len(o.command) > 0 {
 		return fmt.Errorf("choose either --url or -- command args")
 	}
-	if o.piExtension != "" || o.directTools != nil || o.piOptions != nil || o.url != "" || len(o.command) > 0 || o.targets != nil {
+	if o.piExtension != "" || o.directTools != nil || o.piOptions != nil || o.piOptionsPruneSet || o.piOptionsPrune || o.url != "" || len(o.command) > 0 || o.targets != nil {
 		server = patchMCPServer(server, o)
 		if err := source.CheckUnchanged(); err != nil {
 			return err
@@ -56,6 +56,9 @@ func patchMCPServer(server mcp.Server, o mcpOptions) mcp.Server {
 	}
 	if o.directTools != nil {
 		server.DirectTools = o.directTools
+	}
+	if o.piOptionsPruneSet || o.piOptionsPrune {
+		server.PiOptionsPrune = o.piOptionsPrune
 	}
 	if o.piOptions != nil {
 		server.PiOptions = o.piOptions

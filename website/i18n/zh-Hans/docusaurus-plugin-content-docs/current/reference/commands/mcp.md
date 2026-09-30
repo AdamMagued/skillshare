@@ -33,9 +33,10 @@ skillshare sync --all
 | `--url URL` | 用于 `add` 的 Streamable HTTP 端点 |
 | `-- command args...` | 用于 `add` 的本地可执行文件及其字面参数 |
 | `--disabled` | Project mode，配合 `add` 使用：关闭一个由 Agent 全局配置定义的 server。参见[下文](#turn-off-a-global-server-in-one-project) |
-| `--pi-extension PACKAGE` | target 包含 Pi 时必填，用于 `add`、`edit` 或 `import`：`pi-mcp-adapter` 或 `pi-mcp-extension`，填你在 Pi 里安装的那一个。参见[下文](#pi-choose-your-mcp-extension) |
+| `--pi-extension MODE` | `builtin` (Pi ≥ 0.99.0), `pi-mcp-adapter`, `pi-mcp-extension`. [Pi](#pi-choose-your-mcp-extension) |
 | `--direct-tools VALUE` | 配合 `pi-mcp-adapter` 使用的 Pi，用于 `add` 或 `edit`：`true`、`false`、`search`，或用逗号分隔的工具名称。参见[下文](#pi-direct-tools) |
-| `--pi-options JSON` | 配合 `pi-mcp-adapter` 使用的 Pi，用于 `add` 或 `edit`：以 JSON 对象传入 adapter 的其他字段；`{}` 会清空它们。参见[下文](#pi-options) |
+| `--pi-options JSON` | `builtin` / `pi-mcp-adapter`: per-server JSON. [Pi](#pi-options) |
+| `--pi-options-prune` | `piOptionsPrune: true`; `--pi-options-prune=false` → `false`. [Pi](#pi-options) |
 | `--from CLIENT` | 要导入的现有 client，或 `--file` 的格式 |
 | `--file PATH` | 原生 JSON/JSONC、TOML 或 Goose YAML；`.toml` 默认对应 Codex，其他格式会根据其 MCP 区块自动检测；如需明确指定方言请使用 `--from` |
 | `--sync` | 保存并同步；非交互式的 add/import/remove 默认仅保存 |
@@ -119,7 +120,8 @@ Skillshare 配置中。schema 是仓库中的 `schemas/mcp.schema.json`。
 | `transport` | 可选的 `stdio` 或 `streamable-http`；省略时会自动推断 |
 | `targets` | 可选的接收方 client；覆盖 `mcp.targets`。空列表会让该 server 只保留在 Skillshare 中。参见[下文](#keep-a-server-without-syncing-it) |
 | `directTools` | 仅限使用 `pi-mcp-adapter` 的 Pi：`true`、`false`、`"search"` 或工具名称列表。参见[下文](#pi-direct-tools) |
-| `piOptions` | 仅限使用 `pi-mcp-adapter` 的 Pi：adapter 的其他字段，会原样写入 Pi 中的条目。参见[下文](#pi-options) |
+| `piOptions` | `builtin` / `pi-mcp-adapter`: per-server JSON. [Pi](#pi-options) |
+| `piOptionsPrune` | `false`: preserve native values; `true`: remove owned unchanged fields. [Pi](#pi-options) |
 | `disabled` | 仅限 `true`，不能有其他连接字段，且必须有 project 在作用范围内：project mode，或 `mcp.projects` 下的某个项目根目录。参见[下文](#turn-off-a-global-server-in-one-project) |
 
 Client ID 有 `claude`、`codex`、`cursor`、`vscode`、`opencode`、`kilocode`、
@@ -320,7 +322,7 @@ server 批准和身份验证仍是接收方 Agent 自身的责任。
 
 ### 某个 Agent 的另一个账号 {#accounts}
 
-声明为[某个 Agent 的另一个账号](/docs/reference/targets/configuration#agent-config-dir)的 target 同样是一个 MCP target，适用于 `claude`（`CLAUDE_CONFIG_DIR`）、`codex`（`CODEX_HOME`）和 `pi`（`PI_CODING_AGENT_DIR`）。它的 server 会以该 Agent 的格式，写入这个账号自己的文件：Claude 为 `<config_dir>/.claude.json`，Codex 为 `<config_dir>/config.toml`，Pi 为 `<config_dir>/mcp-adapter.json`。
+声明为[某个 Agent 的另一个账号](/docs/reference/targets/configuration#agent-config-dir)的 target 同样是一个 MCP target，适用于 `claude`（`CLAUDE_CONFIG_DIR`）、`codex`（`CODEX_HOME`）和 `pi`（`PI_CODING_AGENT_DIR`）。它的 server 会以该 Agent 的格式，写入这个账号自己的文件：Claude 为 `<config_dir>/.claude.json`，Codex 为 `<config_dir>/config.toml`，Pi 内置为 `<config_dir>/mcp.json`，pi-mcp-adapter 为 `<config_dir>/mcp-adapter.json`。
 
 ```yaml
 targets:
@@ -359,6 +361,7 @@ mcp:
 | OpenCode | 是 | `opencode.json`：`"NAME": {"enabled": false}` |
 | Kilo Code | 是 | `kilo.jsonc`：`"NAME": {"enabled": false}` |
 | Pi（配合 `pi-mcp-adapter`） | 是 | `.pi/mcp-adapter.json`：`"NAME": {"disabled": true}` |
+| Pi 内置 | 否 | 需要完整条目：在有 command/url 的 server 上使用 `piOptions: {enabled: false}` |
 | Pi（配合 `pi-mcp-extension`） | 否 | 它没有 disable 字段 |
 | Codex | 否 | 见下文 |
 | 其他所有 client | 否 | 选择其中任何一个都会报错；不会写入任何内容 |
@@ -614,6 +617,7 @@ server，反之亦然。若要重新管理某个条目，请 import 它。
   由 Agent 自动填充的默认值，例如 `"type": "stdio"`、空的 `env` 或
   header 名称大小写，不算作变更。用 `enabled: false` 或 `disabled: true`
   关闭一个被管理的 server 会被报告为冲突。
+  Pi 内置模式是例外：只修改 `enabled` 不会造成所有权冲突；同步时仍以 source 的 `piOptions.enabled` 为准。
 - 当 Agent 在同一文件中重写不相关的设置时，预览仍然有效，就像 Claude Code
   对 `~/.claude.json` 所做的那样。只有该文件的 MCP 条目发生变化才需要
   新的预览。
@@ -651,27 +655,17 @@ server，反之亦然。若要重新管理某个条目，请 import 它。
   目录作为可移植的清单来共享。
 
 
-## Pi：选择你的 MCP Extension {#pi-choose-your-mcp-extension}
+## Pi：选择 MCP 模式 {#pi-choose-your-mcp-extension}
 
-Pi 可以通过 [pi-mcp-adapter](https://pi.dev/packages/pi-mcp-adapter)
-或 [pi-mcp-extension](https://pi.dev/packages/pi-mcp-extension) 使用 MCP。这些是 Pi 网站上列出的第三方
-软件包，而不是 Pi 的内置功能。在 Pi 中安装**其中一个**：
+Pi ≥ 0.99.0 已[内置 MCP](https://github.com/earendil-works/pi/blob/v0.99.0/packages/coding-agent/docs/mcp.md)。新配置可选 `builtin`；已有 adapter／extension 配置保留原模式。仪表盘和终端提供三种模式；脚本明确指定 `--pi-extension builtin`、`pi-mcp-adapter` 或 `pi-mcp-extension`。
 
-```bash
-pi install npm:pi-mcp-adapter
-```
-
-安装后重启 Pi。在 Skillshare 的 MCP 表单中，选择 **Pi**，然后选择
-你所安装的软件包。导入对话框提供相同的选择。在终端中，
-`mcp add` / `mcp edit` 会引导你完成选择；脚本必须提供 `--pi-extension`：
+个人及含凭据的 server 请放入 `~/.pi/agent/mcp.json`。仅在可信项目中，将项目需要的 server 放入 `.pi/mcp.json`。同名 project entry 会完整替换 global entry。Skillshare 直接编辑文件，提供预览和备份；不会信任项目、启动 server、安装包或批准 OAuth。
 
 ```bash
-skillshare mcp add docs --url https://example.com/mcp --target pi --pi-extension pi-mcp-adapter --no-tui
+skillshare mcp add docs --url https://example.com/mcp --target pi --pi-extension builtin --pi-options '{"exposure":"deferred"}' --no-tui
 skillshare sync mcp --dry-run
 skillshare sync mcp
 ```
-
-保存后的 server 定义是：
 
 ```yaml
 mcp:
@@ -679,40 +673,44 @@ mcp:
     docs:
       url: https://example.com/mcp
       targets: [pi]
-      piExtension: pi-mcp-adapter
+      piExtension: builtin
+      piOptions:
+        exposure: deferred
+        timeout: 120
+        toolExposure:
+          get_*: codemode
+          delete_*: hidden
 ```
 
-对于另一个软件包，请在安装命令和选择中都使用 `pi-mcp-extension`。
-一个 Skillshare source 中，所有以 Pi 为目标的 server 都必须选择
-相同的软件包。
+简单的 Pi 配置可用 `pi mcp add`；加 `-l` 写入 project 文件。命令未覆盖的设置可直接编辑 `mcp.json`。同步后，在 Pi 使用 `/reload` 或启动新 session。`pi mcp list` 会启动所有启用的 server 检查连接；`pi mcp login NAME` 需要用户授权。
 
-| 软件包 | 原生输出 | 同步之后要做什么 |
+| Mode | Global file | Project file |
 |---|---|---|
-| `pi-mcp-adapter` | `command`/`args` 或 `url`；`${VARIABLE}` 引用 | 重启/重新加载 Pi；使用 `/mcp-adapter` 查看连接。工具会按需连接。 |
-| `pi-mcp-extension` | 显式的 `transport: stdio` 或 `streamable-http` | 重启 Pi；新 server 默认使用 `/mcp:start <server>` 手动启动。已有的 `lifecycle` 设置会被保留。 |
-
-| 软件包 | Global 文件 | Project 文件 |
-|---|---|---|
+| `builtin` | `~/.pi/agent/mcp.json` | `.pi/mcp.json` |
 | `pi-mcp-adapter` | `~/.pi/agent/mcp-adapter.json` | `.pi/mcp-adapter.json` |
 | `pi-mcp-extension` | `~/.pi/agent/mcp.json` | `.pi/mcp.json` |
 
-Skillshare 使用的是这些 Pi 专属文件，而不是 adapter 共享的 `.mcp.json` 或
-`~/.config/mcp/mcp.json` 输入。同名的 project 条目会覆盖 global 条目。
-对于 adapter，会遵循 global 的 `PI_CODING_AGENT_DIR` 覆盖设置。
-extension 不遵循该覆盖设置；global 同步会拒绝它，而不是
-写入一个 extension 会忽略的文件。
+旧版扩展只需安装所选包并重启 Pi。注册 `/mcp` 的扩展可能在该 session 替换内置 MCP。`directTools` 及其默认仅适用于 adapter，不会自动转换成内置 exposure。
 
-`pi-mcp-adapter` 3.0 不再读取 `mcp.json`，改为读取 `mcp-adapter.json`。
-下一次执行 `skillshare sync mcp` 时，Skillshare 会把它的 adapter server 写入
-`mcp-adapter.json`，并移除它之前写入 `mcp.json` 的条目。你自己添加到
-`mcp.json` 的条目会保留在原处。如果你已经按照 Pi 警告的建议重命名了该文件，
-Skillshare 会继续管理你移过去的条目。
+### 内置工具暴露模式
 
-adapter 在环境变量和 HTTP header 中支持 `fromEnv`。
-extension **不会**插值环境引用：匹配的 stdio
-变量（例如 `TOKEN: {fromEnv: TOKEN}`）会改为从 Pi 的进程中继承；
-重命名变量以及基于环境变量的 HTTP 凭据会被拒绝。
-遇到这些情况请使用 adapter。Skillshare 绝不会读取或复制密钥值。
+`exposure` 支持 `codemode`（Pi 默认）、`codemode-deferred`、`deferred`、`direct` 和 `hidden`。`toolExposure` 支持工具名称和通配符；精确名称优先，通配符使用首个匹配规则。导入和 JSON／YAML 转换保留规则顺序。
+
+exposure 下拉框和 JSON 编辑器使用同一个值。未设置时保留 Pi 原值；新条目使用 Pi 默认。`toolExposure`、`timeout`（正数秒）、`cwd`、`enabled` 和 `oauth` 可通过 JSON 配置。检查已知内置字段，保留自定义 Pi 的未知字段。
+
+同一范围的 Pi server 必须使用相同模式。内置模式名称仅接受字母、数字、`_` 和 `-`。迁移多个 server 时，请在源配置中一起修改所有条目。
+
+`builtin` 和 `pi-mcp-adapter` 会使用 `PI_CODING_AGENT_DIR` 指定全局 Pi 目录。`pi-mcp-extension` 始终读取 `~/.pi/agent/mcp.json`，不支持这个覆盖值或 Pi 账号；该 extension 的全局同步会拒绝目录覆盖。
+
+| 模式 | 原生输出 | 同步后要做什么 |
+|---|---|---|
+| `builtin` | `command`/`args` 或 `url`；`${NAME}` 引用 | 执行 `/reload` 或开启新 Pi 会话；用 `/mcp` 检查连接及批准 OAuth。 |
+| `pi-mcp-adapter` | `command`/`args` 或 `url`；`${NAME}` 引用 | 重启／重新载入 Pi；用 `/mcp-adapter` 检查连接，使用工具时才连接。 |
+| `pi-mcp-extension` | 明确的 `transport: stdio` 或 `streamable-http` | 重启 Pi；新 server 默认用 `/mcp:start <server>` 手动启动，已有 `lifecycle` 保留。 |
+
+`pi-mcp-adapter` 从 3.0 起改读 `mcp-adapter.json`，不再读取 `mcp.json`。下次同步时，Skillshare 会迁移自己管理的 adapter 条目；手动添加的条目留在 `mcp.json`。如果已重命名文件，会继续管理移过去且未修改的条目。Skillshare 使用这些 Pi 专用文件，不写 adapter 的共享 `.mcp.json` 或 `~/.config/mcp/mcp.json` 输入。
+
+adapter 支持环境变量及 HTTP header 的 `fromEnv`。`pi-mcp-extension` 不插值引用：`TOKEN: {fromEnv: TOKEN}` 这类同名 stdio 变量由 Pi 进程继承；变量改名及环境变量来源的 HTTP 凭据会被拒绝。这些情况请使用 builtin 或 adapter。Skillshare 不解析凭据值。
 
 ### 直接工具 {#pi-direct-tools}
 
@@ -771,52 +769,23 @@ mcp:
 [`mcp.projects`](#manage-several-projects-from-the-global-config) 下的项目可以
 持有自己的 `directTools`，它会替换该项目的全局默认值。没有
 命令可以编辑这个默认值。请在 `config.yaml` 中设置它，或者在仪表盘 MCP 页面的
-**默认值** 下设置；当 Pi 是默认 target 之一时，它就会出现在那里。
+**默认值** 下设置；此项仅在当前范围有启用的 `pi-mcp-adapter` server 以 Pi 为目标时显示。
 
-使用 `--from pi` 导入会读取 Pi 专属的文件。带有 `directTools` 的条目
-会连同该字段一起导入，并选定 `pi-mcp-adapter`，因为只有 adapter 才有
-该字段。保存导入的连接时请选择
-`--pi-extension`；仅凭文件本身无法识别安装的是哪个软件包。
-仍不支持旧版 SSE。OAuth 和仅限软件包内的选项
-仍由 Pi 自身管理。同步成功只代表配置已被写入，并不代表
-某个 extension 已安装，或某个 server 已建立连接。
+### 其他 Pi 设置 {#pi-options}
 
-### 其他 adapter 设置 {#pi-options}
+`piOptions` 支持 `builtin` 和 `pi-mcp-adapter` 的单个 server 字段，仅发送给 Pi。导入保留字段，并将可识别的明文凭据替换为引用。`mcp-adapter.json` 可识别 adapter；`mcp.json` 可能属于内置或 extension，导入时请确认模式。
 
-`pi-mcp-adapter` 的每个 server 字段比 Skillshare 提供的设置更多，例如
-`excludeTools` 和 `approveTools`。把它们放在 `piOptions` 下，它们会原样写入
-Pi 文件中该 server 的条目：
+使用 `--file` 和 `--pi-extension`、但未指定 `--from` 时，自动识别的输入格式必须是 Pi。所选模式会从解析阶段开始应用；只有连接字段、格式不明确的文件请指定 `--from pi`。将内置的 `exposure` 或 `toolExposure` 导入 adapter 模式时，会提示确认 adapter 是否支持，不会转换成 `directTools`。extension 模式会警告并略过不支持的字段。
 
-```yaml
-mcp:
-  servers:
-    github:
-      command: npx
-      args: [-y, "@modelcontextprotocol/server-github"]
-      piExtension: pi-mcp-adapter
-      targets: [pi]
-      piOptions:
-        excludeTools: ["*emulator*"]
-        approveTools: ["delete_*", "merge_pull_request"]
-```
+清空 JSON 或移除字段，默认停止管理并保留 Pi 原值。选择“从 Pi 移除已清除的设置”或使用 `--pi-options-prune`，仅移除 Skillshare 曾写入且未被修改的字段。手动字段保留；已修改的受管理字段会阻止同步。在 UI 关闭该选项，或在 YAML 设置 `piOptionsPrune: false`，恢复默认策略。
 
-在命令行中，可以将一个 JSON 对象传给 `mcp add` 或 `mcp edit`。它会替换整个
-`piOptions`，而 `{}` 会将其清空。仪表盘的 server 对话框中，**Direct tools**
-下方也有相同的输入框，保存前会检查内容是否为 JSON 对象。
-勾选了 Pi 且设置了 **Direct tools** 或 **Other adapter settings** 的 server，会在其行中显示
-一个图标：将鼠标悬停在上面可查看设置了哪些项，点击则打开对话框。编辑时取消勾选
-Pi 会在 source 中保留这两项，因此重新勾选 Pi 后它们会恢复。
+连接字段请使用主表单。顶层 `settings` 和 `autoEnableCodemode` 请直接在 Pi 编辑，同步保留它们。凭据请使用环境变量引用。内置模式的 portable env／headers 不接受 `!command` 字面值；命令式凭据请留在 Pi。切换模式保留各自草稿，只保存当前模式。
+
+
+也可用 `--pi-options-prune=false` 从 CLI 关闭。adapter 中以 `!` 开头的 env/header 字面值会转义成 `!!`，导入时还原。Pi options 中的命令值会被拒绝，包括 `oauth.clientId` 这类非 secret 字段。
 
 ```bash
-skillshare mcp edit github --pi-options '{"excludeTools":["*emulator*"]}'
+skillshare mcp edit docs --pi-options '{"exposure":"direct"}' --no-tui
+skillshare mcp edit docs --pi-options '{}' --pi-options-prune --no-tui
+skillshare mcp edit docs --pi-options-prune=false --no-tui
 ```
-
-- Skillshare 不会检查字段名称或值。只有 adapter 才了解它们。
-- 由 Skillshare 自己写入的字段在这里会被拒绝：`command`、`args`、`env`、`url`、
-  `headers`、`transport`、`enabled`、`disabled` 和 `directTools`。
-- 这些值会按字面原样复制。凭据请通过 `fromEnv` 放在 `env` 或 `headers` 中，
-  不要放在这里。
-- 与 `directTools` 一样，从 `piOptions` 中移除的字段仍会留在 Pi 的文件中。请到
-  那里自行删除。
-- 它需要 `piExtension: pi-mcp-adapter`，并且不能与 `disabled` 同时使用。其他
-  Agent 都不会收到它，`import --from pi` 也不会读回这些字段。

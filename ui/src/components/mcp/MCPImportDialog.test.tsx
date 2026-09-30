@@ -12,7 +12,7 @@ import { MCPTargetOrder } from './targetOrder';
 vi.mock('../CodeEditor', () => ({
   default: ({ value, onChange, ariaLabel }: { value: string; onChange: (v: string) => void; ariaLabel: string }) => <textarea aria-label={ariaLabel} value={value} onChange={(e) => onChange(e.target.value)} />,
 }));
-vi.mock('../../api/mcp', async (load) => ({ ...await load<typeof import('../../api/mcp')>(), mcpApi: { import: vi.fn(), save: vi.fn() } }));
+vi.mock('../../api/mcp', async (load) => ({ ...await load<typeof import('../../api/mcp')>(), mcpApi: { import: vi.fn(), save: vi.fn(), render: vi.fn().mockResolvedValue({ rendered: [] }) } }));
 
 const renderDialog = (props: Partial<Parameters<typeof MCPImportDialog>[0]> = {}, order: readonly string[] = mcpTargets) =>
   render(<QueryClientProvider client={new QueryClient()}><I18nProvider><ToastProvider><MCPTargetOrder.Provider value={order}><MCPImportDialog source="target" servers={{ github: { command: 'npx' } }} defaultTargets={['claude', 'cursor']} paths={{ claude: '/home/me/.claude.json', codex: '/home/me/.codex/config.toml' }} detected={['claude']} onClose={vi.fn()} onImported={vi.fn()} {...props} /></MCPTargetOrder.Provider></ToastProvider></I18nProvider></QueryClientProvider>);
@@ -24,12 +24,55 @@ describe('MCP import dialog', () => {
     vi.mocked(mcpApi.save).mockResolvedValue({ applied: [], backupIds: [] });
   });
 
+  it('selects each Pi source explicitly and resets selections between files', async () => {
+    vi.mocked(mcpApi.import).mockImplementation(async (body) => ({ candidates: [{ name: 'docs', server: { command: body.piExtension === 'pi-mcp-adapter' ? 'adapter' : 'native', piExtension: body.piExtension }, problems: [], warnings: [], from: 'pi' }] }));
+    const user = userEvent.setup();
+    renderDialog({ servers: {}, defaultTargets: ['pi'], paths: { pi: '/project/.pi/mcp.json' }, project: '/project', detected: ['pi'], importSources: [
+      { target: 'pi', path: '/project/.pi/mcp.json', piExtension: 'builtin' },
+      { target: 'pi', path: '/project/.pi/mcp-adapter.json', piExtension: 'pi-mcp-adapter' },
+      { target: 'pi', path: '/project/.pi/mcp.json', piExtension: 'pi-mcp-extension' },
+    ] });
+    await waitFor(() => expect(mcpApi.import).toHaveBeenCalledWith({ from: 'pi', root: '/project', piExtension: 'builtin' }));
+    expect(await screen.findByText(/Use .pi\/mcp.json only for servers this project needs/)).toBeInTheDocument();
+    await user.click(await screen.findByRole('checkbox', { name: /docs/ }));
+    await user.click(screen.getByRole('combobox', { name: 'Target' }));
+    expect(screen.getByRole('option', { name: 'Pi · Built-in /project/.pi/mcp.json' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Pi · pi-mcp-extension /project/.pi/mcp.json' })).toBeInTheDocument();
+    await user.click(screen.getByRole('option', { name: 'Pi · pi-mcp-adapter /project/.pi/mcp-adapter.json' }));
+    await waitFor(() => expect(mcpApi.import).toHaveBeenLastCalledWith({ from: 'pi', root: '/project', piExtension: 'pi-mcp-adapter' }));
+    await waitFor(() => expect(screen.queryByText(/Use .pi\/mcp.json only for servers this project needs/)).not.toBeInTheDocument());
+    await user.click(await screen.findByRole('button', { name: 'Import 1 server' }));
+    await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith(expect.objectContaining({ project: '/project', server: { command: 'adapter', piExtension: 'pi-mcp-adapter' }, resolutions: [{ target: 'pi', name: 'docs', action: 'adopt' }] })));
+  });
+
+  it('retains builtin custom settings and previews the project destination', async () => {
+    const server = { command: 'docs', piExtension: 'builtin', piOptions: { exposure: 'hidden', toolExposure: { 'get_*': 'direct' }, custom: { flag: true } } };
+    vi.mocked(mcpApi.import).mockResolvedValue({ candidates: [{ name: 'docs', server, problems: [], warnings: [], from: 'pi' }] });
+    const user = userEvent.setup();
+    renderDialog({ servers: {}, defaultTargets: ['pi'], paths: { pi: '/project/.pi/mcp.json' }, project: '/project', detected: ['pi'] });
+    const add = await screen.findByRole('button', { name: 'Import 1 server' });
+    expect(add).toBeEnabled();
+    await waitFor(() => expect(mcpApi.render).toHaveBeenCalledWith(expect.objectContaining({ project: '/project', server: expect.objectContaining(server) })));
+    await user.click(add);
+    await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith(expect.objectContaining({ project: '/project', server })));
+  });
+
+  it('opens the exact file of an unmanaged Pi account', async () => {
+    vi.mocked(mcpApi.import).mockResolvedValue({ candidates: [] });
+    renderDialog({ servers: {}, defaultTargets: [], paths: { 'pi-work': '/work/pi/mcp.json' }, defaultFrom: 'pi-work', defaultPath: '/work/pi/mcp-adapter.json', importSources: [
+      { target: 'pi-work', path: '/work/pi/mcp.json', piExtension: 'builtin' },
+      { target: 'pi-work', path: '/work/pi/mcp-adapter.json', piExtension: 'pi-mcp-adapter' },
+    ] }, [...mcpTargets, 'pi-work']);
+    await waitFor(() => expect(mcpApi.import).toHaveBeenCalledWith({ from: 'pi-work', piExtension: 'pi-mcp-adapter' }));
+    expect(screen.getByRole('combobox', { name: 'Target' })).toHaveTextContent('pi-work · pi-mcp-adapter /work/pi/mcp-adapter.json');
+  });
+
   it('requires a Pi extension when importing into Pi', async () => {
     vi.mocked(mcpApi.import).mockResolvedValue({ candidates: [{ name: 'docs', server: { url: 'https://example.com/mcp' }, problems: [], warnings: [], from: 'pi' }] });
     const user = userEvent.setup();
     renderDialog({ servers: {}, defaultTargets: ['pi'], paths: { pi: '/home/me/.pi/agent/mcp.json' }, detected: ['pi'] });
     expect(await screen.findByRole('button', { name: 'Import 1 server' })).toBeDisabled();
-    await user.click(screen.getByRole('combobox', { name: 'MCP extension installed in Pi' }));
+    await user.click(screen.getByRole('combobox', { name: 'Pi MCP mode' }));
     await user.click(screen.getByRole('option', { name: 'pi-mcp-adapter' }));
     await user.click(screen.getByRole('button', { name: 'Import 1 server' }));
     await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith(expect.objectContaining({ server: { url: 'https://example.com/mcp', piExtension: 'pi-mcp-adapter' }, resolutions: [{ target: 'pi', name: 'docs', action: 'adopt' }] })));
@@ -121,6 +164,17 @@ describe('MCP import dialog', () => {
     await user.click(screen.getByLabelText('Server snippet'));
     await user.paste('ready (global mode, hot-reload)');
     expect(await screen.findByText('Not valid JSON or JSONC. Check the syntax.')).toBeInTheDocument();
+  });
+
+  it('reports a file read failure and retains the snippet', async () => {
+    const user = userEvent.setup();
+    renderDialog({ source: 'paste' });
+    await user.type(screen.getByLabelText('Server snippet'), 'previous snippet');
+    const file = new File(['new snippet'], 'mcp.json', { type: 'application/json' });
+    Object.defineProperty(file, 'text', { value: vi.fn().mockRejectedValue(new Error('File unreadable')) });
+    await user.upload(screen.getByLabelText('Load a file'), file);
+    expect(await screen.findByText('File unreadable')).toBeInTheDocument();
+    expect(screen.getByLabelText('Server snippet')).toHaveValue('previous snippet');
   });
 
   it('reads a picked file into the snippet editor', async () => {

@@ -7,6 +7,7 @@ import (
 	"maps"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -19,12 +20,14 @@ type mcpOptions struct {
 	name, url, from, file, revision, piExtension string
 	// directTools is nil unless --direct-tools was given.
 	directTools any
-	// piOptions is nil unless --pi-options was given; an empty object clears them.
-	piOptions                                    map[string]any
+	// piOptions is nil unless --pi-options was given.
+	piOptions                                    mcp.PiOptions
 	targets                                      []string
 	command                                      []string
 	sync, dryRun, json, replace, noTUI, disabled bool
 	keepFiles                                    bool
+	piOptionsPrune                               bool
+	piOptionsPruneSet                            bool
 }
 
 func parseMCPOptions(args []string) (mcpOptions, error) {
@@ -79,9 +82,21 @@ func parseMCPOptions(args []string) (mcpOptions, error) {
 			o.replace = true
 		case "--disabled":
 			o.disabled = true
+		case "--pi-options-prune":
+			o.piOptionsPrune = true
+			o.piOptionsPruneSet = true
 		case "--keep-files":
 			o.keepFiles = true
 		default:
+			if value, found := strings.CutPrefix(a, "--pi-options-prune="); found {
+				var err error
+				o.piOptionsPrune, err = strconv.ParseBool(value)
+				if err != nil {
+					return o, fmt.Errorf("--pi-options-prune takes true or false")
+				}
+				o.piOptionsPruneSet = true
+				continue
+			}
 			if strings.HasPrefix(a, "-") || o.name != "" {
 				return o, fmt.Errorf("unknown MCP argument %q", a)
 			}
@@ -197,7 +212,7 @@ func cmdSyncMCP(args []string) error {
 	if err != nil {
 		return err
 	}
-	if o.piExtension != "" || o.name != "" || o.url != "" || o.from != "" || o.file != "" || len(o.command) > 0 || o.targets != nil || o.replace || o.sync || o.disabled || o.keepFiles {
+	if o.piOptionsPruneSet || o.piOptionsPrune || o.piOptions != nil || o.directTools != nil || o.piExtension != "" || o.name != "" || o.url != "" || o.from != "" || o.file != "" || len(o.command) > 0 || o.targets != nil || o.replace || o.sync || o.disabled || o.keepFiles {
 		return fmt.Errorf("sync mcp accepts only --dry-run, --json, --revision and scope flags")
 	}
 	if o.dryRun {
@@ -315,9 +330,10 @@ Commands:
   restore [id]      Browse backups, preview and restore Agent entries
 
 Options:
-  --pi-extension <package>  pi-mcp-adapter or pi-mcp-extension (requires installation in Pi)
+  --pi-extension <mode>     builtin (Pi >= 0.99.0), pi-mcp-adapter or pi-mcp-extension
   --direct-tools <value>    pi-mcp-adapter only: true, false, search, or tool names separated by commas
-  --pi-options <json>       pi-mcp-adapter only: other adapter fields as a JSON object; {} clears them
+  --pi-options <json>       builtin or adapter: other per-server fields as a JSON object
+  --pi-options-prune        Remove cleared Pi fields only if owned and unchanged (=false disables)
   --target <client>  Receiving client; repeat for multiple clients, or none to keep
                     the server in Skillshare without writing it to any Agent
   --from <client>    Native client ID or account target (see mcp documentation)

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"maps"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -65,8 +64,7 @@ func (s *Server) handleMCPList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Unresolvable paths are omitted; selected targets report them via previewError.
-	paths := service.ClientPaths()
-	maps.Copy(paths, service.AccountPaths(source.Accounts))
+	paths := service.ConfiguredClientPaths(source)
 	p, previewErr := service.Preview()
 	message := ""
 	if previewErr != nil {
@@ -90,7 +88,7 @@ func (s *Server) handleMCPList(w http.ResponseWriter, r *http.Request) {
 	if !s.IsProjectMode() {
 		detected = append(detected, mcp.DetectedAccounts(source.Accounts)...)
 	}
-	writeJSON(w, map[string]any{"source": source, "paths": paths, "detected": detected, "plan": p, "previewError": message, "backups": backups, "projectConfigs": ownConfig, "unmanaged": service.FindUnmanaged(source)})
+	writeJSON(w, map[string]any{"source": source, "paths": paths, "importSources": service.ImportSources(source), "detected": detected, "plan": p, "previewError": message, "backups": backups, "projectConfigs": ownConfig, "unmanaged": service.FindUnmanaged(source)})
 }
 
 func (s *Server) handleMCPPreview(w http.ResponseWriter, r *http.Request) {
@@ -109,7 +107,7 @@ func (s *Server) handleMCPPreview(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleMCPRender shows the server in the request as each of its targets would store it.
-// It reads and writes nothing, so an unsaved form can ask.
+// It reads configuration only; it neither executes servers nor writes files.
 func (s *Server) handleMCPRender(w http.ResponseWriter, r *http.Request) {
 	var body mcpRequest
 	if !decodeMCPRequest(w, r, &body) {
@@ -119,7 +117,24 @@ func (s *Server) handleMCPRender(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 400, "server is required")
 		return
 	}
-	writeJSON(w, map[string]any{"rendered": s.mcpService().RenderNative(body.Mutation.Name, *body.Mutation.Server)})
+	service := s.mcpService()
+	if body.Mutation.Project != "" {
+		if service.ProjectRoot != "" {
+			writeError(w, 400, "MCP project overrides are not available in project mode; omit mutation.project")
+			return
+		}
+		source, err := mcp.LoadSource(service.ConfigPath)
+		if err != nil {
+			writeError(w, 400, err.Error())
+			return
+		}
+		if _, ok := source.Projects[body.Mutation.Project]; !ok {
+			writeError(w, 400, "unknown MCP project")
+			return
+		}
+		service.ProjectRoot = body.Mutation.Project
+	}
+	writeJSON(w, map[string]any{"rendered": service.RenderNative(body.Mutation.Name, *body.Mutation.Server)})
 }
 
 func (s *Server) handleMCPConfigure(w http.ResponseWriter, r *http.Request) {
@@ -169,9 +184,10 @@ func (s *Server) handleMCPConfigure(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleMCPImport(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		From    string `json:"from"`
-		Content string `json:"content"`
-		Name    string `json:"name"`
+		From        string `json:"from"`
+		Content     string `json:"content"`
+		Name        string `json:"name"`
+		PiExtension string `json:"piExtension"`
 		// Root reads the target's file in that mcp.projects root instead of this scope.
 		Root string `json:"root"`
 	}
@@ -183,11 +199,15 @@ func (s *Server) handleMCPImport(w http.ResponseWriter, r *http.Request) {
 	var candidates []mcp.Candidate
 	var err error
 	if body.Content != "" {
+		if body.PiExtension != "" {
+			writeError(w, 400, "Pi import mode requires a target file")
+			return
+		}
 		candidates, err = mcp.Import(body.From, []byte(body.Content), body.Name)
 	} else if body.Root != "" {
-		candidates, err = s.mcpService().ImportProjectClient(body.Root, body.From)
+		candidates, err = s.mcpService().ImportProjectClientMode(body.Root, body.From, body.PiExtension)
 	} else {
-		candidates, err = s.mcpService().ImportClient(body.From)
+		candidates, err = s.mcpService().ImportClientMode(body.From, body.PiExtension)
 	}
 	if err != nil {
 		writeError(w, 400, err.Error())

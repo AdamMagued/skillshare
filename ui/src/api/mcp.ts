@@ -19,8 +19,9 @@ export interface MCPServer {
   bearerToken?: { fromEnv: string };
   /** pi-mcp-adapter only. Left out, Skillshare does not touch the value in Pi's file. */
   directTools?: MCPDirectTools;
-  /** pi-mcp-adapter only: fields Skillshare has no setting for, written into Pi's entry as given. */
+  /** Builtin or adapter: per-server fields written into Pi as given. */
   piOptions?: Record<string, unknown>;
+  piOptionsPrune?: boolean;
   /** Project mode: the whole entry, turning off a server the Agent's global config defines. */
   disabled?: boolean;
 }
@@ -43,7 +44,7 @@ export interface MCPPlan {
   sourcePath: string;
   blocked: boolean;
   /** `switch`: the entry only turns a global server off for one project, so adding it turns the server off there. */
-  changes: { target: string; path: string; name: string; root?: string; switch?: boolean; action: string; message?: string }[];
+  changes: { target: string; path: string; name: string; root?: string; switch?: boolean; action: string; message?: string; fields?: { added?: string[]; updated?: string[]; removed?: string[] } }[];
 }
 export interface MCPResult { plan?: MCPPlan; applied: string[]; backupIds: string[] }
 /** Servers in one Agent file that skillshare does not manage; `project` is a root under mcp.projects. */
@@ -51,6 +52,7 @@ export interface MCPUnmanaged { target: string; project?: string; path: string; 
 /** `servers`: what the write the backup was taken before changed; `time`: when it was taken. */
 export interface MCPBackup { id: string; target: string; path: string; time?: string; servers?: { name: string; change: 'added' | 'changed' | 'removed' }[] }
 export interface MCPCandidate { name: string; server: MCPServer; problems: string[]; warnings: string[]; from?: string }
+export interface MCPImportSource { target: string; path: string; piExtension?: string }
 const post = <T,>(path: string, body: unknown) => apiFetch<T>(path, { method: 'POST', body: JSON.stringify(body) });
 export const mcpApi = {
   list: () => apiFetch<{
@@ -58,6 +60,8 @@ export const mcpApi = {
     /** Project roots that also have their own .skillshare/config.yaml. */
     projectConfigs: string[];
     paths: Record<string, string>; detected: string[]; plan: MCPPlan | null; previewError: string;
+    /** Native import files by scope: the empty key is this config, others are project roots. */
+    importSources?: Record<string, MCPImportSource[]>;
     backups: MCPBackup[];
     unmanaged: MCPUnmanaged[];
   }>('/mcp'),
@@ -68,10 +72,10 @@ export const mcpApi = {
   /** Save to the source only. The server refuses a write it has not previewed; the revision also catches concurrent edits. */
   save: async (mutation: MCPMutation) =>
     post<MCPResult>('/mcp', { mutation, revision: (await post<MCPPlan>('/mcp/preview', { mutation })).revision, sync: false }),
-  /** One server as each of its targets' config files would hold it. Reads and writes nothing, so an unsaved form can ask. */
+  /** One server as each of its targets' config files would hold it. Reads configuration only; no server is executed and no file is written. */
   render: (mutation: MCPMutation) => post<{ rendered: { target: string; path: string; content?: string; error?: string }[] }>('/mcp/render', { mutation }),
   /** `root` reads the `from` target's file in that mcp.projects root. */
-  import: (body: { from?: string; content?: string; name?: string; root?: string }) => post<{ candidates: MCPCandidate[] }>('/mcp/import', body),
+  import: (body: { from?: string; content?: string; name?: string; root?: string; piExtension?: string }) => post<{ candidates: MCPCandidate[] }>('/mcp/import', body),
   previewRestore: (backupId: string) => post<MCPPlan>('/mcp/restore', { backupId, preview: true }),
   restore: (backupId: string, revision: string) => post<MCPResult>('/mcp/restore', { backupId, revision }),
 };

@@ -36,7 +36,9 @@ func mcpBatchImportWizard(service *mcp.Service, candidates []mcp.Candidate, o mc
 	servers := make([]mcp.Server, 0, len(selected))
 	for _, i := range selected {
 		server := eligible[i].Server
-		server.PiExtension = o.piExtension
+		if o.piExtension != "" {
+			server.PiExtension = o.piExtension
+		}
 		servers = append(servers, server)
 	}
 	initial := o.targets

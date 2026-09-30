@@ -235,3 +235,34 @@ ss mcp remove pi-docs --sync --no-tui -g
 adapter output omits it and moves from `mcp.json` to `mcp-adapter.json`, the second
 sync is unchanged, and removal affects only
 the managed entry. No MCP server or Pi package is installed or executed.
+
+### Pi built-in MCP (0.99.0+) and cleared options
+
+```bash
+set -eu
+MCP_CASE=$(mktemp -d "$HOME/mcp-pi-builtin.XXXXXX")
+export SKILLSHARE_CONFIG="$MCP_CASE/config.yaml"
+export PI_CODING_AGENT_DIR="$MCP_CASE/pi"
+printf 'targets: {}\n' > "$SKILLSHARE_CONFIG"
+ss mcp add docs --target pi --pi-extension builtin --url https://example.com/mcp \
+  --pi-options '{"exposure":"deferred","timeout":120,"toolExposure":{"get_*":"direct","*":"hidden"},"custom":{"flag":true}}' --no-tui -g
+ss sync mcp --dry-run --json -g | jq -e '.blocked == false and (.changes[0].fields.added | length > 0)'
+ss sync mcp -g
+jq -e '.mcpServers.docs.exposure == "deferred" and .mcpServers.docs.transport == null' "$PI_CODING_AGENT_DIR/mcp.json"
+ss mcp import --from pi --dry-run --json -g
+ss mcp edit docs --pi-options '{}' --no-tui -g
+ss sync mcp -g
+jq -e '.mcpServers.docs.custom.flag == true' "$PI_CODING_AGENT_DIR/mcp.json"
+# Re-manage the fields before testing explicit removal.
+ss mcp edit docs --pi-options '{"exposure":"deferred","timeout":120}' --no-tui -g
+ss sync mcp -g
+ss mcp edit docs --pi-options '{}' --pi-options-prune --no-tui -g
+ss sync mcp -g
+jq -e '.mcpServers.docs.exposure == null and .mcpServers.docs.timeout == null and .mcpServers.docs.custom.flag == true' "$PI_CODING_AGENT_DIR/mcp.json"
+```
+
+Expected:
+- exit_code: 0
+- Global destination is `<PI_CODING_AGENT_DIR>/mcp.json`; project mode uses `.pi/mcp.json`.
+- Import keeps Pi-only fields. Clearing preserves values by default, explicit prune removes only owned unchanged fields.
+- No server is launched, no OAuth login or project trust is granted.

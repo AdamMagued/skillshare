@@ -46,7 +46,7 @@
     "server": {
       "type": "object", "additionalProperties": false,
       "properties": {
-        "piExtension": {"enum": ["pi-mcp-adapter", "pi-mcp-extension"]},
+        "piExtension": {"enum": ["builtin", "pi-mcp-adapter", "pi-mcp-extension"]},
         "transport": {"enum": ["stdio", "streamable-http"]},
         "command": {"type": "string", "minLength": 1},
         "args": {"type": "array", "items": {"type": "string"}},
@@ -56,6 +56,8 @@
         "bearerToken": {"$ref": "#/$defs/reference"},
         "targets": {"$ref": "#/$defs/targets"},
         "directTools": {"$ref": "#/$defs/directTools"},
+        "piOptions": {"type": "object", "description": "Pi built-in or pi-mcp-adapter per-server options. Known built-in fields are validated; unknown fields are preserved."},
+        "piOptionsPrune": {"type": "boolean", "description": "Remove cleared Pi options only if Skillshare owns their unchanged values."},
         "disabled": {"const": true, "description": "Project mode only: turn off a server that the Agent's global config defines. Supported by opencode, kilocode and pi with pi-mcp-adapter."}
       },
       "oneOf": [
