@@ -64,18 +64,16 @@ function ProjectSettings({ data, model, offered, pickTargets, onPickTargets, bus
   const { project, targets, defaults, own, name } = model;
   return (
     <div className="ss-box flex flex-col gap-3.5">
-      <dl className="ss-kv !grid-cols-[110px_minmax(0,1fr)] items-center">
+      <dl className="ss-kv !grid-cols-[auto_minmax(0,1fr)] items-center">
         <dt>{t('mcp.targets')}</dt>
         <dd><TargetPill selected={targets} text={project.targets ? `${targets.length}/${offered.length}` : t('mcp.projects.inherit')} expanded={pickTargets} label={t('mcp.chooseAgents', { name })} onClick={() => onPickTargets()} /></dd>
+        {/* In the value column, so the expanded control lines up under the pill that opened it. */}
+        {pickTargets && <dd className="col-start-2 !font-normal"><ProjectTargets value={project.targets} defaults={defaults} offered={offered} disabled={busy} onChange={(next) => void save({ replace: true, settings: { targets: next, directTools: project.directTools } })} /></dd>}
         {usesPiAdapter(own, targets, data.source.accounts) && <>
           <dt className="self-start pt-2.5">{t('mcp.directTools')}</dt>
           <dd className="max-w-[320px]"><DirectToolsSetting value={project.directTools} disabled={busy} unsetLabel={t('mcp.directToolsInherit', { value: directLabel(data.source.directTools) })} onSave={(directTools) => void save({ replace: true, settings: { targets: project.targets, directTools } })} /></dd>
         </>}
       </dl>
-      {/* Indented to the value column of the dl above, so the expanded control
-          lines up under the pill that opened it instead of under its label:
-          its 110px label column plus the 14px column gap of .ss-kv. */}
-      {pickTargets && <div className="pl-[124px]"><ProjectTargets value={project.targets} defaults={defaults} offered={offered} disabled={busy} onChange={(next) => void save({ replace: true, settings: { targets: next, directTools: project.directTools } })} /></div>}
     </div>
   );
 }
