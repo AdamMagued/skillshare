@@ -46,7 +46,7 @@
 </p>
 
 > [!NOTE]
-> **Latest**: v0.21.* — manage **many project folders** from one global config with `projects:`; keep every teammate on the same commits with a **project lockfile**; define **MCP connections** once and sync them into each Agent's native config; and install and sync **complete plugins** across Claude, Codex, Cursor and more. [All releases →](https://github.com/runkids/skillshare/releases)
+> **Latest**: v0.23.0 — manage and sync **native hooks** in global and project scope; choose which **MCP tools** reach the model with `tools.allow` and `tools.deny`; and use the dashboard's new **Hooks page** and **MCP tool picker** to configure them. [All releases →](https://github.com/runkids/skillshare/releases)
 
 ## Why skillshare
 

@@ -45,7 +45,7 @@
 </p>
 
 > [!NOTE]
-> **最新バージョン**：v0.21.* — 各リリースの新機能と修正は [Releases](https://github.com/runkids/skillshare/releases) と[変更履歴](https://skillshare.runkids.cc/changelog)にまとめています。最近の主な追加は、`projects:` でひとつの global 設定から**複数のプロジェクトフォルダー**を管理できること、**プロジェクト lockfile** でチームメイト全員を同じ commit に揃えられること、一度定義すれば各 Agent 固有の設定形式に同期できる **MCP 接続**、そして Claude、Codex、Cursor などへの **plugin 一式**のインストールと同期です。
+> **最新バージョン**：v0.23.0 — global と project の両スコープで**ネイティブ hooks** を管理・同期し、`tools.allow` と `tools.deny` でモデルが使える **MCP tools** を選択できます。dashboard に追加された **Hooks ページ**と **MCP ツール選択画面**からも設定できます。新機能と修正の一覧は [Releases](https://github.com/runkids/skillshare/releases) と[変更履歴](https://skillshare.runkids.cc/changelog)をご覧ください。
 
 ## skillshare を使う理由
 
