@@ -364,7 +364,7 @@ export default function MCPImportDialog(props: Props) {
   const count = chosen.length;
 
   return (
-    <DialogShell open onClose={onClose} padding="none" preventClose={saving} ariaLabel={title} className="!max-w-[640px]">
+    <DialogShell open onClose={onClose} padding="none" preventClose={saving} ariaLabel={title} className="!max-w-[880px]">
       <div className="dh">
         <div className="flex flex-col gap-1">
           <h2 className="ss-h2">{title}</h2>
