@@ -4,6 +4,8 @@ package integration
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -55,4 +57,41 @@ func TestMCPCheckGlobal(t *testing.T) {
 	r = sb.RunCLI("mcp", "check", "nope", "-g")
 	r.AssertExitCode(t, 1)
 	r.AssertOutputContains(t, "known servers: local, parked")
+}
+
+func TestMCPCheckProjects(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	root := filepath.Join(sb.Home, "work", "app")
+	if err := os.MkdirAll(root, 0755); err != nil {
+		t.Fatal(err)
+	}
+	sb.WriteConfig("targets: {}\nmcp:\n  targets: [claude]\n  servers:\n    docs:\n      url: https://example.com/mcp\n  projects:\n    ~/work/app:\n      servers:\n        docs:\n          command: no-such-mcp-binary\n")
+
+	r := sb.RunCLI("mcp", "check", "docs", "--json", "--no-dns", "-g")
+	r.AssertExitCode(t, 1)
+	var report struct {
+		Servers []struct {
+			Name    string `json:"name"`
+			Project string `json:"project"`
+			OK      bool   `json:"ok"`
+		} `json:"servers"`
+		Summary struct {
+			Errors int `json:"errors"`
+		} `json:"summary"`
+	}
+	if err := json.Unmarshal([]byte(r.Stdout), &report); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, r.Stdout)
+	}
+	if len(report.Servers) != 2 || report.Servers[0].Project != "" || !report.Servers[0].OK || report.Servers[1].Project != root || report.Servers[1].OK || report.Summary.Errors != 1 {
+		t.Fatalf("want the global docs and the project's docs with its missing command: %+v", report)
+	}
+	if strings.Count(r.Stdout, `"project"`) != 1 {
+		t.Fatalf("a global server must omit project:\n%s", r.Stdout)
+	}
+
+	r = sb.RunCLI("mcp", "check", "--no-dns", "-g")
+	r.AssertExitCode(t, 1)
+	r.AssertOutputContains(t, "docs  (project ~/work/app)")
+	r.AssertOutputContains(t, "2 server(s) checked: 1 error(s)")
 }

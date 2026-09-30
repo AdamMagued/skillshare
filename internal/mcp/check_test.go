@@ -198,3 +198,89 @@ func TestCheckUnknownNameListsKnown(t *testing.T) {
 		t.Fatalf("unknown name must list known servers, got %v", err)
 	}
 }
+
+// projectCheckService declares docs globally and, under one mcp.projects root, a docs of its
+// own and a local server that needs a variable and a command.
+func projectCheckService(t *testing.T) (*Service, string) {
+	t.Helper()
+	root := filepath.Join(t.TempDir(), "app")
+	if err := os.MkdirAll(root, 0755); err != nil {
+		t.Fatal(err)
+	}
+	s := checkService(t, "mcp:\n  targets: [claude]\n  servers:\n    docs:\n      url: https://example.com/mcp\n  projects:\n    "+root+":\n      servers:\n        docs:\n          url: https://example.com/app-docs\n        local:\n          command: no-such-mcp-binary\n          env:\n            API_KEY: {fromEnv: APP_TOKEN}\n")
+	return s, root
+}
+
+func checkResult(t *testing.T, report *CheckReport, project, name string) CheckServer {
+	t.Helper()
+	for _, server := range report.Servers {
+		if server.Project == project && server.Name == name {
+			return server
+		}
+	}
+	t.Fatalf("no result for %s in project %q: %+v", name, project, report.Servers)
+	return CheckServer{}
+}
+
+func TestCheckProjectServerEnvAndCommand(t *testing.T) {
+	s, root := projectCheckService(t)
+	opts := offlineCheck()
+	opts.LookPath = func(string) (string, error) { return "", errors.New("not found") }
+	report, err := s.Check(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	local := checkResult(t, report, root, "local")
+	if local.OK || !hasFinding(local.Findings, "error", "env", "") || !hasFinding(local.Findings, "error", "command", "") {
+		t.Fatalf("a project server's variable and command must be checked: %+v", local)
+	}
+	if len(report.Servers) != 3 || checkResult(t, report, "", "docs").Project != "" {
+		t.Fatalf("want the global docs plus both project servers: %+v", report.Servers)
+	}
+}
+
+func TestCheckProjectSyncStateFromItsRoot(t *testing.T) {
+	s, root := projectCheckService(t)
+	p, err := s.Preview()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Apply(p.Revision); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, ".mcp.json"), []byte(`{"mcpServers":{"docs":{"type":"http","url":"https://changed.example/mcp"}}}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	report, err := s.Check(offlineCheck("docs"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasFinding(checkResult(t, report, root, "docs").Findings, "error", "sync", "claude") {
+		t.Fatalf("the edited project entry must be a conflict: %+v", report.Servers)
+	}
+	if !hasFinding(checkResult(t, report, "", "docs").Findings, "info", "sync", "claude") {
+		t.Fatalf("the global docs must stay in sync: %+v", report.Servers)
+	}
+}
+
+func TestCheckNameMatchesGlobalAndProjects(t *testing.T) {
+	s, root := projectCheckService(t)
+	report, err := s.Check(offlineCheck("docs"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Servers) != 2 || report.Servers[0].Project != "" || report.Servers[1].Project != root {
+		t.Fatalf("docs must match the global server and the project's: %+v", report.Servers)
+	}
+	if report, err = s.Check(offlineCheck("local")); err != nil || len(report.Servers) != 1 || report.Servers[0].Project != root {
+		t.Fatalf("a project-only name must select that server: %v %+v", err, report)
+	}
+}
+
+func TestCheckUnknownNameListsProjectServers(t *testing.T) {
+	s, _ := projectCheckService(t)
+	_, err := s.Check(offlineCheck("missing"))
+	if err == nil || !strings.Contains(err.Error(), "known servers: docs, local") {
+		t.Fatalf("unknown name must list project servers once each, got %v", err)
+	}
+}

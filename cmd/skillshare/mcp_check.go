@@ -53,13 +53,17 @@ func printMCPCheck(report *mcp.CheckReport) {
 	a := theme.ANSI()
 	marks := map[string]string{"error": ui.Colorize(a.Danger, "✗"), "warning": ui.Colorize(a.Warning, "!"), "info": ui.Colorize(a.Muted, "·")}
 	for _, server := range report.Servers {
+		heading := server.Name
+		if server.Project != "" {
+			heading += "  (project " + shortenPath(server.Project) + ")"
+		}
 		switch {
 		case !server.OK:
-			ui.Error("%s", server.Name)
+			ui.Error("%s", heading)
 		case mcpCheckHasWarning(server):
-			ui.Warning("%s", server.Name)
+			ui.Warning("%s", heading)
 		default:
-			ui.Success("%s", server.Name)
+			ui.Success("%s", heading)
 		}
 		for _, f := range server.Findings {
 			message := f.Message

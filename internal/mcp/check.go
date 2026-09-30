@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
@@ -25,7 +26,10 @@ type CheckFinding struct {
 
 // CheckServer holds the findings for one server; OK means none is an error.
 type CheckServer struct {
-	Name     string         `json:"name"`
+	Name string `json:"name"`
+	// Project is the mcp.projects root a server belongs to, as Source.Projects keys it;
+	// empty for a global server.
+	Project  string         `json:"project,omitempty"`
 	OK       bool           `json:"ok"`
 	Findings []CheckFinding `json:"findings"`
 }
@@ -54,8 +58,9 @@ type CheckOptions struct {
 // dnsTimeout bounds each host lookup, the only network access a check makes.
 const dnsTimeout = 3 * time.Second
 
-// Check verifies the source's servers without starting them or sending requests: referenced
-// variables are set, commands resolve, hosts resolve, and the plan has each entry in sync.
+// Check verifies the source's servers, including those under each mcp.projects root, without
+// starting them or sending requests: referenced variables are set, commands resolve, hosts
+// resolve, and the plan has each entry in sync.
 func (s *Service) Check(opts CheckOptions) (*CheckReport, error) {
 	if opts.LookupEnv == nil {
 		opts.LookupEnv = os.LookupEnv
@@ -70,64 +75,86 @@ func (s *Service) Check(opts CheckOptions) (*CheckReport, error) {
 	if err != nil {
 		return nil, err
 	}
-	names := opts.Names
-	if len(names) == 0 {
-		names = sortedKeys(source.Servers)
+	// Every server the plan covers: the global list, then each mcp.projects root.
+	var all []checkKey
+	for _, name := range sortedKeys(source.Servers) {
+		all = append(all, checkKey{name: name})
 	}
-	for _, name := range names {
-		if _, ok := source.Servers[name]; !ok {
-			known := strings.Join(sortedKeys(source.Servers), ", ")
-			if known == "" {
-				known = "none"
+	for _, root := range sortedKeys(source.Projects) {
+		for _, name := range sortedKeys(source.Projects[root].Servers) {
+			all = append(all, checkKey{root: root, name: name})
+		}
+	}
+	selected := all
+	if len(opts.Names) > 0 {
+		selected = nil
+		for _, name := range opts.Names {
+			found := false
+			for _, k := range all {
+				if k.name == name {
+					found = true
+					if !slices.Contains(selected, k) {
+						selected = append(selected, k)
+					}
+				}
 			}
-			return nil, fmt.Errorf("unknown MCP server %q; known servers: %s", name, known)
+			if !found {
+				return nil, fmt.Errorf("unknown MCP server %q; known servers: %s", name, knownNames(all))
+			}
 		}
 	}
 	report := &CheckReport{SourcePath: source.Path, Servers: []CheckServer{}}
 	// Every server's client rules count, selected or not: the plan below covers them all.
-	preflight := map[string][]CheckFinding{}
+	preflight := map[checkKey][]CheckFinding{}
 	// refused holds the targets whose rules refuse a server; an empty name means all of them.
-	refused := map[string][]string{}
-	for name, server := range source.Servers {
-		preflight[name] = s.checkClientRules(source, name, server)
-		for _, f := range preflight[name] {
+	refused := map[checkKey][]string{}
+	for _, k := range all {
+		preflight[k] = s.checkClientRules(source, k.root, k.name, k.server(source))
+		for _, f := range preflight[k] {
 			if f.Level == "error" {
-				refused[name] = append(refused[name], f.Target)
+				refused[k] = append(refused[k], f.Target)
 			}
 		}
 	}
-	seen := map[string]bool{}
-	for _, name := range names {
-		if seen[name] {
-			continue
-		}
-		seen[name] = true
-		server := source.Servers[name]
-		result := CheckServer{Name: name, Findings: []CheckFinding{}}
+	for _, k := range selected {
+		server := k.server(source)
+		result := CheckServer{Name: k.name, Project: k.root, Findings: []CheckFinding{}}
 		result.Findings = append(result.Findings, checkEnv(server, opts.LookupEnv)...)
 		if !server.Disabled {
 			result.Findings = append(result.Findings, checkLaunch(server, opts)...)
 		}
-		result.Findings = append(result.Findings, preflight[name]...)
+		result.Findings = append(result.Findings, preflight[k]...)
 		report.Servers = append(report.Servers, result)
 	}
-	byName := map[string]*CheckServer{}
+	byKey := map[checkKey]*CheckServer{}
 	for i := range report.Servers {
-		byName[report.Servers[i].Name] = &report.Servers[i]
+		byKey[checkKey{report.Servers[i].Project, report.Servers[i].Name}] = &report.Servers[i]
 	}
 	// Plan only what the Agents accept, so one refused entry does not hide the rest.
-	accepted := *source
-	accepted.Servers = map[string]Server{}
-	for name, server := range source.Servers {
-		if len(refused[name]) > 0 {
-			if slices.Contains(refused[name], "") {
-				continue
+	accept := func(root string, servers map[string]Server, defaults []string) map[string]Server {
+		out := map[string]Server{}
+		for name, server := range servers {
+			k := checkKey{root, name}
+			if len(refused[k]) > 0 {
+				if slices.Contains(refused[k], "") {
+					continue
+				}
+				server.Targets = slices.DeleteFunc(slices.Clone(server.Targets.orDefault(defaults)), func(target string) bool {
+					return slices.Contains(refused[k], target)
+				})
 			}
-			server.Targets = slices.DeleteFunc(slices.Clone(server.Targets.orDefault(source.Targets)), func(target string) bool {
-				return slices.Contains(refused[name], target)
-			})
+			out[name] = server
 		}
-		accepted.Servers[name] = server
+		return out
+	}
+	accepted := *source
+	accepted.Servers = accept("", source.Servers, source.Targets)
+	if source.Projects != nil {
+		accepted.Projects = map[string]Project{}
+		for root, project := range source.Projects {
+			project.Servers = accept(root, project.Servers, project.defaults(source))
+			accepted.Projects[root] = project
+		}
 	}
 	p, err := s.previewSource(&accepted)
 	if err != nil {
@@ -135,13 +162,14 @@ func (s *Service) Check(opts CheckOptions) (*CheckReport, error) {
 	}
 	var synced []Change
 	for _, c := range p.Changes {
-		if c.Root == "" && byName[c.Name] != nil && !slices.Contains(refused[c.Name], c.Target) {
+		k := checkKey{c.Root, c.Name}
+		if byKey[k] != nil && !slices.Contains(refused[k], c.Target) {
 			synced = append(synced, c)
 		}
 	}
 	slices.SortStableFunc(synced, func(a, b Change) int { return strings.Compare(a.Target, b.Target) })
 	for _, c := range synced {
-		result := byName[c.Name]
+		result := byKey[checkKey{c.Root, c.Name}]
 		result.Findings = append(result.Findings, syncFinding(c))
 	}
 	for i := range report.Servers {
@@ -212,19 +240,38 @@ func checkLaunch(server Server, opts CheckOptions) []CheckFinding {
 }
 
 // checkClientRules renders the server alone, once per target, so a rule an Agent enforces
-// names that Agent. A server that names no targets is kept in Skillshare only.
-func (s *Service) checkClientRules(source *Source, name string, server Server) []CheckFinding {
+// names that Agent. A project server is rendered in its root. A server that names no targets
+// is kept in Skillshare only.
+func (s *Service) checkClientRules(source *Source, root, name string, server Server) []CheckFinding {
 	if server.Targets != nil && len(server.Targets) == 0 {
 		return []CheckFinding{{Level: "info", Check: "targets", Message: "kept in Skillshare only; no Agent receives it"}}
 	}
+	defaults := source.Targets
+	if root != "" {
+		project := source.Projects[root]
+		defaults = project.defaults(source)
+		// Rendered alone, a switch-only entry could not see what decides its targets.
+		server = followingSwitches(project.Servers, defaults, source)[name]
+	}
 	render := func(server Server) error {
 		alone := *source
-		alone.Servers = map[string]Server{name: server}
+		alone.Servers = map[string]Server{}
 		alone.Projects = nil
+		if root == "" {
+			alone.Servers[name] = server
+		} else {
+			project := source.Projects[root]
+			project.Servers = map[string]Server{name: server}
+			alone.Projects = map[string]Project{root: project}
+		}
 		_, err := s.render(&alone)
+		if err != nil && root != "" {
+			// The finding already names its project.
+			return errors.New(strings.TrimPrefix(err.Error(), root+": "))
+		}
 		return err
 	}
-	selected := server.Targets.orDefault(source.Targets)
+	selected := server.Targets.orDefault(defaults)
 	// A switch-only entry works out its own targets, so it is rendered as written.
 	if server.Disabled || len(selected) == 0 {
 		if err := render(server); err != nil {
@@ -264,6 +311,39 @@ func syncFinding(c Change) CheckFinding {
 		f.Level, f.Message = "warning", c.Action
 	}
 	return f
+}
+
+// checkKey names a server in its scope: a root under mcp.projects, or empty for the global list.
+type checkKey struct{ root, name string }
+
+func (k checkKey) server(source *Source) Server {
+	if k.root == "" {
+		return source.Servers[k.name]
+	}
+	return source.Projects[k.root].Servers[k.name]
+}
+
+// knownNames lists each server name once, whichever scopes declare it.
+func knownNames(keys []checkKey) string {
+	var names []string
+	for _, k := range keys {
+		if !slices.Contains(names, k.name) {
+			names = append(names, k.name)
+		}
+	}
+	if len(names) == 0 {
+		return "none"
+	}
+	slices.Sort(names)
+	return strings.Join(names, ", ")
+}
+
+// defaults is the list a project's servers go to when they name none.
+func (p Project) defaults(source *Source) []string {
+	if p.Targets == nil {
+		return source.Targets
+	}
+	return p.Targets
 }
 
 // orDefault is the list a server is written to: its own, or the config's default.
