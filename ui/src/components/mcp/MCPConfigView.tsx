@@ -5,6 +5,7 @@ import { mcpApi, type MCPMutation } from '../../api/mcp';
 import { Folder, Lock, TriangleAlert, X } from 'lucide-react';
 import AgentIcon from '../AgentIcon';
 import Button from '../Button';
+import CodeView from '../CodeView';
 import CopyButton from '../CopyButton';
 import DialogShell from '../DialogShell';
 import IconButton from '../IconButton';
@@ -81,7 +82,7 @@ export default function MCPConfigView({ mutation }: { mutation: MCPMutation }) {
       </div>
       {view.error && <div className="ss-note bad"><span className="flex-1">{(view.error as Error).message}</span></div>}
       <div className="flex items-start gap-4">
-        <div className="mt-2 flex w-[212px] shrink-0 flex-col gap-0.5" onKeyDown={move}>
+        <div className="mt-2 flex max-h-[420px] w-[212px] shrink-0 flex-col gap-0.5 overflow-y-auto" onKeyDown={move}>
           {item(SOURCE, <Folder size={16} aria-hidden="true" />, t('mcp.sourceConfig'), sourceHint, sourcePath)}
           <div className="mx-2.5 my-1 border-t border-line-soft" role="separator" />
           {targets.map((target) => {
@@ -98,7 +99,7 @@ export default function MCPConfigView({ mutation }: { mutation: MCPMutation }) {
           </div>
           {shown !== SOURCE && view.isPending && <Spinner size="sm" />}
           {rendered?.error && <div className="ss-note warn"><span className="flex-1">{rendered.error}</span></div>}
-          {content !== undefined && <div className="ss-pre"><pre>{content}</pre></div>}
+          {content !== undefined && <CodeView content={content} lang={shown === SOURCE ? 'json' : path ?? ''} className="max-h-[420px]" />}
         </div>
       </div>
       <p className="flex items-center gap-1.5 text-xs text-ink-3"><Lock size={13} aria-hidden="true" className="shrink-0" />{t('mcp.viewConfigHint')}</p>

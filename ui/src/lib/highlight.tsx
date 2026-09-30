@@ -8,7 +8,7 @@ import { yamlLanguage } from '@codemirror/lang-yaml';
 const PARSERS: Record<string, typeof jsonLanguage.parser> = {
   js: javascriptLanguage.parser, mjs: javascriptLanguage.parser, cjs: javascriptLanguage.parser, javascript: javascriptLanguage.parser,
   jsx: jsxLanguage.parser, ts: typescriptLanguage.parser, typescript: typescriptLanguage.parser, tsx: tsxLanguage.parser,
-  json: jsonLanguage.parser, py: pythonLanguage.parser, python: pythonLanguage.parser, yaml: yamlLanguage.parser, yml: yamlLanguage.parser,
+  json: jsonLanguage.parser, jsonc: jsonLanguage.parser, py: pythonLanguage.parser, python: pythonLanguage.parser, yaml: yamlLanguage.parser, yml: yamlLanguage.parser,
 };
 
 const MARKDOWN = new Set(['md', 'markdown', 'mdx']);

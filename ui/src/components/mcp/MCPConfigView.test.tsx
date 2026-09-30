@@ -61,7 +61,7 @@ it('shows the source as JSON when it is picked', async () => {
   showAll();
   await screen.findByText('claude file');
   fireEvent.click(screen.getByRole('button', { name: /Skillshare source/ }));
-  expect(screen.getByText(/"command": "docs"/)).toBeInTheDocument();
+  expect(document.querySelector('.ss-code')).toHaveTextContent('"command": "docs"');
 });
 
 it('marks only the Agent whose render failed', async () => {
