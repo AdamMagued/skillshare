@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '../../i18n';
 import MCPServerList from './MCPServerList';
@@ -11,5 +12,15 @@ describe('MCP server list', () => {
     expect(line).toHaveTextContent('Direct tools');
     expect(line).toHaveTextContent('Other Pi settings');
     expect(line).not.toHaveTextContent('secret_');
+  });
+
+  it('opens and closes the target toggles from the target count', async () => {
+    const user = userEvent.setup();
+    render(<I18nProvider><MCPServerList rows={[{ name: 'docs', server: { command: 'npx' }, cells: {} }]} targets={['claude', 'cursor']} targetsOf={() => ['claude']} onToggle={vi.fn()} onMenu={vi.fn()} /></I18nProvider>);
+    const edit = screen.getByRole('button', { name: 'Choose which agents get docs' });
+    await user.click(edit);
+    expect(screen.getByRole('checkbox', { name: /Cursor/ })).toBeInTheDocument();
+    await user.click(edit);
+    expect(screen.queryByRole('checkbox', { name: /Cursor/ })).not.toBeInTheDocument();
   });
 });

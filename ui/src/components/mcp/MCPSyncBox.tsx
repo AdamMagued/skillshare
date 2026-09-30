@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertCircle, ChevronRight, CircleCheck, RefreshCw } from 'lucide-react';
+import { AlertCircle, Archive, ChevronRight, CircleCheck, ListChecks, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import type { MCPPlan } from '../../api/mcp';
@@ -95,8 +95,27 @@ export function MCPSyncDialog({ plan, shown, onClose }: { plan: MCPPlan; shown: 
   );
 }
 
+export interface MCPRailActionsProps {
+  /** Offered only while there are servers to check. */
+  check?: { running: boolean; run: () => unknown };
+  /** Offered only when backups exist. */
+  onBackups?: () => void;
+}
+
+/** The page's quiet upkeep actions, kept with the sync state rather than in the page header. */
+export function MCPRailActions({ check, onBackups }: MCPRailActionsProps) {
+  const t = useT();
+  if (!check && !onBackups) return null;
+  return (
+    <div className="flex flex-col items-start gap-0.5">
+      {check && <Button className="flush" size="sm" variant="ghost" loading={check.running} onClick={() => void check.run()}>{!check.running && <ListChecks size={14} />}{t(check.running ? 'mcp.check.running' : 'mcp.check.button')}</Button>}
+      {onBackups && <Button className="flush" size="sm" variant="ghost" onClick={onBackups}><Archive size={14} />{t('mcp.backups')}</Button>}
+    </div>
+  );
+}
+
 /** What Sync would write. A change inside a project names the folder, since one server can land in several. */
-export default function MCPSyncBox({ changes, roots, plan }: { changes: MCPChange[]; roots: string[]; plan: MCPPlan }) {
+export default function MCPSyncBox({ changes, roots, plan, check, onBackups }: { changes: MCPChange[]; roots: string[]; plan: MCPPlan } & MCPRailActionsProps) {
   const t = useT();
   const navigate = useNavigate();
   // Held while the dialog is open, so the list it confirms stays put when the queries refresh.
@@ -116,6 +135,10 @@ export default function MCPSyncBox({ changes, roots, plan }: { changes: MCPChang
       {/* Ticks only change the source; say where the files get written, next to the state. */}
       <p className={pending.length > 0 ? 'text-xs leading-normal text-ink-2' : 'text-[13px] leading-normal text-ink-2'}>{t('mcp.syncHint')}</p>
       {pending.length === 0 && <button type="button" className="ss-more self-start" onClick={() => navigate('/sync')}>{t('mcp.reviewInSync')}</button>}
+      {(check || onBackups) && <>
+        <div className="[border-top:var(--sep)]" />
+        <MCPRailActions check={check} onBackups={onBackups} />
+      </>}
       {reviewing && <MCPSyncDialog {...reviewing} onClose={() => setReviewing(null)} />}
     </SyncBox>
   );

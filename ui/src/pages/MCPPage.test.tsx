@@ -32,6 +32,21 @@ describe('MCP page', () => {
     expect(screen.queryByRole('button', { name: 'Check' })).not.toBeInTheDocument();
   });
 
+  it('keeps only the two ways to add in the header, and Check and Backups in the sync card', async () => {
+    vi.mocked(mcpApi.list).mockResolvedValue({
+      source: { path: '', configPath: '', targets: ['claude'], servers: { docs: { command: 'npx' } } },
+      projectConfigs: [], paths: { claude: '/.claude.json' }, detected: ['claude'], previewError: '', unmanaged: [],
+      backups: [{ id: 'b1', target: 'claude', path: '/.claude.json' }],
+      plan: { revision: '', sourcePath: '', blocked: false, changes: [{ target: 'claude', path: '/.claude.json', name: 'docs', action: 'unchanged' }] },
+    } as Awaited<ReturnType<typeof mcpApi.list>>);
+    const { container } = render(<MemoryRouter><QueryClientProvider client={new QueryClient()}><I18nProvider><ToastProvider><MCPPage /></ToastProvider></I18nProvider></QueryClientProvider></MemoryRouter>);
+    const card = (await screen.findByRole('heading', { name: 'Sync' })).closest('.ss-box') as HTMLElement;
+    const header = container.querySelector('[data-tour="mcp-actions"]') as HTMLElement;
+    expect(within(header).getAllByRole('button').map((b) => b.textContent)).toEqual(['Import from a target', 'Add server']);
+    expect(within(card).getByRole('button', { name: 'Check' })).toBeInTheDocument();
+    expect(within(card).getByRole('button', { name: 'Backups and restore' })).toBeInTheDocument();
+  });
+
   it('previews an adapter-file removal even when builtin owns the Pi path label', async () => {
     const user = userEvent.setup();
     vi.mocked(mcpApi.list).mockResolvedValue({

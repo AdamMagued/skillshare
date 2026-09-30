@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, Archive, ChevronDown, Copy, Download, Eye, ListChecks, Pencil, Plug, Plus, PowerOff, Trash2, X } from 'lucide-react';
+import { AlertCircle, ChevronDown, Copy, Download, Eye, Pencil, Plug, Plus, PowerOff, Trash2, X } from 'lucide-react';
 import { mcpApi, type MCPMutation, type MCPPlan, type MCPSettings } from '../api/mcp';
 import Button from '../components/Button';
 import { useAppContext } from '../context/AppContext';
@@ -18,7 +18,7 @@ import MCPUnmanagedNote from '../components/mcp/MCPUnmanagedNote';
 import MCPCheckNote from '../components/mcp/MCPCheckNote';
 import { problemsByServer, useMCPCheck } from '../components/mcp/useMCPCheck';
 import { projectUrl } from '../components/projects/projectView';
-import MCPSyncBox from '../components/mcp/MCPSyncBox';
+import MCPSyncBox, { MCPRailActions } from '../components/mcp/MCPSyncBox';
 import MCPServerList from '../components/mcp/MCPServerList';
 import MCPPreview, { type MCPResolve } from '../components/mcp/MCPPreview';
 import { MCPConfigDialog } from '../components/mcp/MCPConfigView';
@@ -61,18 +61,15 @@ type PageModel = ReturnType<typeof mcpPageModel>;
 type MCPCheck = ReturnType<typeof useMCPCheck>;
 type ImportRequest = { conflict?: { target: string; name: string }; from?: string; project?: string };
 
-function MCPHeader({ check, canCheck, backups, isProjectMode, onBackups, onImport, onOff, onAdd }: { check: MCPCheck; canCheck: boolean; backups: boolean; isProjectMode: boolean; onBackups: () => void; onImport: () => void; onOff: () => void; onAdd: () => void }) {
+// Check and Backups live in the sync card, and the off switch with the server list: the header keeps the two ways to add.
+function MCPHeader({ onImport, onAdd }: { onImport: () => void; onAdd: () => void }) {
   const t = useT();
   return (
     <PageHeader
       title="MCP"
       subtitle={t('mcp.subtitle')}
       actions={<span className="flex items-center gap-2.5" data-tour="mcp-actions">
-        {canCheck && <Button variant="ghost" loading={check.running} onClick={() => void check.run()}>{!check.running && <ListChecks size={15} />}{t(check.running ? 'mcp.check.running' : 'mcp.check.button')}</Button>}
-        {backups ? <Button variant="ghost" onClick={onBackups}><Archive size={15} />{t('mcp.backupsButton')}</Button> : null}
         <Button variant="secondary" onClick={onImport}><Download size={15} />{t('mcp.importFromTarget')}</Button>
-        {/* Only a project file can turn off a server the Agent defines globally. */}
-        {isProjectMode && <Button variant="ghost" onClick={onOff}><PowerOff size={15} />{t('mcp.addOff')}</Button>}
         <Button variant="primary" onClick={onAdd}><Plus size={15} />{t('mcp.addServer')}</Button>
       </span>}
     />
@@ -119,9 +116,12 @@ interface ContentProps {
   onSettings: (settings: MCPSettings) => void;
   resolve: MCPResolve;
   check: MCPCheck;
+  isProjectMode: boolean;
+  onOff: () => void;
+  onBackups: () => void;
 }
 
-function MCPContent({ data, model, order, allFiles, onShowAll, busy, onToggle, onMenu, onImport, onAdd, onSettings, resolve, check }: ContentProps) {
+function MCPContent({ data, model, order, allFiles, onShowAll, busy, onToggle, onMenu, onImport, onAdd, onSettings, resolve, check, isProjectMode, onOff, onBackups }: ContentProps) {
   const t = useT();
   const { toast } = useToast();
   const { rows, roots, changes, conflicts, servers, defaults, matrixTargets, files, targetsOf, showSync } = model;
@@ -131,10 +131,13 @@ function MCPContent({ data, model, order, allFiles, onShowAll, busy, onToggle, o
     if (c.message?.startsWith('Agent configuration changed')) return t('mcp.conflict.changed', params);
     return `${params.target} · ${c.name}: ${describeMessage(t, c.message)}`;
   };
+  const actions = { check: Object.keys(servers).length > 0 ? check : undefined, onBackups: data.backups.length > 0 ? onBackups : undefined };
 
   return (
     <RailLayout rail={<>
-      {showSync && data.plan && <MCPSyncBox changes={changes} roots={roots} plan={data.plan} />}
+      {showSync && data.plan
+        ? <MCPSyncBox changes={changes} roots={roots} plan={data.plan} {...actions} />
+        : (actions.check || actions.onBackups) && <div className="ss-box"><MCPRailActions {...actions} /></div>}
 
       <MCPFilesRail data={data} model={model} allFiles={allFiles} onShowAll={onShowAll} />
     </>}>
@@ -167,6 +170,12 @@ function MCPContent({ data, model, order, allFiles, onShowAll, busy, onToggle, o
       )}
       {rows.length > 0 && <MCPCheckNote report={check.report} checkedAt={check.checkedAt} error={check.error} running={check.running} onRun={() => void check.run()} />}
       <MCPUnmanagedNote entries={data.unmanaged.filter((u) => !u.project)} onImport={(from) => onImport({ from })} />
+      {(rows.length > 0 || isProjectMode) && (
+        <div className="ss-sec !mb-0 !items-center"><h2>{t('mcp.serverList')}</h2><span className="ss-cnt">{rows.length}</span>
+          {/* Only a project file can turn off a server the Agent defines globally. */}
+          {isProjectMode && <Button className="ml-auto" size="sm" variant="ghost" onClick={onOff}><PowerOff size={14} />{t('mcp.addOff')}</Button>}
+        </div>
+      )}
       {rows.length > 0 ? (
         <MCPServerList rows={rows} targets={order.filter((x) => matrixTargets.has(x))} targetsOf={targetsOf} onToggle={onToggle} onMenu={onMenu} disabled={busy} problems={problemsByServer(check.report)} />
       ) : (
@@ -387,12 +396,12 @@ export default function MCPPage() {
   return (
     <MCPTargetOrder.Provider value={order}>
     <div className="animate-fade-in">
-      <MCPHeader check={check} canCheck={Object.keys(data?.source.servers ?? {}).length > 0} backups={Boolean(data?.backups.length)} isProjectMode={isProjectMode} onBackups={() => setBackupsOpen(true)} onImport={() => setImporting({})} onOff={() => { setAddingOff(true); setAddMode('form'); setEditing(''); }} onAdd={() => { setAddingOff(false); setAddMode('form'); setEditing(''); }} />
+      <MCPHeader onImport={() => setImporting({})} onAdd={() => { setAddingOff(false); setAddMode('form'); setEditing(''); }} />
 
       <MCPPageErrors error={error} previewError={data?.previewError} />
 
       {data && (
-        <MCPContent data={data} model={model} order={order} allFiles={allFiles} onShowAll={() => setAllFiles(!allFiles)} busy={busy} onToggle={(n, x, on) => void toggle(n, x, on)} onMenu={openMenu} onImport={setImporting} onAdd={() => { setAddingOff(false); setAddMode('form'); setEditing(''); }} onSettings={(settings) => void saveSettings(settings)} resolve={resolve} check={check} />
+        <MCPContent data={data} model={model} order={order} allFiles={allFiles} onShowAll={() => setAllFiles(!allFiles)} busy={busy} onToggle={(n, x, on) => void toggle(n, x, on)} onMenu={openMenu} onImport={setImporting} onAdd={() => { setAddingOff(false); setAddMode('form'); setEditing(''); }} onSettings={(settings) => void saveSettings(settings)} resolve={resolve} check={check} isProjectMode={isProjectMode} onOff={() => { setAddingOff(true); setAddMode('form'); setEditing(''); }} onBackups={() => setBackupsOpen(true)} />
       )}
 
       {editing !== null && data && (<MCPEditDialog data={data} model={model} editing={editing} piSetupName={piSetupName} addingOff={addingOff} addMode={addMode} onMode={setAddMode} onClose={() => setEditing(null)} onSaved={() => done(t('mcp.toast.saved'))} />

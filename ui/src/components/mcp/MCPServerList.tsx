@@ -1,9 +1,9 @@
 import { Fragment, useState } from 'react';
-import { Ellipsis, Plug } from 'lucide-react';
+import { Ellipsis } from 'lucide-react';
 import { useT } from '../../i18n';
 import AgentIcon from '../AgentIcon';
 import { mcpOffTargets } from '../../api/mcp';
-import { describeEndpoint, writes, type MatrixRow } from './mcpView';
+import { describeEndpoint, targetLabel, writes, type MatrixRow } from './mcpView';
 import { TargetPill, TargetToggles } from './TargetPicker';
 import { useDirectToolsLabel } from './MCPProjectSettings';
 import type { MCPCheckFinding } from '../../api/mcpCheck';
@@ -23,8 +23,10 @@ interface Props {
   problems?: Record<string, MCPCheckFinding[]>;
 }
 
+const CHIPS = 6;
+
 /**
- * One row per server. The agents it writes to are chips inside the row, not columns:
+ * One row per server. The agents it writes to are chips under its name, not columns:
  * the list grows downwards as more CLIs gain MCP support, so it never scrolls sideways.
  */
 export default function MCPServerList({ rows, targets, targetsOf, onToggle, onMenu, offTargets = mcpOffTargets, disabled = false, problems = {} }: Props) {
@@ -43,39 +45,44 @@ export default function MCPServerList({ rows, targets, targetsOf, onToggle, onMe
         const direct = row.server?.directTools;
         const piOptions = Object.keys(row.server?.piOptions ?? {}).length > 0;
         const piSettings = Boolean(row.server?.piExtension) && selected.includes('pi');
+        const targetPill = <TargetPill selected={selected} text={`${selected.length}/${offered.length}`} expanded={expanded} label={t('mcp.chooseAgents', { name: row.name })} onClick={() => setOpen((prev) => (expanded ? prev.filter((x) => x !== row.name) : [...prev, row.name]))} />;
         return (
           <Fragment key={row.name}>
-            <div className="ss-r">
-              <span className="ss-cat sm mcp"><Plug size={14} /></span>
-              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="flex items-center gap-2">
-                  <span title={row.name} className={`truncate font-mono font-semibold ${row.server ? '' : 'text-ink-3 line-through'}`}>{row.name}</span>
-                  {row.server && Object.values(row.cells).some(writes) && <span className="ss-tag warn">{t('plugins.pending')}</span>}
-                  {row.server && !row.server.disabled && row.server.targets?.length === 0 && <span className="ss-tag">{t('plugins.noAgentsYet')}</span>}
-                  {problems[row.name] && <MCPCheckTag findings={problems[row.name]} />}
-                  {!row.server && <span className="ss-st bad">{t('mcp.removedFromSource')}</span>}
-                </span>
-                {/* Transport and endpoint on one quiet line, the same shape as a plugin row. */}
-                <span className="truncate text-xs text-ink-3">{!row.server ? t('mcp.removedHint') : row.server.disabled ? t('mcp.offHere') : <>{http ? 'http' : 'stdio'} · <span className="font-mono">{describeEndpoint(row.server)}</span></>}</span>
-                {/* Only whether other Pi settings exist, never their contents: piOptions may hold anything. */}
-                {piSettings && (
-                  <span className="flex min-w-0 items-center gap-1.5 whitespace-nowrap text-xs text-ink-2">
-                    <AgentIcon target="pi" size={12} />
-                    <span>{row.server?.piExtension === 'builtin' ? t('mcp.piBuiltinShort') : row.server?.piExtension}</span>
-                    {row.server?.piExtension === 'builtin' && <span>· {String(row.server.piOptions?.exposure ?? 'codemode')}</span>}
-                    {direct !== undefined && <><span className="text-ink-3">{t('mcp.directTools')}</span><span className={`truncate ${Array.isArray(direct) ? 'font-mono' : ''}`} title={directToolsLabel(direct)}>{directToolsLabel(direct)}</span></>}
-                    {direct !== undefined && piOptions && <span className="text-ink-3">·</span>}
-                    {piOptions && <span>{t('mcp.piOptions')}</span>}
-                  </span>
-                )}
-              </span>
-              {row.server && (
-                <>
-                  <TargetPill selected={selected} text={`${selected.length}/${offered.length}`} expanded={expanded} label={t('mcp.chooseAgents', { name: row.name })} onClick={() => setOpen((prev) => (expanded ? prev.filter((x) => x !== row.name) : [...prev, row.name]))} />
-                  <button type="button" className="ss-ib" aria-label={t('mcp.moreActions', { name: row.name })} onClick={(e) => onMenu(e, row.name)}>
+            <div className="ss-r !items-stretch !flex-col !gap-2 !py-3">
+              <span className="flex min-w-0 items-center gap-2">
+                <span title={row.name} className={`max-w-[45%] shrink-0 truncate font-mono font-semibold ${row.server ? '' : 'text-ink-3 line-through'}`}>{row.name}</span>
+                {row.server && Object.values(row.cells).some(writes) && <span className="ss-tag warn">{t('plugins.pending')}</span>}
+                {row.server && !row.server.disabled && row.server.targets?.length === 0 && <span className="ss-tag">{t('plugins.noAgentsYet')}</span>}
+                {problems[row.name] && <MCPCheckTag findings={problems[row.name]} />}
+                {!row.server && <span className="ss-st bad">{t('mcp.removedFromSource')}</span>}
+                <span className="min-w-0 flex-1 truncate font-mono text-xs text-ink-3">{row.server && !row.server.disabled && describeEndpoint(row.server)}</span>
+                {row.server && targetPill}
+                {row.server && (
+                  <button type="button" className="ss-ib -my-1.5 -mr-2" aria-label={t('mcp.moreActions', { name: row.name })} onClick={(e) => onMenu(e, row.name)}>
                     <Ellipsis size={16} />
                   </button>
-                </>
+                )}
+              </span>
+              {!row.server || row.server.disabled ? (
+                <span className="flex min-w-0 items-center gap-2 text-xs text-ink-3">
+                  <span className="truncate">{row.server ? t('mcp.offHere') : t('mcp.removedHint')}</span>
+                </span>
+              ) : selected.length > 0 && (
+                <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+                  {selected.slice(0, CHIPS).map((target) => (
+                    <span key={target} className="inline-flex h-6 min-w-0 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full bg-sunken pl-1.5 pr-2.5 text-xs text-ink">
+                      <AgentIcon target={target} size={14} />
+                      {targetLabel(target)}
+                      {/* Only whether other Pi settings exist, never their contents: piOptions may hold anything. */}
+                      {target === 'pi' && piSettings && <>
+                        <span className="text-ink-2">· {row.server?.piExtension === 'builtin' ? String(row.server.piOptions?.exposure ?? 'codemode') : row.server?.piExtension}</span>
+                        {direct !== undefined && <><span className="text-ink-3">· {t('mcp.directTools')}</span><span className={`min-w-0 truncate text-ink-2 ${Array.isArray(direct) ? 'font-mono' : ''}`} title={directToolsLabel(direct)}>{directToolsLabel(direct)}</span></>}
+                        {piOptions && <span className="text-ink-3">· {t('mcp.piOptions')}</span>}
+                      </>}
+                    </span>
+                  ))}
+                  {selected.length > CHIPS && <span className="text-xs text-ink-3">+{selected.length - CHIPS}</span>}
+                </span>
               )}
             </div>
             {problems[row.name] && <MCPCheckFindings findings={problems[row.name]} />}
