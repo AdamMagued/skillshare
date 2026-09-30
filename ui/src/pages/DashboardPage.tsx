@@ -171,7 +171,7 @@ export default function DashboardPage() {
           <div className="ss-list ss-only-clean">
             {targets.length === 0 && <div className="ss-r text-[13px] text-ink-2">{t('dashboard.targets.noTargets')}</div>}
             {targets.map((tgt, i) => (
-              <Link key={tgt.name} to="/targets" className="ss-r link">
+              <Link key={tgt.name} to={`/targets/${encodeURIComponent(tgt.name)}`} className="ss-r link">
                 <span className="ss-at"><AgentIcon target={tgt.name} size={17} /></span>
                 <span className="flex flex-col min-w-0 flex-1 gap-px">
                   <span className="font-semibold">{tgt.name}</span>
@@ -262,7 +262,7 @@ function TargetBoard({ data, targets, healths, counts }: {
         const h = healths[i];
         return (
           <span key={tgt.name}>
-            <Link to="/targets" className={`ss-pinnote ${h.kind === 'off' ? 'off' : ''}`} style={{ left: 716, top: y, width: 324, height: 54 }}>
+            <Link to={`/targets/${encodeURIComponent(tgt.name)}`} className={`ss-pinnote ${h.kind === 'off' ? 'off' : ''}`} style={{ left: 716, top: y, width: 324, height: 54 }}>
               <AgentIcon target={tgt.name} size={20} />
               <span className="flex flex-col min-w-0 flex-1 gap-px">
                 <span className="font-semibold">{tgt.name}</span>
@@ -342,7 +342,7 @@ function NeedsAttention({ targets, healths }: { targets: Target[]; healths: Heal
   targets.forEach((tgt, i) => {
     if (healths[i].kind !== 'bad') return;
     const title = tgt.status === 'not exist' ? t('dashboard.attention.targetMissing', { name: tgt.name }) : `${tgt.name}: ${tgt.status}`;
-    rows.push({ key: `target-${tgt.name}`, kind: 'bad', icon: TriangleAlert, title, sub: tgt.path, action: t('dashboard.attention.open'), to: '/targets' });
+    rows.push({ key: `target-${tgt.name}`, kind: 'bad', icon: TriangleAlert, title, sub: tgt.path, action: t('dashboard.attention.open'), to: `/targets/${encodeURIComponent(tgt.name)}` });
   });
 
   return (
