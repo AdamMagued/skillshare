@@ -70,11 +70,11 @@ func TestCompletion_MCPCheck_AllShells(t *testing.T) {
 	defer sb.Cleanup()
 
 	for shell, subcommands := range map[string]string{
-		"bash":       "add check import list remove restore",
+		"bash":       "add check edit import list remove restore",
 		"zsh":        "(add check edit import list remove restore)",
 		"fish":       "-a 'add check edit import list remove restore'",
-		"powershell": "@{ Name = 'check'; Desc = 'MCP check' }",
-		"nushell":    "[add check import list remove restore]",
+		"powershell": "@{ Name = 'edit'; Desc = 'MCP edit' }",
+		"nushell":    "[add check edit import list remove restore]",
 	} {
 		result := sb.RunCLI("completion", shell)
 		result.AssertSuccess(t)
@@ -82,6 +82,55 @@ func TestCompletion_MCPCheck_AllShells(t *testing.T) {
 		result.AssertOutputContains(t, "no-dns")
 		result.AssertOutputContains(t, "live")
 		result.AssertOutputContains(t, "timeout")
+	}
+}
+
+func TestCompletion_Subcommands_AllShells(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	for shell, subcommands := range map[string][]string{
+		"bash": {
+			`backup_subcmds="files agents"`,
+			`backup_files_subcmds="list show restore"`,
+			`extras_subcmds="init list remove collect source"`,
+			`audit_rules_subcmds="disable enable severity reset init"`,
+			`ui_subcmds="start stop"`,
+		},
+		"zsh": {
+			"'files:Versions of single files skillshare rewrote'",
+			"'1:files command:(list show restore)'",
+			"'1:rules command:(disable enable severity reset init)'",
+			"'1:subcommand:(start stop)'",
+		},
+		"fish": {
+			"backup' -a files",
+			"backup files' -a 'list show restore'",
+			"audit rules' -a 'disable enable severity reset init'",
+			"ui' -a 'start stop'",
+		},
+		"powershell": {
+			"'backup files' = @(",
+			"'audit rules' = @(",
+			"@{ Name = 'start'; Desc = 'Start a background UI server' }",
+			"@{ Name = 'plugins'; Desc = 'Sync plugins' }",
+		},
+		"nushell": {
+			`export extern "skillshare backup files"`,
+			`export extern "skillshare audit rules"`,
+			`export extern "skillshare status"`,
+			`subcommand?: string@"nu-complete skillshare ui"`,
+		},
+	} {
+		result := sb.RunCLI("completion", shell)
+		result.AssertSuccess(t)
+		for _, s := range subcommands {
+			result.AssertOutputContains(t, s)
+		}
+		// Completed once, but not in the CLI: backup restore, extras mode, hub index --audit-skills.
+		result.AssertOutputNotContains(t, "Restore from backup")
+		result.AssertOutputNotContains(t, "Change sync mode or flatten")
+		result.AssertOutputNotContains(t, "audit-skills")
 	}
 }
 
@@ -186,6 +235,10 @@ func TestCompletion_Fish_CompletesMCPCheck(t *testing.T) {
 	assertCandidates(t, completeIn(t, "fish", "--no-config", "-c", "source "+script+"; complete -C 'skillshare mcp '"), "add", "check", "edit", "import", "list", "remove", "restore")
 	assertCandidates(t, completeIn(t, "fish", "--no-config", "-c", "source "+script+"; complete -C 'skillshare mcp check --'"), "--no-dns", "--live", "--timeout")
 	assertCandidates(t, completeIn(t, "fish", "--no-config", "-c", "source "+script+"; complete -C 'skillshare mcp add --'"), "--url", "--target", "--sync", "--replace", "--dry-run", "--json", "--no-tui")
+	assertCandidates(t, completeIn(t, "fish", "--no-config", "-c", "source "+script+"; complete -C 'skillshare backup '"), "files", "agents")
+	assertCandidates(t, completeIn(t, "fish", "--no-config", "-c", "source "+script+"; complete -C 'skillshare hub index --'"), "--audit", "--full")
+	assertCandidates(t, completeIn(t, "fish", "--no-config", "-c", "source "+script+"; complete -C 'skillshare extras '"), "init", "list", "remove", "collect", "source")
+	assertCandidates(t, completeIn(t, "fish", "--no-config", "-c", "source "+script+"; complete -C 'skillshare trash '"), "agents", "list", "restore", "delete", "empty")
 }
 
 func TestCompletion_Zsh_CompletesMCPCheck(t *testing.T) {
@@ -208,4 +261,9 @@ func TestCompletion_Zsh_CompletesMCPCheck(t *testing.T) {
 	completeIn(t, "zsh", "-n", filepath.Join(dir, "_skillshare"))
 	assertCandidates(t, completeIn(t, "zsh", "-f", capture, dir, "skillshare mcp "), "add", "check", "edit", "import", "list", "remove", "restore")
 	assertCandidates(t, completeIn(t, "zsh", "-f", capture, dir, "skillshare mcp check --"), "--no-dns", "--live", "--timeout")
+	assertCandidates(t, completeIn(t, "zsh", "-f", capture, dir, "skillshare backup "), "files", "agents")
+	assertCandidates(t, completeIn(t, "zsh", "-f", capture, dir, "skillshare backup files "), "list", "show", "restore")
+	assertCandidates(t, completeIn(t, "zsh", "-f", capture, dir, "skillshare hub index --"), "--audit", "--full")
+	assertCandidates(t, completeIn(t, "zsh", "-f", capture, dir, "skillshare extras "), "init", "list", "remove", "collect", "source")
+	assertCandidates(t, completeIn(t, "zsh", "-f", capture, dir, "skillshare trash "), "agents", "list", "restore", "delete", "empty")
 }

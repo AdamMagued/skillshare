@@ -47,7 +47,7 @@ def "nu-complete skillshare plugin" [] {
 }
 
 def "nu-complete skillshare mcp" [] {
-    [add check import list remove restore]
+    [add check edit import list remove restore]
 }
 
 def "nu-complete skillshare plugin-target" [] {
@@ -68,6 +68,8 @@ export extern "skillshare mcp" [
     --revision: string
     --sync
     --replace
+    --disabled # add: turn off the server in the project
+    --keep-files # remove: leave Agent entries as they are
     --dry-run(-n)
     --json
     --no-dns # Skip host lookups
@@ -111,6 +113,7 @@ def "nu-complete skillshare trash" [] {
         { value: "restore", description: "Restore from trash" }
         { value: "delete", description: "Delete permanently" }
         { value: "empty", description: "Clear all trash" }
+        { value: "agents", description: "Trashed agents" }
     ]
 }
 
@@ -131,19 +134,20 @@ def "nu-complete skillshare extras" [] {
         { value: "remove", description: "Remove extra resource type" }
         { value: "collect", description: "Collect local files into extras" }
         { value: "source", description: "Show/set extras source" }
-        { value: "mode", description: "Change sync mode or flatten" }
     ]
 }
 
 def "nu-complete skillshare audit" [] {
     [
         { value: "rules", description: "Manage security rules" }
+        { value: "agents", description: "Audit agents" }
     ]
 }
 
 def "nu-complete skillshare backup" [] {
     [
-        { value: "restore", description: "Restore from backup" }
+        { value: "files", description: "Versions of single files skillshare rewrote" }
+        { value: "agents", description: "Back up agents" }
     ]
 }
 
@@ -162,6 +166,47 @@ def "nu-complete skillshare tui" [] {
         { value: "on", description: "Enable TUI mode" }
         { value: "off", description: "Disable TUI mode" }
     ]
+}
+
+def "nu-complete skillshare backup-files" [] {
+    [
+        { value: "list", description: "List files with saved versions" }
+        { value: "show", description: "Show versions of one file" }
+        { value: "restore", description: "Restore a saved version" }
+    ]
+}
+
+def "nu-complete skillshare audit-rules" [] {
+    [
+        { value: "disable", description: "Disable a rule" }
+        { value: "enable", description: "Enable a rule" }
+        { value: "severity", description: "Override rule severity" }
+        { value: "reset", description: "Reset rule overrides" }
+        { value: "init", description: "Create rules file" }
+    ]
+}
+
+def "nu-complete skillshare ui" [] {
+    [
+        { value: "start", description: "Start a background UI server" }
+        { value: "stop", description: "Stop a background UI server" }
+    ]
+}
+
+def "nu-complete skillshare sync-scope" [] {
+    ["agents" "extras" "mcp" "plugins"]
+}
+
+def "nu-complete skillshare kind" [] {
+    ["agents"]
+}
+
+def "nu-complete skillshare kind-flag" [] {
+    ["skill" "agent"]
+}
+
+def "nu-complete skillshare new-pattern" [] {
+    ["tool-wrapper" "generator" "reviewer" "inversion" "pipeline" "none"]
 }
 
 def "nu-complete skillshare sync-mode" [] {
@@ -217,6 +262,9 @@ export extern "skillshare init" [
     --discover(-d)           # Detect new AI CLI agents
     --select: string         # Select specific agents
     --subdir: string         # Use subdirectory as source
+    --git-root: string       # Git repository scope (skills, agents, extras, root)
+    --visible                # Project: create visible skillshare/ directory
+    --config: string         # Project: "local" gitignores config.yaml
     --dry-run(-n)            # Preview without changes
     --project(-p)            # Use project-level config
     --global(-g)             # Use global config
@@ -226,7 +274,6 @@ export extern "skillshare init" [
 # Install
 export extern "skillshare install" [
     source?: string          # Source path or git repo
-    --source(-s): path       # Set source directory
     --name: string           # Custom skill name
     --force(-f)              # Overwrite existing
     --update(-u)             # Update if exists
@@ -239,7 +286,7 @@ export extern "skillshare install" [
     --track(-t)              # Track the repository
     --kind: string           # Filter by kind (skill or agent)
     --agent(-a): string      # Install specific agents
-    --skill: string          # Install specific skills
+    --skill(-s): string      # Install specific skills
     --exclude: string        # Exclude items
     --into: string           # Custom destination path
     --all                    # Install all items
@@ -252,6 +299,7 @@ export extern "skillshare install" [
 
 # Uninstall
 export extern "skillshare uninstall" [
+    scope?: string@"nu-complete skillshare kind" # agents or a skill name
     ...names: string         # Skill names to remove
     --all                    # Remove all skills
     --force(-f)              # Skip confirmation
@@ -265,7 +313,7 @@ export extern "skillshare uninstall" [
 
 # List
 export extern "skillshare list" [
-    scope?: string           # agents
+    scope?: string@"nu-complete skillshare kind"
     --verbose(-v)            # Show detailed information
     --json(-j)               # JSON output
     --no-tui                 # Skip interactive TUI
@@ -280,10 +328,19 @@ export extern "skillshare list" [
 
 # Sync
 export extern "skillshare sync" [
-    scope?: string           # agents, extras, mcp, plugins
+    scope?: string@"nu-complete skillshare sync-scope"
     --all                    # Sync skills + agents + extras
     --dry-run(-n)            # Preview changes
     --force(-f)              # Force sync
+    --json                   # JSON output
+    --quiet(-q)              # Suppress token summary
+    --project(-p)            # Use project-level config
+    --global(-g)             # Use global config
+    --help(-h)               # Show help
+]
+
+# Status
+export extern "skillshare status" [
     --json                   # JSON output
     --project(-p)            # Use project-level config
     --global(-g)             # Use global config
@@ -292,7 +349,7 @@ export extern "skillshare sync" [
 
 # Diff
 export extern "skillshare diff" [
-    target?: string          # Target name
+    target?: string@"nu-complete skillshare kind" # agents or a target name
     --no-tui                 # Skip interactive TUI
     --patch                  # Show unified diff patch
     --stat                   # Show statistics
@@ -307,6 +364,8 @@ export extern "skillshare backup" [
     subcommand?: string@"nu-complete skillshare backup"
     --list(-l)               # List existing backups
     --cleanup(-c)            # Remove old backups
+    --delete: string         # Delete one backup (timestamp)
+    --all                    # Back up skills + agents
     --dry-run(-n)            # Preview changes
     --target(-t): string     # Backup specific target
     --project(-p)            # Use project-level config
@@ -314,9 +373,34 @@ export extern "skillshare backup" [
     --help(-h)               # Show help
 ]
 
+# Backup files
+export extern "skillshare backup files" [
+    command?: string@"nu-complete skillshare backup-files"
+    path?: string
+    id?: string
+    --unlink                 # restore: replace a symlink with a regular file
+    --dry-run(-n)            # Preview changes
+    --project(-p)            # Use project-level config
+    --global(-g)             # Use global config
+    --help(-h)               # Show help
+]
+
+# Restore
+export extern "skillshare restore" [
+    target?: string@"nu-complete skillshare kind" # agents or a target name
+    --from(-f): string       # Restore from timestamp
+    --force                  # Overwrite without confirmation
+    --all                    # Restore skills + agents
+    --dry-run(-n)            # Preview changes
+    --no-tui                 # Skip interactive TUI
+    --project(-p)            # Use project-level config
+    --global(-g)             # Use global config
+    --help(-h)               # Show help
+]
+
 # Collect
 export extern "skillshare collect" [
-    scope?: string           # agents or target name
+    scope?: string@"nu-complete skillshare kind" # agents or target name
     --all(-a)                # Collect from all targets
     --dry-run(-n)            # Preview changes
     --force(-f)              # Overwrite existing
@@ -330,30 +414,28 @@ export extern "skillshare collect" [
 export extern "skillshare pull" [
     --dry-run(-n)            # Preview changes
     --force(-f)              # Force pull
-    --project(-p)            # Use project-level config
-    --global(-g)             # Use global config
+    --help(-h)               # Show help
 ]
 
 # Push
 export extern "skillshare push" [
     --dry-run(-n)            # Preview changes
     --message(-m): string    # Commit message
-    --project(-p)            # Use project-level config
-    --global(-g)             # Use global config
+    --help(-h)               # Show help
 ]
 
 # Commit
 export extern "skillshare commit" [
     --dry-run(-n)            # Preview changes
     --message(-m): string    # Commit message
-    --project(-p)            # Use project-level config
-    --global(-g)             # Use global config
     --help(-h)               # Show help
 ]
 
 # Doctor
 export extern "skillshare doctor" [
     --json                   # JSON output
+    --project(-p)            # Use project-level config
+    --global(-g)             # Use global config
     --help(-h)               # Show help
 ]
 
@@ -362,7 +444,7 @@ export extern "skillshare target" [
     subcommand?: string@"nu-complete skillshare target"
     --json                   # JSON output
     --no-tui                 # Skip interactive TUI
-    --mode: string@"nu-complete skillshare sync-mode"
+    --mode(-m): string@"nu-complete skillshare sync-mode"
     --agent-mode: string@"nu-complete skillshare sync-mode"
     --target-naming: string  # Set naming (flat or standard)
     --add-include: string    # Add include filter
@@ -377,6 +459,7 @@ export extern "skillshare target" [
     --config-dir: string     # With add: that account's config directory
     --skills: string         # Sync skills to this target (true or false)
     --no-skills              # With add: do not sync skills to the new target
+    --all(-a)                # With remove: remove all targets
     --dry-run(-n)            # With --skills=false: preview removed links
     --project(-p)            # Use project-level config
     --global(-g)             # Use global config
@@ -394,7 +477,7 @@ export extern "skillshare upgrade" [
 
 # Update
 export extern "skillshare update" [
-    name?: string            # Skill/agent name
+    name?: string@"nu-complete skillshare kind" # agents or a skill/agent name
     --all(-a)                # Update all
     --dry-run(-n)            # Preview changes
     --force(-f)              # Force update
@@ -413,10 +496,32 @@ export extern "skillshare update" [
 
 # Check
 export extern "skillshare check" [
-    scope?: string           # agents
+    scope?: string@"nu-complete skillshare kind"
     --json                   # JSON output
     --all                    # Check all
     --group(-G): string      # Check by group
+    --project(-p)            # Use project-level config
+    --global(-g)             # Use global config
+    --help(-h)               # Show help
+]
+
+# New
+export extern "skillshare new" [
+    name?: string            # Skill name
+    --pattern(-P): string@"nu-complete skillshare new-pattern"
+    --dry-run(-n)            # Preview changes
+    --project(-p)            # Use project-level config
+    --global(-g)             # Use global config
+    --help(-h)               # Show help
+]
+
+# Search
+export extern "skillshare search" [
+    query?: string           # Search query
+    --json                   # JSON output
+    --list(-l)               # List results only
+    --hub                    # Search a hub index (URL optional)
+    --limit(-n): int         # Maximum results
     --project(-p)            # Use project-level config
     --global(-g)             # Use global config
     --help(-h)               # Show help
@@ -426,6 +531,7 @@ export extern "skillshare check" [
 export extern "skillshare trash" [
     subcommand?: string@"nu-complete skillshare trash"
     name?: string            # Skill name
+    --all                    # Include skills + agents
     --no-tui                 # Skip interactive TUI
     --project(-p)            # Use project-level config
     --global(-g)             # Use global config
@@ -451,6 +557,21 @@ export extern "skillshare audit" [
     --help(-h)               # Show help
 ]
 
+# Audit rules
+export extern "skillshare audit rules" [
+    command?: string@"nu-complete skillshare audit-rules"
+    id?: string
+    level?: string
+    --pattern: string        # Filter by pattern name
+    --severity: string       # Filter by minimum severity
+    --disabled               # Only show disabled rules
+    --format: string         # Output format (json)
+    --no-tui                 # Skip interactive TUI
+    --project(-p)            # Use project-level config
+    --global(-g)             # Use global config
+    --help(-h)               # Show help
+]
+
 # Hub
 export extern "skillshare hub" [
     subcommand?: string@"nu-complete skillshare hub"
@@ -458,7 +579,9 @@ export extern "skillshare hub" [
     --source(-s): path       # Source directory (hub index)
     --output(-o): path       # Output path (hub index)
     --full                   # Full index (hub index)
-    --audit-skills           # Audit skills (hub index)
+    --audit                  # Include audit risk scores (hub index)
+    --label(-l): string      # Label for the hub (hub add)
+    --reset                  # Clear default hub (hub default)
     --project(-p)            # Use project-level config
     --global(-g)             # Use global config
     --help(-h)               # Show help
@@ -482,21 +605,43 @@ export extern "skillshare log" [
 
 # UI
 export extern "skillshare ui" [
+    subcommand?: string@"nu-complete skillshare ui"
     --port: int              # Set port
     --host: string           # Set host
+    --base-path(-b): string  # Base path prefix for reverse proxy
     --no-open                # Do not open browser
+    --clear-cache            # Clear cached UI assets
+    --app                    # Open as app window (start only)
+    --project(-p)            # Use project-level config
+    --global(-g)             # Use global config
     --help(-h)               # Show help
 ]
 
 # TUI
 export extern "skillshare tui" [
     state?: string@"nu-complete skillshare tui"
+    --help(-h)               # Show help
 ]
 
 # Extras
 export extern "skillshare extras" [
     subcommand?: string@"nu-complete skillshare extras"
     name?: string
+    --mode: string           # Sync mode (merge, copy, symlink, import)
+    --target: string         # Target directory
+    --source: string         # init: custom source directory
+    --file: string           # init: single-file extra
+    --as: string             # Target filename
+    --flatten                # Flatten subdirectory files
+    --no-flatten             # Disable flatten
+    --add-target: string     # Add a target
+    --remove-target: string  # Detach a target
+    --prune                  # With --remove-target: delete managed files
+    --from: string           # collect: target directory
+    --dry-run                # collect: preview changes
+    --force(-f)              # Overwrite existing
+    --json                   # list: JSON output
+    --no-tui                 # Skip interactive TUI
     --project(-p)            # Use project-level config
     --global(-g)             # Use global config
     --help(-h)               # Show help
@@ -505,6 +650,7 @@ export extern "skillshare extras" [
 # Enable
 export extern "skillshare enable" [
     name: string             # Skill/agent name or pattern
+    --kind: string@"nu-complete skillshare kind-flag"
     --dry-run(-n)            # Preview changes
     --project(-p)            # Use project-level config
     --global(-g)             # Use global config
@@ -514,6 +660,7 @@ export extern "skillshare enable" [
 # Disable
 export extern "skillshare disable" [
     name: string             # Skill/agent name or pattern
+    --kind: string@"nu-complete skillshare kind-flag"
     --dry-run(-n)            # Preview changes
     --project(-p)            # Use project-level config
     --global(-g)             # Use global config
@@ -522,6 +669,8 @@ export extern "skillshare disable" [
 
 # Analyze
 export extern "skillshare analyze" [
+    --verbose(-v)            # Show detailed information
+    --filter: string         # Filter skills by name or path
     --no-tui                 # Skip interactive TUI
     --json                   # JSON output
     --project(-p)            # Use project-level config

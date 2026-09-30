@@ -39,9 +39,10 @@ complete -c skillshare -n '__fish_skillshare_using_command plugin' -l name -r
 complete -c skillshare -n '__fish_skillshare_using_command plugin' -l source-ref -r
 complete -c skillshare -n '__fish_skillshare_using_command plugin' -l entry -r
 complete -c skillshare -n '__fish_skillshare_using_command plugin' -l revision -r
-complete -c skillshare -n '__fish_skillshare_using_command plugin' -l dry-run
+complete -c skillshare -n '__fish_skillshare_using_command plugin' -l dry-run -s n
 complete -c skillshare -n '__fish_skillshare_using_command plugin' -l json
 complete -c skillshare -n '__fish_skillshare_using_command plugin' -l no-tui
+complete -c skillshare -n '__fish_skillshare_using_command plugin' -l help -s h
 complete -c skillshare -n __fish_skillshare_no_subcommand -a mcp -d 'Manage MCP connections'
 complete -c skillshare -n '__fish_skillshare_using_command mcp' -l pi-extension -r -a 'builtin pi-mcp-adapter pi-mcp-extension' -d 'Pi MCP mode'
 complete -c skillshare -n '__fish_skillshare_using_command mcp' -l direct-tools -r -a 'true false search' -d 'pi-mcp-adapter direct tools, or tool names separated by commas'
@@ -56,10 +57,13 @@ complete -c skillshare -n '__fish_skillshare_using_command mcp' -l from -r -d 'I
 complete -c skillshare -n '__fish_skillshare_using_command mcp' -l file -r -F -d 'Import file'
 complete -c skillshare -n '__fish_skillshare_using_command mcp' -l sync -d 'Sync after saving'
 complete -c skillshare -n '__fish_skillshare_using_command mcp' -l replace -d 'Replace an existing entry'
+complete -c skillshare -n '__fish_skillshare_using_command mcp' -l disabled -d 'add: turn off the server in the project'
+complete -c skillshare -n '__fish_skillshare_using_command mcp' -l keep-files -d 'remove: leave Agent entries as they are'
 complete -c skillshare -n '__fish_skillshare_using_command mcp' -l revision -r -d 'Preview revision'
 complete -c skillshare -n '__fish_skillshare_using_command mcp' -l dry-run -s n -d 'Preview changes'
 complete -c skillshare -n '__fish_skillshare_using_command mcp' -l json -d 'JSON output'
 complete -c skillshare -n '__fish_skillshare_using_command mcp' -l no-tui -d 'Disable interactive menus'
+complete -c skillshare -n '__fish_skillshare_using_command mcp' -l help -s h -d 'Show help'
 complete -c skillshare -n '__fish_skillshare_using_command mcp' -a 'add check edit import list remove restore'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a status -d 'Show status of all targets'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a diff -d 'Show differences between source and targets'
@@ -90,8 +94,8 @@ complete -c skillshare -n __fish_skillshare_no_subcommand -a version -d 'Show ve
 complete -c skillshare -n __fish_skillshare_no_subcommand -a help -d 'Show help'
 
 # Global flags
-complete -c skillshare -l project -s p -d 'Use project-level config'
-complete -c skillshare -l global -s g -d 'Use global config'
+complete -c skillshare -n 'not __fish_seen_subcommand_from pull push commit' -l project -s p -d 'Use project-level config'
+complete -c skillshare -n 'not __fish_seen_subcommand_from pull push commit' -l global -s g -d 'Use global config'
 
 # init
 complete -c skillshare -n '__fish_skillshare_using_command init' -l source -s s -r -d 'Set source directory'
@@ -109,11 +113,13 @@ complete -c skillshare -n '__fish_skillshare_using_command init' -l no-skill -d 
 complete -c skillshare -n '__fish_skillshare_using_command init' -l discover -s d -d 'Detect new AI CLI agents'
 complete -c skillshare -n '__fish_skillshare_using_command init' -l select -r -d 'Select specific agents'
 complete -c skillshare -n '__fish_skillshare_using_command init' -l subdir -r -d 'Use subdirectory as source'
+complete -c skillshare -n '__fish_skillshare_using_command init' -l git-root -r -a 'skills agents extras root' -d 'Git repository scope'
+complete -c skillshare -n '__fish_skillshare_using_command init' -l visible -d 'Project: create visible skillshare/ directory'
+complete -c skillshare -n '__fish_skillshare_using_command init' -l config -r -a 'local' -d 'Project: gitignore config.yaml'
 complete -c skillshare -n '__fish_skillshare_using_command init' -l dry-run -s n -d 'Preview without changes'
 complete -c skillshare -n '__fish_skillshare_using_command init' -l help -s h -d 'Show help'
 
 # install
-complete -c skillshare -n '__fish_skillshare_using_command install' -l source -s s -r -d 'Set source directory'
 complete -c skillshare -n '__fish_skillshare_using_command install' -l name -r -d 'Custom skill name'
 complete -c skillshare -n '__fish_skillshare_using_command install' -l force -s f -d 'Overwrite existing'
 complete -c skillshare -n '__fish_skillshare_using_command install' -l update -s u -d 'Update if exists'
@@ -126,7 +132,7 @@ complete -c skillshare -n '__fish_skillshare_using_command install' -l branch -s
 complete -c skillshare -n '__fish_skillshare_using_command install' -l track -s t -d 'Track the repository'
 complete -c skillshare -n '__fish_skillshare_using_command install' -l kind -r -a 'skill agent' -d 'Filter by kind'
 complete -c skillshare -n '__fish_skillshare_using_command install' -l agent -s a -r -d 'Install specific agents'
-complete -c skillshare -n '__fish_skillshare_using_command install' -l skill -r -d 'Install specific skills'
+complete -c skillshare -n '__fish_skillshare_using_command install' -l skill -s s -r -d 'Install specific skills'
 complete -c skillshare -n '__fish_skillshare_using_command install' -l exclude -r -d 'Exclude items'
 complete -c skillshare -n '__fish_skillshare_using_command install' -l into -r -d 'Custom destination path'
 complete -c skillshare -n '__fish_skillshare_using_command install' -l all -d 'Install all items'
@@ -135,6 +141,7 @@ complete -c skillshare -n '__fish_skillshare_using_command install' -l json -d '
 complete -c skillshare -n '__fish_skillshare_using_command install' -l help -s h -d 'Show help'
 
 # uninstall
+complete -c skillshare -n '__fish_skillshare_using_command uninstall' -a agents -d 'Uninstall agents'
 complete -c skillshare -n '__fish_skillshare_using_command uninstall' -l all -d 'Remove all skills'
 complete -c skillshare -n '__fish_skillshare_using_command uninstall' -l force -s f -d 'Skip confirmation'
 complete -c skillshare -n '__fish_skillshare_using_command uninstall' -l dry-run -s n -d 'Preview changes'
@@ -159,9 +166,15 @@ complete -c skillshare -n '__fish_skillshare_using_command sync' -l all -d 'Sync
 complete -c skillshare -n '__fish_skillshare_using_command sync' -l dry-run -s n -d 'Preview changes'
 complete -c skillshare -n '__fish_skillshare_using_command sync' -l force -s f -d 'Force sync'
 complete -c skillshare -n '__fish_skillshare_using_command sync' -l json -d 'JSON output'
+complete -c skillshare -n '__fish_skillshare_using_command sync' -l quiet -s q -d 'Suppress token summary'
 complete -c skillshare -n '__fish_skillshare_using_command sync' -l help -s h -d 'Show help'
 
+# status
+complete -c skillshare -n '__fish_skillshare_using_command status' -l json -d 'JSON output'
+complete -c skillshare -n '__fish_skillshare_using_command status' -l help -s h -d 'Show help'
+
 # diff
+complete -c skillshare -n '__fish_skillshare_using_command diff' -a agents -d 'Diff agents'
 complete -c skillshare -n '__fish_skillshare_using_command diff' -l no-tui -d 'Skip interactive TUI'
 complete -c skillshare -n '__fish_skillshare_using_command diff' -l patch -d 'Show unified diff patch'
 complete -c skillshare -n '__fish_skillshare_using_command diff' -l stat -d 'Show statistics'
@@ -169,12 +182,28 @@ complete -c skillshare -n '__fish_skillshare_using_command diff' -l json -d 'JSO
 complete -c skillshare -n '__fish_skillshare_using_command diff' -l help -s h -d 'Show help'
 
 # backup
-complete -c skillshare -n '__fish_skillshare_using_command backup' -a restore -d 'Restore from backup'
+complete -c skillshare -n '__fish_skillshare_using_command backup' -a files -d 'Versions of single files skillshare rewrote'
+complete -c skillshare -n '__fish_skillshare_using_command backup' -a agents -d 'Back up agents'
 complete -c skillshare -n '__fish_skillshare_using_command backup' -l list -s l -d 'List existing backups'
 complete -c skillshare -n '__fish_skillshare_using_command backup' -l cleanup -s c -d 'Remove old backups'
+complete -c skillshare -n '__fish_skillshare_using_command backup' -l delete -r -d 'Delete one backup'
+complete -c skillshare -n '__fish_skillshare_using_command backup' -l all -d 'Back up skills + agents'
 complete -c skillshare -n '__fish_skillshare_using_command backup' -l dry-run -s n -d 'Preview changes'
 complete -c skillshare -n '__fish_skillshare_using_command backup' -l target -s t -r -d 'Backup specific target'
 complete -c skillshare -n '__fish_skillshare_using_command backup' -l help -s h -d 'Show help'
+
+# backup files
+complete -c skillshare -n '__fish_skillshare_using_subcommand backup files' -a 'list show restore' -d 'Backup files command'
+complete -c skillshare -n '__fish_skillshare_using_subcommand backup files' -l unlink -d 'restore: replace a symlink with a regular file'
+
+# restore
+complete -c skillshare -n '__fish_skillshare_using_command restore' -a agents -d 'Restore agents'
+complete -c skillshare -n '__fish_skillshare_using_command restore' -l from -s f -r -d 'Restore from timestamp'
+complete -c skillshare -n '__fish_skillshare_using_command restore' -l force -d 'Overwrite without confirmation'
+complete -c skillshare -n '__fish_skillshare_using_command restore' -l all -d 'Restore skills + agents'
+complete -c skillshare -n '__fish_skillshare_using_command restore' -l dry-run -s n -d 'Preview changes'
+complete -c skillshare -n '__fish_skillshare_using_command restore' -l no-tui -d 'Skip interactive TUI'
+complete -c skillshare -n '__fish_skillshare_using_command restore' -l help -s h -d 'Show help'
 
 # collect
 complete -c skillshare -n '__fish_skillshare_using_command collect' -a agents -d 'Collect agents'
@@ -187,10 +216,12 @@ complete -c skillshare -n '__fish_skillshare_using_command collect' -l help -s h
 # pull
 complete -c skillshare -n '__fish_skillshare_using_command pull' -l dry-run -s n -d 'Preview changes'
 complete -c skillshare -n '__fish_skillshare_using_command pull' -l force -s f -d 'Force pull'
+complete -c skillshare -n '__fish_skillshare_using_command pull' -l help -s h -d 'Show help'
 
 # push
 complete -c skillshare -n '__fish_skillshare_using_command push' -l dry-run -s n -d 'Preview changes'
 complete -c skillshare -n '__fish_skillshare_using_command push' -l message -s m -r -d 'Commit message'
+complete -c skillshare -n '__fish_skillshare_using_command push' -l help -s h -d 'Show help'
 
 # commit
 complete -c skillshare -n '__fish_skillshare_using_command commit' -l dry-run -s n -d 'Preview changes'
@@ -207,9 +238,19 @@ complete -c skillshare -n '__fish_skillshare_using_command target' -a remove -d 
 complete -c skillshare -n '__fish_skillshare_using_command target' -a list -d 'List all targets'
 complete -c skillshare -n '__fish_skillshare_using_command target' -l json -d 'JSON output'
 complete -c skillshare -n '__fish_skillshare_using_command target' -l no-tui -d 'Skip interactive TUI'
-complete -c skillshare -n '__fish_skillshare_using_command target' -l mode -r -a 'merge copy symlink' -d 'Set sync mode'
+complete -c skillshare -n '__fish_skillshare_using_command target' -l mode -s m -r -a 'merge copy symlink' -d 'Set sync mode'
 complete -c skillshare -n '__fish_skillshare_using_command target' -l agent-mode -r -a 'merge copy symlink' -d 'Set agents sync mode'
 complete -c skillshare -n '__fish_skillshare_using_command target' -l target-naming -r -a 'flat standard' -d 'Set naming'
+complete -c skillshare -n '__fish_skillshare_using_command target' -l add-include -r -d 'Add include filter'
+complete -c skillshare -n '__fish_skillshare_using_command target' -l add-exclude -r -d 'Add exclude filter'
+complete -c skillshare -n '__fish_skillshare_using_command target' -l remove-include -r -d 'Remove include filter'
+complete -c skillshare -n '__fish_skillshare_using_command target' -l remove-exclude -r -d 'Remove exclude filter'
+complete -c skillshare -n '__fish_skillshare_using_command target' -l add-agent-include -r -d 'Add agent include filter'
+complete -c skillshare -n '__fish_skillshare_using_command target' -l add-agent-exclude -r -d 'Add agent exclude filter'
+complete -c skillshare -n '__fish_skillshare_using_command target' -l remove-agent-include -r -d 'Remove agent include filter'
+complete -c skillshare -n '__fish_skillshare_using_command target' -l remove-agent-exclude -r -d 'Remove agent exclude filter'
+complete -c skillshare -n '__fish_skillshare_using_command target' -l agent -r -a 'claude codex pi' -d 'With add: the Agent this is another account of'
+complete -c skillshare -n '__fish_skillshare_using_command target' -l config-dir -r -F -d 'With add: the config directory of that account'
 complete -c skillshare -n '__fish_skillshare_using_command target' -l skills -r -a 'true false' -d 'Sync skills to this target'
 complete -c skillshare -n '__fish_skillshare_using_command target' -l no-skills -d 'With add: do not sync skills'
 complete -c skillshare -n '__fish_skillshare_using_command target' -l dry-run -s n -d 'Preview changes'
@@ -248,11 +289,25 @@ complete -c skillshare -n '__fish_skillshare_using_command check' -l all -d 'Che
 complete -c skillshare -n '__fish_skillshare_using_command check' -l group -s G -r -d 'Check by group'
 complete -c skillshare -n '__fish_skillshare_using_command check' -l help -s h -d 'Show help'
 
+# new
+complete -c skillshare -n '__fish_skillshare_using_command new' -l pattern -s P -r -a 'tool-wrapper generator reviewer inversion pipeline none' -d 'Use a design pattern'
+complete -c skillshare -n '__fish_skillshare_using_command new' -l dry-run -s n -d 'Preview changes'
+complete -c skillshare -n '__fish_skillshare_using_command new' -l help -s h -d 'Show help'
+
+# search
+complete -c skillshare -n '__fish_skillshare_using_command search' -l json -d 'JSON output'
+complete -c skillshare -n '__fish_skillshare_using_command search' -l list -s l -d 'List results only'
+complete -c skillshare -n '__fish_skillshare_using_command search' -l hub -r -d 'Search a hub index'
+complete -c skillshare -n '__fish_skillshare_using_command search' -l limit -s n -r -d 'Maximum results'
+complete -c skillshare -n '__fish_skillshare_using_command search' -l help -s h -d 'Show help'
+
 # trash subcommands
+complete -c skillshare -n '__fish_skillshare_using_command trash' -a agents -d 'Trashed agents'
 complete -c skillshare -n '__fish_skillshare_using_command trash' -a list -d 'List trashed items'
 complete -c skillshare -n '__fish_skillshare_using_command trash' -a restore -d 'Restore from trash'
 complete -c skillshare -n '__fish_skillshare_using_command trash' -a delete -d 'Delete permanently'
 complete -c skillshare -n '__fish_skillshare_using_command trash' -a empty -d 'Clear all trash'
+complete -c skillshare -n '__fish_skillshare_using_command trash' -l all -d 'Include skills + agents'
 complete -c skillshare -n '__fish_skillshare_using_command trash' -l no-tui -d 'Skip interactive TUI'
 complete -c skillshare -n '__fish_skillshare_using_command trash' -l help -s h -d 'Show help'
 
@@ -272,6 +327,12 @@ complete -c skillshare -n '__fish_skillshare_using_command audit' -l dedupe -r -
 complete -c skillshare -n '__fish_skillshare_using_command audit' -l analyzer -r -a 'static dataflow tier integrity metadata structure cross-skill' -d 'Enable analyzer'
 complete -c skillshare -n '__fish_skillshare_using_command audit' -l help -s h -d 'Show help'
 
+# audit rules
+complete -c skillshare -n '__fish_skillshare_using_subcommand audit rules' -a 'disable enable severity reset init' -d 'Rules command'
+complete -c skillshare -n '__fish_skillshare_using_subcommand audit rules' -l pattern -r -d 'Filter by pattern name'
+complete -c skillshare -n '__fish_skillshare_using_subcommand audit rules' -l severity -r -a 'critical high medium low info' -d 'Filter by minimum severity'
+complete -c skillshare -n '__fish_skillshare_using_subcommand audit rules' -l disabled -d 'Only show disabled rules'
+
 # hub subcommands
 complete -c skillshare -n '__fish_skillshare_using_command hub' -a add -d 'Add hub'
 complete -c skillshare -n '__fish_skillshare_using_command hub' -a list -d 'List hubs'
@@ -285,7 +346,11 @@ complete -c skillshare -n '__fish_skillshare_using_command hub' -l help -s h -d 
 complete -c skillshare -n '__fish_skillshare_using_subcommand hub index' -l source -s s -r -d 'Source directory'
 complete -c skillshare -n '__fish_skillshare_using_subcommand hub index' -l output -s o -r -d 'Output path'
 complete -c skillshare -n '__fish_skillshare_using_subcommand hub index' -l full -d 'Full index'
-complete -c skillshare -n '__fish_skillshare_using_subcommand hub index' -l audit-skills -d 'Audit skills'
+complete -c skillshare -n '__fish_skillshare_using_subcommand hub index' -l audit -d 'Include audit risk scores'
+
+# hub add / default
+complete -c skillshare -n '__fish_skillshare_using_subcommand hub add' -l label -s l -r -d 'Label for the hub'
+complete -c skillshare -n '__fish_skillshare_using_subcommand hub default' -l reset -d 'Clear default hub'
 
 # log
 complete -c skillshare -n '__fish_skillshare_using_command log' -l audit -s a -d 'Show audit logs'
@@ -302,11 +367,16 @@ complete -c skillshare -n '__fish_skillshare_using_command log' -l help -s h -d 
 # ui
 complete -c skillshare -n '__fish_skillshare_using_command ui' -l port -r -d 'Set port'
 complete -c skillshare -n '__fish_skillshare_using_command ui' -l host -r -d 'Set host'
+complete -c skillshare -n '__fish_skillshare_using_command ui' -a 'start stop' -d 'Background UI server'
+complete -c skillshare -n '__fish_skillshare_using_command ui' -l base-path -s b -r -d 'Base path prefix for reverse proxy'
 complete -c skillshare -n '__fish_skillshare_using_command ui' -l no-open -d 'Do not open browser'
+complete -c skillshare -n '__fish_skillshare_using_command ui' -l clear-cache -d 'Clear cached UI assets'
+complete -c skillshare -n '__fish_skillshare_using_command ui' -l app -d 'Open as app window (start only)'
 complete -c skillshare -n '__fish_skillshare_using_command ui' -l help -s h -d 'Show help'
 
 # tui
 complete -c skillshare -n '__fish_skillshare_using_command tui' -a 'on off' -d 'Toggle TUI mode'
+complete -c skillshare -n '__fish_skillshare_using_command tui' -l help -s h -d 'Show help'
 
 # extras subcommands
 complete -c skillshare -n '__fish_skillshare_using_command extras' -a init -d 'Create extra resource type'
@@ -314,18 +384,45 @@ complete -c skillshare -n '__fish_skillshare_using_command extras' -a list -d 'L
 complete -c skillshare -n '__fish_skillshare_using_command extras' -a remove -d 'Remove extra resource type'
 complete -c skillshare -n '__fish_skillshare_using_command extras' -a collect -d 'Collect local files into extras'
 complete -c skillshare -n '__fish_skillshare_using_command extras' -a source -d 'Show/set extras source'
-complete -c skillshare -n '__fish_skillshare_using_command extras' -a mode -d 'Change sync mode or flatten'
 complete -c skillshare -n '__fish_skillshare_using_command extras' -l help -s h -d 'Show help'
 
+# extras subcommands and extras <name>
+complete -c skillshare -n '__fish_skillshare_using_subcommand extras init' -l target -r -F -d 'Target directory'
+complete -c skillshare -n '__fish_skillshare_using_subcommand extras init' -l mode -r -a 'merge copy symlink import' -d 'Sync mode'
+complete -c skillshare -n '__fish_skillshare_using_subcommand extras init' -l source -r -F -d 'Custom source directory'
+complete -c skillshare -n '__fish_skillshare_using_subcommand extras init' -l file -r -F -d 'Single-file extra'
+complete -c skillshare -n '__fish_skillshare_using_subcommand extras init' -l as -r -d 'Target filename'
+complete -c skillshare -n '__fish_skillshare_using_subcommand extras init' -l flatten -d 'Flatten subdirectory files'
+complete -c skillshare -n '__fish_skillshare_using_subcommand extras init' -l force -d 'Overwrite existing extra'
+complete -c skillshare -n '__fish_skillshare_using_subcommand extras init' -l no-tui -d 'Skip interactive TUI'
+complete -c skillshare -n '__fish_skillshare_using_subcommand extras list' -l json -d 'JSON output'
+complete -c skillshare -n '__fish_skillshare_using_subcommand extras list' -l no-tui -d 'Skip interactive TUI'
+complete -c skillshare -n '__fish_skillshare_using_subcommand extras remove' -l force -s f -d 'Skip confirmation'
+complete -c skillshare -n '__fish_skillshare_using_subcommand extras collect' -l from -r -F -d 'Target directory to collect from'
+complete -c skillshare -n '__fish_skillshare_using_subcommand extras collect' -l dry-run -d 'Preview changes'
+complete -c skillshare -n '__fish_skillshare_using_subcommand extras collect' -l force -s f -d 'Overwrite existing files'
+complete -c skillshare -n '__fish_skillshare_using_command extras; and not __fish_seen_subcommand_from init list remove collect source' -l mode -r -a 'merge copy symlink import' -d 'Change sync mode'
+complete -c skillshare -n '__fish_skillshare_using_command extras; and not __fish_seen_subcommand_from init list remove collect source' -l target -r -F -d 'Target for --mode'
+complete -c skillshare -n '__fish_skillshare_using_command extras; and not __fish_seen_subcommand_from init list remove collect source' -l flatten -d 'Enable flatten'
+complete -c skillshare -n '__fish_skillshare_using_command extras; and not __fish_seen_subcommand_from init list remove collect source' -l no-flatten -d 'Disable flatten'
+complete -c skillshare -n '__fish_skillshare_using_command extras; and not __fish_seen_subcommand_from init list remove collect source' -l add-target -r -F -d 'Add a target'
+complete -c skillshare -n '__fish_skillshare_using_command extras; and not __fish_seen_subcommand_from init list remove collect source' -l as -r -d 'Target filename'
+complete -c skillshare -n '__fish_skillshare_using_command extras; and not __fish_seen_subcommand_from init list remove collect source' -l remove-target -r -F -d 'Detach a target'
+complete -c skillshare -n '__fish_skillshare_using_command extras; and not __fish_seen_subcommand_from init list remove collect source' -l prune -d 'Also delete managed files'
+
 # enable
+complete -c skillshare -n '__fish_skillshare_using_command enable' -l kind -r -a 'skill agent' -d 'Resource kind'
 complete -c skillshare -n '__fish_skillshare_using_command enable' -l dry-run -s n -d 'Preview changes'
 complete -c skillshare -n '__fish_skillshare_using_command enable' -l help -s h -d 'Show help'
 
 # disable
+complete -c skillshare -n '__fish_skillshare_using_command disable' -l kind -r -a 'skill agent' -d 'Resource kind'
 complete -c skillshare -n '__fish_skillshare_using_command disable' -l dry-run -s n -d 'Preview changes'
 complete -c skillshare -n '__fish_skillshare_using_command disable' -l help -s h -d 'Show help'
 
 # analyze
+complete -c skillshare -n '__fish_skillshare_using_command analyze' -l verbose -s v -d 'Show detailed information'
+complete -c skillshare -n '__fish_skillshare_using_command analyze' -l filter -r -d 'Filter skills by name or path'
 complete -c skillshare -n '__fish_skillshare_using_command analyze' -l no-tui -d 'Skip interactive TUI'
 complete -c skillshare -n '__fish_skillshare_using_command analyze' -l json -d 'JSON output'
 complete -c skillshare -n '__fish_skillshare_using_command analyze' -l help -s h -d 'Show help'

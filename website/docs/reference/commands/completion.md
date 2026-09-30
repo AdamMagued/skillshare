@@ -49,7 +49,7 @@ skillshare completion zsh > ~/.zsh/completions/_skillshare
 The generated scripts provide tab-completion for:
 
 - **Commands** — all top-level commands (`sync`, `install`, `list`, etc.)
-- **Subcommands** — `target add/remove/list`, `trash list/restore/delete/empty`, `hub add/list/remove/default/index`, `extras init/list/remove/collect/source/mode`, `audit rules`, `backup restore`
+- **Subcommands** — `target add/remove/list`, `trash list/restore/delete/empty`, `hub add/list/remove/default/index`, `extras init/list/remove/collect/source`, `audit rules disable/enable/severity/reset/init`, `backup files list/show/restore`, `ui start/stop`
 - **Flags** — per-command flags with short forms (`--dry-run`/`-n`, `--force`/`-f`, etc.)
 - **Global flags** — `--project`/`-p`, `--global`/`-g`
 

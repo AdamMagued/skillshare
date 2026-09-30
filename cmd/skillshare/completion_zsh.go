@@ -82,6 +82,9 @@ _skillshare() {
                         '-d[Detect and add new AI CLI agents]' \
                         '--select[Select specific agents]:agents:' \
                         '--subdir[Use subdirectory as source]:name:' \
+                        '--git-root[Git repository scope]:scope:(skills agents extras root)' \
+                        '--visible[Project: create visible skillshare/ directory]' \
+                        '--config[Project: gitignore config.yaml]:value:(local)' \
                         '--dry-run[Preview without changes]' \
                         '-n[Preview without changes]' \
                         $global_flags \
@@ -101,15 +104,19 @@ _skillshare() {
                         '--file[Import file]:file:_files' \
                         '--sync[Sync after saving]' \
                         '--replace[Replace an existing entry]' \
+                        '--disabled[add: turn off the server in the project]' \
+                        '--keep-files[remove: leave Agent entries as they are]' \
                         '--revision[Preview revision]:revision:' \
                         '--dry-run[Preview changes]' \
+                        '-n[Preview changes]' \
                         '--json[JSON output]' \
                         '--no-dns[Skip host lookups]' \
                         '--live[check: start or call each server]' \
                         '--timeout[check --live: per-server timeout]:duration:' \
                         '--no-tui[Disable interactive menus]' \
                         $global_flags \
-                        '--help[Show help]'
+                        '--help[Show help]' \
+                        '-h[Show help]'
                     ;;
                 plugin)
                     _arguments \
@@ -122,16 +129,16 @@ _skillshare() {
                         '--entry[OpenCode entry path]:path:' \
                         '--revision[Preview revision]:revision:' \
                         '--dry-run[Preview changes]' \
+                        '-n[Preview changes]' \
                         '--json[JSON output]' \
                         '--no-tui[Disable interactive menus]' \
                         $global_flags \
-                        '--help[Show help]'
+                        '--help[Show help]' \
+                        '-h[Show help]'
                     ;;
                 install)
                     _arguments \
                         '1:source:_files' \
-                        '--source[Set source directory]:path:_files -/' \
-                        '-s[Set source directory]:path:_files -/' \
                         '--name[Custom skill name]:name:' \
                         '--force[Overwrite existing]' \
                         '-f[Overwrite existing]' \
@@ -152,6 +159,7 @@ _skillshare() {
                         '--agent[Install specific agents]:agents:' \
                         '-a[Install specific agents]:agents:' \
                         '--skill[Install specific skills]:skills:' \
+                        '-s[Install specific skills]:skills:' \
                         '--exclude[Exclude items]:names:' \
                         '--into[Custom destination path]:path:' \
                         '--all[Install all items]' \
@@ -164,6 +172,7 @@ _skillshare() {
                     ;;
                 uninstall)
                     _arguments \
+                        '1:scope:(agents)' \
                         '--all[Remove all skills]' \
                         '--force[Skip confirmation]' \
                         '-f[Skip confirmation]' \
@@ -203,12 +212,22 @@ _skillshare() {
                         '--force[Force sync]' \
                         '-f[Force sync]' \
                         '--json[JSON output]' \
+                        '--quiet[Suppress token summary]' \
+                        '-q[Suppress token summary]' \
+                        $global_flags \
+                        '--help[Show help]' \
+                        '-h[Show help]'
+                    ;;
+                status)
+                    _arguments \
+                        '--json[JSON output]' \
                         $global_flags \
                         '--help[Show help]' \
                         '-h[Show help]'
                     ;;
                 diff)
                     _arguments \
+                        '1:scope:(agents)' \
                         '--no-tui[Skip interactive TUI]' \
                         '--patch[Show unified diff patch]' \
                         '--stat[Show statistics]' \
@@ -218,9 +237,22 @@ _skillshare() {
                         '-h[Show help]'
                     ;;
                 backup)
+                    if (( CURRENT > 2 )) && [[ ${words[2]} == files ]]; then
+                        shift words; (( CURRENT-- ))
+                        _arguments \
+                            '1:files command:(list show restore)' \
+                            '--unlink[restore: replace a symlink with a regular file]' \
+                            '--dry-run[Preview changes]' \
+                            '-n[Preview changes]' \
+                            $global_flags \
+                            '--help[Show help]' \
+                            '-h[Show help]'
+                        return
+                    fi
                     local -a backup_subcmds
                     backup_subcmds=(
-                        'restore:Restore from backup'
+                        'files:Versions of single files skillshare rewrote'
+                        'agents:Back up agents'
                     )
                     _arguments -C \
                         '1:subcommand:->subcmd' \
@@ -228,6 +260,8 @@ _skillshare() {
                         '-l[List existing backups]' \
                         '--cleanup[Remove old backups]' \
                         '-c[Remove old backups]' \
+                        '--delete[Delete one backup]:timestamp:' \
+                        '--all[Back up skills + agents]' \
                         '--dry-run[Preview changes]' \
                         '-n[Preview changes]' \
                         '--target[Backup specific target]:target:' \
@@ -240,6 +274,20 @@ _skillshare() {
                             _describe 'subcommand' backup_subcmds
                             ;;
                     esac
+                    ;;
+                restore)
+                    _arguments \
+                        '1:scope:(agents)' \
+                        '--from[Restore from timestamp]:timestamp:' \
+                        '-f[Restore from timestamp]:timestamp:' \
+                        '--force[Overwrite without confirmation]' \
+                        '--all[Restore skills + agents]' \
+                        '--dry-run[Preview changes]' \
+                        '-n[Preview changes]' \
+                        '--no-tui[Skip interactive TUI]' \
+                        $global_flags \
+                        '--help[Show help]' \
+                        '-h[Show help]'
                     ;;
                 collect)
                     _arguments \
@@ -261,7 +309,8 @@ _skillshare() {
                         '-n[Preview changes]' \
                         '--force[Force pull]' \
                         '-f[Force pull]' \
-                        $global_flags
+                        '--help[Show help]' \
+                        '-h[Show help]'
                     ;;
                 push)
                     _arguments \
@@ -269,7 +318,8 @@ _skillshare() {
                         '-n[Preview changes]' \
                         '--message[Commit message]:message:' \
                         '-m[Commit message]:message:' \
-                        $global_flags
+                        '--help[Show help]' \
+                        '-h[Show help]'
                     ;;
                 commit)
                     _arguments \
@@ -278,12 +328,12 @@ _skillshare() {
                         '--message[Commit message]:message:' \
                         '-m[Commit message]:message:' \
                         '--help[Show help]' \
-                        '-h[Show help]' \
-                        $global_flags
+                        '-h[Show help]'
                     ;;
                 doctor)
                     _arguments \
                         '--json[JSON output]' \
+                        $global_flags \
                         '--help[Show help]' \
                         '-h[Show help]'
                     ;;
@@ -299,6 +349,7 @@ _skillshare() {
                         '--json[JSON output]' \
                         '--no-tui[Skip interactive TUI]' \
                         '--mode[Set sync mode]:mode:(merge copy symlink)' \
+                        '-m[Set sync mode]:mode:(merge copy symlink)' \
                         '--agent-mode[Set agents sync mode]:mode:(merge copy symlink)' \
                         '--target-naming[Set naming]:naming:(flat standard)' \
                         '--add-include[Add include filter]:pattern:' \
@@ -313,7 +364,10 @@ _skillshare() {
                         '--config-dir[With add: the config directory of that account]:dir:_files -/' \
                         '--skills=[Sync skills to this target]:enabled:(true false)' \
                         '--no-skills[With add: do not sync skills]' \
+                        '--all[With remove: remove all targets]' \
+                        '-a[With remove: remove all targets]' \
                         '--dry-run[Preview changes]' \
+                        '-n[Preview changes]' \
                         $global_flags \
                         '--help[Show help]' \
                         '-h[Show help]'
@@ -336,6 +390,7 @@ _skillshare() {
                     ;;
                 update)
                     _arguments \
+                        '1:scope:(agents)' \
                         '--all[Update all]' \
                         '-a[Update all]' \
                         '--dry-run[Preview changes]' \
@@ -367,9 +422,32 @@ _skillshare() {
                         '--help[Show help]' \
                         '-h[Show help]'
                     ;;
+                new)
+                    _arguments \
+                        '--pattern[Use a design pattern]:pattern:(tool-wrapper generator reviewer inversion pipeline none)' \
+                        '-P[Use a design pattern]:pattern:(tool-wrapper generator reviewer inversion pipeline none)' \
+                        '--dry-run[Preview changes]' \
+                        '-n[Preview changes]' \
+                        $global_flags \
+                        '--help[Show help]' \
+                        '-h[Show help]'
+                    ;;
+                search)
+                    _arguments \
+                        '--json[JSON output]' \
+                        '--list[List results only]' \
+                        '-l[List results only]' \
+                        '--hub[Search a hub index]:url:' \
+                        '--limit[Maximum results]:count:' \
+                        '-n[Maximum results]:count:' \
+                        $global_flags \
+                        '--help[Show help]' \
+                        '-h[Show help]'
+                    ;;
                 trash)
                     local -a trash_subcmds
                     trash_subcmds=(
+                        'agents:Trashed agents'
                         'list:List trashed items'
                         'restore:Restore from trash'
                         'delete:Delete permanently'
@@ -377,6 +455,7 @@ _skillshare() {
                     )
                     _arguments -C \
                         '1:subcommand:->subcmd' \
+                        '--all[Include skills + agents]' \
                         '--no-tui[Skip interactive TUI]' \
                         $global_flags \
                         '--help[Show help]' \
@@ -388,9 +467,24 @@ _skillshare() {
                     esac
                     ;;
                 audit)
+                    if (( CURRENT > 2 )) && [[ ${words[2]} == rules ]]; then
+                        shift words; (( CURRENT-- ))
+                        _arguments \
+                            '1:rules command:(disable enable severity reset init)' \
+                            '--pattern[Filter by pattern name]:pattern:' \
+                            '--severity[Filter by minimum severity]:level:(critical high medium low info)' \
+                            '--disabled[Only show disabled rules]' \
+                            '--format[Output format]:format:(json)' \
+                            '--no-tui[Skip interactive TUI]' \
+                            $global_flags \
+                            '--help[Show help]' \
+                            '-h[Show help]'
+                        return
+                    fi
                     local -a audit_subcmds
                     audit_subcmds=(
                         'rules:Manage security rules'
+                        'agents:Audit agents'
                     )
                     _arguments -C \
                         '1:subcommand:->subcmd' \
@@ -419,6 +513,35 @@ _skillshare() {
                     esac
                     ;;
                 hub)
+                    if (( CURRENT > 2 )); then
+                        local -a hub_sub_flags
+                        case ${words[2]} in
+                            index)
+                                hub_sub_flags=(
+                                    '--source[Source directory to scan]:path:_files -/'
+                                    '-s[Source directory to scan]:path:_files -/'
+                                    '--output[Output path]:path:_files'
+                                    '-o[Output path]:path:_files'
+                                    '--full[Full index]'
+                                    '--audit[Include audit risk scores]'
+                                )
+                                ;;
+                            add)
+                                hub_sub_flags=(
+                                    '--label[Label for the hub]:label:'
+                                    '-l[Label for the hub]:label:'
+                                )
+                                ;;
+                            default)
+                                hub_sub_flags=(
+                                    '--reset[Clear default hub]'
+                                )
+                                ;;
+                        esac
+                        shift words; (( CURRENT-- ))
+                        _arguments $hub_sub_flags $global_flags '--help[Show help]' '-h[Show help]'
+                        return
+                    fi
                     local -a hub_subcmds
                     hub_subcmds=(
                         'add:Add hub'
@@ -459,17 +582,79 @@ _skillshare() {
                     ;;
                 ui)
                     _arguments \
+                        '1:subcommand:(start stop)' \
                         '--port[Set port]:port:' \
                         '--host[Set host]:host:' \
+                        '--base-path[Base path prefix for reverse proxy]:path:' \
+                        '-b[Base path prefix for reverse proxy]:path:' \
                         '--no-open[Do not open browser]' \
+                        '--clear-cache[Clear cached UI assets]' \
+                        '--app[Open as app window (start only)]' \
+                        $global_flags \
                         '--help[Show help]' \
                         '-h[Show help]'
                     ;;
                 tui)
                     _arguments \
-                        '1:state:(on off)'
+                        '1:state:(on off)' \
+                        '--help[Show help]' \
+                        '-h[Show help]'
                     ;;
                 extras)
+                    if (( CURRENT > 2 )); then
+                        local -a extras_sub_flags
+                        case ${words[2]} in
+                            init)
+                                extras_sub_flags=(
+                                    '--target[Target directory]:path:_files -/'
+                                    '--mode[Sync mode]:mode:(merge copy symlink import)'
+                                    '--source[Custom source directory]:path:_files -/'
+                                    '--file[Single-file extra]:file:_files'
+                                    '--as[Target filename]:filename:'
+                                    '--flatten[Flatten subdirectory files]'
+                                    '--force[Overwrite existing extra]'
+                                    '--no-tui[Skip interactive TUI]'
+                                )
+                                ;;
+                            list)
+                                extras_sub_flags=(
+                                    '--json[JSON output]'
+                                    '--no-tui[Skip interactive TUI]'
+                                )
+                                ;;
+                            remove)
+                                extras_sub_flags=(
+                                    '--force[Skip confirmation]'
+                                    '-f[Skip confirmation]'
+                                )
+                                ;;
+                            collect)
+                                extras_sub_flags=(
+                                    '--from[Target directory to collect from]:path:_files -/'
+                                    '--dry-run[Preview changes]'
+                                    '--force[Overwrite existing files]'
+                                    '-f[Overwrite existing files]'
+                                )
+                                ;;
+                            source)
+                                ;;
+                            *)
+                                extras_sub_flags=(
+                                    '--mode[Change sync mode]:mode:(merge copy symlink import)'
+                                    '--target[Target for --mode]:path:_files -/'
+                                    '--flatten[Enable flatten]'
+                                    '--no-flatten[Disable flatten]'
+                                    '--add-target[Add a target]:path:_files -/'
+                                    '--as[Target filename]:filename:'
+                                    '--remove-target[Detach a target]:path:_files -/'
+                                    '--prune[Also delete managed files]'
+                                )
+                                ;;
+                        esac
+                        shift words; (( CURRENT-- ))
+                        _arguments $extras_sub_flags $global_flags '--help[Show help]' '-h[Show help]'
+                        return
+                    fi
                     local -a extras_subcmds
                     extras_subcmds=(
                         'init:Create extra resource type'
@@ -477,7 +662,6 @@ _skillshare() {
                         'remove:Remove extra resource type'
                         'collect:Collect local files into extras'
                         'source:Show/set extras source'
-                        'mode:Change sync mode or flatten'
                     )
                     _arguments -C \
                         '1:subcommand:->subcmd' \
@@ -492,6 +676,7 @@ _skillshare() {
                     ;;
                 enable)
                     _arguments \
+                        '--kind[Resource kind]:kind:(skill agent)' \
                         '--dry-run[Preview changes]' \
                         '-n[Preview changes]' \
                         $global_flags \
@@ -500,6 +685,7 @@ _skillshare() {
                     ;;
                 disable)
                     _arguments \
+                        '--kind[Resource kind]:kind:(skill agent)' \
                         '--dry-run[Preview changes]' \
                         '-n[Preview changes]' \
                         $global_flags \
@@ -508,6 +694,9 @@ _skillshare() {
                     ;;
                 analyze)
                     _arguments \
+                        '--verbose[Show detailed information]' \
+                        '-v[Show detailed information]' \
+                        '--filter[Filter skills by name or path]:text:' \
                         '--no-tui[Skip interactive TUI]' \
                         '--json[JSON output]' \
                         $global_flags \

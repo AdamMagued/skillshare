@@ -46,6 +46,7 @@ $_skillshareCompleter = {
         'mcp' = @(
             @{ Name = 'add'; Desc = 'MCP add' }
             @{ Name = 'check'; Desc = 'MCP check' }
+            @{ Name = 'edit'; Desc = 'MCP edit' }
             @{ Name = 'import'; Desc = 'MCP import' }
             @{ Name = 'list'; Desc = 'MCP list' }
             @{ Name = 'remove'; Desc = 'MCP remove' }
@@ -74,6 +75,7 @@ $_skillshareCompleter = {
             @{ Name = 'restore'; Desc = 'Restore from trash' }
             @{ Name = 'delete'; Desc = 'Delete permanently' }
             @{ Name = 'empty'; Desc = 'Clear all trash' }
+            @{ Name = 'agents'; Desc = 'Trashed agents' }
         )
         'hub' = @(
             @{ Name = 'add'; Desc = 'Add hub' }
@@ -88,13 +90,14 @@ $_skillshareCompleter = {
             @{ Name = 'remove'; Desc = 'Remove extra resource type' }
             @{ Name = 'collect'; Desc = 'Collect local files into extras' }
             @{ Name = 'source'; Desc = 'Show/set extras source' }
-            @{ Name = 'mode'; Desc = 'Change sync mode or flatten' }
         )
         'backup' = @(
-            @{ Name = 'restore'; Desc = 'Restore from backup' }
+            @{ Name = 'files'; Desc = 'Versions of single files skillshare rewrote' }
+            @{ Name = 'agents'; Desc = 'Back up agents' }
         )
         'audit' = @(
             @{ Name = 'rules'; Desc = 'Manage security rules' }
+            @{ Name = 'agents'; Desc = 'Audit agents' }
         )
         'completion' = @(
             @{ Name = 'bash'; Desc = 'Generate bash completions' }
@@ -103,6 +106,49 @@ $_skillshareCompleter = {
             @{ Name = 'powershell'; Desc = 'Generate PowerShell completions' }
             @{ Name = 'nushell'; Desc = 'Generate Nushell completions' }
         )
+        'backup files' = @(
+            @{ Name = 'list'; Desc = 'List files with saved versions' }
+            @{ Name = 'show'; Desc = 'Show versions of one file' }
+            @{ Name = 'restore'; Desc = 'Restore a saved version' }
+        )
+        'audit rules' = @(
+            @{ Name = 'disable'; Desc = 'Disable a rule' }
+            @{ Name = 'enable'; Desc = 'Enable a rule' }
+            @{ Name = 'severity'; Desc = 'Override rule severity' }
+            @{ Name = 'reset'; Desc = 'Reset rule overrides' }
+            @{ Name = 'init'; Desc = 'Create rules file' }
+        )
+        'ui' = @(
+            @{ Name = 'start'; Desc = 'Start a background UI server' }
+            @{ Name = 'stop'; Desc = 'Stop a background UI server' }
+        )
+        'sync' = @(
+            @{ Name = 'agents'; Desc = 'Sync agents' }
+            @{ Name = 'extras'; Desc = 'Sync extras' }
+            @{ Name = 'mcp'; Desc = 'Sync MCP connections' }
+            @{ Name = 'plugins'; Desc = 'Sync plugins' }
+        )
+        'list' = @(
+            @{ Name = 'agents'; Desc = 'List agents' }
+        )
+        'uninstall' = @(
+            @{ Name = 'agents'; Desc = 'Uninstall agents' }
+        )
+        'diff' = @(
+            @{ Name = 'agents'; Desc = 'Diff agents' }
+        )
+        'restore' = @(
+            @{ Name = 'agents'; Desc = 'Restore agents' }
+        )
+        'collect' = @(
+            @{ Name = 'agents'; Desc = 'Collect agents' }
+        )
+        'check' = @(
+            @{ Name = 'agents'; Desc = 'Check agents' }
+        )
+        'update' = @(
+            @{ Name = 'agents'; Desc = 'Update agents' }
+        )
         'tui' = @(
             @{ Name = 'on'; Desc = 'Enable TUI mode' }
             @{ Name = 'off'; Desc = 'Disable TUI mode' }
@@ -110,34 +156,38 @@ $_skillshareCompleter = {
     }
 
     $flags = @{
-        'init' = '--source', '-s', '--remote', '--copy-from', '-c', '--no-copy', '--targets', '-t', '--all-targets', '--no-targets', '--mode', '-m', '--git', '--no-git', '--skill', '--no-skill', '--discover', '-d', '--select', '--subdir', '--dry-run', '-n', '--help', '-h', '--project', '-p', '--global', '-g'
-        'install' = '--source', '-s', '--name', '--force', '-f', '--update', '-u', '--dry-run', '-n', '--skip-audit', '--audit-verbose', '--audit-threshold', '--threshold', '-T', '--branch', '-b', '--track', '-t', '--kind', '--agent', '-a', '--skill', '--exclude', '--into', '--all', '--yes', '-y', '--json', '--help', '-h', '--project', '-p', '--global', '-g'
+        'init' = '--source', '-s', '--remote', '--copy-from', '-c', '--no-copy', '--targets', '-t', '--all-targets', '--no-targets', '--mode', '-m', '--git', '--no-git', '--git-root', '--skill', '--no-skill', '--discover', '-d', '--select', '--subdir', '--visible', '--config', '--dry-run', '-n', '--help', '-h', '--project', '-p', '--global', '-g'
+        'install' = '--name', '--force', '-f', '--update', '-u', '--dry-run', '-n', '--skip-audit', '--audit-verbose', '--audit-threshold', '--threshold', '-T', '--branch', '-b', '--track', '-t', '--kind', '--agent', '-a', '--skill', '--exclude', '--into', '--all', '--yes', '-y', '--json', '--help', '-h', '--project', '-p', '--global', '-g'
         'uninstall' = '--all', '--force', '-f', '--dry-run', '-n', '--json', '--group', '-G', '--help', '-h', '--project', '-p', '--global', '-g'
         'list' = '--verbose', '-v', '--json', '-j', '--no-tui', '--type', '-t', '--status', '--sort', '-s', '--all', '--help', '-h', '--project', '-p', '--global', '-g'
-        'sync' = '--all', '--dry-run', '-n', '--force', '-f', '--json', '--help', '-h', '--project', '-p', '--global', '-g'
+        'sync' = '--all', '--dry-run', '-n', '--force', '-f', '--json', '--quiet', '-q', '--help', '-h', '--project', '-p', '--global', '-g'
         'diff' = '--no-tui', '--patch', '--stat', '--json', '--help', '-h', '--project', '-p', '--global', '-g'
-        'backup' = '--list', '-l', '--cleanup', '-c', '--dry-run', '-n', '--target', '-t', '--help', '-h', '--project', '-p', '--global', '-g'
-        'restore' = '--from', '-f', '--force', '--dry-run', '-n', '--no-tui', '--help', '-h', '--project', '-p', '--global', '-g'
+        'backup' = '--list', '-l', '--cleanup', '-c', '--delete', '--all', '--unlink', '--dry-run', '-n', '--target', '-t', '--help', '-h', '--project', '-p', '--global', '-g'
+        'restore' = '--from', '-f', '--force', '--all', '--dry-run', '-n', '--no-tui', '--help', '-h', '--project', '-p', '--global', '-g'
         'collect' = '--all', '-a', '--dry-run', '-n', '--force', '-f', '--json', '--help', '-h', '--project', '-p', '--global', '-g'
-        'pull' = '--dry-run', '-n', '--force', '-f', '--project', '-p', '--global', '-g'
-        'push' = '--dry-run', '-n', '--message', '-m', '--project', '-p', '--global', '-g'
-        'commit' = '--dry-run', '-n', '--message', '-m', '--help', '-h', '--project', '-p', '--global', '-g'
-        'doctor' = '--json', '--help', '-h'
-        'target' = '--json', '--no-tui', '--help', '-h', '--mode', '--agent-mode', '--target-naming', '--add-include', '--add-exclude', '--remove-include', '--remove-exclude', '--add-agent-include', '--add-agent-exclude', '--remove-agent-include', '--remove-agent-exclude', '--agent', '--config-dir', '--skills', '--no-skills', '--dry-run', '--project', '-p', '--global', '-g'
+        'pull' = '--dry-run', '-n', '--force', '-f', '--help', '-h'
+        'push' = '--dry-run', '-n', '--message', '-m', '--help', '-h'
+        'commit' = '--dry-run', '-n', '--message', '-m', '--help', '-h'
+        'doctor' = '--json', '--help', '-h', '--project', '-p', '--global', '-g'
+        'target' = '--json', '--no-tui', '--help', '-h', '--mode', '-m', '--agent-mode', '--target-naming', '--add-include', '--add-exclude', '--remove-include', '--remove-exclude', '--add-agent-include', '--add-agent-exclude', '--remove-agent-include', '--remove-agent-exclude', '--agent', '--config-dir', '--skills', '--no-skills', '--all', '-a', '--dry-run', '-n', '--project', '-p', '--global', '-g'
         'upgrade' = '--dry-run', '-n', '--force', '-f', '--skill', '--cli', '--help', '-h'
         'update' = '--all', '-a', '--dry-run', '-n', '--force', '-f', '--skip-audit', '--audit-threshold', '--threshold', '-T', '--diff', '--audit-verbose', '--prune', '--json', '--group', '-G', '--help', '-h', '--project', '-p', '--global', '-g'
         'check' = '--json', '--all', '--group', '-G', '--help', '-h', '--project', '-p', '--global', '-g'
-        'trash' = '--no-tui', '--help', '-h', '--project', '-p', '--global', '-g'
-        'audit' = '--init-rules', '--json', '--format', '--quiet', '-q', '--yes', '-y', '--no-tui', '--threshold', '-T', '--group', '-G', '--profile', '--dedupe', '--analyzer', '--help', '-h', '--project', '-p', '--global', '-g'
-        'hub' = '--help', '-h', '--project', '-p', '--global', '-g'
+        'trash' = '--all', '--no-tui', '--help', '-h', '--project', '-p', '--global', '-g'
+        'audit' = '--init-rules', '--json', '--format', '--quiet', '-q', '--yes', '-y', '--no-tui', '--threshold', '-T', '--group', '-G', '--profile', '--dedupe', '--analyzer', '--pattern', '--severity', '--disabled', '--help', '-h', '--project', '-p', '--global', '-g'
+        'hub' = '--source', '-s', '--output', '-o', '--full', '--audit', '--label', '-l', '--reset', '--help', '-h', '--project', '-p', '--global', '-g'
         'log' = '--audit', '-a', '--clear', '-c', '--json', '--no-tui', '--stats', '--cmd', '--status', '--since', '--tail', '-t', '--help', '-h', '--project', '-p', '--global', '-g'
-        'ui' = '--port', '--host', '--no-open', '--help', '-h'
-        'enable' = '--dry-run', '-n', '--help', '-h', '--project', '-p', '--global', '-g'
-        'disable' = '--dry-run', '-n', '--help', '-h', '--project', '-p', '--global', '-g'
-        'analyze' = '--no-tui', '--json', '--help', '-h', '--project', '-p', '--global', '-g'
-        'mcp' = '--pi-extension', '--direct-tools', '--pi-options', '--pi-options-prune', '--target', '--from', '--url', '--file', '--sync', '--replace', '--revision', '--dry-run', '--json', '--no-dns', '--live', '--timeout', '--no-tui', '--help', '--project', '--global'
-        'plugin' = '--target', '--from', '--plugin', '--name', '--source-ref', '--entry', '--revision', '--dry-run', '--json', '--no-tui', '--help', '--project', '--global'
-        'extras' = '--help', '-h', '--project', '-p', '--global', '-g'
+        'ui' = '--port', '--host', '--base-path', '-b', '--no-open', '--clear-cache', '--app', '--help', '-h', '--project', '-p', '--global', '-g'
+        'enable' = '--dry-run', '-n', '--kind', '--help', '-h', '--project', '-p', '--global', '-g'
+        'disable' = '--dry-run', '-n', '--kind', '--help', '-h', '--project', '-p', '--global', '-g'
+        'analyze' = '--verbose', '-v', '--filter', '--no-tui', '--json', '--help', '-h', '--project', '-p', '--global', '-g'
+        'mcp' = '--pi-extension', '--direct-tools', '--pi-options', '--pi-options-prune', '--target', '--from', '--url', '--file', '--sync', '--replace', '--disabled', '--keep-files', '--revision', '--dry-run', '-n', '--json', '--no-dns', '--live', '--timeout', '--no-tui', '--help', '-h', '--project', '-p', '--global', '-g'
+        'plugin' = '--target', '--from', '--plugin', '--name', '--source-ref', '--entry', '--revision', '--dry-run', '-n', '--json', '--no-tui', '--help', '-h', '--project', '-p', '--global', '-g'
+        'extras' = '--mode', '--target', '--source', '--file', '--as', '--flatten', '--no-flatten', '--add-target', '--remove-target', '--prune', '--from', '--dry-run', '--force', '-f', '--json', '--no-tui', '--help', '-h', '--project', '-p', '--global', '-g'
+        'status' = '--json', '--help', '-h', '--project', '-p', '--global', '-g'
+        'new' = '--pattern', '-P', '--dry-run', '-n', '--help', '-h', '--project', '-p', '--global', '-g'
+        'search' = '--json', '--list', '-l', '--hub', '--limit', '-n', '--help', '-h', '--project', '-p', '--global', '-g'
+        'tui' = '--help', '-h'
         'completion' = '--install', '--help', '-h'
     }
 
@@ -165,9 +215,18 @@ $_skillshareCompleter = {
         }
     }
 
-    # Complete sub-subcommands
-    if ($elements.Count -eq 3 -and $wordToComplete -ne '' -and $commands.ContainsKey($cmd)) {
+    # Complete a partially typed subcommand
+    if ($elements.Count -eq 3 -and $wordToComplete -ne '' -and -not $wordToComplete.StartsWith('-') -and $commands.ContainsKey($cmd)) {
         $commands[$cmd] | Where-Object { $_.Name -like "$wordToComplete*" } | ForEach-Object {
+            [System.Management.Automation.CompletionResult]::new($_.Name, $_.Name, 'ParameterValue', $_.Desc)
+        }
+        return
+    }
+
+    # Complete nested subcommands (backup files, audit rules)
+    $nested = "$cmd $subcmd"
+    if ((($elements.Count -eq 3 -and $wordToComplete -eq '') -or ($elements.Count -eq 4 -and $wordToComplete -ne '')) -and -not $wordToComplete.StartsWith('-') -and $commands.ContainsKey($nested)) {
+        $commands[$nested] | Where-Object { $_.Name -like "$wordToComplete*" } | ForEach-Object {
             [System.Management.Automation.CompletionResult]::new($_.Name, $_.Name, 'ParameterValue', $_.Desc)
         }
         return
