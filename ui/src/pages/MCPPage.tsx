@@ -61,14 +61,14 @@ type PageModel = ReturnType<typeof mcpPageModel>;
 type MCPCheck = ReturnType<typeof useMCPCheck>;
 type ImportRequest = { conflict?: { target: string; name: string }; from?: string; project?: string };
 
-function MCPHeader({ check, backups, isProjectMode, onBackups, onImport, onOff, onAdd }: { check: MCPCheck; backups: boolean; isProjectMode: boolean; onBackups: () => void; onImport: () => void; onOff: () => void; onAdd: () => void }) {
+function MCPHeader({ check, canCheck, backups, isProjectMode, onBackups, onImport, onOff, onAdd }: { check: MCPCheck; canCheck: boolean; backups: boolean; isProjectMode: boolean; onBackups: () => void; onImport: () => void; onOff: () => void; onAdd: () => void }) {
   const t = useT();
   return (
     <PageHeader
       title="MCP"
       subtitle={t('mcp.subtitle')}
       actions={<span className="flex items-center gap-2.5" data-tour="mcp-actions">
-        <Button variant="ghost" loading={check.running} onClick={() => void check.run()}>{!check.running && <ListChecks size={15} />}{t(check.running ? 'mcp.check.running' : 'mcp.check.button')}</Button>
+        {canCheck && <Button variant="ghost" loading={check.running} onClick={() => void check.run()}>{!check.running && <ListChecks size={15} />}{t(check.running ? 'mcp.check.running' : 'mcp.check.button')}</Button>}
         {backups ? <Button variant="ghost" onClick={onBackups}><Archive size={15} />{t('mcp.backupsButton')}</Button> : null}
         <Button variant="secondary" onClick={onImport}><Download size={15} />{t('mcp.importFromTarget')}</Button>
         {/* Only a project file can turn off a server the Agent defines globally. */}
@@ -165,7 +165,7 @@ function MCPContent({ data, model, order, allFiles, onShowAll, busy, onToggle, o
           </div>
         </div>
       )}
-      <MCPCheckNote report={check.report} checkedAt={check.checkedAt} error={check.error} running={check.running} onRun={() => void check.run()} />
+      {rows.length > 0 && <MCPCheckNote report={check.report} checkedAt={check.checkedAt} error={check.error} running={check.running} onRun={() => void check.run()} />}
       <MCPUnmanagedNote entries={data.unmanaged.filter((u) => !u.project)} onImport={(from) => onImport({ from })} />
       {rows.length > 0 ? (
         <MCPServerList rows={rows} targets={order.filter((x) => matrixTargets.has(x))} targetsOf={targetsOf} onToggle={onToggle} onMenu={onMenu} disabled={busy} problems={problemsByServer(check.report)} />
@@ -387,7 +387,7 @@ export default function MCPPage() {
   return (
     <MCPTargetOrder.Provider value={order}>
     <div className="animate-fade-in">
-      <MCPHeader check={check} backups={Boolean(data?.backups.length)} isProjectMode={isProjectMode} onBackups={() => setBackupsOpen(true)} onImport={() => setImporting({})} onOff={() => { setAddingOff(true); setAddMode('form'); setEditing(''); }} onAdd={() => { setAddingOff(false); setAddMode('form'); setEditing(''); }} />
+      <MCPHeader check={check} canCheck={Object.keys(data?.source.servers ?? {}).length > 0} backups={Boolean(data?.backups.length)} isProjectMode={isProjectMode} onBackups={() => setBackupsOpen(true)} onImport={() => setImporting({})} onOff={() => { setAddingOff(true); setAddMode('form'); setEditing(''); }} onAdd={() => { setAddingOff(false); setAddMode('form'); setEditing(''); }} />
 
       <MCPPageErrors error={error} previewError={data?.previewError} />
 

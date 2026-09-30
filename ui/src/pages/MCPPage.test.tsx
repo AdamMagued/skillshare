@@ -22,6 +22,16 @@ describe('MCP page', () => {
     expect(await screen.findByText('Removed from source')).toBeInTheDocument();
   });
 
+  it('offers no check while there are no servers', async () => {
+    vi.mocked(mcpApi.list).mockResolvedValue({
+      source: { path: '', configPath: '', targets: ['claude'], servers: {} },
+      projectConfigs: [], paths: {}, detected: ['claude'], previewError: '', backups: [], unmanaged: [], plan: null,
+    });
+    render(<MemoryRouter><QueryClientProvider client={new QueryClient()}><I18nProvider><ToastProvider><MCPPage /></ToastProvider></I18nProvider></QueryClientProvider></MemoryRouter>);
+    expect(await screen.findAllByRole('button', { name: /Import from/ })).not.toHaveLength(0);
+    expect(screen.queryByRole('button', { name: 'Check' })).not.toBeInTheDocument();
+  });
+
   it('previews an adapter-file removal even when builtin owns the Pi path label', async () => {
     const user = userEvent.setup();
     vi.mocked(mcpApi.list).mockResolvedValue({

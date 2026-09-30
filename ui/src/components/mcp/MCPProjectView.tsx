@@ -180,7 +180,7 @@ export default function MCPProjectView({ data, root, offered, onChanged, onRemov
       <RailLayout pageScroll rail={data.plan && <MCPSyncBox changes={changes} roots={roots} plan={data.plan} />}>
         <ProjectSettings data={data} model={model} offered={offered} pickTargets={pickTargets} onPickTargets={() => setPickTargets(!pickTargets)} busy={busy} save={save} />
 
-        <div className="mt-3 empty:hidden"><MCPCheckNote report={check.report} checkedAt={check.checkedAt} error={check.error} running={check.running} onRun={() => void check.run()} project={root} /></div>
+        {ownRows.length > 0 && <div className="mt-3 empty:hidden"><MCPCheckNote report={check.report} checkedAt={check.checkedAt} error={check.error} running={check.running} onRun={() => void check.run()} project={root} /></div>}
         <div className="mt-3 empty:hidden"><MCPUnmanagedNote entries={unmanaged} onImport={setImportFrom} /></div>
 
         <section className="mt-3 flex flex-col">
@@ -235,8 +235,8 @@ export default function MCPProjectView({ data, root, offered, onChanged, onRemov
         <section className="mt-3 flex flex-col">
           {/* Two named actions rather than one button that then asks which it was. */}
           <div className="ss-sec !items-center"><h2>{t('mcp.projects.onlyHere')}</h2><span className="ss-cnt">{ownRows.length}</span>
-            <Button className="ml-auto" size="sm" variant="ghost" loading={check.running} onClick={() => void check.run()}>{!check.running && <ListChecks size={14} />}{t(check.running ? 'mcp.check.running' : 'mcp.check.button')}</Button>
-            <Button size="sm" variant="ghost" onClick={() => { setAddingOff(true); setAddMode('form'); setEditing(''); }}><PowerOff size={14} />{t('mcp.addOff')}</Button>
+            {ownRows.length > 0 && <Button className="ml-auto" size="sm" variant="ghost" loading={check.running} onClick={() => void check.run()}>{!check.running && <ListChecks size={14} />}{t(check.running ? 'mcp.check.running' : 'mcp.check.button')}</Button>}
+            <Button className={ownRows.length > 0 ? '' : 'ml-auto'} size="sm" variant="ghost" onClick={() => { setAddingOff(true); setAddMode('form'); setEditing(''); }}><PowerOff size={14} />{t('mcp.addOff')}</Button>
             <Button size="sm" variant="secondary" onClick={() => { setAddingOff(false); setAddMode('form'); setEditing(''); }}><Plus size={14} />{t('mcp.addServer')}</Button>
           </div>
           {ownRows.length > 0
