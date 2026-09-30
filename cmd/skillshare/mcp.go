@@ -138,6 +138,9 @@ func cmdMCP(args []string) (resultErr error) {
 	if err != nil {
 		return err
 	}
+	if sub == "check" {
+		return runMCPCheck(service, rest)
+	}
 	o, err := parseMCPOptions(rest)
 	if err != nil {
 		return err
@@ -322,6 +325,7 @@ func printMCPHelp() {
 
 Commands:
   add [name]        Guided setup, or --url URL / -- command args...
+  check [name...]   Verify variables, commands, hosts and sync state (--no-dns)
   edit [name]       Interactive editor, or update --url / --target / -- command
   import [name]     Import --from <client> or --file <JSON/TOML/YAML file>
   list             Browse connections and per-client sync status (default)
