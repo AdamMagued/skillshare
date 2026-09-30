@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AlertCircle, Check, Info, RefreshCw } from 'lucide-react';
+import { Check, Info, RefreshCw, TriangleAlert } from 'lucide-react';
 import type { MCPCheckReport } from '../../api/mcpCheck';
 import Button from '../Button';
 import { formatRelativeTime, useI18n } from '../../i18n';
@@ -27,7 +27,7 @@ export default function MCPCheckNote({ report, checkedAt, error, running, onRun,
     return () => clearInterval(id);
   }, [checkedAt]);
 
-  if (error) return <div className="ss-note bad"><AlertCircle size={16} /><span className="flex-1">{describeError(t, error)}</span></div>;
+  if (error) return <div className="ss-note bad"><TriangleAlert size={16} /><span className="flex-1">{describeError(t, error)}</span></div>;
   if (!report || !checkedAt) return null;
   const count = Object.keys(problemsByServer(report, project)).length;
   // Counts only what the page lists; each project's servers belong to that project's page.
@@ -39,7 +39,7 @@ export default function MCPCheckNote({ report, checkedAt, error, running, onRun,
   const checked = now - checkedAt < 60_000 ? t('mcp.check.justNow') : t('mcp.check.checkedAt', { time: formatRelativeTime(checkedAt, locale) });
   return (
     <div className={`ss-note ${count > 0 ? 'bad' : 'inf'} !items-center`}>
-      {count > 0 ? <AlertCircle size={16} className="!mt-0" /> : <Check size={16} className="!mt-0" />}
+      {count > 0 ? <TriangleAlert size={16} className="!mt-0" /> : <Check size={16} className="!mt-0" />}
       <div className="min-w-0 flex-1">
         <div>
           <b>{count > 0 ? t(count === 1 ? 'mcp.check.problems.one' : 'mcp.check.problems.other', { count }) : t(total === 1 ? 'mcp.check.allGood.one' : 'mcp.check.allGood.other', { count: total })}</b>
