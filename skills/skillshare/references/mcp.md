@@ -19,6 +19,7 @@ skillshare mcp remove docs --sync --no-tui           # Remove unchanged managed 
 skillshare mcp remove docs --keep-files --no-tui     # Stop managing; Agent entries stay as they are
 skillshare mcp restore BACKUP_ID --dry-run --json     # Preview entry-level restoration
 skillshare mcp restore BACKUP_ID --no-tui            # Apply restoration; source stays unchanged
+skillshare mcp check --json                          # Static check: variables, commands, DNS, sync state
 ```
 
 ## Automation rules
@@ -36,6 +37,9 @@ skillshare mcp restore BACKUP_ID --no-tui            # Apply restoration; source
   `--pi-options` or `-- command args`. Switching transport clears the fields of the other one.
 - Preview with `skillshare sync mcp --dry-run --json`, then apply with
   `skillshare sync mcp --revision <revision>` to reject a stale plan.
+- `mcp check [name...] [--json] [--no-dns]` is read-only and starts nothing. It exits 1
+  on an error (unset `fromEnv` variable, command not on PATH, client rule, conflict);
+  an unresolved host or an unsynced entry is only a warning.
 - Noninteractive `import` without a name only lists candidates. Use `--replace` only
   when replacing is intended.
 - An `update` with the message `same settings, laid out one field per line` is a

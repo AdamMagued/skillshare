@@ -19,6 +19,8 @@ skillshare mcp add local --target codex -- company-mcp --workspace /path/to/work
 skillshare mcp import docs --from claude --target claude --target cursor --sync
 skillshare mcp import docs --file ./provider.json --target claude
 skillshare mcp list --json
+skillshare mcp check
+skillshare mcp check docs --json --no-dns
 skillshare mcp remove docs --sync
 skillshare mcp remove docs --keep-files
 skillshare mcp restore BACKUP_ID --dry-run
@@ -44,6 +46,7 @@ skillshare sync --all
 | `--replace` | Explicitly replace an existing source definition during add/import; on import, also rewrite the imported client's entry when it differs |
 | `--dry-run`, `-n` | Preview without saving or writing native configuration |
 | `--json` | Structured output; sync/preview reports contain names, paths and actions, not server values |
+| `--no-dns` | With `check`: skip the host lookup of remote servers. See [below](#check-servers-before-an-agent-starts-them) |
 | `--no-tui` | Disable interactive menus; also disabled by `tui: false`, `--json`, or non-terminal input/output |
 | `--revision ID` | Require a matching preview for add/import/remove or `sync mcp` |
 | `--global`, `-g` | Use global Skillshare configuration |
@@ -582,6 +585,54 @@ Limits:
   list. The servers themselves are left as they are.
 - If a folder also has its own `.skillshare/config.yaml` managing the same entry, the
   plan reports a conflict rather than overwriting it.
+
+## Check servers before an Agent starts them {#check-servers-before-an-agent-starts-them}
+
+```bash
+skillshare mcp check
+skillshare mcp check docs github --json
+skillshare mcp check --no-dns
+```
+
+`mcp check` answers "will this server work as synced?" for every server in the
+source, or only the named ones. It is read-only: it never starts a server, sends an
+HTTP request, runs a command or writes a file.
+
+| Check | Level |
+|---|---|
+| A `fromEnv` variable in `env`, `headers` or `bearerToken` is unset or empty | error |
+| A local server's `command` is not found on `PATH` (a leading `~/` is expanded) | error |
+| A remote server's host does not resolve through DNS (3-second limit; skip with `--no-dns`) | warning |
+| An Agent's rule refuses the server, such as a name Claude Code reserves | error |
+| An Agent's entry conflicts with the source, as in `sync mcp --dry-run` | error |
+| An Agent's entry is not written or not updated yet | warning |
+| The server has `targets: []` and is kept in Skillshare only | info |
+
+Variable values are never printed. The command exits with 1 when any error is found
+and 0 otherwise; warnings never fail it. An unknown server name is an error that
+lists the known names. Servers under `mcp.projects` are not checked.
+
+With `--json`, the report has this shape:
+
+```json
+{
+  "servers": [
+    {
+      "name": "docs",
+      "ok": false,
+      "findings": [
+        { "level": "error", "check": "env", "target": "", "message": "bearerToken reads DOCS_TOKEN, which is not set" },
+        { "level": "warning", "check": "sync", "target": "claude", "message": "not synced yet; run skillshare sync mcp" }
+      ]
+    }
+  ],
+  "summary": { "errors": 1, "warnings": 1 }
+}
+```
+
+`check` is one of `env`, `command`, `url`, `dns`, `client-rule`, `sync` or `targets`.
+`target` names the Agent or account, and is empty when the finding is about the
+server itself.
 
 ## Stop managing a server {#stop-managing-a-server}
 
