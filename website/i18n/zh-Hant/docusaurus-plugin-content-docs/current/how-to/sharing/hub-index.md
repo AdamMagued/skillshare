@@ -140,42 +140,38 @@ SSH hub source 會使用你的 SSH agent/金鑰進行 clone，因此適用於私
 
 ### 不寫 JSON 也能建立 Hub
 
-在 dashboard（`skillshare ui`）中開啟 **Skills → Hubs → My hubs → New Hub**。
+在 dashboard（`skillshare ui`）中開啟 **Skills → Hubs**，再選擇 **加入或建立 Hub → 建立新的 Hub**。新的 Hub 會直接進入編輯。
 
-1. 為草稿命名並填寫（選用的）描述。這些資訊僅用於在本機識別草稿；不會包含在匯出的索引中。
-2. 選擇 **Choose installed skills**，挑選要分享的 skills 並新增。或使用 **Add source manually**。
-3. 編輯每個 skill 的顯示名稱、描述、標籤與安裝 source。例如，`runkids/demo-skills/skills/pdf` 用來識別遠端 repository 中的某個 skill。**Advanced** 區塊保留了一個選用的 `skill` 選擇器，供包含多個 skills 的 repository 使用。
-4. 選擇 **Save draft**。頁面會檢查每個項目，並顯示任何阻擋匯出的問題。
-5. 選擇 **Download index** 以取得 `skillshare-hub.json`。
-6. 將下載的檔案提交到你自己的 Git repository，或上傳到 HTTP 伺服器。在頁面中輸入該位置，即可複製一段供接收者使用的 `skillshare hub add` 指令。
-
-下圖的草稿中，有一個 skill 只有本機 source，因此在補上遠端 source 之前無法匯出：
-
-![My hubs：一份 hub 草稿，其中一個項目無法匯出](/img/hub-builder-draft.png)
+1. 為 Hub 填寫 **名稱** 與（選用的）**說明**。名稱會成為你分享的 `skillshare hub add` 指令中的 `--label`；兩者都不會包含在匯出的索引中。
+2. 選擇 **加入 skill**。在 **貼上網址** 分頁輸入 **Git 網址**，選擇 **尋找**，挑選 **版本**，再勾選要加入的 skills。在 **已安裝的** 分頁則可挑選這台機器上已安裝的 skills。也可以選擇 **找不到？手動填寫來源** 新增一列空白項目。
+3. 編輯每個 skill 的 **名稱**、**來源** 與 **版本**。例如，`runkids/demo-skills/skills/pdf` 用來識別遠端 repository 中的某個 skill。展開該列可編輯 **技能說明**、**標籤（以逗號分隔）** 與 **技能選擇器（選填）**，後者用來在包含多個 skills 的 repository 中選取 skill。
+4. 選擇 **儲存**。頁面會檢查每個項目；若有別人裝不到的 skill，編輯器會保持開啟並標示該列。
+5. 選擇 **分享 → 下載 skillshare-hub.json**。在用 **編輯** 修好被標示的 skills 之前，無法下載。
+6. 將下載的檔案提交到你自己的 Git repository，或上傳到 HTTP 伺服器。在 **分享** 對話框中貼上該網址，即可複製一段供接收者使用的 `skillshare hub add` 指令。網址會隨 Hub 一起儲存。
 
 下載動作**不會**發布任何東西。目錄只是參照 skills，並不會打包它們的檔案。Source 驗證只會檢查語法，不會確認 repository 是否存在，或接收者是否有權限。私有 repositories 仍然需要存取權限。
 
-:::tip 本機的 skills 可以留在草稿中
-沒有已知遠端來源的已安裝 skill，仍會以其本機 source 顯示。你可以將它儲存在草稿中。在你提供遠端安裝 source 或移除該項目之前，匯出會被阻擋；建構工具絕不會默默地將它排除。
+:::tip 本機的 skills 可以留在 Hub 中
+沒有已知遠端來源的已安裝 skill，仍會保留其本機 source。你可以將它儲存在 Hub 中。在你提供遠端安裝 source 或移除該項目之前，下載會被阻擋；建構工具絕不會默默地將它排除。
 :::
 
 ### 繼續編輯或匯入目錄
 
-草稿會儲存在執行 dashboard 的機器上，位於目前使用中設定檔旁邊的 `hub-drafts/` 目錄。Global 與 project 設定各自擁有獨立的草稿。重新載入前請先使用 **Save draft**。若帶著未儲存的變更離開，系統會提示你捨棄它們；來自過期視窗的儲存動作會被拒絕，以避免覆寫較新的修訂版本。**Reload saved draft** 會取得最新版本。
+你自己的 Hub 會在 Hub 清單中標示為 **我的**。它們儲存在執行 dashboard 的機器上，位於目前使用中設定檔旁邊的 `hub-drafts/` 目錄。Global 與 project 設定各自擁有獨立的 Hub。重新載入前請先選擇 **儲存**。編輯期間 Hub 清單會鎖定；若帶著未儲存的變更離開，系統會提示你捨棄它們。來自過期視窗的儲存動作會被拒絕，以避免覆寫較新的修訂版本。**取消** 會重新載入最新儲存的版本。
 
-對於既有的 v1 `skillshare-hub.json`（上限 4 MB），請使用 **Import JSON**。不支援的版本與無效的欄位類型會產生錯誤。顯示名稱相同的項目仍會各自獨立。額外的 JSON 欄位與 `skill` 選擇器會被保留。如果較舊的索引包含 `sourcePath`，相對 source 會被解析為本機路徑，與現有的索引讀取器行為一致；在匯出前必須將它們改為遠端 source。
+對於既有的 v1 `skillshare-hub.json`（上限 4 MB），請使用 **加入或建立 Hub → 匯入 skillshare-hub.json**。不支援的版本與無效的欄位類型會產生錯誤。顯示名稱相同的項目仍會各自獨立。額外的 JSON 欄位與 `skill` 選擇器會被保留。如果較舊的索引包含 `sourcePath`，相對 source 會被解析為本機路徑，與現有的索引讀取器行為一致；在匯出前必須將它們改為遠端 source。
 
-可攜式匯出會移除作者的 `sourcePath` 與已知的本機 metadata（`relPath`、`flatName`、`installedAt`、`isInRepo`）。它只包含索引本身，不含草稿的名稱、描述、ID 或修訂版本。變更項目的 source 或 skill 選擇器，會清除它先前的 audit 分數、標籤與時間戳記。URL 中的憑證、查詢字串與片段會被拒絕；請另外設定 repository 的驗證方式。
+可攜式匯出會移除作者的 `sourcePath` 與已知的本機 metadata（`relPath`、`flatName`、`installedAt`、`isInRepo`）。它只包含索引本身，不含 Hub 的名稱、說明、ID、修訂版本或架設網址。變更項目的 source 或 skill 選擇器，會清除它先前的 audit 分數、標籤與時間戳記。URL 中的憑證、查詢字串與片段會被拒絕；請另外設定 repository 的驗證方式。
 
-**Delete draft** 會要求確認，並只會刪除該份草稿。它不會解除安裝 skills、刪除已架設的索引，或移除已訂閱的 Hub。
+**更多動作 → 刪除 Hub** 會要求確認，並只會刪除該 Hub。它不會解除安裝 skills、刪除已架設的索引，或移除已訂閱的 Hub。
 
 ### 搜尋已分享的 Hub
 
-1. 開啟 **Skills → Install**。
-2. 從搜尋 source 選擇器中選擇一個 Hub。使用安裝對話框中的 Hub manager 新增 URL、SSH repository，或本機索引路徑。
+1. 開啟 **Skills → 安裝**，選擇 **搜尋**。
+2. 在 **來源** 選擇器中選擇一個 Hub。若要新增 URL、SSH repository 或本機索引路徑，選擇選擇器旁的 **管理 Hubs**，再到 Hubs 頁面選擇 **加入或建立 Hub → 加入現有的 Hub**。
 3. 搜尋、預覽並安裝 skills。
 
-已訂閱的 Hub source 會儲存在目前使用中的 skillshare 設定中，並與 CLI 共用。它們與 **My hubs** 中的草稿是分開的。
+你也可以在 Hubs 頁面選擇一個 Hub，直接篩選並安裝其中的 skills。已訂閱的 Hub source 會儲存在目前使用中的 skillshare 設定中，並與 CLI 共用。它們與你自己的 Hub 是分開的。
 
 既有的 `skillshare hub index` 指令與 `/api/hub/index` 端點仍會如往常一樣產生索引，包括支援本機 source。上述的可攜式匯出規則同樣適用於 dashboard 的建構工具。
 

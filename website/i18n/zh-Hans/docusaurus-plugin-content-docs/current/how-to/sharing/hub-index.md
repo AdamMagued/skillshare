@@ -140,40 +140,36 @@ SSH hub 来源会使用你的 SSH agent/密钥来克隆，因此适用于私有�
 
 ### 不写 JSON 也能建立 Hub
 
-在仪表板（`skillshare ui`）中打开 **Skills → Hubs → My hubs → New Hub**。
+在仪表板（`skillshare ui`）中打开 **Skill → Hubs**，再选择 **添加或创建 Hub → 创建新的 Hub**。新的 Hub 会直接进入编辑。
 
-1. 为草稿命名并填写可选的描述。这些仅用于本地识别草稿，不会包含在导出的 index 中。
-2. 选择 **Choose installed skills**，勾选要分享的 Skill 并加入；或使用 **Add source manually**。
-3. 编辑每个 Skill 的显示名称、描述、标签与安装来源。例如，`runkids/demo-skills/skills/pdf` 用来指向远端仓库中的某个 Skill。**Advanced** 区块保留一个可选的 `skill` 选择器，用于包含多个 Skill 的仓库。
-4. 选择 **Save draft**。此页面会检查每个条目并显示任何导出阻挡项。
-5. 选择 **Download index** 以取得 `skillshare-hub.json`。
-6. 将下载的文件 commit 到你自己的 Git 仓库，或上传到 HTTP 服务器。在页面中输入该位置，即可复制一条给接收者使用的 `skillshare hub add` 指令。
-
-下图的草稿中，有一个 skill 只有本地来源，因此在补上远程来源之前无法导出：
-
-![My hubs：一份 hub 草稿，其中一个条目无法导出](/img/hub-builder-draft.png)
+1. 为 Hub 填写 **名称** 和可选的 **说明**。名称会成为你分享的 `skillshare hub add` 指令中的 `--label`；两者都不会包含在导出的 index 中。
+2. 选择 **添加 skill**。在 **粘贴网址** 标签页输入 **Git 网址**，选择 **查找**，挑选 **版本**，再勾选要添加的 Skill。在 **已安装的** 标签页可挑选本机已安装的 Skill。也可以选择 **找不到？手动填写来源** 添加一行空白条目。
+3. 编辑每个 Skill 的 **名称**、**来源** 与 **版本**。例如，`runkids/demo-skills/skills/pdf` 用来指向远端仓库中的某个 Skill。展开该行可编辑 **技能说明**、**标签（逗号分隔）** 与 **技能选择器（可选）**，后者用于在包含多个 Skill 的仓库中选择 Skill。
+4. 选择 **保存**。此页面会检查每个条目；若有别人装不了的 Skill，编辑器会保持打开并标示该行。
+5. 选择 **分享 → 下载 skillshare-hub.json**。在用 **编辑** 修好被标示的 Skill 之前，无法下载。
+6. 将下载的文件 commit 到你自己的 Git 仓库，或上传到 HTTP 服务器。在 **分享** 对话框中粘贴该网址，即可复制一条给接收者使用的 `skillshare hub add` 指令。网址会随 Hub 一起保存。
 
 下载并不会发布任何内容。此目录只引用 Skill，不会打包其文件内容。来源验证只检查语法，不检查仓库是否存在或接收者是否具有权限。私有仓库仍然需要相应的访问权限。
 
-:::tip 本地 Skill 也可留在草稿中
-没有已知远端来源的已安装 Skill，仍会以本地来源的形式显示，你可以将它保存进草稿。导出会被阻挡，直到你提供远端安装来源或移除该条目；建构器绝不会默默地略过它。
+:::tip 本地 Skill 也可留在 Hub 中
+没有已知远端来源的已安装 Skill，仍会保留本地来源，你可以将它保存进 Hub。下载会被阻挡，直到你提供远端安装来源或移除该条目；建构器绝不会默默地略过它。
 :::
 
 ### 恢复或导入目录
 
-草稿保存在运行仪表板的机器上，位于当前设置文件旁的 `hub-drafts/` 目录。Global 与 project 设置各自有独立的草稿。重新加载前请先使用 **Save draft**。带着未保存的变更离开时会提示你是否放弃；来自过期窗口的保存会被拒绝，以免覆盖更新的版本。**Reload saved draft** 会取回最新版本。
+你自己的 Hub 会在 Hub 列表中标为 **我的**。它们保存在运行仪表板的机器上，位于当前设置文件旁的 `hub-drafts/` 目录。Global 与 project 设置各自有独立的 Hub。重新加载前请先选择 **保存**。编辑期间 Hub 列表会锁定；带着未保存的变更离开时会提示你是否放弃。来自过期窗口的保存会被拒绝，以免覆盖更新的版本。**取消** 会重新加载最新保存的版本。
 
-对既有的 v1 版 `skillshare-hub.json`（最大 4 MB）使用 **Import JSON**。不支持的版本与无效的字段类型会产生错误。显示名称相同的条目仍会各自独立保留。额外的 JSON 字段与 `skill` 选择器会被保留。若旧版 index 含有 `sourcePath`，相对来源会依照既有 index 读取器的方式解析为本地路径；在导出前必须先改为远端来源。
+对既有的 v1 版 `skillshare-hub.json`（最大 4 MB）使用 **添加或创建 Hub → 导入 skillshare-hub.json**。不支持的版本与无效的字段类型会产生错误。显示名称相同的条目仍会各自独立保留。额外的 JSON 字段与 `skill` 选择器会被保留。若旧版 index 含有 `sourcePath`，相对来源会依照既有 index 读取器的方式解析为本地路径；在导出前必须先改为远端来源。
 
-**Delete draft** 会要求确认，且只会删除该份草稿，不会卸载 Skill、删除已托管的 index，或移除已订阅的 Hub。
+**更多操作 → 删除 Hub** 会要求确认，且只会删除该 Hub，不会卸载 Skill、删除已托管的 index，或移除已订阅的 Hub。
 
 ### 搜索已分享的 Hub
 
-1. 打开 **Skills → Install**。
-2. 在搜索来源选择器中选择一个 Hub。可在安装对话框的 Hub 管理器中新增 URL、SSH 仓库或本地 index 路径。
+1. 打开 **Skill → 安装**，选择 **搜索**。
+2. 在 **来源** 选择器中选择一个 Hub。若要添加 URL、SSH 仓库或本地 index 路径，选择选择器旁的 **管理 Hub**，再在 Hubs 页面选择 **添加或创建 Hub → 添加已有的 Hub**。
 3. 搜索、预览并安装 Skill。
 
-已订阅的 Hub 来源会保存在当前的 skillshare 设置中，并与 CLI 共享。它们与 **My hubs** 中的草稿是分开的。
+你也可以在 Hubs 页面选择一个 Hub，直接过滤并安装其中的 Skill。已订阅的 Hub 来源会保存在当前的 skillshare 设置中，并与 CLI 共享。它们与你自己的 Hub 是分开的。
 
 既有的 `skillshare hub index` 指令与 `/api/hub/index` 端点会继续照旧生成 index，包含对本地来源的支持。上述可移植导出规则同样适用于仪表板中的建构器。
 
