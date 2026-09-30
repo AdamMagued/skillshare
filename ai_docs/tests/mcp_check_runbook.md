@@ -7,7 +7,14 @@ finding: an unset `fromEnv` variable, a command missing from `PATH`, a `.invalid
 unsynced targets, a client rule refusal, `targets: []`, and one `mcp.projects` root.
 Covers human output, the `--json` shape including `project`, `--no-dns`, name
 filtering, exit codes 0 and 1, and `GET /api/mcp/check` with and without `?dns=0`.
-No server is launched, no command is run, and nothing is synced.
+Steps 1–7 launch no server, run no command, and sync nothing.
+
+Steps 8–13 cover `--live` against a second config: tiny local stdio servers written as
+`sh` scripts (one answers `server/discover`, one only the `initialize` handshake, one
+never answers, one crashes), a local HTTP server that answers 401 with resource
+metadata, and an unreachable HTTP URL. They check that no server starts without
+`--live`, the `live` JSON object, the human output, the 401 warning, the timeout and
+that it leaves no process behind, and that values are redacted.
 
 ## Environment
 
@@ -24,7 +31,9 @@ Every step works from `$HOME` and points `SKILLSHARE_CONFIG` at
 `$HOME/mcp-check/config.yaml`. Never run these steps with the repository root as the
 working directory: the CLI would pick up the repository's `.skillshare/` as project
 mode. The check needs DNS only for Step 4; `.invalid` never resolves, online or not.
-Step 7 starts `skillshare ui` on port 47931; pick another free port if it is taken.
+Step 7 starts `skillshare ui` on port 47931 and Step 11 a Python HTTP server on port
+47932; pick other free ports if they are taken. Port 1 on 127.0.0.1 must refuse
+connections.
 
 ## Steps
 
@@ -203,9 +212,216 @@ Expected:
 - jq: .dns.summary == {"errors": 4, "warnings": 10}
 - jq: [.dns.servers[].findings[] | select(.check == "dns") | .subject] == ["mcp.skillshare.invalid"]
 
+### Step 8: Write the live config; without --live nothing starts
+
+Every script writes a marker file when it starts, so the step can prove that a
+check without `--live` starts none of them.
+
+```bash
+set -eu
+cd "$HOME"
+CASE="$HOME/mcp-check-live"
+rm -rf "$CASE"
+mkdir -p "$CASE/skills"
+export SKILLSHARE_CONFIG="$CASE/config.yaml"
+cat > "$CASE/tiny.sh" <<'SH'
+#!/bin/sh
+touch "$MARKER"
+while IFS= read -r line; do
+  id=$(printf '%s\n' "$line" | sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p')
+  case "$line" in
+    *'"server/discover"'*) printf '{"jsonrpc":"2.0","id":%s,"result":{"resultType":"complete","supportedVersions":["2026-07-28"],"capabilities":{"tools":{}},"_meta":{"io.modelcontextprotocol/serverInfo":{"name":"tiny","version":"0.1.0"}}}}\n' "$id" ;;
+    *'"tools/list"'*) printf '{"jsonrpc":"2.0","id":%s,"result":{"resultType":"complete","tools":[{"name":"echo","inputSchema":{"type":"object"}}]}}\n' "$id" ;;
+  esac
+done
+SH
+cat > "$CASE/legacy.sh" <<'SH'
+#!/bin/sh
+touch "$MARKER"
+while IFS= read -r line; do
+  id=$(printf '%s\n' "$line" | sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p')
+  case "$line" in
+    *'"notifications/initialized"'*) ;;
+    *'"method":"initialize"'*) printf '{"jsonrpc":"2.0","id":%s,"result":{"protocolVersion":"2025-11-25","capabilities":{"tools":{}},"serverInfo":{"name":"legacy","version":"0.9"}}}\n' "$id" ;;
+    *'"tools/list"'*) printf '{"jsonrpc":"2.0","id":%s,"result":{"tools":[{"name":"a"},{"name":"b"}]}}\n' "$id" ;;
+    *) printf '{"jsonrpc":"2.0","id":%s,"error":{"code":-32601,"message":"Method not found"}}\n' "$id" ;;
+  esac
+done
+SH
+cat > "$CASE/hang.sh" <<'SH'
+#!/bin/sh
+touch "$MARKER"
+trap '' TERM
+sleep 3001 &
+while :; do sleep 1; done
+SH
+cat > "$CASE/crash.sh" <<'SH'
+#!/bin/sh
+touch "$MARKER"
+echo "fatal: token $API_TOKEN rejected" >&2
+exit 3
+SH
+cat > "$SKILLSHARE_CONFIG" <<YAML
+source: $CASE/skills
+targets: {}
+mcp:
+  targets: [claude]
+  servers:
+    crash:
+      command: sh
+      args: [$CASE/crash.sh]
+      env:
+        MARKER: $CASE/started-crash
+        API_TOKEN: {fromEnv: SS_E2E_LIVE_TOKEN}
+    down:
+      url: http://127.0.0.1:1/mcp
+    hang:
+      command: sh
+      args: [$CASE/hang.sh]
+      env:
+        MARKER: $CASE/started-hang
+    legacy:
+      command: sh
+      args: [$CASE/legacy.sh]
+      env:
+        MARKER: $CASE/started-legacy
+    signin:
+      url: http://127.0.0.1:47932/mcp
+      bearerToken: {fromEnv: SS_E2E_LIVE_TOKEN}
+    tiny:
+      command: sh
+      args: [$CASE/tiny.sh]
+      env:
+        MARKER: $CASE/started-tiny
+YAML
+SS_E2E_LIVE_TOKEN=s3cr3t-live-e2e ss mcp check --json --no-dns -g > "$CASE/static.json"
+ls "$CASE" | grep -c '^started-' || true
+jq -c '{live: [.servers[] | select(has("live"))], checks: [.servers[].findings[].check] | unique}' "$CASE/static.json"
+```
+
+Expected:
+- exit_code: 0
+- regex: ^0$
+- jq: .live == [] and .checks == ["sync"]
+
+### Step 9: --live reports serverInfo, protocol and tools
+
+```bash
+set -eu
+cd "$HOME"
+export SKILLSHARE_CONFIG="$HOME/mcp-check-live/config.yaml"
+ss mcp check legacy tiny --live --json -g
+```
+
+Expected:
+- exit_code: 0
+- jq: [.servers[].name] == ["legacy", "tiny"]
+- jq: .servers[1].live == {"protocolVersion": "2026-07-28", "serverInfo": {"name": "tiny", "version": "0.1.0"}, "tools": 1}
+- jq: .servers[0].live == {"protocolVersion": "2025-11-25", "serverInfo": {"name": "legacy", "version": "0.9"}, "tools": 2}
+- jq: [.servers[].findings[] | select(.check == "live") | .level] == ["info", "info"]
+- jq: .summary.errors == 0
+
+### Step 10: Human output of a live probe
+
+```bash
+cd "$HOME"
+export SKILLSHARE_CONFIG="$HOME/mcp-check-live/config.yaml"
+NO_COLOR=1 ss mcp check tiny --live -g
+```
+
+Expected:
+- exit_code: 0
+- · responds: tiny 0.1.0, protocol 2026-07-28, 1 tool(s)
+- 1 server(s) checked: 0 error(s), 1 warning(s)
+
+### Step 11: 401 is a sign-in warning; an unreachable URL is an error
+
+```bash
+set -eu
+cd "$HOME"
+CASE="$HOME/mcp-check-live"
+export SKILLSHARE_CONFIG="$CASE/config.yaml"
+cat > "$CASE/signin.py" <<'PY'
+import http.server
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_POST(self):
+        self.send_response(401)
+        self.send_header("WWW-Authenticate", 'Bearer resource_metadata="http://127.0.0.1:47932/.well-known/oauth-protected-resource", scope="read"')
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+    def log_message(self, *args):
+        pass
+http.server.HTTPServer(("127.0.0.1", 47932), Handler).serve_forever()
+PY
+python3 "$CASE/signin.py" &
+PY_PID=$!
+trap 'kill "$PY_PID" 2>/dev/null || true' EXIT
+for _ in $(seq 1 50); do
+  curl -s -o /dev/null -X POST http://127.0.0.1:47932/mcp && break
+  sleep 0.1
+done
+SS_E2E_LIVE_TOKEN=s3cr3t-live-e2e ss mcp check down signin --live --json -g > "$CASE/http.json" || test $? -eq 1
+if grep -q s3cr3t-live-e2e "$CASE/http.json"; then echo "value leaked"; exit 1; fi
+cat "$CASE/http.json"
+```
+
+Expected:
+- exit_code: 0
+- jq: [.servers[].name] == ["down", "signin"]
+- jq: .servers[1].ok == true and (.servers[1] | has("live") | not)
+- jq: [.servers[1].findings[] | select(.check == "live")][0] == {"level": "warning", "check": "live", "target": "", "message": "sign-in required (HTTP 401): resource metadata at http://127.0.0.1:47932/.well-known/oauth-protected-resource; skillshare does not sign in", "subject": "http://127.0.0.1:47932/.well-known/oauth-protected-resource"}
+- jq: .servers[0].ok == false and ([.servers[0].findings[] | select(.check == "live")][0].message | startswith("live probe failed:") and contains("connection refused"))
+- jq: .summary.errors == 1
+
+### Step 12: The timeout stops the server and everything it started
+
+`hang.sh` ignores SIGTERM and starts `sleep 3001`, so only the process-group SIGKILL
+stops both.
+
+```bash
+set -eu
+cd "$HOME"
+CASE="$HOME/mcp-check-live"
+export SKILLSHARE_CONFIG="$CASE/config.yaml"
+START=$(date +%s)
+ss mcp check hang --live --timeout 2s --json -g > "$CASE/hang.json" || test $? -eq 1
+ELAPSED=$(( $(date +%s) - START ))
+test "$ELAPSED" -lt 8
+sleep 0.5
+# The brackets keep pgrep from matching this script's own command line.
+LEFT=$(pgrep -fc 'sleep 300[1]|hang[.]sh' || true)
+jq -c --arg left "$LEFT" '{left: $left, finding: [.servers[0].findings[] | select(.check == "live")][0]}' "$CASE/hang.json"
+```
+
+Expected:
+- exit_code: 0
+- jq: .left == "0"
+- jq: .finding == {"level": "error", "check": "live", "target": "", "message": "live probe failed: no answer within 2s"}
+
+### Step 13: A crash shows redacted stderr; a static error skips the probe
+
+```bash
+set -eu
+cd "$HOME"
+CASE="$HOME/mcp-check-live"
+export SKILLSHARE_CONFIG="$CASE/config.yaml"
+rm -f "$CASE/started-crash"
+SS_E2E_LIVE_TOKEN=s3cr3t-live-e2e ss mcp check crash --live --json -g > "$CASE/crash.json" || test $? -eq 1
+env -u SS_E2E_LIVE_TOKEN ss mcp check crash --live --json -g > "$CASE/skipped.json" || test $? -eq 1
+if grep -q s3cr3t-live-e2e "$CASE/crash.json"; then echo "value leaked"; exit 1; fi
+jq -n --slurpfile crash "$CASE/crash.json" --slurpfile skip "$CASE/skipped.json" '{crash: [$crash[0].servers[0].findings[] | select(.check == "live")][0], skip: [$skip[0].servers[0].findings[] | select(.check == "live")][0]}'
+```
+
+Expected:
+- exit_code: 0
+- jq: .crash.level == "error" and (.crash.message | contains("exit status 3")) and (.crash.message | endswith("stderr: fatal: token [redacted] rejected"))
+- jq: .skip == {"level": "info", "check": "live", "target": "", "message": "not probed live: fix the errors above first"}
+
 ## Pass Criteria
 
-- Steps 1–7 pass.
+- Steps 1–13 pass.
 - Errors exit 1 and warnings alone exit 0.
 - `project` appears only on the `mcp.projects` server and holds the expanded root.
-- No step prints the value of `SS_E2E_CHECK_TOKEN`.
+- No step prints the value of `SS_E2E_CHECK_TOKEN` or `SS_E2E_LIVE_TOKEN`.
+- Without `--live` no server starts; with it, stdio probes fall back to `initialize`,
+  a 401 is a warning, and a timed-out server leaves no process behind.
