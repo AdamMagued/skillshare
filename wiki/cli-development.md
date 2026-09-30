@@ -41,6 +41,7 @@ Most commands route through `parseModeArgs()` for global (`-g`) or project (`-p`
 - Preserve dispatch order: structured JSON → TUI when interactive and allowed → empty state → plain text.
 - Structured-output stdout must remain machine-readable; progress, spinners, and diagnostics must not contaminate JSON.
 - When adding or changing a flag, inspect `--help`, completions, website command documentation, and tests.
+- Completions are five hand-written scripts (`cmd/skillshare/completion_{bash,zsh,fish,powershell,nushell}.go`) that do not read the CLI's dispatch, so they drift silently. Any new or renamed command, subcommand, or flag must be added to all five in the same change; the literal-content check in `tests/integration/completion_test.go` should name it. Installed completions are a copy, so users only see changes after rerunning `skillshare completion <shell> --install`.
 - Noninteractive automation should use explicit flags. Never treat `--force` as a universal prompt bypass.
 
 ## Mutating Behavior
@@ -91,6 +92,6 @@ Sync is the main example: the CLI and the server both run per-target sync throug
 ## Completion Criteria
 
 - The failing test now passes, along with proportionate neighboring tests.
-- Handler split, dual-mode behavior, structured output, oplog, and Web API implications were reviewed.
+- Handler split, dual-mode behavior, structured output, oplog, Web API, and all five shell completions were reviewed.
 - Public behavior changes were synchronized after loading `documentation`.
 - Commands were verified inside the devcontainer using `testing` guidance.
