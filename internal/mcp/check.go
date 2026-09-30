@@ -18,6 +18,9 @@ type CheckFinding struct {
 	Check   string `json:"check"`
 	Target  string `json:"target"`
 	Message string `json:"message"`
+	// Subject is what the finding is about, for a client to phrase it: the variable name,
+	// command, or host. Never a variable's value.
+	Subject string `json:"subject,omitempty"`
 }
 
 // CheckServer holds the findings for one server; OK means none is an error.
@@ -165,7 +168,7 @@ func checkEnv(server Server, lookup func(string) (string, bool)) []CheckFinding 
 			return
 		}
 		if value, ok := lookup(v.FromEnv); !ok || value == "" {
-			out = append(out, CheckFinding{Level: "error", Check: "env", Message: fmt.Sprintf("%s reads %s, which is not set", field, v.FromEnv)})
+			out = append(out, CheckFinding{Level: "error", Check: "env", Subject: v.FromEnv, Message: fmt.Sprintf("%s reads %s, which is not set", field, v.FromEnv)})
 		}
 	}
 	for _, key := range sortedKeys(server.Env) {
@@ -188,7 +191,7 @@ func checkLaunch(server Server, opts CheckOptions) []CheckFinding {
 			_, err = opts.LookPath(command)
 		}
 		if err != nil {
-			return []CheckFinding{{Level: "error", Check: "command", Message: fmt.Sprintf("command %s was not found on PATH", server.Command)}}
+			return []CheckFinding{{Level: "error", Check: "command", Subject: server.Command, Message: fmt.Sprintf("command %s was not found on PATH", server.Command)}}
 		}
 		return nil
 	}
@@ -203,7 +206,7 @@ func checkLaunch(server Server, opts CheckOptions) []CheckFinding {
 	ctx, cancel := context.WithTimeout(context.Background(), dnsTimeout)
 	defer cancel()
 	if _, err := opts.LookupHost(ctx, host); err != nil {
-		return []CheckFinding{{Level: "warning", Check: "dns", Message: fmt.Sprintf("host %s did not resolve", host)}}
+		return []CheckFinding{{Level: "warning", Check: "dns", Subject: host, Message: fmt.Sprintf("host %s did not resolve", host)}}
 	}
 	return nil
 }

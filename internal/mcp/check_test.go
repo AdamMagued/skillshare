@@ -40,6 +40,16 @@ func findings(t *testing.T, report *CheckReport, name string) []CheckFinding {
 	return nil
 }
 
+// subjectOf is the subject of the first finding of that check, or "" when there is none.
+func subjectOf(list []CheckFinding, check string) string {
+	for _, f := range list {
+		if f.Check == check {
+			return f.Subject
+		}
+	}
+	return ""
+}
+
 func hasFinding(list []CheckFinding, level, check, target string) bool {
 	for _, f := range list {
 		if f.Level == level && f.Check == check && f.Target == target {
@@ -66,6 +76,9 @@ func TestCheckMissingEnvIsErrorWithoutValue(t *testing.T) {
 	if !hasFinding(list, "error", "env", "") || report.Servers[0].OK {
 		t.Fatalf("missing GH_TOKEN must be an error: %+v", list)
 	}
+	if got := subjectOf(list, "env"); got != "GH_TOKEN" {
+		t.Fatalf("subject = %q, want the variable name", got)
+	}
 	for _, f := range list {
 		if strings.Contains(f.Message, "TEAM_ID") || strings.Contains(f.Message, "secret-team") {
 			t.Fatalf("a set variable was reported: %+v", f)
@@ -84,6 +97,9 @@ func TestCheckCommandNotOnPath(t *testing.T) {
 	if !hasFinding(findings(t, report, "local"), "error", "command", "") {
 		t.Fatalf("unresolved command must be an error: %+v", report.Servers)
 	}
+	if got := subjectOf(findings(t, report, "local"), "command"); got != "no-such-mcp-binary" {
+		t.Fatalf("subject = %q, want the command", got)
+	}
 }
 
 func TestCheckUnresolvedHostIsWarningAndSkippable(t *testing.T) {
@@ -96,6 +112,9 @@ func TestCheckUnresolvedHostIsWarningAndSkippable(t *testing.T) {
 	}
 	if !hasFinding(findings(t, report, "docs"), "warning", "dns", "") || !report.Servers[0].OK {
 		t.Fatalf("unresolved host must be a warning only: %+v", report.Servers)
+	}
+	if got := subjectOf(findings(t, report, "docs"), "dns"); got != "mcp.skillshare.invalid" {
+		t.Fatalf("subject = %q, want the host", got)
 	}
 	opts.SkipDNS = true
 	opts.LookupHost = func(context.Context, string) ([]string, error) {

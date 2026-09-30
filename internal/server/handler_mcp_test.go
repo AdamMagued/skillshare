@@ -168,7 +168,7 @@ func TestMCPListIgnoresUnresolvableUnusedTarget(t *testing.T) {
 func TestMCPRoutesRejectRebindingHost(t *testing.T) {
 	s, _ := newTestServerWithExtras(t, nil, "")
 	s.addr = "127.0.0.1:19420"
-	routes := []string{"GET /api/mcp", "POST /api/mcp", "POST /api/mcp/preview", "POST /api/mcp/import", "POST /api/mcp/restore"}
+	routes := []string{"GET /api/mcp", "GET /api/mcp/check", "POST /api/mcp", "POST /api/mcp/preview", "POST /api/mcp/import", "POST /api/mcp/restore"}
 	for _, route := range routes {
 		method, path, _ := strings.Cut(route, " ")
 		req := httptest.NewRequest(method, path, strings.NewReader(`{}`))
