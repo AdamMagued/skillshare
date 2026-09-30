@@ -2,7 +2,8 @@
 
 Skillshare keeps MCP server definitions in one source and writes each Agent's native
 config file from it. It writes settings only: it never starts a server, checks
-connectivity, resolves a secret or copies OAuth credentials.
+connectivity, resolves a secret or copies OAuth credentials. The one exception is
+`mcp check --live`, which starts or calls servers only when asked.
 
 ## Commands
 
@@ -20,6 +21,7 @@ skillshare mcp remove docs --keep-files --no-tui     # Stop managing; Agent entr
 skillshare mcp restore BACKUP_ID --dry-run --json     # Preview entry-level restoration
 skillshare mcp restore BACKUP_ID --no-tui            # Apply restoration; source stays unchanged
 skillshare mcp check --json                          # Static check: variables, commands, DNS, sync state
+skillshare mcp check --live --timeout 30s --json     # Also start/call each server: serverInfo, protocol, tools
 ```
 
 ## Automation rules
@@ -37,10 +39,14 @@ skillshare mcp check --json                          # Static check: variables, 
   `--pi-options` or `-- command args`. Switching transport clears the fields of the other one.
 - Preview with `skillshare sync mcp --dry-run --json`, then apply with
   `skillshare sync mcp --revision <revision>` to reject a stale plan.
-- `mcp check [name...] [--json] [--no-dns]` is read-only and starts nothing. It exits 1
+- `mcp check [name...] [--json] [--no-dns]` is read-only; without `--live` it starts nothing. It exits 1
   on an error (unset `fromEnv` variable, command not on PATH, client rule, conflict);
   an unresolved host or an unsynced entry is only a warning. In global mode it also checks
   servers under `mcp.projects`; `--json` marks each with its `project` root.
+- `mcp check --live [--timeout 10s]` also starts each local server (your environment plus
+  its `env`) and POSTs to each remote one, skipping servers with a static error. A 401 is a
+  warning with the resource metadata URL; it never signs in. Use it only for trusted
+  servers. `--json` adds `live: {protocolVersion, serverInfo, tools}`. CLI only.
 - Noninteractive `import` without a name only lists candidates. Use `--replace` only
   when replacing is intended.
 - An `update` with the message `same settings, laid out one field per line` is a

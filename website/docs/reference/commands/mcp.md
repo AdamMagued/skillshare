@@ -21,6 +21,7 @@ skillshare mcp import docs --file ./provider.json --target claude
 skillshare mcp list --json
 skillshare mcp check
 skillshare mcp check docs --json --no-dns
+skillshare mcp check --live --timeout 30s
 skillshare mcp remove docs --sync
 skillshare mcp remove docs --keep-files
 skillshare mcp restore BACKUP_ID --dry-run
@@ -47,6 +48,8 @@ skillshare sync --all
 | `--dry-run`, `-n` | Preview without saving or writing native configuration |
 | `--json` | Structured output; sync/preview reports contain names, paths and actions, not server values |
 | `--no-dns` | With `check`: skip the host lookup of remote servers. See [below](#check-servers-before-an-agent-starts-them) |
+| `--live` | With `check`: also start each local server and call each remote one. See [below](#probe-servers-live) |
+| `--timeout DURATION` | With `check --live`: time limit for each server's probe, such as `30s`; default `10s` |
 | `--no-tui` | Disable interactive menus; also disabled by `tui: false`, `--json`, or non-terminal input/output |
 | `--revision ID` | Require a matching preview for add/import/remove or `sync mcp` |
 | `--global`, `-g` | Use global Skillshare configuration |
@@ -598,7 +601,7 @@ skillshare mcp check --no-dns
 source, or only the named ones. In the global config it also checks the servers of
 every root under [`mcp.projects`](#manage-several-projects-from-the-global-config),
 with each Agent's rules and sync state read for that root. It is read-only: it never starts a server, sends an
-HTTP request, runs a command or writes a file.
+HTTP request, runs a command or writes a file, unless you add [`--live`](#probe-servers-live).
 
 | Check | Level |
 |---|---|
@@ -651,11 +654,13 @@ With `--json`, the report has this shape:
 }
 ```
 
-`check` is one of `env`, `command`, `url`, `dns`, `client-rule`, `sync` or `targets`.
+`check` is one of `env`, `command`, `url`, `dns`, `client-rule`, `sync`, `targets` or
+`live`.
 `target` names the Agent or account, and is empty when the finding is about the
 server itself.
 `subject` names the variable, command or host for `env`, `command` and `dns`
-findings, and is omitted otherwise.
+findings, the name a server reports for a successful `live` probe, and the resource
+metadata URL of a `live` sign-in warning; it is omitted otherwise.
 `project` is the server's `mcp.projects` root as an absolute path (a leading `~` is
 expanded), and is omitted for a global server. `summary` counts every server in the
 report, project servers included.
@@ -666,6 +671,70 @@ under its server, and keeps nothing after the page reloads. The MCP page lists g
 servers only, so its summary and rows leave project servers out, even one that shares
 a global server's name; check those with the CLI. Variables are read from
 the terminal that started `skillshare ui`.
+
+### Probe servers live {#probe-servers-live}
+
+```bash
+skillshare mcp check --live
+skillshare mcp check docs --live --timeout 30s --json
+```
+
+`--live` runs the static checks first, then contacts each selected server that has no
+error. A server with an error, or a disabled entry, is not contacted; an `info` finding
+says why.
+
+- **Local (stdio) servers.** Skillshare starts `command` with `args` in your current
+  environment, plus the server's `env` with each `fromEnv` value read from your shell.
+  A project server starts in its project folder, a global server in the current
+  directory. This runs the server's code on your machine as an Agent would, so use
+  `--live` only for servers you trust. Skillshare sends `server/discover`. A server that
+  answers with an error that is not an MCP protocol error, or does not answer within a
+  third of the timeout, is treated as older than MCP 2026-07-28 and gets the
+  `initialize` handshake instead. Skillshare then calls `tools/list` to count the tools
+  and stops the server: it closes stdin, then sends SIGTERM and then SIGKILL to the
+  server's process group. On Windows it terminates the process.
+- **Remote (Streamable HTTP) servers.** Skillshare POSTs `server/discover` with the
+  server's `headers` and `bearerToken`, and reads a JSON or an SSE response. A `400`,
+  `404` or `405` without an MCP error falls back to `initialize`. A `401` is a warning,
+  "sign-in required", with the resource metadata URL from the `WWW-Authenticate`
+  header. Skillshare never signs in or starts OAuth.
+
+Each server has one time limit for its whole probe: 10 seconds, or `--timeout` (such as
+`30s` or `1m`). Up to four servers are probed at once. `--timeout` without `--live` is
+an error.
+
+| Result | Level |
+|---|---|
+| The server answered: its name and version, protocol version and number of tools | info |
+| A remote server needs sign-in (HTTP 401) | warning |
+| The command could not start, exited early, or did not answer in time | error |
+| A protocol error, an unsupported protocol version, or any other HTTP status | error |
+
+When a local server fails, the message ends with up to five lines of its stderr. The
+values of `env`, `headers` and `bearerToken` are removed from every message; values
+shorter than four characters are left as they are. Values are passed as written:
+Skillshare never runs a Pi `!command` value and does not read `piOptions`. The exit
+code follows the same rule, 1 when any error is found. `--live` writes no file and no
+operation log entry.
+
+With `--json`, a server that answered also gets a `live` object:
+
+```json
+{
+  "name": "docs",
+  "ok": true,
+  "findings": [
+    { "level": "info", "check": "live", "target": "", "message": "responds: docs-server 1.4.0, protocol 2026-07-28, 12 tool(s)", "subject": "docs-server" }
+  ],
+  "live": { "protocolVersion": "2026-07-28", "serverInfo": { "name": "docs-server", "version": "1.4.0" }, "tools": 12 }
+}
+```
+
+`serverInfo` is what the server says about itself; nothing verifies it. `live` is
+omitted when the server was not probed or the probe failed.
+
+The dashboard's **Check** button and its API run the static check only; `--live` is
+available in the CLI only.
 
 ## Stop managing a server {#stop-managing-a-server}
 
@@ -744,7 +813,8 @@ and writes no files until you choose for that entry:
   proxy, MCP requests return 403, because DNS rebinding attacks always use a
   domain name.
 - Credentials use environment references; no secret store, OAuth session sync,
-  runtime health check, package installation, gateway, registry or plugin sync.
+  continuous health monitoring, package installation, gateway, registry or plugin sync.
+  `mcp check --live` is the only command that starts a server or calls one.
 - VS Code Insiders, custom profiles, remote workspaces and legacy SSE are not
   supported in this version.
 - VS Code does not currently substitute `${env:VARIABLE}` inside `headers`
