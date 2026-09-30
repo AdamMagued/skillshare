@@ -144,6 +144,54 @@ func TestMCPImportFromOtherAgentCanChoosePiMode(t *testing.T) {
 	}
 }
 
+func TestMCPAddDefaultsPiToBuiltin(t *testing.T) {
+	for _, tc := range []struct {
+		name, want string
+		args       []string
+	}{
+		{"explicit target", "builtin", []string{"--target", "pi"}},
+		{"inherited target", "builtin", nil},
+		{"chosen mode kept", "pi-mcp-adapter", []string{"--target", "pi", "--pi-extension", "pi-mcp-adapter"}},
+		{"no Pi", "", []string{"--target", "claude"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := mcpTUIService(t)
+			if err := os.WriteFile(s.ConfigPath, []byte("mcp: {targets: [pi], servers: {}}\n"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			o, err := parseMCPOptions(append([]string{"docs", "--url", "https://example.com/mcp", "--no-tui"}, tc.args...))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err = runMCPAdd(s, o); err != nil {
+				t.Fatal(err)
+			}
+			source, err := mcp.LoadSource(s.ConfigPath)
+			if err != nil || source.Servers["docs"].PiExtension != tc.want {
+				t.Fatalf("%+v %v", source.Servers["docs"], err)
+			}
+		})
+	}
+}
+
+func TestMCPImportIntoPiDefaultsToBuiltin(t *testing.T) {
+	s := mcpTUIService(t)
+	if err := os.WriteFile(filepath.Join(s.Home, ".claude.json"), []byte(`{"mcpServers":{"docs":{"command":"docs"}}}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	o, err := parseMCPOptions([]string{"docs", "--from", "claude", "--target", "pi", "--no-tui"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = runMCPImport(s, o); err != nil {
+		t.Fatal(err)
+	}
+	source, err := mcp.LoadSource(s.ConfigPath)
+	if err != nil || source.Servers["docs"].PiExtension != "builtin" {
+		t.Fatalf("%+v %v", source.Servers["docs"], err)
+	}
+}
+
 func TestMCPPiCLI(t *testing.T) {
 	s := mcpTUIService(t)
 	o, err := parseMCPOptions([]string{"docs", "--target", "pi", "--pi-extension", "pi-mcp-extension", "--url", "https://example.com/mcp", "--no-tui"})

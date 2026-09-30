@@ -96,6 +96,24 @@ func agentFieldsChanged(target string, current, want map[string]any) bool {
 	return false
 }
 
+// DefaultPiExtension gives a new server that reaches Pi, or an account of Pi, the built-in
+// mode when none was chosen. Other servers' modes are not consulted.
+func (s *Source) DefaultPiExtension(server *Server) {
+	if server.PiExtension != "" {
+		return
+	}
+	targets := server.Targets
+	if targets == nil {
+		targets = s.Targets
+	}
+	for _, target := range targets {
+		if target == "pi" || s.Accounts[target].Agent == "pi" {
+			server.PiExtension = "builtin"
+			return
+		}
+	}
+}
+
 // Pi's extensions differ in file, transport and credential syntax.
 // Sync config only: installing or starting either extension remains explicit.
 func renderPi(s Server) (map[string]any, error) {

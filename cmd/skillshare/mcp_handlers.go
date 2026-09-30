@@ -32,6 +32,10 @@ func runMCPAdd(service *mcp.Service, o mcpOptions) error {
 	if _, exists := source.Servers[o.name]; exists && !o.replace {
 		return fmt.Errorf("MCP %s already exists; use --replace to explicitly replace its source definition", o.name)
 	}
+	// A switch-only entry takes the mode of the server it turns off.
+	if !server.Disabled {
+		source.DefaultPiExtension(&server)
+	}
 	return finishMCPMutation(service, mcp.Mutation{Name: o.name, Server: &server}, o, time.Now())
 }
 
@@ -146,6 +150,7 @@ func runMCPImport(service *mcp.Service, o mcpOptions) error {
 		if o.piExtension != "" {
 			c.Server.PiExtension = o.piExtension
 		}
+		source.DefaultPiExtension(&c.Server)
 		selectedTargets := c.Server.Targets
 		if selectedTargets == nil {
 			selectedTargets = source.Targets

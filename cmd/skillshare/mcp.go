@@ -335,7 +335,7 @@ Commands:
   restore [id]      Browse backups, preview and restore Agent entries
 
 Options:
-  --pi-extension <mode>     builtin (Pi >= 0.99.0), pi-mcp-adapter or pi-mcp-extension
+  --pi-extension <mode>     builtin (Pi >= 0.99.0; default for a new server), pi-mcp-adapter or pi-mcp-extension
   --direct-tools <value>    pi-mcp-adapter only: true, false, search, or tool names separated by commas
   --pi-options <json>       builtin or adapter: other per-server fields as a JSON object
   --pi-options-prune        Remove cleared Pi fields only if owned and unchanged (=false disables)
