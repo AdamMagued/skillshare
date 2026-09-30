@@ -60,6 +60,24 @@ func TestCompletion_Nushell_OutputsScript(t *testing.T) {
 	result.AssertOutputContains(t, "export extern \"skillshare\"")
 }
 
+func TestCompletion_MCPCheck_AllShells(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	for shell, subcommands := range map[string]string{
+		"bash":       "add check import list remove restore",
+		"zsh":        "(add check edit import list remove restore)",
+		"fish":       "-a 'add check import list remove restore'",
+		"powershell": "@{ Name = 'check'; Desc = 'MCP check' }",
+		"nushell":    "[add check import list remove restore]",
+	} {
+		result := sb.RunCLI("completion", shell)
+		result.AssertSuccess(t)
+		result.AssertOutputContains(t, subcommands)
+		result.AssertOutputContains(t, "no-dns")
+	}
+}
+
 func TestCompletion_UnsupportedShell_Errors(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

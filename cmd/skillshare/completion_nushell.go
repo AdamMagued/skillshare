@@ -46,12 +46,16 @@ def "nu-complete skillshare plugin" [] {
     [add discover import list inspect sync check update enable disable remove]
 }
 
+def "nu-complete skillshare mcp" [] {
+    [add check import list remove restore]
+}
+
 def "nu-complete skillshare plugin-target" [] {
     [claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin pi opencode]
 }
 
 export extern "skillshare mcp" [
-    command?: string
+    command?: string@"nu-complete skillshare mcp"
     name?: string
     --pi-extension: string # builtin, pi-mcp-adapter or pi-mcp-extension
     --direct-tools: string # pi-mcp-adapter only: true, false, search or tool names
@@ -66,6 +70,7 @@ export extern "skillshare mcp" [
     --replace
     --dry-run(-n)
     --json
+    --no-dns # Skip host lookups
     --no-tui
     --project(-p)
     --global(-g)

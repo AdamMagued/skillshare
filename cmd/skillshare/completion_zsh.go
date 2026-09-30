@@ -90,7 +90,7 @@ _skillshare() {
                     ;;
                 mcp)
                     _arguments \
-                        '1:command:(add edit import list remove restore)' \
+                        '1:command:(add check edit import list remove restore)' \
                         '--pi-extension[Pi MCP mode]:extension:(builtin pi-mcp-adapter pi-mcp-extension)' \
                         '--direct-tools[pi-mcp-adapter direct tools: true, false, search or tool names]:value:(true false search)' \
                         '--pi-options[builtin or adapter: other per-server fields as JSON]:json:' \
@@ -104,6 +104,7 @@ _skillshare() {
                         '--revision[Preview revision]:revision:' \
                         '--dry-run[Preview changes]' \
                         '--json[JSON output]' \
+                        '--no-dns[Skip host lookups]' \
                         '--no-tui[Disable interactive menus]' \
                         $global_flags \
                         '--help[Show help]'

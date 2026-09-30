@@ -33,7 +33,7 @@ _skillshare() {
     local uninstall_flags="--all --force -f --dry-run -n --json --group -G --help -h"
     local list_flags="--verbose -v --json -j --no-tui --type -t --status --sort -s --all --help -h"
     local sync_flags="--all --dry-run -n --force -f --json --help -h"
-    local mcp_flags="--pi-extension --direct-tools --pi-options --pi-options-prune --url --target --from --file --sync --replace --revision --dry-run -n --json --help -h"
+    local mcp_flags="--pi-extension --direct-tools --pi-options --pi-options-prune --url --target --from --file --sync --replace --revision --dry-run -n --json --no-dns --help -h"
     local diff_flags="--no-tui --patch --stat --json --help -h"
     local backup_flags="--list -l --cleanup -c --dry-run -n --target -t --help -h"
     local restore_flags="--from -f --force --dry-run -n --no-tui --help -h"
@@ -168,7 +168,7 @@ _skillshare() {
         list)       COMPREPLY=($(compgen -W "${list_flags} ${global_flags}" -- "${cur}")) ;;
         sync)       COMPREPLY=($(compgen -W "${sync_flags} ${global_flags}" -- "${cur}")) ;;
         plugin)     COMPREPLY=($(compgen -W "add discover import list inspect sync check update enable disable remove --target --from --plugin --name --source-ref --entry --revision --dry-run --json --no-tui ${global_flags}" -- "${cur}")) ;;
-        mcp)        COMPREPLY=($(compgen -W "add import list remove restore ${mcp_flags} ${global_flags}" -- "${cur}")) ;;
+        mcp)        COMPREPLY=($(compgen -W "add check import list remove restore ${mcp_flags} ${global_flags}" -- "${cur}")) ;;
         status)     COMPREPLY=($(compgen -W "${global_flags}" -- "${cur}")) ;;
         diff)       COMPREPLY=($(compgen -W "${diff_flags} ${global_flags}" -- "${cur}")) ;;
         backup)     COMPREPLY=($(compgen -W "${backup_flags} ${global_flags}" -- "${cur}")) ;;

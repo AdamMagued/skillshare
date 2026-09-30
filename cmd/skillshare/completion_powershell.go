@@ -43,6 +43,14 @@ $_skillshareCompleter = {
             @{ Name = 'version'; Desc = 'Show version' }
             @{ Name = 'help'; Desc = 'Show help' }
         )
+        'mcp' = @(
+            @{ Name = 'add'; Desc = 'MCP add' }
+            @{ Name = 'check'; Desc = 'MCP check' }
+            @{ Name = 'import'; Desc = 'MCP import' }
+            @{ Name = 'list'; Desc = 'MCP list' }
+            @{ Name = 'remove'; Desc = 'MCP remove' }
+            @{ Name = 'restore'; Desc = 'MCP restore' }
+        )
         'plugin' = @(
             @{ Name = 'add'; Desc = 'Plugin add' }
             @{ Name = 'discover'; Desc = 'Plugin discover' }
@@ -127,7 +135,7 @@ $_skillshareCompleter = {
         'enable' = '--dry-run', '-n', '--help', '-h', '--project', '-p', '--global', '-g'
         'disable' = '--dry-run', '-n', '--help', '-h', '--project', '-p', '--global', '-g'
         'analyze' = '--no-tui', '--json', '--help', '-h', '--project', '-p', '--global', '-g'
-        'mcp' = '--pi-extension', '--direct-tools', '--pi-options', '--pi-options-prune', '--target', '--from', '--url', '--file', '--sync', '--replace', '--revision', '--dry-run', '--json', '--no-tui', '--help', '--project', '--global'
+        'mcp' = '--pi-extension', '--direct-tools', '--pi-options', '--pi-options-prune', '--target', '--from', '--url', '--file', '--sync', '--replace', '--revision', '--dry-run', '--json', '--no-dns', '--no-tui', '--help', '--project', '--global'
         'plugin' = '--target', '--from', '--plugin', '--name', '--source-ref', '--entry', '--revision', '--dry-run', '--json', '--no-tui', '--help', '--project', '--global'
         'extras' = '--help', '-h', '--project', '-p', '--global', '-g'
         'completion' = '--install', '--help', '-h'
