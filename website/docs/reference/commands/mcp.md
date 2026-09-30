@@ -595,7 +595,9 @@ skillshare mcp check --no-dns
 ```
 
 `mcp check` answers "will this server work as synced?" for every server in the
-source, or only the named ones. It is read-only: it never starts a server, sends an
+source, or only the named ones. In the global config it also checks the servers of
+every root under [`mcp.projects`](#manage-several-projects-from-the-global-config),
+with each Agent's rules and sync state read for that root. It is read-only: it never starts a server, sends an
 HTTP request, runs a command or writes a file.
 
 | Check | Level |
@@ -610,7 +612,18 @@ HTTP request, runs a command or writes a file.
 
 Variable values are never printed. The command exits with 1 when any error is found
 and 0 otherwise; warnings never fail it. An unknown server name is an error that
-lists the known names. Servers under `mcp.projects` are not checked.
+lists the known names. A name selects every server of that name, globally and in
+each project, and the known names include project servers.
+
+In the terminal, a project server's heading names its project:
+
+```text
+✓ docs
+  · claude: in sync
+✗ docs  (project ~/work/app)
+  ✗ command no-such-mcp-binary was not found on PATH
+  ! claude: not synced yet; run skillshare sync mcp
+```
 
 With `--json`, the report has this shape:
 
@@ -624,6 +637,14 @@ With `--json`, the report has this shape:
         { "level": "error", "check": "env", "target": "", "message": "bearerToken reads DOCS_TOKEN, which is not set", "subject": "DOCS_TOKEN" },
         { "level": "warning", "check": "sync", "target": "claude", "message": "not synced yet; run skillshare sync mcp" }
       ]
+    },
+    {
+      "name": "docs",
+      "project": "/home/me/work/app",
+      "ok": true,
+      "findings": [
+        { "level": "info", "check": "sync", "target": "claude", "message": "in sync" }
+      ]
     }
   ],
   "summary": { "errors": 1, "warnings": 1 }
@@ -635,10 +656,15 @@ With `--json`, the report has this shape:
 server itself.
 `subject` names the variable, command or host for `env`, `command` and `dns`
 findings, and is omitted otherwise.
+`project` is the server's `mcp.projects` root as an absolute path (a leading `~` is
+expanded), and is omitted for a global server. `summary` counts every server in the
+report, project servers included.
 
 In the dashboard, the **Check** button on the MCP page runs the same check. It runs
 only when clicked, shows a summary above the server list and each error or warning
-under its server, and keeps nothing after the page reloads. Variables are read from
+under its server, and keeps nothing after the page reloads. The MCP page lists global
+servers only, so its summary and rows leave project servers out, even one that shares
+a global server's name; check those with the CLI. Variables are read from
 the terminal that started `skillshare ui`.
 
 ## Stop managing a server {#stop-managing-a-server}

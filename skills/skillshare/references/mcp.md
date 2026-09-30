@@ -39,7 +39,8 @@ skillshare mcp check --json                          # Static check: variables, 
   `skillshare sync mcp --revision <revision>` to reject a stale plan.
 - `mcp check [name...] [--json] [--no-dns]` is read-only and starts nothing. It exits 1
   on an error (unset `fromEnv` variable, command not on PATH, client rule, conflict);
-  an unresolved host or an unsynced entry is only a warning.
+  an unresolved host or an unsynced entry is only a warning. In global mode it also checks
+  servers under `mcp.projects`; `--json` marks each with its `project` root.
 - Noninteractive `import` without a name only lists candidates. Use `--replace` only
   when replacing is intended.
 - An `update` with the message `same settings, laid out one field per line` is a
