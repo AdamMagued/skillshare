@@ -6,6 +6,8 @@ import { mcpOffTargets } from '../../api/mcp';
 import { describeEndpoint, writes, type MatrixRow } from './mcpView';
 import { TargetPill, TargetToggles } from './TargetPicker';
 import { useDirectToolsLabel } from './MCPProjectSettings';
+import type { MCPCheckFinding } from '../../api/mcpCheck';
+import MCPCheckFindings, { MCPCheckTag } from './MCPCheckFindings';
 
 interface Props {
   rows: MatrixRow[];
@@ -17,13 +19,15 @@ interface Props {
   offTargets?: readonly string[];
   /** Holds the toggles while a save is on its way: each sends the revision it previewed. */
   disabled?: boolean;
+  /** The last check's errors and warnings, by server name. */
+  problems?: Record<string, MCPCheckFinding[]>;
 }
 
 /**
  * One row per server. The agents it writes to are chips inside the row, not columns:
  * the list grows downwards as more CLIs gain MCP support, so it never scrolls sideways.
  */
-export default function MCPServerList({ rows, targets, targetsOf, onToggle, onMenu, offTargets = mcpOffTargets, disabled = false }: Props) {
+export default function MCPServerList({ rows, targets, targetsOf, onToggle, onMenu, offTargets = mcpOffTargets, disabled = false, problems = {} }: Props) {
   const t = useT();
   const [open, setOpen] = useState<string[]>([]);
   const directToolsLabel = useDirectToolsLabel();
@@ -48,6 +52,7 @@ export default function MCPServerList({ rows, targets, targetsOf, onToggle, onMe
                   <span title={row.name} className={`truncate font-mono font-semibold ${row.server ? '' : 'text-ink-3 line-through'}`}>{row.name}</span>
                   {row.server && Object.values(row.cells).some(writes) && <span className="ss-tag warn">{t('plugins.pending')}</span>}
                   {row.server && !row.server.disabled && row.server.targets?.length === 0 && <span className="ss-tag">{t('plugins.noAgentsYet')}</span>}
+                  {problems[row.name] && <MCPCheckTag findings={problems[row.name]} />}
                   {!row.server && <span className="ss-st bad">{t('mcp.removedFromSource')}</span>}
                 </span>
                 {/* Transport and endpoint on one quiet line, the same shape as a plugin row. */}
@@ -73,6 +78,7 @@ export default function MCPServerList({ rows, targets, targetsOf, onToggle, onMe
                 </>
               )}
             </div>
+            {problems[row.name] && <MCPCheckFindings findings={problems[row.name]} />}
             {expanded && row.server && (
               <div className="ss-r fold !min-h-0 flex-wrap gap-x-6 gap-y-3.5 !py-3.5">
                 <TargetToggles offered={offered} selected={selected} http={http} disabled={disabled} onToggle={(target, on) => onToggle(row.name, target, on)} />
