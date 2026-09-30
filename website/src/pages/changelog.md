@@ -53,7 +53,7 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ### Bug Fixes
 
-- **Script installs no longer need administrator access** — `install.sh` now installs to `~/.local/bin` by default and prints PATH setup only when that folder is not on your PATH. `INSTALL_DIR` still overrides the location, and an existing installation is upgraded where it is.
+- **Script installs no longer need administrator access** — `install.sh` now installs to `~/.local/bin` by default; `INSTALL_DIR` still overrides the location. When that folder is not on your PATH, or an older `skillshare` such as `/usr/local/bin/skillshare` comes first, the installer says so and prints the PATH line to add. Remove the old copy (`sudo rm /usr/local/bin/skillshare`) so the new one runs.
 - **Stop managing an MCP server works in the dashboard** — **Stop managing** in the MCP remove dialog always failed with a "changed since preview" error. It now succeeds, and its message says the entries stay in the Agent files.
 - **Beautify unfolds one-line YAML** — in **Settings → Files**, **Beautify** left a section squeezed onto one line, such as `servers: {docs: {url: …}}`, unchanged and said there was nothing to tidy. It now unfolds nested one-line sections; short lists such as `targets: [claude, codex]` stay on one line.
 
