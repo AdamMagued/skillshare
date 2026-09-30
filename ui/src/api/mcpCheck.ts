@@ -8,7 +8,8 @@ export interface MCPCheckFinding {
   message: string;
   subject?: string;
 }
-export interface MCPCheckServer { name: string; ok: boolean; findings: MCPCheckFinding[] }
+/** `project` is the mcp.projects root a server belongs to; absent for a global server. */
+export interface MCPCheckServer { name: string; project?: string; ok: boolean; findings: MCPCheckFinding[] }
 export interface MCPCheckReport { servers: MCPCheckServer[]; summary: { errors: number; warnings: number } }
 
 export const mcpCheckApi = {

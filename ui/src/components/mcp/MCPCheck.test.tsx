@@ -4,6 +4,7 @@ import type { MCPCheckFinding, MCPCheckReport } from '../../api/mcpCheck';
 import { I18nProvider } from '../../i18n';
 import MCPCheckFindings, { MCPCheckTag } from './MCPCheckFindings';
 import MCPCheckNote from './MCPCheckNote';
+import { problemsByServer } from './useMCPCheck';
 
 const env: MCPCheckFinding = { level: 'error', check: 'env', target: '', subject: 'CLICKUP_TOKEN', message: 'bearerToken reads CLICKUP_TOKEN, which is not set' };
 const rule: MCPCheckFinding = { level: 'error', check: 'client-rule', target: 'claude-desktop', message: 'claude-desktop accepts stdio servers only' };
@@ -19,9 +20,20 @@ describe('MCP check note', () => {
     expect(screen.getByText('2 servers have problems').closest('.ss-note')).toHaveTextContent('2 error, 1 warning · checked just now');
   });
 
+  it('counts only the global servers the page lists', () => {
+    note(report([{ name: 'docs', ok: true, findings: [] }, { name: 'docs', project: '/work/app', ok: false, findings: [env, shadow] }], 1, 1));
+    expect(screen.getByText('1 server has no problems').closest('.ss-note')).toHaveClass('inf');
+  });
+
   it('says every server is fine when there is no error or warning', () => {
     note(report([{ name: 'a', ok: true, findings: [] }, { name: 'b', ok: true, findings: [{ level: 'info', check: 'sync', target: 'claude', message: 'in sync' }] }]));
     expect(screen.getByText('2 servers have no problems').closest('.ss-note')).toHaveClass('inf');
+  });
+});
+
+describe('MCP check problems by server', () => {
+  it('keeps a project server off the global row of the same name', () => {
+    expect(problemsByServer(report([{ name: 'docs', ok: true, findings: [] }, { name: 'docs', project: '/work/app', ok: false, findings: [env] }]))).toEqual({});
   });
 });
 
