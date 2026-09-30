@@ -72,7 +72,7 @@ func TestCompletion_MCPCheck_AllShells(t *testing.T) {
 	for shell, subcommands := range map[string]string{
 		"bash":       "add check import list remove restore",
 		"zsh":        "(add check edit import list remove restore)",
-		"fish":       "-a 'add check import list remove restore'",
+		"fish":       "-a 'add check edit import list remove restore'",
 		"powershell": "@{ Name = 'check'; Desc = 'MCP check' }",
 		"nushell":    "[add check import list remove restore]",
 	} {
@@ -183,8 +183,9 @@ func TestCompletion_Fish_CompletesMCPCheck(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	assertCandidates(t, completeIn(t, "fish", "--no-config", "-c", "source "+script+"; complete -C 'skillshare mcp '"), "add", "check", "import", "list", "remove", "restore")
+	assertCandidates(t, completeIn(t, "fish", "--no-config", "-c", "source "+script+"; complete -C 'skillshare mcp '"), "add", "check", "edit", "import", "list", "remove", "restore")
 	assertCandidates(t, completeIn(t, "fish", "--no-config", "-c", "source "+script+"; complete -C 'skillshare mcp check --'"), "--no-dns", "--live", "--timeout")
+	assertCandidates(t, completeIn(t, "fish", "--no-config", "-c", "source "+script+"; complete -C 'skillshare mcp add --'"), "--url", "--target", "--sync", "--replace", "--dry-run", "--json", "--no-tui")
 }
 
 func TestCompletion_Zsh_CompletesMCPCheck(t *testing.T) {
