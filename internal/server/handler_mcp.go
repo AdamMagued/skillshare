@@ -15,10 +15,13 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/mcp"
+	syncpkg "skillshare/internal/sync"
 )
 
 func (s *Server) mcpService() *mcp.Service {
-	return &mcp.Service{ConfigPath: s.configPath(), ProjectRoot: s.projectRoot, StateDir: config.StateDir(), ConfigDirs: mcp.ConfigDirsFromEnv()}
+	return &mcp.Service{ConfigPath: s.configPath(), ProjectRoot: s.projectRoot, StateDir: config.StateDir(), ConfigDirs: mcp.ConfigDirsFromEnv(), BackupSource: func(path string) (string, error) {
+		return syncpkg.StoreBackup(path, syncpkg.BackupReasonMigrate)
+	}}
 }
 
 type mcpRequest struct {
@@ -117,24 +120,35 @@ func (s *Server) handleMCPRender(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 400, "server is required")
 		return
 	}
-	service := s.mcpService()
-	if body.Mutation.Project != "" {
-		if service.ProjectRoot != "" {
-			writeError(w, 400, "MCP project overrides are not available in project mode; omit mutation.project")
-			return
-		}
-		source, err := mcp.LoadSource(service.ConfigPath)
-		if err != nil {
-			writeError(w, 400, err.Error())
-			return
-		}
-		if _, ok := source.Projects[body.Mutation.Project]; !ok {
-			writeError(w, 400, "unknown MCP project")
-			return
-		}
-		service.ProjectRoot = body.Mutation.Project
+	service, ok := s.mcpProjectService(w, body.Mutation.Project)
+	if !ok {
+		return
 	}
 	writeJSON(w, map[string]any{"rendered": service.RenderNative(body.Mutation.Name, *body.Mutation.Server)})
+}
+
+// mcpProjectService is the service for one mcp.projects root, or for this scope when
+// project is empty. It writes the error and reports false when the root is not configured.
+func (s *Server) mcpProjectService(w http.ResponseWriter, project string) (*mcp.Service, bool) {
+	service := s.mcpService()
+	if project == "" {
+		return service, true
+	}
+	if service.ProjectRoot != "" {
+		writeError(w, 400, "MCP project overrides are not available in project mode; omit mutation.project")
+		return nil, false
+	}
+	source, err := mcp.LoadSource(service.ConfigPath)
+	if err != nil {
+		writeError(w, 400, err.Error())
+		return nil, false
+	}
+	if _, ok := source.Projects[project]; !ok {
+		writeError(w, 400, "unknown MCP project")
+		return nil, false
+	}
+	service.ProjectRoot = project
+	return service, true
 }
 
 func (s *Server) handleMCPConfigure(w http.ResponseWriter, r *http.Request) {
@@ -184,9 +198,11 @@ func (s *Server) handleMCPConfigure(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleMCPImport(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		From        string `json:"from"`
-		Content     string `json:"content"`
-		Name        string `json:"name"`
+		From    string `json:"from"`
+		Content string `json:"content"`
+		Name    string `json:"name"`
+		// PiExtension picks one of Pi's files: pi-mcp-adapter for the adapter's, anything
+		// else for mcp.json. Pasted content ignores it.
 		PiExtension string `json:"piExtension"`
 		// Root reads the target's file in that mcp.projects root instead of this scope.
 		Root string `json:"root"`
@@ -199,10 +215,6 @@ func (s *Server) handleMCPImport(w http.ResponseWriter, r *http.Request) {
 	var candidates []mcp.Candidate
 	var err error
 	if body.Content != "" {
-		if body.PiExtension != "" {
-			writeError(w, 400, "Pi import mode requires a target file")
-			return
-		}
 		candidates, err = mcp.Import(body.From, []byte(body.Content), body.Name)
 	} else if body.Root != "" {
 		candidates, err = s.mcpService().ImportProjectClientMode(body.Root, body.From, body.PiExtension)

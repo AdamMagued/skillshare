@@ -47,6 +47,9 @@
   --sh-box: 4px 4px 0 #000; --sh-btn: 3px 3px 0 #000; --sh-float: 5px 5px 0 #000; --sh-dialog: 8px 8px 0 #000; --dots: #2B2721;
 }
 
+/* Diffs are the one place the Clean style uses colour: removed lines red, added lines green. */
+:root { --diff-add: var(--ok); --diff-add-bg: var(--ok-bg); --diff-del: var(--bad); --diff-del-bg: var(--bad-bg); }
+
 /* Base */
 body { font: 400 14px/1.45 var(--f); color: var(--ink); background-color: var(--bg); background-image: radial-gradient(var(--dots) 1px, transparent 1px); background-size: 24px 24px; -webkit-font-smoothing: antialiased; font-feature-settings: 'tnum' 1; }
 svg.lucide { flex: none; stroke-width: var(--isw); }
@@ -153,7 +156,8 @@ svg.lucide { flex: none; stroke-width: var(--isw); }
 :root[data-theme="playful"].dark .ss-tgl .ic>i { background: var(--pa); color: #1B1916; }
 .ss-sw { width: 34px; height: 20px; flex: none; padding: 2px; display: flex; border-radius: 99px; background: var(--line-2); }
 .ss-sw i { width: 16px; height: 16px; border-radius: 99px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.25); }
-.ss-sw.on { background: var(--ok); justify-content: flex-end; }
+.ss-sw.on { background: var(--ink); justify-content: flex-end; }
+.ss-sw.on i { background: var(--surface); }
 /* Some of the items it covers are on: knob in the middle, track as for off. */
 .ss-sw.mix { justify-content: center; }
 :root[data-theme="playful"] .ss-sw { width: 38px; height: 22px; background: var(--surface); border: 2px solid var(--line); padding: 2px; }
@@ -184,6 +188,7 @@ svg.lucide { flex: none; stroke-width: var(--isw); }
 .ss-cat.agent { --c: var(--c-agent); --cb: var(--c-agent-bg); }
 .ss-cat.extra { --c: var(--c-extra); --cb: var(--c-extra-bg); }
 .ss-cat.mcp { --c: var(--c-mcp); --cb: var(--c-mcp-bg); }
+.ss-cat.hooks { --c: var(--c-extra); --cb: var(--c-extra-bg); }
 .ss-cat.target { --c: var(--c-target); --cb: var(--c-target-bg); }
 .ss-cat.plugin { --c: var(--c-plugin); --cb: var(--c-plugin-bg); }
 .ss-cat.warn { --c: var(--warn); --cb: var(--warn-bg); }
@@ -417,7 +422,7 @@ svg.lucide { flex: none; stroke-width: var(--isw); }
 .ss-disc { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
 .ss-pick { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: var(--bw) solid var(--line-2); border-radius: 10px; background: var(--surface); }
 :root[data-theme="playful"] .ss-pick { border-radius: 12px; }
-.ss-pick.on { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
+.ss-pick.on { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
 :root[data-theme="playful"] .ss-pick.on { border-color: var(--line); background: var(--pe); box-shadow: 3px 3px 0 var(--line); }
 :root[data-theme="playful"].dark .ss-pick.on { background: #332B17; }
 .ss-bulk.static { position: static; transform: none; margin: 0; align-self: flex-start; }

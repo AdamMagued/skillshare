@@ -8,6 +8,7 @@ import { useAppContext } from '../context/AppContext';
 import DialogShell from '../components/DialogShell';
 import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
+import SourcePathButton from '../components/SourcePathButton';
 import { PageSkeleton } from '../components/Skeleton';
 import { RailGroup, RailLayout, RailRow, RailSection } from '../components/StatusRail';
 import { SkillContextMenu, type ContextMenuItem } from '../components/TargetMenu';
@@ -62,13 +63,14 @@ type MCPCheck = ReturnType<typeof useMCPCheck>;
 type ImportRequest = { conflict?: { target: string; name: string }; from?: string; project?: string };
 
 // Check and Backups live in the sync card, and the off switch with the server list: the header keeps the two ways to add.
-function MCPHeader({ onImport, onAdd }: { onImport: () => void; onAdd: () => void }) {
+function MCPHeader({ source, onImport, onAdd }: { source?: { path: string; configPath: string }; onImport: () => void; onAdd: () => void }) {
   const t = useT();
   return (
     <PageHeader
       title="MCP"
       subtitle={t('mcp.subtitle')}
       actions={<span className="flex items-center gap-2.5" data-tour="mcp-actions">
+        {source && <SourcePathButton path={source.path} configPath={source.configPath} section="mcp" />}
         <Button variant="secondary" onClick={onImport}><Download size={15} />{t('mcp.importFromTarget')}</Button>
         <Button variant="primary" onClick={onAdd}><Plus size={15} />{t('mcp.addServer')}</Button>
       </span>}
@@ -123,7 +125,6 @@ interface ContentProps {
 
 function MCPContent({ data, model, order, allFiles, onShowAll, busy, onToggle, onMenu, onImport, onAdd, onSettings, resolve, check, isProjectMode, onOff, onBackups }: ContentProps) {
   const t = useT();
-  const { toast } = useToast();
   const { rows, roots, changes, conflicts, servers, defaults, matrixTargets, files, targetsOf, showSync } = model;
   const conflictText = (c: MCPChange) => {
     const params = { target: targetLabel(c.target), name: c.name };
@@ -189,17 +190,13 @@ function MCPContent({ data, model, order, allFiles, onShowAll, busy, onToggle, o
           </div>}
         />
       )}
-      <MCPDefaults targets={defaults} servers={servers} accounts={data.source.accounts} directTools={data.source.directTools} offered={files} onSave={onSettings} />
-      <div className="flex items-center gap-1 px-1 text-xs text-ink-3">
-        <span className="min-w-0 truncate">{t('mcp.source')}: <span className="font-mono" title={data.source.path}>{shortenHome(data.source.path)}</span></span>
-        <button type="button" className="ss-ib" aria-label={t('mcp.copySource')} onClick={() => { copy(data.source.path); toast(t('mcp.copied'), 'success'); }}><Copy size={14} /></button>
-      </div>
+      <MCPDefaults targets={defaults} offered={files} onSave={onSettings} />
     </RailLayout>
   );
 }
 
-function MCPEditDialog({ data, model, editing, piSetupName, addingOff, addMode, onMode, onClose, onSaved }: { data: MCPList; model: PageModel; editing: string; piSetupName: string | null; addingOff: boolean; addMode: 'form' | 'paste'; onMode: (mode: 'form' | 'paste') => void; onClose: () => void; onSaved: () => void }) {
-  const { servers, defaults, targetsOf, files } = model;
+function MCPEditDialog({ data, model, editing, addingOff, addMode, onMode, onClose, onSaved }: { data: MCPList; model: PageModel; editing: string; addingOff: boolean; addMode: 'form' | 'paste'; onMode: (mode: 'form' | 'paste') => void; onClose: () => void; onSaved: () => void }) {
+  const { servers, defaults, files } = model;
   return (
     editing === '' && addMode === 'paste' ? (
       <MCPImportDialog
@@ -215,7 +212,7 @@ function MCPEditDialog({ data, model, editing, piSetupName, addingOff, addMode, 
     ) : (
       <MCPServerDialog
         off={editing === '' && addingOff}
-        initial={editing ? { name: editing, server: piSetupName === editing ? { ...servers[editing], targets: [...targetsOf(editing), 'pi'] } : servers[editing] } : undefined}
+        initial={editing ? { name: editing, server: servers[editing] } : undefined}
         defaultTargets={defaults}
         existingNames={Object.keys(servers)}
         availableTargets={files}
@@ -300,7 +297,6 @@ export default function MCPPage() {
   const { data, error, isPending } = useMcpQuery();
   const { isProjectMode } = useAppContext();
   const [addingOff, setAddingOff] = useState(false); // the new entry is a switch, not a server
-  const [piSetupName, setPiSetupName] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null); // '' adds a new server
   // Adding takes two shapes: fill the fields, or paste a snippet. Both end up saving one source server.
   const [addMode, setAddMode] = useState<'form' | 'paste'>('form');
@@ -319,7 +315,7 @@ export default function MCPPage() {
     void cache.invalidateQueries({ queryKey: queryKeys.config });
   };
   const done = (message: string) => {
-    setPiSetupName(null); setEditing(null); setAddMode('form'); setImporting(null); setRemoving(''); setBackupsOpen(false); setReplace(null);
+    setEditing(null); setAddMode('form'); setImporting(null); setRemoving(''); setBackupsOpen(false); setReplace(null);
     refresh();
     toast(message, 'success');
   };
@@ -333,7 +329,6 @@ export default function MCPPage() {
   const { servers, targetsOf } = model;
 
   const toggle = (name: string, target: string, on: boolean) => {
-    if (target === 'pi' && on && !servers[name].piExtension) { setPiSetupName(name); setEditing(name); return; }
     setBusy(true);
     void toggleTarget(name, target, on).finally(() => setBusy(false));
   };
@@ -382,7 +377,7 @@ export default function MCPPage() {
       x: r.left,
       y: r.bottom + 4,
       items: [
-        { key: 'edit', label: t('mcp.edit'), icon: <Pencil size={14} />, onSelect: () => { setPiSetupName(null); setEditing(name); } },
+        { key: 'edit', label: t('mcp.edit'), icon: <Pencil size={14} />, onSelect: () => setEditing(name) },
         ...(targetsOf(name).length > 0 ? [{ key: 'view', label: t('mcp.viewConfig'), icon: <Eye size={14} />, onSelect: () => setViewing(name) }] : []),
         { key: 'remove', label: t('mcp.remove'), icon: <Trash2 size={14} />, danger: true, onSelect: () => setRemoving(name) },
       ],
@@ -396,7 +391,7 @@ export default function MCPPage() {
   return (
     <MCPTargetOrder.Provider value={order}>
     <div className="animate-fade-in">
-      <MCPHeader onImport={() => setImporting({})} onAdd={() => { setAddingOff(false); setAddMode('form'); setEditing(''); }} />
+      <MCPHeader source={data?.source} onImport={() => setImporting({})} onAdd={() => { setAddingOff(false); setAddMode('form'); setEditing(''); }} />
 
       <MCPPageErrors error={error} previewError={data?.previewError} />
 
@@ -404,13 +399,13 @@ export default function MCPPage() {
         <MCPContent data={data} model={model} order={order} allFiles={allFiles} onShowAll={() => setAllFiles(!allFiles)} busy={busy} onToggle={(n, x, on) => void toggle(n, x, on)} onMenu={openMenu} onImport={setImporting} onAdd={() => { setAddingOff(false); setAddMode('form'); setEditing(''); }} onSettings={(settings) => void saveSettings(settings)} resolve={resolve} check={check} isProjectMode={isProjectMode} onOff={() => { setAddingOff(true); setAddMode('form'); setEditing(''); }} onBackups={() => setBackupsOpen(true)} />
       )}
 
-      {editing !== null && data && (<MCPEditDialog data={data} model={model} editing={editing} piSetupName={piSetupName} addingOff={addingOff} addMode={addMode} onMode={setAddMode} onClose={() => setEditing(null)} onSaved={() => done(t('mcp.toast.saved'))} />
+      {editing !== null && data && (<MCPEditDialog data={data} model={model} editing={editing} addingOff={addingOff} addMode={addMode} onMode={setAddMode} onClose={() => setEditing(null)} onSaved={() => done(t('mcp.toast.saved'))} />
       )}
       {importing && data && (
         <MCPAgentImport data={data} model={model} importing={importing} onClose={() => setImporting(null)} onImported={() => { setImporting(null); refresh(); }} />
       )}
       {viewing && servers[viewing] && <MCPConfigDialog mutation={{ name: viewing, server: { ...servers[viewing], targets: order.filter((x) => targetsOf(viewing).includes(x)) } }} onClose={() => setViewing('')} />}
-      {removing && <MCPRemoveDialog name={removing} inScope={inGlobalScope} onClose={() => setRemoving('')} onSaved={() => done(t('mcp.toast.removed', { name: removing }))} />}
+      {removing && <MCPRemoveDialog name={removing} inScope={inGlobalScope} onClose={() => setRemoving('')} onSaved={(unmanaged) => done(t(unmanaged ? 'mcp.toast.unmanaged' : 'mcp.toast.removed', { name: removing }))} />}
       {backupsOpen && data && <MCPRestoreDialog backups={data.backups} onClose={() => setBackupsOpen(false)} onRestored={() => done(t('mcp.toast.restored'))} />}
       <MCPReplaceDialog replace={replace} busy={busy} onClose={() => setReplace(null)} onApply={applyReplace} />
       <SkillContextMenu open={!!menu} anchorPoint={menu ?? undefined} items={menu?.items ?? []} onClose={() => setMenu(null)} />

@@ -12,6 +12,7 @@ def "nu-complete skillshare commands" [] {
         { value: "sync", description: "Sync skills/agents/extras/MCP to targets" }
         { value: "plugin", description: "Manage complete native plugins" }
         { value: "mcp", description: "Manage MCP connections" }
+        { value: "hooks", description: "Manage Agent hooks" }
         { value: "status", description: "Show status of all targets" }
         { value: "diff", description: "Show differences between source and targets" }
         { value: "backup", description: "Create backup of targets" }
@@ -50,6 +51,10 @@ def "nu-complete skillshare mcp" [] {
     [add check edit import list remove restore]
 }
 
+def "nu-complete skillshare hooks" [] {
+    [add disable edit enable import list remove restore sync]
+}
+
 def "nu-complete skillshare plugin-target" [] {
     [claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin pi opencode]
 }
@@ -57,10 +62,9 @@ def "nu-complete skillshare plugin-target" [] {
 export extern "skillshare mcp" [
     command?: string@"nu-complete skillshare mcp"
     name?: string
-    --pi-extension: string # builtin, pi-mcp-adapter or pi-mcp-extension
-    --direct-tools: string # pi-mcp-adapter only: true, false, search or tool names
-    --pi-options: string # builtin or adapter: other per-server fields as JSON
-    --pi-options-prune # Remove only owned unchanged Pi fields
+    --tools-allow: string # Only these tools, comma-separated, * matches any characters; empty clears
+    --tools-deny: string # Never these tools, comma-separated, * matches any characters; empty clears
+    --pi-options: string # Other Pi built-in per-server fields as JSON
     --target: string
     --from: string
     --url: string
@@ -76,6 +80,22 @@ export extern "skillshare mcp" [
     --live # check: start or call each server
     --timeout: string # check --live: per-server timeout, such as 10s
     --no-tui
+    --project(-p)
+    --global(-g)
+    --help(-h)
+]
+
+export extern "skillshare hooks" [
+    command?: string@"nu-complete skillshare hooks"
+    name?: string
+    --file: string # Entry or native file
+    --from: string # Import Agent
+    --revision: string
+    --sync
+    --replace
+    --keep-files # remove: leave Agent entries as they are
+    --dry-run(-n)
+    --json
     --project(-p)
     --global(-g)
     --help(-h)
@@ -194,7 +214,7 @@ def "nu-complete skillshare ui" [] {
 }
 
 def "nu-complete skillshare sync-scope" [] {
-    ["agents" "extras" "mcp" "plugins"]
+    ["agents" "extras" "mcp" "hooks" "plugins"]
 }
 
 def "nu-complete skillshare kind" [] {

@@ -54,9 +54,15 @@ func changeRoot(target, path string, roots []string) string {
 
 // Plan is a redacted, optimistic-concurrency-protected preview.
 type Plan struct {
-	Revision   string   `json:"revision"`
-	SourcePath string   `json:"sourcePath"`
-	Blocked    bool     `json:"blocked"`
+	Revision   string `json:"revision"`
+	SourcePath string `json:"sourcePath"`
+	Blocked    bool   `json:"blocked"`
+	// Notices are the source's, about settings it still has that no longer apply, and name
+	// each Agent that cannot hold a part of a server's tool policy.
+	Notices []string `json:"notices,omitempty"`
+	// Migrates is set when applying the plan also saves its source without the settings
+	// 0.23.0 retired, even when no Agent file changes.
+	Migrates   bool     `json:"migrates,omitempty"`
 	Changes    []Change `json:"changes"`
 	files      []*filePlan
 	state      ledger
@@ -76,6 +82,21 @@ type ownership struct {
 type ledger struct {
 	Version int                  `json:"version"`
 	Entries map[string]ownership `json:"entries"`
+}
+
+// PiBuiltinNotice is the plan's notice when it moves servers from pi-mcp-adapter or
+// pi-mcp-extension to Pi's built-in MCP. Pi's MCP docs say an installed extension that
+// registers /mcp replaces the built-in support; pi-mcp-extension, and pi-mcp-adapter
+// before 3.0.0, read mcp.json too. The dashboard matches the text, so change both together.
+const PiBuiltinNotice = "Pi's built-in MCP needs Pi 0.99.0 or later; on older Pi these servers stop loading until Pi is updated. If pi-mcp-adapter or pi-mcp-extension is still installed in Pi, remove it, because it can take the place of Pi's built-in MCP"
+
+// piExtensionEntry reports an entry Skillshare wrote for pi-mcp-adapter or pi-mcp-extension
+// before 0.23.0: one in the adapter's own file, or one with the transport field only
+// pi-mcp-extension read. The built-in entry never has it, and it is part of the hash, so an
+// owned entry that still matches carries it only from Skillshare.
+func piExtensionEntry(target, path string, entry map[string]any) bool {
+	_, transport := entry["transport"]
+	return target == "pi" && (path == piAdapterPath(path) || transport)
 }
 
 // orphanedMessage leads a conflict whose owning config is gone. The dashboard matches
@@ -201,7 +222,7 @@ func (s *Service) render(source *Source) (map[fileKey]map[string]map[string]any,
 		// A project's own config cannot see the global one, so only the Agents' limits apply.
 		servers = followingSwitches(servers, source.Targets, nil)
 	}
-	if err := s.renderScope(desired, servers, source.Targets, source.DirectTools); err != nil {
+	if err := s.renderScope(desired, servers, source.Targets); err != nil {
 		return nil, err
 	}
 	for _, root := range sortedKeys(source.Projects) {
@@ -212,11 +233,7 @@ func (s *Service) render(source *Source) (map[fileKey]map[string]map[string]any,
 		if defaults == nil {
 			defaults = source.Targets
 		}
-		directTools := project.DirectTools
-		if directTools == nil {
-			directTools = source.DirectTools
-		}
-		if err := scoped.renderScope(desired, followingSwitches(project.Servers, defaults, source), defaults, directTools); err != nil {
+		if err := scoped.renderScope(desired, followingSwitches(project.Servers, defaults, source), defaults); err != nil {
 			return nil, fmt.Errorf("%s: %w", root, err)
 		}
 	}
@@ -253,17 +270,6 @@ func followingSwitches(servers map[string]Server, defaults []string, global *Sou
 				if reached = shared.Targets; reached == nil {
 					reached = global.Targets
 				}
-				// Pi has a switch only with pi-mcp-adapter, which the global server already says.
-				if server.PiExtension == "" {
-					server.PiExtension = shared.PiExtension
-				}
-			}
-		}
-		// Pi reads one file per project through one extension. What the project's own servers
-		// use decides, and with pi-mcp-extension Pi has no switch to write.
-		for _, own := range servers {
-			if !own.Disabled && own.PiExtension != "" {
-				server.PiExtension = own.PiExtension
 			}
 		}
 		server.Targets = SwitchTargets(server, defaults, reached)
@@ -282,11 +288,9 @@ func followingSwitches(servers map[string]Server, defaults []string, global *Sou
 }
 
 // renderScope adds one scope's servers: the global one, or a single project root.
-func (s *Service) renderScope(desired map[fileKey]map[string]map[string]any, servers map[string]Server, defaults []string, directTools any) error {
-	piExtension := ""
+func (s *Service) renderScope(desired map[fileKey]map[string]map[string]any, servers map[string]Server, defaults []string) error {
 	for _, name := range sortedKeys(servers) {
 		server := servers[name]
-		server = server.withDirectToolsDefault(directTools)
 		// An explicit empty list is deliberate: the server stays in Skillshare and nothing is
 		// written. An inherited one is more likely a forgotten default, so it is refused.
 		selected := []string(server.Targets)
@@ -300,12 +304,6 @@ func (s *Service) renderScope(desired map[fileKey]map[string]map[string]any, ser
 			s, target := s.forTarget(target)
 			if err := s.checkScope(name, target, server); err != nil {
 				return err
-			}
-			if target == "pi" {
-				if piExtension != "" && piExtension != server.PiExtension {
-					return fmt.Errorf("Pi uses one MCP mode per scope; select the same piExtension for every Pi server")
-				}
-				piExtension = server.PiExtension
 			}
 			path, native, err := s.destination(target, server)
 			if err != nil {
@@ -357,7 +355,7 @@ func (s *Service) shownAs(target, path string, accounts map[string]Account) stri
 		scoped := *s
 		scoped.accounts, scoped.ProjectRoot = accounts, ""
 		account, agent := scoped.forTarget(name)
-		if file, err := account.nativePath(agent); err == nil && agent == shown && (file == path || agent == "pi" && piExtensionPath(file) == path) {
+		if file, err := account.nativePath(agent); err == nil && agent == shown && (file == path || agent == "pi" && piAdapterPath(file) == path) {
 			return name
 		}
 	}
@@ -374,10 +372,6 @@ func (s *Service) destination(target string, server Server) (string, string, err
 		global.ProjectRoot = ""
 		path, err := global.nativePath(target)
 		return path, claudeOffPrefix + s.ProjectRoot, err
-	}
-	if target == "pi" {
-		path, err := s.piModePath(server.PiExtension)
-		return path, target, err
 	}
 	path, err := s.nativePath(target)
 	return path, target, err
@@ -421,14 +415,7 @@ func (s *Service) checkScope(name, target string, server Server) error {
 	switch {
 	case server.Disabled && s.ProjectRoot == "":
 		return fmt.Errorf("MCP %s: disabled only applies in project mode, where it turns off a server from the Agent's global config; here, unselect the Agent instead", name)
-	case target == "pi" && s.ProjectRoot == "" && s.ConfigDirs["pi"] != "" && server.PiExtension == "pi-mcp-extension":
-		// An account is a directory the user chose, so say which one is out of reach and
-		// what to select instead; an environment override they can simply unset.
-		if s.account != "" {
-			return fmt.Errorf("pi-mcp-extension always reads ~/.pi/agent/mcp.json, so it cannot reach account %s (%s); set piExtension: pi-mcp-adapter on this server", s.account, s.ConfigDirs["pi"])
-		}
-		return fmt.Errorf("pi-mcp-extension uses ~/.pi/agent/mcp.json and does not honor PI_CODING_AGENT_DIR; unset the override before syncing")
-	case target == "pi" && server.PiExtension == "builtin" && strings.Contains(name, "."):
+	case target == "pi" && strings.Contains(name, "."):
 		return fmt.Errorf("Pi built-in MCP %s: use letters, digits, underscores or hyphens", name)
 	case target == "grok" && (!grokServerName.MatchString(name) || strings.Contains(name, "__") || strings.HasSuffix(name, "_")):
 		return fmt.Errorf("Grok MCP %s: use a name starting with a letter or underscore, containing only letters, digits, hyphens and single underscores, and not ending in underscore", name)
@@ -467,7 +454,7 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 	if err != nil {
 		return nil, err
 	}
-	p := &Plan{SourcePath: source.Path, Changes: []Change{}, source: source, state: state, stateBytes: stateBytes}
+	p := &Plan{SourcePath: source.Path, Notices: slices.Concat(source.Notices, source.toolPolicyNotices()), Migrates: source.NeedsMigration(), Changes: []Change{}, source: source, state: state, stateBytes: stateBytes}
 	desired, err := s.render(source)
 	if err != nil {
 		return nil, err
@@ -484,9 +471,8 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 		Servers     map[string]Server
 		Targets     []string
 		Resolutions []Resolution
-		DirectTools any
 		Projects    map[string]Project
-	}{source.Servers, source.Targets, resolutions, source.DirectTools, source.Projects})
+	}{source.Servers, source.Targets, resolutions, source.Projects})
 	revision := digest(source.configBytes) + digest(source.bytes) + digest(stateBytes) + digest(proposal)
 	// Claude's local scope is per project, so look it up by the project file it shadows.
 	local := map[string]map[string]any{}
@@ -501,8 +487,7 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 		}
 	}
 	projectRoots := sortedKeys(source.Projects)
-	// The ownership before any file is planned, since planning one file drops entries of another.
-	owners := maps.Clone(state.Entries)
+	piMoves := source.piExtensionSettings
 	keys := make([]fileKey, 0, len(desired))
 	for key := range desired {
 		keys = append(keys, key)
@@ -546,7 +531,8 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 			wantHash := entryHash(managedEntry(target, want))
 			prune := map[string]bool{}
 			pruneConflict := false
-			if target == "pi" && want != nil && managed && owned.Owner == source.ConfigPath && piPrunes(source, changeRoot(target, path, projectRoots), name) {
+			// Fields this config wrote earlier and no longer sets go, unless Pi changed them since.
+			if target == "pi" && want != nil && managed && owned.Owner == source.ConfigPath {
 				for field, hash := range owned.PiFields {
 					if _, set := want[field]; set {
 						continue
@@ -558,16 +544,6 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 							prune[field] = true
 						}
 					}
-				}
-			}
-			// pi-mcp-adapter 3 tells the user to mv mcp.json to mcp-adapter.json. An entry this
-			// config owned there and that arrived unchanged is still its own. Refs: #298.
-			if !managed && target == "pi" && path != piExtensionPath(path) {
-				prior, ok := owners[ownershipKey(target, piExtensionPath(path), name)]
-				if ok && prior.Owner == source.ConfigPath && prior.Hash == currentHash {
-					owned = ownership{Owner: source.ConfigPath, Target: target, Path: path, Name: name, Hash: currentHash}
-					managed = true
-					p.state.Entries[key] = owned
 				}
 			}
 			for _, resolution := range resolutions {
@@ -659,6 +635,9 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 					p.state.Entries[key] = own
 				}
 			}
+			if (change.Action == "remove" || change.Action == "update") && piExtensionEntry(target, path, current) {
+				piMoves = true
+			}
 			change.Fields = changedFieldNames(current, f.changes[name], change.Action)
 			if change.Action == "conflict" {
 				p.Blocked = true
@@ -674,6 +653,9 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 		p.files = append(p.files, f)
 	}
 	p.Revision = digest([]byte(revision))
+	if piMoves {
+		p.Notices = append(p.Notices, PiBuiltinNotice)
+	}
 	for _, found := range matched {
 		if !found {
 			return nil, fmt.Errorf("conflict resolution does not refer to a selected MCP entry")

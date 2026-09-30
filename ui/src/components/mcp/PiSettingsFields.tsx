@@ -1,49 +1,58 @@
-import type { ReactNode } from 'react';
+import { Info } from 'lucide-react';
 import CodeEditor from '../CodeEditor';
-import { Checkbox, Select } from '../Input';
+import { Select } from '../Input';
+import Tooltip from '../Tooltip';
 import { useT } from '../../i18n';
-import PiExtensionField from './PiExtensionField';
 import { piExposures, type parsePiOptions } from './mcpView';
 
 interface Props {
-  mode: string;
-  /** Omitted for an off switch, which has no mode to pick. */
-  onMode?: (mode: string) => void;
   optionsText: string;
   options: ReturnType<typeof parsePiOptions>;
   optionsError: string;
   onOptions: (text: string) => void;
-  keepsOptions: boolean;
-  prune: boolean;
-  onPrune: (prune: boolean) => void;
   disabled: boolean;
   project: boolean;
-  /** Shown between the exposure and the JSON settings, such as the adapter's direct tools. */
-  children?: ReactNode;
+  /** The server has a tool policy, which writes Pi's toolExposure. */
+  toolsSet?: boolean;
 }
 
-/** Pi's mode, tool exposure, other settings and prune switch, shared by the form and a single pasted server. */
-export default function PiSettingsFields({ mode, onMode, optionsText, options, optionsError, onOptions, keepsOptions, prune, onPrune, disabled, project, children }: Props) {
+/** An info icon that explains in a tooltip, reachable by keyboard. */
+export function InfoTip({ label, content }: { label: string; content: string }) {
+  return (
+    <Tooltip content={content}>
+      <button type="button" className="ss-ib !h-6 !w-6" aria-label={label}><Info size={14} /></button>
+    </Tooltip>
+  );
+}
+
+/** Pi's tool exposure and other settings, shared by the form and a single pasted server. */
+export default function PiSettingsFields({ optionsText, options, optionsError, onOptions, disabled, project, toolsSet = false }: Props) {
   const t = useT();
   return (
     <>
-      {onMode && <PiExtensionField value={mode} onChange={onMode} disabled={disabled} project={project} />}
-      {mode === 'builtin' && <div className="ss-fld">
-        <Select label={t('mcp.piExposure')} value={String(options.value?.exposure ?? '')} disabled={disabled || Boolean(optionsError)} onChange={(value) => {
+      <div className="flex items-center gap-1">
+        <span className="text-[13px] font-semibold">{t('mcp.piSettings')}</span>
+        <InfoTip label={t('mcp.piSettingsInfo')} content={`${t('mcp.piBuiltinHelp')}\n${t(project ? 'mcp.piProjectHint' : 'mcp.piGlobalHint')}`} />
+        <a className="ml-1 text-xs text-link underline" href="https://github.com/earendil-works/pi/blob/v0.99.0/packages/coding-agent/docs/mcp.md" target="_blank" rel="noopener noreferrer">Pi MCP · {t('plugins.officialDocs')}</a>
+      </div>
+      <div className="ss-fld">
+        <span className="flex items-center gap-1">
+          <label>{t('mcp.piExposure')}</label>
+          <InfoTip label={t('mcp.piExposureInfo')} content={t('mcp.piExposureTip')} />
+        </span>
+        <Select ariaLabel={t('mcp.piExposure')} value={String(options.value?.exposure ?? '')} disabled={disabled || Boolean(optionsError)} onChange={(value) => {
           const next = { ...options.value };
           if (value) next.exposure = value; else delete next.exposure;
-          onOptions(JSON.stringify(next, null, 2));
-        }} options={[{ value: '', label: t('mcp.directToolsUnset'), note: `· ${t('mcp.piExposureUnset')}` }, ...piExposures.map((value) => ({ value, label: value, note: `· ${t(`mcp.piExposure.${value}`)}` }))]} />
-        <span className="hp">{t('mcp.piExposureHint')}</span>
-      </div>}
-      {children}
-      {keepsOptions && <div className="ss-fld">
+          // Nothing left shows the editor's placeholder rather than "{}".
+          onOptions(Object.keys(next).length ? JSON.stringify(next, null, 2) : '');
+        }} options={[{ value: '', label: t('mcp.piExposureNone'), note: `· ${t('mcp.piExposureUnset')}` }, ...piExposures.map((value) => ({ value, label: value, note: `· ${t(`mcp.piExposure.${value}`)}` }))]} />
+      </div>
+      <div className="ss-fld">
         <label>{t('mcp.piOptions')}</label>
-        <CodeEditor value={optionsText} onChange={onOptions} lang="json" placeholder={mode === 'builtin' ? '{\n  "timeout": 120,\n  "toolExposure": {"delete_*": "hidden"}\n}' : '{\n  "excludeTools": ["delete_*"]\n}'} ariaLabel={t('mcp.piOptions')} disabled={disabled} minHeight="96px" />
+        {/* With Tools set, toolExposure is refused, so the example must not look like a value that was accepted. */}
+        <CodeEditor value={optionsText} onChange={onOptions} lang="json" placeholder={toolsSet ? '{\n  "timeout": 120\n}' : '{\n  "timeout": 120,\n  "toolExposure": {"delete_*": "hidden"}\n}'} ariaLabel={t('mcp.piOptions')} disabled={disabled} minHeight="96px" />
         {optionsError ? <span className="hp !text-bad">{optionsError}</span> : <span className="hp">{t('mcp.piOptionsHint')}</span>}
-        <Checkbox label={t('mcp.piPrune')} checked={prune} onChange={onPrune} disabled={disabled} />
-        <span className="hp">{t('mcp.piPruneHint')}</span>
-      </div>}
+      </div>
     </>
   );
 }

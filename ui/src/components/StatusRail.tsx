@@ -21,9 +21,9 @@ const PANE = 'sticky top-6 max-h-[calc(100vh-11rem)]';
  * flex item go below its content height, and it would be squashed instead of scrolled.
  * `pageScroll` keeps the list in the page's own scroll, for a page that has more above it.
  */
-export function RailLayout({ rail, children, pageScroll }: { rail: ReactNode; children: ReactNode; pageScroll?: boolean }) {
+export function RailLayout({ rail, children, pageScroll, className = '' }: { rail: ReactNode; children: ReactNode; pageScroll?: boolean; /** Extra classes on the grid, for a page that needs its own narrow-width layout. */ className?: string }) {
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_320px] items-start gap-8">
+    <div className={`grid grid-cols-[minmax(0,1fr)_320px] items-start gap-8 ${className}`}>
       <div className={pageScroll ? 'flex min-w-0 flex-col gap-3' : `${PANE} -m-2 flex min-w-0 flex-col gap-3 overflow-y-auto p-2 [&>*]:shrink-0`}>{children}</div>
       <aside className={`${PANE} flex flex-col gap-7`}>{rail}</aside>
     </div>
@@ -44,8 +44,8 @@ export function RailSection({ title, count, action, children }: { title: string;
   );
 }
 
-/** `warn` tints the box. It is the only colour in the rail, so pending work is seen first. */
-export function SyncBox({ tone, state, children }: { tone: 'ok' | 'warn' | 'busy'; state: string; children: ReactNode }) {
+/** `warn` tints the box. It is the only colour in the rail, so pending work is seen first. `plain` marks pending work without colour. */
+export function SyncBox({ tone, state, children }: { tone: 'ok' | 'warn' | 'busy' | 'plain'; state: string; children: ReactNode }) {
   const t = useT();
   return (
     <div className={`ss-box flex shrink-0 flex-col gap-3 ${tone === 'warn' ? 'bg-warn-bg' : ''}`}>
@@ -89,8 +89,9 @@ export function RailGroup({ label, count, right, foot, children }: { label: stri
 /**
  * One Agent per line. With `detail` the row is a disclosure: the rail stays a list of names
  * until one is asked about. `right` sits inside that button, so it must not be interactive.
+ * `path` shows in full under the name, wrapping instead of being cut short.
  */
-export function RailRow({ target, label, dim, sub, right, detail }: { target: string; label: string; dim?: boolean; sub?: string; right?: ReactNode; detail?: ReactNode }) {
+export function RailRow({ target, label, dim, sub, path, right, detail }: { target: string; label: string; dim?: boolean; sub?: string; path?: string; right?: ReactNode; detail?: ReactNode }) {
   const [open, setOpen] = useState(false);
   const head = (
     <>
@@ -98,6 +99,7 @@ export function RailRow({ target, label, dim, sub, right, detail }: { target: st
       <span className="flex min-w-0 flex-1 flex-col gap-px">
         <span className={`truncate text-[13.5px] font-medium ${dim ? 'text-ink-2' : ''}`}>{label}</span>
         {sub && !open && <span className="truncate text-xs text-ink-3">{sub}</span>}
+        {path && <span className="break-all font-mono text-xs text-ink-3">{path}</span>}
       </span>
       {right}
     </>
@@ -105,7 +107,7 @@ export function RailRow({ target, label, dim, sub, right, detail }: { target: st
   if (!detail) return <div className="flex min-h-8 items-center gap-2.5 py-1">{head}</div>;
   return (
     <>
-      <button type="button" aria-expanded={open} className="group flex min-h-8 w-full items-center gap-2.5 py-1 text-left" onClick={() => setOpen(!open)}>
+      <button type="button" aria-expanded={open} aria-label={label} className="group flex min-h-8 w-full items-center gap-2.5 py-1 text-left" onClick={() => setOpen(!open)}>
         {head}
         <ChevronDown size={14} className={`shrink-0 text-ink-3 ${open ? 'rotate-180' : 'opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100'}`} />
       </button>

@@ -21,6 +21,20 @@ const box = (p: MCPPlan = plan) =>
 describe('MCP sync box', () => {
   beforeEach(() => { vi.mocked(runSync).mockReset(); });
 
+  it('localizes every pending action in the sync rail', () => {
+    const previous = localStorage.getItem('skillshare:locale');
+    localStorage.setItem('skillshare:locale', 'zh-TW');
+    try {
+      const changes = ['add', 'remove', 'adopt', 'update'].map((action) => ({ ...own, name: `docs-${action}`, action }));
+      render(<MemoryRouter><QueryClientProvider client={new QueryClient()}><I18nProvider><MCPSyncBox changes={changes} roots={[]} plan={{ ...plan, changes }} /></I18nProvider></QueryClientProvider></MemoryRouter>);
+      for (const label of ['新增', '移除', '接管', '更新']) expect(screen.getByText(label)).toBeInTheDocument();
+      for (const raw of ['add', 'remove', 'adopt', 'update']) expect(screen.queryByText(raw)).not.toBeInTheDocument();
+    } finally {
+      if (previous === null) localStorage.removeItem('skillshare:locale');
+      else localStorage.setItem('skillshare:locale', previous);
+    }
+  });
+
   it('confirms every pending change, then writes only MCP with the reviewed plan', async () => {
     const user = userEvent.setup();
     vi.mocked(runSync).mockResolvedValue({ resources: undefined, failures: [] });
@@ -71,6 +85,13 @@ describe('MCP sync box', () => {
     await user.click(screen.getByRole('button', { name: 'Sync MCP' }));
     await user.click(screen.getByRole('button', { name: 'Sync Now' }));
     expect(await screen.findByText(/The MCP changes shifted during the sync/)).toBeInTheDocument();
+  });
+
+  it('shows the plan notices, worded for the dashboard, before writing', async () => {
+    const user = userEvent.setup();
+    box({ ...plan, notices: ["Pi's built-in MCP needs Pi 0.99.0 or later; on older Pi these servers stop loading until Pi is updated. If pi-mcp-adapter or pi-mcp-extension is still installed in Pi, remove it, because it can take the place of Pi's built-in MCP"] });
+    await user.click(screen.getByRole('button', { name: 'Sync MCP' }));
+    expect(screen.getByText(/On older Pi these servers stop loading until Pi is updated\./)).toBeInTheDocument();
   });
 
   it('sends a blocked plan to the Sync page instead of offering to write it', () => {

@@ -15,6 +15,7 @@ $_skillshareCompleter = {
             @{ Name = 'sync'; Desc = 'Sync skills/agents/extras/MCP to targets' }
             @{ Name = 'plugin'; Desc = 'Manage complete native plugins' }
             @{ Name = 'mcp'; Desc = 'Manage MCP connections' }
+            @{ Name = 'hooks'; Desc = 'Manage Agent hooks' }
             @{ Name = 'status'; Desc = 'Show status of all targets' }
             @{ Name = 'diff'; Desc = 'Show differences between source and targets' }
             @{ Name = 'backup'; Desc = 'Create backup of targets' }
@@ -51,6 +52,17 @@ $_skillshareCompleter = {
             @{ Name = 'list'; Desc = 'MCP list' }
             @{ Name = 'remove'; Desc = 'MCP remove' }
             @{ Name = 'restore'; Desc = 'MCP restore' }
+        )
+        'hooks' = @(
+            @{ Name = 'add'; Desc = 'Hooks add' }
+            @{ Name = 'disable'; Desc = 'Hooks disable' }
+            @{ Name = 'edit'; Desc = 'Hooks edit' }
+            @{ Name = 'enable'; Desc = 'Hooks enable' }
+            @{ Name = 'import'; Desc = 'Hooks import' }
+            @{ Name = 'list'; Desc = 'Hooks list' }
+            @{ Name = 'remove'; Desc = 'Hooks remove' }
+            @{ Name = 'restore'; Desc = 'Hooks restore' }
+            @{ Name = 'sync'; Desc = 'Hooks sync' }
         )
         'plugin' = @(
             @{ Name = 'add'; Desc = 'Plugin add' }
@@ -126,6 +138,7 @@ $_skillshareCompleter = {
             @{ Name = 'agents'; Desc = 'Sync agents' }
             @{ Name = 'extras'; Desc = 'Sync extras' }
             @{ Name = 'mcp'; Desc = 'Sync MCP connections' }
+            @{ Name = 'hooks'; Desc = 'Sync hooks' }
             @{ Name = 'plugins'; Desc = 'Sync plugins' }
         )
         'list' = @(
@@ -181,13 +194,14 @@ $_skillshareCompleter = {
         'enable' = '--dry-run', '-n', '--kind', '--help', '-h', '--project', '-p', '--global', '-g'
         'disable' = '--dry-run', '-n', '--kind', '--help', '-h', '--project', '-p', '--global', '-g'
         'analyze' = '--verbose', '-v', '--filter', '--no-tui', '--json', '--help', '-h', '--project', '-p', '--global', '-g'
-        'mcp' = '--pi-extension', '--direct-tools', '--pi-options', '--pi-options-prune', '--target', '--from', '--url', '--file', '--sync', '--replace', '--disabled', '--keep-files', '--revision', '--dry-run', '-n', '--json', '--no-dns', '--live', '--timeout', '--no-tui', '--help', '-h', '--project', '-p', '--global', '-g'
+        'mcp' = '--tools-allow', '--tools-deny', '--pi-options', '--target', '--from', '--url', '--file', '--sync', '--replace', '--disabled', '--keep-files', '--revision', '--dry-run', '-n', '--json', '--no-dns', '--live', '--timeout', '--no-tui', '--help', '-h', '--project', '-p', '--global', '-g'
         'plugin' = '--target', '--from', '--plugin', '--name', '--source-ref', '--entry', '--revision', '--dry-run', '-n', '--json', '--no-tui', '--help', '-h', '--project', '-p', '--global', '-g'
         'extras' = '--mode', '--target', '--source', '--file', '--as', '--flatten', '--no-flatten', '--add-target', '--remove-target', '--prune', '--from', '--dry-run', '--force', '-f', '--json', '--no-tui', '--help', '-h', '--project', '-p', '--global', '-g'
         'status' = '--json', '--help', '-h', '--project', '-p', '--global', '-g'
         'new' = '--pattern', '-P', '--dry-run', '-n', '--help', '-h', '--project', '-p', '--global', '-g'
         'search' = '--json', '--list', '-l', '--hub', '--limit', '-n', '--help', '-h', '--project', '-p', '--global', '-g'
         'tui' = '--help', '-h'
+        'hooks' = '--file', '--from', '--sync', '--replace', '--keep-files', '--revision', '--dry-run', '-n', '--json', '--help', '-h', '--project', '-p', '--global', '-g'
         'completion' = '--install', '--help', '-h'
     }
 

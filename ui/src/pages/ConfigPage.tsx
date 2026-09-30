@@ -27,6 +27,7 @@ import { handTheme } from '../lib/codemirror-theme';
 import SyncPreviewModal from '../components/SyncPreviewModal';
 import { SettingsTabs } from './SettingsPage';
 import { formatYaml } from '../lib/formatYaml';
+import { yamlKeyOffset } from '../lib/yamlSection';
 import { shortenHome } from '../lib/paths';
 import { useOverviewQuery } from '../hooks/useSharedQueries';
 
@@ -103,6 +104,19 @@ export default function ConfigPage() {
   });
   const raw = configFile.value;
 
+  // Deep link: /config?section=hooks opens config.yaml with the cursor on that top-level key, once its
+  // text is in the editor. An absent key leaves the editor at the top.
+  const section = searchParams.get('section');
+  const jumped = useRef('');
+  useEffect(() => {
+    const view = editorRef.current;
+    if (tab !== 'config' || !section || !view || view.state.doc.length === 0 || jumped.current === section) return;
+    jumped.current = section;
+    const at = yamlKeyOffset(view.state.doc.toString(), section);
+    if (at !== undefined) view.dispatch({ selection: { anchor: at }, effects: EditorView.scrollIntoView(at, { y: 'start', yMargin: 24 }) });
+    view.focus();
+  }, [tab, section, raw]);
+
   const handleConfigChange = (value: string) => {
     if (configFile.change(value)) setShowSyncBanner(false);
   };
@@ -111,7 +125,7 @@ export default function ConfigPage() {
   // the user sees it before committing.
   const handleBeautify = () => {
     try {
-      const formatted = formatYaml(raw);
+      const formatted = formatYaml(raw, { expandNested: true });
       if (formatted === raw) {
         toast(t('config.beautify.noChange'), 'info');
         return;

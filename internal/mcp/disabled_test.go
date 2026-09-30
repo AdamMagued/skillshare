@@ -15,7 +15,7 @@ import (
 func TestDisabledTurnsOffGlobalServerInProject(t *testing.T) {
 	s := testService(t)
 	s.ProjectRoot = filepath.Join(s.Home, "project")
-	source := "mcp:\n  servers:\n    docs:\n      disabled: true\n      piExtension: pi-mcp-adapter\n      targets: [opencode, kilocode, pi]\n"
+	source := "mcp:\n  servers:\n    docs:\n      disabled: true\n      targets: [opencode, kilocode]\n"
 	if err := os.WriteFile(s.ConfigPath, []byte(source), 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -27,9 +27,8 @@ func TestDisabledTurnsOffGlobalServerInProject(t *testing.T) {
 		t.Fatal(err)
 	}
 	for file, want := range map[string]string{
-		"opencode.json":        `{"mcp":{"docs":{"enabled":false}}}`,
-		"kilo.jsonc":           `{"mcp":{"docs":{"enabled":false}}}`,
-		".pi/mcp-adapter.json": `{"mcpServers":{"docs":{"disabled":true}}}`,
+		"opencode.json": `{"mcp":{"docs":{"enabled":false}}}`,
+		"kilo.jsonc":    `{"mcp":{"docs":{"enabled":false}}}`,
 	} {
 		data, err := os.ReadFile(filepath.Join(s.ProjectRoot, file))
 		if err != nil {
@@ -45,13 +44,13 @@ func TestDisabledTurnsOffGlobalServerInProject(t *testing.T) {
 			t.Fatalf("%s: got %s want %s", file, a, b)
 		}
 	}
-	if plan, err = s.Preview(); err != nil || len(plan.Changes) != 3 || plan.Changes[0].Action != "unchanged" {
+	if plan, err = s.Preview(); err != nil || len(plan.Changes) != 2 || plan.Changes[0].Action != "unchanged" {
 		t.Fatalf("not idempotent: %+v %v", plan, err)
 	}
 	if err := os.WriteFile(s.ConfigPath, []byte("mcp:\n  servers: {}\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if plan, err = s.Preview(); err != nil || len(plan.Changes) != 3 || plan.Changes[0].Action != "remove" {
+	if plan, err = s.Preview(); err != nil || len(plan.Changes) != 2 || plan.Changes[0].Action != "remove" {
 		t.Fatalf("switch not removed with its source: %+v %v", plan, err)
 	}
 }
@@ -65,7 +64,6 @@ func TestDisabledRejected(t *testing.T) {
 		"global mode":       {false, "disabled: true\n      targets: [opencode]", "project"},
 		"whole-entry agent": {true, "disabled: true\n      targets: [cursor]", "cursor"},
 		"codex":             {true, "disabled: true\n      targets: [codex]", "whole config"},
-		"pi extension":      {true, "disabled: true\n      piExtension: pi-mcp-extension\n      targets: [pi]", "pi-mcp-adapter"},
 		"with a command":    {true, "disabled: true\n      command: tool\n      targets: [opencode]", "leave out"},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -80,6 +78,19 @@ func TestDisabledRejected(t *testing.T) {
 				t.Fatalf("want %q, got %v", tc.want, err)
 			}
 		})
+	}
+}
+
+// Loading drops pi from an old switch, but saving a new one for pi still fails.
+func TestPiSwitchRejectedOnSave(t *testing.T) {
+	s := testService(t)
+	s.ProjectRoot = filepath.Join(s.Home, "project")
+	if err := os.WriteFile(s.ConfigPath, []byte("mcp:\n  servers: {}\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := s.Mutate(Mutation{Name: "docs", Server: &Server{Disabled: true, Targets: []string{"pi"}}}, "", false)
+	if err == nil || !strings.Contains(err.Error(), "pi cannot turn off") {
+		t.Fatalf("got %v", err)
 	}
 }
 
@@ -281,8 +292,8 @@ func TestPlanMarksSwitchOnlyChanges(t *testing.T) {
 		}
 		return got
 	}
-	want := map[string]bool{"opencode/docs": true, "pi/docs": true, "claude/docs": true, "opencode/own": false}
-	added := marks("mcp:\n  servers:\n    docs:\n      disabled: true\n      piExtension: pi-mcp-adapter\n      targets: [opencode, pi, claude]\n    own:\n      command: tool\n      targets: [opencode]\n", "add")
+	want := map[string]bool{"opencode/docs": true, "claude/docs": true, "opencode/own": false}
+	added := marks("mcp:\n  servers:\n    docs:\n      disabled: true\n      targets: [opencode, claude]\n    own:\n      command: tool\n      targets: [opencode]\n", "add")
 	if !maps.Equal(added, want) {
 		t.Fatalf("add: got %v want %v", added, want)
 	}
@@ -299,12 +310,12 @@ func TestSwitchWithoutTargetsFollowsTheProject(t *testing.T) {
 		global, project string
 		want            []string
 	}{
-		"only what the project uses":    {"claude, opencode, kilocode, pi", "opencode, pi", []string{"opencode", "pi"}},
+		"only what the project uses":    {"claude, opencode, kilocode, pi", "opencode, kilocode", []string{"kilocode", "opencode"}},
 		"only what the server reaches":  {"claude, codex, pi", "claude, opencode", []string{"claude"}},
-		"skips an Agent with no switch": {"cursor, opencode", "cursor, opencode", []string{"opencode"}},
+		"skips an Agent with no switch": {"cursor, opencode, pi", "cursor, opencode, pi", []string{"opencode"}},
 	} {
 		t.Run(name, func(t *testing.T) {
-			s, tmp := projectsService(t, "mcp:\n  servers:\n    docs:\n      command: tool\n      piExtension: pi-mcp-adapter\n      targets: ["+tc.global+"]\n  projects:\n    $TMP/p1:\n      targets: ["+tc.project+"]\n      servers:\n        docs:\n          disabled: true\n")
+			s, tmp := projectsService(t, "mcp:\n  servers:\n    docs:\n      command: tool\n      targets: ["+tc.global+"]\n  projects:\n    $TMP/p1:\n      targets: ["+tc.project+"]\n      servers:\n        docs:\n          disabled: true\n")
 			plan, err := s.Preview()
 			if err != nil {
 				t.Fatal(err)
@@ -323,11 +334,10 @@ func TestSwitchWithoutTargetsFollowsTheProject(t *testing.T) {
 	}
 }
 
-// Pi reads one config file per project, through one extension. Where the project's own
-// servers use pi-mcp-extension, Pi has no switch there, so the switch leaves Pi alone
-// instead of failing the whole plan over two extensions in one file.
-func TestSwitchLeavesPiAloneWhereTheProjectUsesAnotherExtension(t *testing.T) {
-	s, tmp := projectsService(t, "mcp:\n  servers:\n    docs:\n      command: tool\n      piExtension: pi-mcp-adapter\n      targets: [opencode, pi]\n  projects:\n    $TMP/p1:\n      targets: [opencode, pi]\n      servers:\n        mine:\n          command: tool\n          piExtension: pi-mcp-extension\n          targets: [pi]\n        docs:\n          disabled: true\n")
+// Pi's built-in MCP has no per-project switch, so a switch that names no targets leaves Pi
+// alone even where the project and the global server both reach it.
+func TestSwitchLeavesPiAlone(t *testing.T) {
+	s, tmp := projectsService(t, "mcp:\n  servers:\n    docs:\n      command: tool\n      targets: [opencode, pi]\n  projects:\n    $TMP/p1:\n      targets: [opencode, pi]\n      servers:\n        mine:\n          command: tool\n          targets: [pi]\n        docs:\n          disabled: true\n")
 	plan, err := s.Preview()
 	if err != nil {
 		t.Fatal(err)
@@ -340,5 +350,44 @@ func TestSwitchLeavesPiAloneWhereTheProjectUsesAnotherExtension(t *testing.T) {
 	}
 	if !slices.Equal(got, []string{"opencode"}) {
 		t.Fatalf("got %v", got)
+	}
+}
+
+// Before 0.23.0 an adapter user could turn a global server off for one project in Pi. Pi's
+// built-in MCP has no such switch, so loading drops pi from the entry instead of failing sync.
+func TestPiSwitchLeavesPiOnLoad(t *testing.T) {
+	s, tmp := projectsService(t, `mcp:
+  targets: [opencode]
+  projects:
+    $TMP/both:
+      servers:
+        docs:
+          disabled: true
+          targets: [pi, opencode]
+    $TMP/only:
+      servers:
+        docs:
+          disabled: true
+          targets: [pi]
+`)
+	plan, err := s.Preview()
+	if err != nil || plan.Blocked {
+		t.Fatalf("%+v %v", plan, err)
+	}
+	if len(plan.Changes) != 1 || plan.Changes[0].Target != "opencode" || plan.Changes[0].Root != filepath.Join(tmp, "both") {
+		t.Fatalf("changes: %+v", plan.Changes)
+	}
+	if want := "Pi cannot turn off a server per project; the next sync removes pi from these entries: docs (both, only)"; len(plan.Notices) != 1 || plan.Notices[0] != want {
+		t.Fatalf("notices: %q", plan.Notices)
+	}
+	if _, err := s.Mutate(Mutation{Name: "other", Server: &Server{Command: "other"}}, "", false); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(s.ConfigPath)
+	if strings.Contains(string(data), "- pi") || strings.Count(string(data), "- opencode") != 2 || !strings.Contains(string(data), "targets: []") {
+		t.Fatalf("saved config: %s", data)
+	}
+	if source, err := LoadSource(s.ConfigPath); err != nil || len(source.Notices) != 0 {
+		t.Fatalf("%v %v", source, err)
 	}
 }

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"maps"
 	"os"
+	"path/filepath"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
@@ -17,47 +17,51 @@ import (
 )
 
 type mcpOptions struct {
-	name, url, from, file, revision, piExtension string
-	// directTools is nil unless --direct-tools was given.
-	directTools any
+	name, url, from, file, revision string
+	// toolsAllow and toolsDeny are nil unless their --tools-* flag was given; an empty
+	// value clears that part of the tool policy.
+	toolsAllow, toolsDeny *string
 	// piOptions is nil unless --pi-options was given.
 	piOptions                                    mcp.PiOptions
 	targets                                      []string
 	command                                      []string
 	sync, dryRun, json, replace, noTUI, disabled bool
 	keepFiles                                    bool
-	piOptionsPrune                               bool
-	piOptionsPruneSet                            bool
+}
+
+// removedMCPFlags were Pi settings until 0.23.0. Naming one says what replaced it rather
+// than calling the flag unknown.
+var removedMCPFlags = map[string]string{
+	"--pi-extension":     "--pi-extension was removed in 0.23.0: Pi always uses its built-in MCP (~/.pi/agent/mcp.json or .pi/mcp.json); drop the flag",
+	"--pi-options-prune": "--pi-options-prune was removed in 0.23.0: sync always removes Pi fields Skillshare wrote earlier that are unchanged; drop the flag",
+	"--direct-tools":     "--direct-tools was removed in 0.23.0: use --pi-options '{\"exposure\":\"direct\"}' for every tool, or --pi-options '{\"toolExposure\":{\"TOOL\":\"direct\"}}' for single tools in Pi",
 }
 
 func parseMCPOptions(args []string) (mcpOptions, error) {
 	var o mcpOptions
 	for i := 0; i < len(args); i++ {
+		flag, _, _ := strings.Cut(args[i], "=")
+		if message, removed := removedMCPFlags[flag]; removed {
+			return o, errors.New(message)
+		}
 		switch a := args[i]; a {
 		case "--":
 			o.command = args[i+1:]
 			i = len(args)
-		case "--url", "--target", "--from", "--file", "--revision", "--pi-extension", "--direct-tools", "--pi-options":
+		case "--url", "--target", "--from", "--file", "--revision", "--tools-allow", "--tools-deny", "--pi-options":
 			if i+1 == len(args) {
 				return o, fmt.Errorf("%s requires a value", a)
 			}
 			i++
 			value := args[i]
 			switch a {
-			case "--pi-extension":
-				o.piExtension = value
-			case "--direct-tools":
-				switch value {
-				case "true", "false":
-					o.directTools = value == "true"
-				case "search":
-					o.directTools = value
-				default:
-					o.directTools = strings.Split(value, ",")
-				}
+			case "--tools-allow":
+				o.toolsAllow = &value
+			case "--tools-deny":
+				o.toolsDeny = &value
 			case "--pi-options":
 				if err := json.Unmarshal([]byte(value), &o.piOptions); err != nil || o.piOptions == nil {
-					return o, fmt.Errorf("--pi-options takes a JSON object, such as '{\"excludeTools\":[\"delete_*\"]}'")
+					return o, fmt.Errorf("--pi-options takes a JSON object, such as '{\"timeout\":30}'")
 				}
 			case "--url":
 				o.url = value
@@ -82,21 +86,9 @@ func parseMCPOptions(args []string) (mcpOptions, error) {
 			o.replace = true
 		case "--disabled":
 			o.disabled = true
-		case "--pi-options-prune":
-			o.piOptionsPrune = true
-			o.piOptionsPruneSet = true
 		case "--keep-files":
 			o.keepFiles = true
 		default:
-			if value, found := strings.CutPrefix(a, "--pi-options-prune="); found {
-				var err error
-				o.piOptionsPrune, err = strconv.ParseBool(value)
-				if err != nil {
-					return o, fmt.Errorf("--pi-options-prune takes true or false")
-				}
-				o.piOptionsPruneSet = true
-				continue
-			}
 			if strings.HasPrefix(a, "-") || o.name != "" {
 				return o, fmt.Errorf("unknown MCP argument %q", a)
 			}
@@ -111,6 +103,32 @@ func parseMCPOptions(args []string) (mcpOptions, error) {
 		o.targets = []string{}
 	}
 	return o, nil
+}
+
+// toolFlags reports whether any --tools-* flag was given.
+func (o mcpOptions) toolFlags() bool {
+	return o.toolsAllow != nil || o.toolsDeny != nil
+}
+
+// applyToolFlags sets the parts of a tool policy that --tools-* flags name. Lists are
+// comma-separated; an empty value clears the part.
+func (o mcpOptions) applyToolFlags(t mcp.ToolPolicy) mcp.ToolPolicy {
+	list := func(value string) []string {
+		var tools []string
+		for _, tool := range strings.Split(value, ",") {
+			if tool = strings.TrimSpace(tool); tool != "" {
+				tools = append(tools, tool)
+			}
+		}
+		return tools
+	}
+	if o.toolsAllow != nil {
+		t.Allow = list(*o.toolsAllow)
+	}
+	if o.toolsDeny != nil {
+		t.Deny = list(*o.toolsDeny)
+	}
+	return t
 }
 
 func cmdMCP(args []string) (resultErr error) {
@@ -215,7 +233,7 @@ func cmdSyncMCP(args []string) error {
 	if err != nil {
 		return err
 	}
-	if o.piOptionsPruneSet || o.piOptionsPrune || o.piOptions != nil || o.directTools != nil || o.piExtension != "" || o.name != "" || o.url != "" || o.from != "" || o.file != "" || len(o.command) > 0 || o.targets != nil || o.replace || o.sync || o.disabled || o.keepFiles {
+	if o.piOptions != nil || o.toolFlags() || o.name != "" || o.url != "" || o.from != "" || o.file != "" || len(o.command) > 0 || o.targets != nil || o.replace || o.sync || o.disabled || o.keepFiles {
 		return fmt.Errorf("sync mcp accepts only --dry-run, --json, --revision and scope flags")
 	}
 	if o.dryRun {
@@ -273,6 +291,9 @@ func printMCPPlan(p *mcp.Plan, asJSON bool) error {
 		return json.NewEncoder(os.Stdout).Encode(p)
 	}
 	ui.Info("MCP source: %s", p.SourcePath)
+	for _, notice := range p.Notices {
+		ui.Warning("%s", notice)
+	}
 	// mcp.projects puts one server into several roots; name the file only then.
 	seen := map[string]int{}
 	for _, c := range p.Changes {
@@ -306,12 +327,20 @@ func printMCPResult(result *mcp.Result, asJSON bool) error {
 	for _, id := range result.BackupIDs {
 		ui.Info("Backup: %s", id)
 	}
+	printMCPMigrated(result)
 	if result.Plan == nil {
 		ui.Success("MCP source saved. Run 'skillshare sync mcp' when ready.")
 	} else if !result.Plan.Blocked {
 		ui.Success("MCP files applied: %d. Reload your Agent after synchronization and complete any required login.", len(result.Applied))
 	}
 	return nil
+}
+
+// printMCPMigrated says the sync also saved the config without the settings 0.23.0 retired.
+func printMCPMigrated(result *mcp.Result) {
+	for _, file := range result.Migrated {
+		ui.Info("Updated %s for 0.23.0 (backup: %s)", filepath.Base(file.Path), file.Backup)
+	}
 }
 
 func logMCPOp(path, command string, start time.Time, err error) {
@@ -335,17 +364,19 @@ Commands:
   restore [id]      Browse backups, preview and restore Agent entries
 
 Options:
-  --pi-extension <mode>     builtin (Pi >= 0.99.0; default for a new server), pi-mcp-adapter or pi-mcp-extension
-  --direct-tools <value>    pi-mcp-adapter only: true, false, search, or tool names separated by commas
-  --pi-options <json>       builtin or adapter: other per-server fields as a JSON object
-  --pi-options-prune        Remove cleared Pi fields only if owned and unchanged (=false disables)
+  --tools-allow <tools>     Only these tools, separated by commas; * matches any
+                            characters ("" clears)
+  --tools-deny <tools>      Never these tools, separated by commas; beats allow
+                            ("" clears). The plan names each Agent that cannot hold
+                            a part of the tool policy
+  --pi-options <json>       Other Pi built-in per-server fields as a JSON object
   --target <client>  Receiving client; repeat for multiple clients, or none to keep
                     the server in Skillshare without writing it to any Agent
   --from <client>    Native client ID or account target (see mcp documentation)
   --file <path>      Native configuration file to import
   --url <url>        Streamable HTTP endpoint
   --disabled        Project mode: turn off a server from the Agent's global config
-                    (add NAME --disabled --target opencode; claude, opencode, kilocode, pi)
+                    (add NAME --disabled --target opencode; claude, opencode, kilocode)
   --sync            Save and synchronize (non-interactive default: save only)
   --keep-files      remove only: stop managing the server; its Agent entries stay
                     and sync no longer removes or updates them

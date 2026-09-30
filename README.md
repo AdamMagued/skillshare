@@ -60,6 +60,7 @@ skillshare fixes this:
 - **More than skills** — manage rules, commands, prompts & any file-based resource with [extras](https://skillshare.runkids.cc/docs/reference/targets/configuration#extras)
 - **MCP connections** — define a server once, sync it into each Agent's own config format with [`sync mcp`](https://skillshare.runkids.cc/docs/how-to/daily-tasks/sharing-mcp)
 - **Complete plugins** — keep a plugin's skills, hooks and MCP settings together and choose which tools receive it with [`plugin`](https://skillshare.runkids.cc/docs/how-to/daily-tasks/sharing-plugins)
+- **Native hooks** — manage each Agent’s event configuration or extension code, with preview, enable/disable and recovery. [hooks](https://skillshare.runkids.cc/docs/reference/commands/hooks)
 - **Install from anywhere** — GitHub, GitLab, Bitbucket, Azure DevOps, or any self-hosted Git
 - **Built-in security** — audit skills for prompt injection and data exfiltration before use
 - **Team-ready** — project skills in `.skillshare/`, org-wide skills via tracked repos
@@ -120,6 +121,8 @@ skillshare fixes this:
 ```bash
 curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh
 ```
+
+The script installs to `~/.local/bin` by default, so normal installs and updates do not need `sudo`. If the installer prints PATH setup instructions, follow them before running `skillshare`. Add the suggested line to your shell config (such as `~/.zshrc` or `~/.bashrc`) for future terminals. Set `INSTALL_DIR` to use another location.
 
 ### Windows PowerShell
 
@@ -194,14 +197,14 @@ skillshare init -p && skillshare sync
 
 ```bash
 skillshare sync agents            # sync agents only
-skillshare sync --all             # sync skills + agents + extras + MCP together
+skillshare sync --all             # sync skills + agents + extras + MCP + hooks together
 ```
 
 **Extras** —manage rules, commands, prompts & more
 
 ```bash
 skillshare extras init rules          # create a "rules" extra
-skillshare sync --all                 # sync skills + agents + extras + MCP together
+skillshare sync --all                 # sync skills + agents + extras + MCP + hooks together
 skillshare extras collect rules       # collect local files back to source
 ```
 
@@ -216,6 +219,14 @@ skillshare sync mcp                   # apply connection settings
 Keep definitions in `config.yaml` or reference a separate `mcp.yaml`.
 See [MCP setup](https://skillshare.runkids.cc/docs/how-to/daily-tasks/sharing-mcp)
 for examples, environment references and importing existing connections.
+
+Manage native hooks without executing them:
+
+```bash
+skillshare hooks add check --file ./check.yaml
+skillshare hooks sync --dry-run
+skillshare hooks sync
+```
 
 **Plugins** —install a complete plugin and pick which tools receive it
 

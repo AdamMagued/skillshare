@@ -4,10 +4,12 @@
 package mcp
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -69,7 +71,6 @@ func (v Value) MarshalJSON() ([]byte, error) {
 
 // Server contains only settings that have explicit native adapter mappings.
 type Server struct {
-	PiExtension string           `yaml:"piExtension,omitempty" json:"piExtension,omitempty"`
 	Transport   string           `yaml:"transport,omitempty" json:"transport,omitempty"`
 	Command     string           `yaml:"command,omitempty" json:"command,omitempty"`
 	Args        []string         `yaml:"args,omitempty" json:"args,omitempty"`
@@ -78,18 +79,206 @@ type Server struct {
 	Headers     map[string]Value `yaml:"headers,omitempty" json:"headers,omitempty"`
 	BearerToken *Value           `yaml:"bearerToken,omitempty" json:"bearerToken,omitempty"`
 	Targets     TargetList       `yaml:"targets,omitempty" json:"targets,omitzero"`
-	// DirectTools is pi-mcp-adapter's directTools: true, false, "search" or a list of
-	// tool names. Only Pi receives it.
-	DirectTools any `yaml:"directTools,omitempty" json:"directTools,omitempty"`
-	// PiOptions are builtin or adapter fields Skillshare has no setting for, such as
-	// excludeTools. They are written into Pi's entry as given.
+	// Tools is which of the server's tools reach the model, translated per Agent.
+	Tools ToolPolicy `yaml:"tools,omitempty" json:"tools,omitzero"`
+	// PiOptions are Pi built-in fields Skillshare has no setting for, such as timeout.
+	// They are written into Pi's entry as given.
 	PiOptions PiOptions `yaml:"piOptions,omitempty" json:"piOptions,omitempty"`
-	// PiOptionsPrune removes cleared fields only when the ledger owns their unchanged values.
-	PiOptionsPrune bool `yaml:"piOptionsPrune,omitempty" json:"piOptionsPrune,omitempty"`
 	// Disabled is the whole entry: it turns off, for one project, a server that the
 	// Agent's global config defines. Unselecting an Agent already covers a server
 	// Skillshare defines, so a disabled server carries no command or url.
 	Disabled bool `yaml:"disabled,omitempty" json:"disabled,omitempty"`
+}
+
+// legacyServerFields chose Pi's MCP extension and opted in to pruning Pi fields, before
+// 0.23.0 made Pi use its built-in MCP and always prune. A config that still has them loads,
+// and saving it drops them.
+var legacyServerFields = []string{"piExtension", "piOptionsPrune"}
+
+// UnmarshalJSON ignores legacyServerFields and converts directTools as loading does, so a
+// dashboard that still sends them can save.
+func (s *Server) UnmarshalJSON(data []byte) error {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil {
+		return err
+	}
+	for _, key := range legacyServerFields {
+		delete(fields, key)
+	}
+	var directTools any
+	if raw, ok := fields["directTools"]; ok {
+		_ = json.Unmarshal(raw, &directTools)
+		delete(fields, "directTools")
+	}
+	data, err := json.Marshal(fields)
+	if err != nil {
+		return err
+	}
+	type plain Server
+	d := json.NewDecoder(bytes.NewReader(data))
+	d.DisallowUnknownFields()
+	if err := d.Decode((*plain)(s)); err != nil {
+		return err
+	}
+	s.adoptAdapterTools(directTools, nil, nil)
+	return nil
+}
+
+// adapterPiOptions are pi-mcp-adapter server fields that Pi's built-in MCP (0.99.0) does
+// not read. Before 0.23.0 they reached the adapter's file through piOptions.
+var adapterPiOptions = []string{"approveTools", "auth", "bearerToken", "bearerTokenEnv", "bearerTokenStore", "caFile", "debug", "exposeResources", "idleTimeout", "inheritEnv", "lifecycle", "protocolVersion", "requestHeadersCommand", "requestTimeoutMs", "searchKeywords", "socket", "tasks", "toolPrefix", "trace"}
+
+func deref(n *yaml.Node) *yaml.Node {
+	if n != nil && n.Kind == yaml.AliasNode {
+		return n.Alias
+	}
+	return n
+}
+
+// migration is what migrateServers needs to know about a servers mapping's scope.
+type migration struct {
+	// piAccounts are the account targets whose Agent is Pi.
+	piAccounts []string
+	// directTools is the scope's pi-mcp-adapter default, mcp.directTools or a project's,
+	// for the servers that reach Pi and set none; defaults are the scope's targets.
+	directTools any
+	defaults    []string
+}
+
+// reachesPi reports a server whose targets, its own or the scope's, include Pi.
+func (m migration) reachesPi(server *yaml.Node) bool {
+	targets := m.defaults
+	if n := deref(field(server, "targets")); n != nil {
+		targets = nil
+		_ = n.Decode(&targets)
+	}
+	return slices.ContainsFunc(targets, func(t string) bool { return t == "pi" || slices.Contains(m.piAccounts, t) })
+}
+
+// migrateServers rewrites, in place, what 0.23.0 retired in every server of a servers
+// mapping, and names the servers each change touched, keyed by what changed:
+//   - legacyServerFields are dropped; a piExtension that chose pi-mcp-adapter or
+//     pi-mcp-extension is also keyed "piExtension.<extension>";
+//   - pi-mcp-adapter piOptions are dropped, keyed "piOptions.<field>";
+//   - directTools and piOptions includeTools/excludeTools become Pi exposure settings or
+//     tools (adoptAdapterTools), keyed "piTools", or are dropped, keyed "piTools.<field>";
+//   - pi and piAccounts leave the targets of a switch-only entry, keyed "piSwitch": Pi has
+//     no per-project switch, and an entry left with no targets stays, turning nothing off.
+func migrateServers(servers *yaml.Node, m migration) map[string][]string {
+	found := map[string][]string{}
+	servers = deref(servers)
+	if servers == nil || servers.Kind != yaml.MappingNode {
+		return found
+	}
+	for i := 0; i+1 < len(servers.Content); i += 2 {
+		name, server := servers.Content[i].Value, deref(servers.Content[i+1])
+		if server.Kind != yaml.MappingNode {
+			continue
+		}
+		for _, key := range legacyServerFields {
+			if n := deref(field(server, key)); n != nil {
+				if key == "piExtension" && (n.Value == "pi-mcp-adapter" || n.Value == "pi-mcp-extension") {
+					found[key+"."+n.Value] = append(found[key+"."+n.Value], name)
+				}
+				drop(server, key)
+				found[key] = append(found[key], name)
+			}
+		}
+		if options := deref(field(server, "piOptions")); options != nil && options.Kind == yaml.MappingNode {
+			for _, key := range adapterPiOptions {
+				if field(options, key) != nil {
+					drop(options, key)
+					found["piOptions."+key] = append(found["piOptions."+key], name)
+				}
+			}
+		}
+		if dropped, ok := migrateAdapterTools(server, m); ok {
+			found["piTools"] = append(found["piTools"], name)
+			for _, key := range dropped {
+				found["piTools."+key] = append(found["piTools."+key], name)
+			}
+		}
+		if options := deref(field(server, "piOptions")); options != nil && options.Kind == yaml.MappingNode && len(options.Content) == 0 {
+			drop(server, "piOptions")
+		}
+		disabled := deref(field(server, "disabled"))
+		targets := deref(field(server, "targets"))
+		if disabled == nil || disabled.Tag != "!!bool" || disabled.Value != "true" || targets == nil || targets.Kind != yaml.SequenceNode {
+			continue
+		}
+		kept := []*yaml.Node{}
+		for _, target := range targets.Content {
+			if value := deref(target).Value; value != "pi" && !slices.Contains(m.piAccounts, value) {
+				kept = append(kept, target)
+			}
+		}
+		if len(kept) < len(targets.Content) {
+			targets.Content = kept
+			found["piSwitch"] = append(found["piSwitch"], name)
+		}
+	}
+	return found
+}
+
+// migrateAdapterTools converts one server's directTools, or the scope's when it reaches Pi
+// and sets none, and its piOptions includeTools/excludeTools. It reports whether the server
+// had any, and which of them it dropped.
+func migrateAdapterTools(server *yaml.Node, m migration) ([]string, bool) {
+	var directTools any
+	var include, exclude []any
+	had := false
+	disabled := deref(field(server, "disabled"))
+	if n := field(server, "directTools"); n != nil {
+		_ = n.Decode(&directTools)
+		drop(server, "directTools")
+		had = true
+	} else if m.directTools != nil && m.directTools != false && disabled == nil && m.reachesPi(server) {
+		directTools = m.directTools
+	}
+	options := deref(field(server, "piOptions"))
+	if options != nil && options.Kind == yaml.MappingNode {
+		for key, list := range map[string]*[]any{"includeTools": &include, "excludeTools": &exclude} {
+			if n := field(options, key); n != nil {
+				if n.Decode(list) != nil || *list == nil {
+					*list = []any{}
+				}
+				drop(options, key)
+				had = true
+			}
+		}
+	}
+	if !had && directTools == nil {
+		return nil, false
+	}
+	// Only what decides the conversion is decoded; the rest of the node stays as written.
+	var draft Server
+	if n := field(server, "tools"); n != nil && n.Decode(&draft.Tools) != nil {
+		draft.Tools.Deny = []string{"unreadable"} // still counts as set
+	}
+	for _, key := range []string{"exposure", "toolExposure"} {
+		if options != nil && field(options, key) != nil {
+			if draft.PiOptions == nil {
+				draft.PiOptions = PiOptions{}
+			}
+			draft.PiOptions[key] = true
+		}
+	}
+	draft.Disabled = disabled != nil && disabled.Value == "true"
+	before := draft
+	dropped := draft.adoptAdapterTools(directTools, include, exclude)
+	if before.Tools.IsZero() && !draft.Tools.IsZero() {
+		_ = put(server, "tools", draft.Tools)
+	}
+	for _, key := range []string{"exposure", "toolExposure"} {
+		if value, set := draft.PiOptions[key]; set && before.PiOptions[key] == nil {
+			if options == nil || options.Kind != yaml.MappingNode {
+				_ = put(server, "piOptions", map[string]any{})
+				options = field(server, "piOptions")
+			}
+			_ = put(options, key, value)
+		}
+	}
+	return dropped, true
 }
 
 // TargetList tells a missing list from an empty one. Missing inherits mcp.targets; empty
@@ -152,9 +341,6 @@ func validateTargets(targets []string) error {
 
 // Validate checks a portable server without executing or connecting to it.
 func (s Server) Validate(name string) error {
-	if s.PiExtension != "" && s.PiExtension != "builtin" && s.PiExtension != "pi-mcp-adapter" && s.PiExtension != "pi-mcp-extension" {
-		return fmt.Errorf("MCP %s: piExtension must be builtin, pi-mcp-adapter or pi-mcp-extension", name)
-	}
 	for key := range s.Env {
 		if !envName.MatchString(key) {
 			return fmt.Errorf("MCP %s: invalid environment variable name", name)
@@ -163,18 +349,23 @@ func (s Server) Validate(name string) error {
 	if !serverName.MatchString(name) {
 		return fmt.Errorf("invalid MCP name %q: use letters, digits, dots, underscores or hyphens", name)
 	}
-	if err := s.validateDirectTools(name); err != nil {
-		return err
-	}
 	if err := s.validatePiOptions(name); err != nil {
 		return err
+	}
+	if !s.Tools.IsZero() {
+		switch {
+		case s.Disabled:
+			return fmt.Errorf("MCP %s: tools cannot be set on a disabled entry; it only switches the server off", name)
+		case s.PiOptions["toolExposure"] != nil:
+			return fmt.Errorf("MCP %s: tools and piOptions.toolExposure both set which tools Pi shows; keep it in tools", name)
+		}
+		if err := s.Tools.validate(name); err != nil {
+			return err
+		}
 	}
 	if s.Disabled {
 		if s.Command != "" || s.URL != "" || s.Transport != "" || s.BearerToken != nil || len(s.Args)+len(s.Env)+len(s.Headers) > 0 {
 			return fmt.Errorf("MCP %s: disabled turns off a server the Agent already has; leave out its command, url and settings", name)
-		}
-		if s.Targets != nil && len(s.Targets) == 0 {
-			return fmt.Errorf("MCP %s: disabled needs at least one target to turn the server off for; omit targets to inherit defaults", name)
 		}
 		return validateTargets(s.Targets)
 	}

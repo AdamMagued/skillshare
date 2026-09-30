@@ -13,6 +13,7 @@ _skillshare() {
         'sync:Sync skills/agents/extras/MCP to targets'
         'plugin:Manage complete native plugins'
         'mcp:Manage MCP connections'
+        'hooks:Manage Agent hooks'
         'status:Show status of all targets'
         'diff:Show differences between source and targets'
         'backup:Create backup of targets'
@@ -94,10 +95,9 @@ _skillshare() {
                 mcp)
                     _arguments \
                         '1:command:(add check edit import list remove restore)' \
-                        '--pi-extension[Pi MCP mode]:extension:(builtin pi-mcp-adapter pi-mcp-extension)' \
-                        '--direct-tools[pi-mcp-adapter direct tools: true, false, search or tool names]:value:(true false search)' \
-                        '--pi-options[builtin or adapter: other per-server fields as JSON]:json:' \
-                        '--pi-options-prune[Remove only owned unchanged Pi fields]' \
+                        '--tools-allow[Only these tools, comma-separated, * matches any characters; empty clears]:tools:' \
+                        '--tools-deny[Never these tools, comma-separated, * matches any characters; empty clears]:tools:' \
+                        '--pi-options[Other Pi built-in per-server fields as JSON]:json:' \
                         '--target[Receiving client]:target:' \
                         '--from[Import client]:target:' \
                         '--url[MCP endpoint]:url:' \
@@ -117,6 +117,21 @@ _skillshare() {
                         $global_flags \
                         '--help[Show help]' \
                         '-h[Show help]'
+                    ;;
+                hooks)
+                    _arguments \
+                        '1:command:(add disable edit enable import list remove restore sync)' \
+                        '--file[Entry or native file]:file:_files' \
+                        '--from[Import Agent]:agent:' \
+                        '--sync[Sync after saving]' \
+                        '--replace[Replace an existing entry]' \
+                        '--keep-files[remove: leave Agent entries as they are]' \
+                        '--revision[Preview revision]:revision:' \
+                        '--dry-run[Preview changes]' \
+                        '-n[Preview changes]' \
+                        '--json[JSON output]' \
+                        $global_flags \
+                        '--help[Show help]'
                     ;;
                 plugin)
                     _arguments \
@@ -205,7 +220,7 @@ _skillshare() {
                     ;;
                 sync)
                     _arguments \
-                        '1:scope:(agents extras mcp plugins)' \
+                        '1:scope:(agents extras mcp hooks plugins)' \
                         '--all[Sync skills + agents + extras]' \
                         '--dry-run[Preview changes]' \
                         '-n[Preview changes]' \

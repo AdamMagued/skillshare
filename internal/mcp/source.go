@@ -20,14 +20,19 @@ type Source struct {
 	Path       string            `json:"path"`
 	Targets    []string          `json:"targets"`
 	Servers    map[string]Server `json:"servers"`
-	// DirectTools is the default for pi-mcp-adapter servers that do not set their own,
-	// as Targets is for targets. It stands in for the adapter's settings.directTools,
-	// which shares Pi's file with the servers and a plan edits each file once.
-	DirectTools any `json:"directTools,omitempty"`
 	// Projects are project roots a global config syncs into, keyed by absolute path.
 	Projects map[string]Project `json:"projects,omitempty"`
 	// Accounts are the config's targets that are another config directory of an Agent.
 	Accounts map[string]Account `json:"accounts,omitempty"`
+	// Notices name settings the config still has that no longer apply. Loading the config
+	// is not an error for them; saving it drops what can be dropped.
+	Notices []string `json:"notices,omitempty"`
+	// migrateConfig and migrateExternal mark the files loading converted from settings
+	// 0.23.0 retired; sync writes them back so the notices go away.
+	migrateConfig, migrateExternal bool
+	// piExtensionSettings marks settings only pi-mcp-adapter or pi-mcp-extension read, so
+	// the plan warns what Pi's built-in MCP needs (PiBuiltinNotice).
+	piExtensionSettings bool
 	// projectKeys holds each root as config.yaml spells it, so saving keeps a leading ~.
 	projectKeys map[string]string
 	// What a draft changed, so save re-encodes nothing else.
@@ -44,9 +49,8 @@ type Source struct {
 // Project is what a project's own config.yaml would hold under mcp, declared in the
 // global config instead so one sync reaches every root.
 type Project struct {
-	Targets     []string          `yaml:"targets,omitempty" json:"targets,omitempty"`
-	DirectTools any               `yaml:"directTools,omitempty" json:"directTools,omitempty"`
-	Servers     map[string]Server `yaml:"servers,omitempty" json:"servers,omitempty"`
+	Targets []string          `yaml:"targets,omitempty" json:"targets,omitempty"`
+	Servers map[string]Server `yaml:"servers,omitempty" json:"servers,omitempty"`
 }
 
 func mapping(node *yaml.Node) *yaml.Node {
@@ -155,7 +159,66 @@ func LoadSource(configPath string) (*Source, error) {
 	if err := validateTargets(s.Targets); err != nil {
 		return nil, err
 	}
+	if s.Accounts, err = parseAccounts(field(&s.configDoc, "targets")); err != nil {
+		return nil, err
+	}
+	global := migration{defaults: s.Targets}
+	for name, account := range s.Accounts {
+		if account.Agent == "pi" {
+			global.piAccounts = append(global.piAccounts, name)
+		}
+	}
+	legacy := map[string][]legacyName{}
+	note := func(found map[string][]string, root string, external bool) {
+		for key, names := range found {
+			for _, name := range names {
+				legacy[key] = append(legacy[key], legacyName{name, root})
+			}
+		}
+		if len(found) > 0 {
+			s.migrateExternal = s.migrateExternal || external
+			s.migrateConfig = s.migrateConfig || !external
+		}
+	}
+	// A directTools default becomes each server's own before the servers are decoded.
+	directDefault := func(scope *yaml.Node, label string) (any, error) {
+		n := field(scope, "directTools")
+		if n == nil {
+			return nil, nil
+		}
+		var value any
+		if err := n.Decode(&value); err != nil || !ValidDirectTools(value) {
+			return nil, fmt.Errorf("%s must be true, false, \"search\" or a list of tool names", label)
+		}
+		// The servers it reaches are named; the default itself only needs the config saved.
+		drop(scope, "directTools")
+		s.migrateConfig = true
+		return value, nil
+	}
+	var servers *yaml.Node
 	if mcp != nil {
+		servers = field(mcp, "servers")
+		if global.directTools, err = directDefault(mcp, "mcp.directTools"); err != nil {
+			return nil, err
+		}
+		if projects := deref(field(mcp, "projects")); projects != nil && projects.Kind == yaml.MappingNode {
+			for i := 0; i+1 < len(projects.Content); i += 2 {
+				root, project := projects.Content[i].Value, deref(projects.Content[i+1])
+				scope := global
+				if project.Kind == yaml.MappingNode {
+					if value, err := directDefault(project, "directTools ("+root+")"); err != nil {
+						return nil, fmt.Errorf("mcp.projects: %s: %w", root, err)
+					} else if value != nil {
+						scope.directTools = value
+					}
+					if n := field(project, "targets"); n != nil {
+						scope.defaults = nil
+						_ = n.Decode(&scope.defaults)
+					}
+				}
+				note(migrateServers(field(project, "servers"), scope), root, false)
+			}
+		}
 		if s.Projects, err = ParseProjects(field(mcp, "projects")); err != nil {
 			return nil, err
 		}
@@ -166,15 +229,6 @@ func LoadSource(configPath string) (*Source, error) {
 				s.projectKeys[filepath.Clean(root)] = projects.Content[i].Value
 			}
 		}
-		if n := field(mcp, "directTools"); n != nil {
-			if err := n.Decode(&s.DirectTools); err != nil || !ValidDirectTools(s.DirectTools) {
-				return nil, fmt.Errorf("mcp.directTools must be true, false, \"search\" or a list of tool names")
-			}
-		}
-	}
-	var servers *yaml.Node
-	if mcp != nil {
-		servers = field(mcp, "servers")
 	}
 	if sources := field(&s.configDoc, "sources"); sources != nil {
 		if sources.Kind != yaml.MappingNode {
@@ -220,14 +274,9 @@ func LoadSource(configPath string) (*Source, error) {
 		if servers.Kind != yaml.MappingNode {
 			return nil, fmt.Errorf("MCP servers must be a mapping")
 		}
-		data, err := yaml.Marshal(servers)
-		if err != nil {
-			return nil, err
-		}
-		decoder := yaml.NewDecoder(bytes.NewReader(data))
-		decoder.KnownFields(true)
-		if err := decoder.Decode(&s.Servers); err != nil {
-			return nil, fmt.Errorf("invalid MCP server fields: use command/args/env or url/headers/bearerToken and optional targets/transport/piExtension, or disabled with targets")
+		note(migrateServers(servers, global), "", s.Path != path)
+		if s.Servers, err = ParseServers(servers); err != nil {
+			return nil, fmt.Errorf("invalid MCP server fields: use command/args/env or url/headers/bearerToken and optional targets/transport/piOptions, or disabled with targets")
 		}
 	}
 	for name, server := range s.Servers {
@@ -235,10 +284,69 @@ func LoadSource(configPath string) (*Source, error) {
 			return nil, err
 		}
 	}
-	if s.Accounts, err = parseAccounts(field(&s.configDoc, "targets")); err != nil {
-		return nil, err
+	s.Notices = legacyNotices(legacy)
+	for key := range legacy {
+		if key == "piTools" || strings.HasPrefix(key, "piOptions.") || strings.HasPrefix(key, "piExtension.") {
+			s.piExtensionSettings = true
+		}
 	}
 	return s, s.checkTargets()
+}
+
+// legacyName is a server that had a setting 0.23.0 retired, and the mcp.projects root it
+// is under, empty for the scope's own servers.
+type legacyName struct{ name, root string }
+
+// legacyNotices explains, one line per kind, the settings 0.23.0 retired that the config
+// still has. Each server is named once; one found only under mcp.projects adds the folder
+// names of its roots.
+func legacyNotices(legacy map[string][]legacyName) []string {
+	list := func(keys ...string) string {
+		roots := map[string][]string{}
+		for _, key := range keys {
+			for _, n := range legacy[key] {
+				folder := ""
+				if n.root != "" {
+					folder = filepath.Base(filepath.Clean(n.root))
+				}
+				if !slices.Contains(roots[n.name], folder) {
+					roots[n.name] = append(roots[n.name], folder)
+				}
+			}
+		}
+		var names []string
+		for _, name := range sortedKeys(roots) {
+			folders := roots[name]
+			if slices.Contains(folders, "") {
+				names = append(names, name)
+				continue
+			}
+			slices.Sort(folders)
+			names = append(names, name+" ("+strings.Join(folders, ", ")+")")
+		}
+		return strings.Join(names, ", ")
+	}
+	var notices []string
+	add := func(text string, keys ...string) {
+		if names := list(keys...); names != "" {
+			notices = append(notices, text+": "+names)
+		}
+	}
+	add("Pi now uses its built-in MCP; the next sync updates the config", "piExtension")
+	add("piOptionsPrune is no longer used; the next sync removes it", "piOptionsPrune")
+	var adapter, keys []string
+	for _, key := range adapterPiOptions {
+		if len(legacy["piOptions."+key]) > 0 {
+			adapter, keys = append(adapter, key), append(keys, "piOptions."+key)
+		}
+	}
+	if len(adapter) > 0 {
+		add("Pi's built-in MCP does not read "+strings.Join(adapter, ", ")+"; the next sync removes them", keys...)
+	}
+	add("Pi cannot turn off a server per project; the next sync removes pi from these entries", "piSwitch")
+	add("directTools, includeTools and excludeTools become tool settings; the next sync converts them", "piTools")
+	add("directTools, includeTools or excludeTools the server already covers, or that are not tool lists, are dropped; the next sync removes them", "piTools.directTools", "piTools.excludeTools", "piTools.includeTools")
+	return notices
 }
 
 // parseAccounts reads the targets that are another config directory of an Agent whose MCP
@@ -344,6 +452,30 @@ func ReferenceWarning(configPath, target string) string {
 	return fmt.Sprintf("%s %s %s; remove it there too or the next mcp sync fails", strings.Join(places, ", "), names, target)
 }
 
+// ParseServers decodes a servers mapping strictly, after migrateServers has taken out what
+// 0.23.0 retired. It does not validate the servers.
+func ParseServers(node *yaml.Node) (map[string]Server, error) {
+	data, err := yaml.Marshal(expandAliases(node))
+	if err != nil {
+		return nil, err
+	}
+	var copied yaml.Node
+	if err := yaml.Unmarshal(data, &copied); err != nil {
+		return nil, err
+	}
+	migrateServers(mapping(&copied), migration{})
+	if data, err = yaml.Marshal(&copied); err != nil {
+		return nil, err
+	}
+	servers := map[string]Server{}
+	decoder := yaml.NewDecoder(bytes.NewReader(data))
+	decoder.KnownFields(true)
+	if err := decoder.Decode(&servers); err != nil {
+		return nil, err
+	}
+	return servers, nil
+}
+
 // ParseProjects reads and validates mcp.projects. The config editor shares it, so it
 // never accepts a section that sync would then refuse.
 func ParseProjects(node *yaml.Node) (map[string]Project, error) {
@@ -354,6 +486,19 @@ func ParseProjects(node *yaml.Node) (map[string]Project, error) {
 	// anchor outside it, such as one on mcp.servers, has to be expanded first.
 	data, err := yaml.Marshal(expandAliases(node))
 	if err != nil {
+		return nil, err
+	}
+	var copied yaml.Node
+	if err := yaml.Unmarshal(data, &copied); err != nil {
+		return nil, err
+	}
+	if projects := mapping(&copied); projects.Kind == yaml.MappingNode {
+		for i := 0; i+1 < len(projects.Content); i += 2 {
+			drop(projects.Content[i+1], "directTools")
+			migrateServers(field(projects.Content[i+1], "servers"), migration{})
+		}
+	}
+	if data, err = yaml.Marshal(&copied); err != nil {
 		return nil, err
 	}
 	var declared map[string]Project
@@ -371,7 +516,7 @@ func ParseProjects(node *yaml.Node) (map[string]Project, error) {
 			}
 			reason = strings.Join(typeErr.Errors, "; ")
 		}
-		return nil, fmt.Errorf("mcp.projects: %s; each project root takes only targets, servers and directTools", reason)
+		return nil, fmt.Errorf("mcp.projects: %s; each project root takes only targets and servers", reason)
 	}
 	projects := map[string]Project{}
 	for root, project := range declared {
@@ -388,9 +533,6 @@ func ParseProjects(node *yaml.Node) (map[string]Project, error) {
 		}
 		if err := validateTargets(project.Targets); err != nil {
 			return nil, err
-		}
-		if !ValidDirectTools(project.DirectTools) {
-			return nil, fmt.Errorf("mcp.projects: %s: directTools must be true, false, \"search\" or a list of tool names", root)
 		}
 		for name, server := range project.Servers {
 			if err := server.Validate(name); err != nil {

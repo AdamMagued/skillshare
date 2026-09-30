@@ -21,7 +21,7 @@ type Mutation struct {
 	// Project is a root under mcp.projects. Set, the rest of the mutation applies to that
 	// project; with Remove and no Name, the project itself is dropped.
 	Project string `json:"project,omitempty"`
-	// Settings replaces targets and directTools of the scope, so a value left out is cleared.
+	// Settings replaces the targets of the scope, so a value left out is cleared.
 	Settings *Settings `json:"settings,omitempty"`
 	Name     string    `json:"name,omitempty"`
 	Server   *Server   `json:"server,omitempty"`
@@ -33,16 +33,15 @@ type Mutation struct {
 	Replace     bool         `json:"replace,omitempty"`
 }
 
-// Settings are a scope's defaults: mcp.targets and mcp.directTools, or a project's own.
+// Settings are a scope's defaults: mcp.targets, or a project's own.
 type Settings struct {
-	Targets     []string `json:"targets,omitempty"`
-	DirectTools any      `json:"directTools,omitempty"`
+	Targets []string `json:"targets,omitempty"`
+	// DirectTools is ignored since 0.23.0, which converts it to each server's own tool
+	// exposure. It is accepted so a dashboard that still sends it can save.
+	DirectTools any `json:"directTools,omitempty"`
 }
 
 func (v Settings) validate() error {
-	if !ValidDirectTools(v.DirectTools) {
-		return fmt.Errorf("directTools must be true, false, \"search\" or a list of tool names")
-	}
 	return validateTargets(v.Targets)
 }
 
@@ -95,7 +94,7 @@ func (s *Source) draftProject(m Mutation) error {
 		if err := m.Settings.validate(); err != nil {
 			return err
 		}
-		project.Targets, project.DirectTools = m.Settings.Targets, m.Settings.DirectTools
+		project.Targets = m.Settings.Targets
 	}
 	if s.Projects == nil {
 		s.Projects = map[string]Project{}
@@ -135,7 +134,7 @@ func (s *Service) draftMutations(mutations []Mutation) (*Source, error) {
 			if err := m.Settings.validate(); err != nil {
 				return nil, err
 			}
-			source.Targets, source.DirectTools, source.settingsChanged = m.Settings.Targets, m.Settings.DirectTools, true
+			source.Targets, source.settingsChanged = m.Settings.Targets, true
 		}
 		source.serversChanged = source.serversChanged || m.Remove || m.Server != nil
 		if m.Remove {
@@ -215,9 +214,6 @@ func (s *Source) save() error {
 		if err := putOrDrop(mcp, "targets", s.Targets, len(s.Targets) > 0); err != nil {
 			return err
 		}
-		if err := putOrDrop(mcp, "directTools", s.DirectTools, s.DirectTools != nil); err != nil {
-			return err
-		}
 	}
 	if len(s.touched) > 0 {
 		if field(mcp, "projects") == nil {
@@ -239,6 +235,56 @@ func (s *Source) save() error {
 	}
 	inlineOrphanAliases(doc)
 	return writeYAML(s.ConfigPath, doc, mcp)
+}
+
+// NeedsMigration reports settings 0.23.0 retired that loading converted in memory only.
+func (s *Source) NeedsMigration() bool { return s.migrateConfig || s.migrateExternal }
+
+// MigratedFile is a config file a sync saved without the settings 0.23.0 retired, and the
+// backup of its previous content.
+type MigratedFile struct {
+	Path   string `json:"path"`
+	Backup string `json:"backup,omitempty"`
+}
+
+// saveMigration writes back what loading converted from settings 0.23.0 retired, and
+// nothing else: the documents already hold the converted fields. backup, when set, keeps
+// each file's current content first.
+func (s *Source) saveMigration(backup func(path string) (string, error)) ([]MigratedFile, error) {
+	var saved []MigratedFile
+	if !s.NeedsMigration() {
+		return nil, nil
+	}
+	if err := s.CheckUnchanged(); err != nil {
+		return nil, err
+	}
+	write := func(path string, doc, section *yaml.Node) error {
+		file := MigratedFile{Path: path}
+		if backup != nil {
+			var err error
+			if file.Backup, err = backup(path); err != nil {
+				return err
+			}
+		}
+		if err := writeYAML(path, doc, section); err != nil {
+			return err
+		}
+		saved = append(saved, file)
+		return nil
+	}
+	if s.migrateExternal {
+		if err := write(s.Path, &s.doc, mapping(&s.doc)); err != nil {
+			return saved, err
+		}
+	}
+	if s.migrateConfig {
+		inlineOrphanAliases(&s.configDoc)
+		if err := write(s.ConfigPath, &s.configDoc, field(&s.configDoc, "mcp")); err != nil {
+			return saved, err
+		}
+	}
+	s.migrateConfig, s.migrateExternal, s.piExtensionSettings, s.Notices = false, false, false, nil
+	return saved, nil
 }
 
 func putOrDrop(node *yaml.Node, key string, value any, keep bool) error {
@@ -429,5 +475,5 @@ func (s *Service) MutateBatch(mutations []Mutation, revision string, sync bool) 
 	if err != nil {
 		return result, fmt.Errorf("source saved; synchronization incomplete: %w", err)
 	}
-	return result, nil
+	return result, s.migrate(result)
 }
