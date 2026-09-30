@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.22.1] - 2026-09-30
+
+### Bug Fixes
+
+- **Dashboard file editor no longer crashes** — opening a file tab on a target page, such as `APPEND_SYSTEM.md` on `pi`, showed "Something went wrong — Unrecognized extension value in extension set". The dashboard bundled two copies of its code editor library; it now bundles one.
+
 ## [0.22.0] - 2026-09-30
 
 ### New Features
