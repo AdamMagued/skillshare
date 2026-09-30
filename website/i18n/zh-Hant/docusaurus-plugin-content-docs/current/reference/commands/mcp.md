@@ -19,6 +19,8 @@ skillshare mcp add local --target codex -- company-mcp --workspace /path/to/work
 skillshare mcp import docs --from claude --target claude --target cursor --sync
 skillshare mcp import docs --file ./provider.json --target claude
 skillshare mcp list --json
+skillshare mcp check
+skillshare mcp check docs --json --no-dns
 skillshare mcp remove docs --sync
 skillshare mcp remove docs --keep-files
 skillshare mcp restore BACKUP_ID --dry-run
@@ -44,6 +46,7 @@ skillshare sync --all
 | `--replace` | 在 add/import 期間明確取代既有的 source 定義；在 import 時，若匯入的 client 項目不同也會一併改寫 |
 | `--dry-run`, `-n` | 只預覽，不儲存或寫入原生設定 |
 | `--json` | 結構化輸出；sync/preview 報告只包含名稱、路徑與動作，不含 server 的值 |
+| `--no-dns` | 搭配 `check` 使用：略過遠端 server 的主機名稱解析。參見[下方說明](#check-servers-before-an-agent-starts-them) |
 | `--no-tui` | 停用互動選單；`tui: false`、`--json` 或非終端機輸入/輸出時也會停用 |
 | `--revision ID` | 要求 add、import、remove 或 `sync mcp` 使用相符的 preview |
 | `--global`, `-g` | 使用 global Skillshare 設定 |
@@ -542,6 +545,80 @@ anchor 與 alias，而寫成 `~/work/app` 的資料夾也會保留它的 `~`。�
   servers 本身則維持原樣。
 - 如果某個資料夾也有自己的 `.skillshare/config.yaml` 在管理同一個項目，
   計畫會回報衝突，而不是覆寫它。
+
+## 在 Agent 啟動 server 之前先檢查 {#check-servers-before-an-agent-starts-them}
+
+```bash
+skillshare mcp check
+skillshare mcp check docs github --json
+skillshare mcp check --no-dns
+```
+
+`mcp check` 會針對 source 中的每個 server（或只針對指定的 server）回答「照同步後的樣子能不能正常運作？」。
+在 global config 中，它也會檢查 [`mcp.projects`](#manage-several-projects-from-the-global-config)
+底下每個根目錄的 servers，並依該根目錄讀取每個 Agent 的規則與同步狀態。它是唯讀的：不會啟動 server、
+送出 HTTP 請求、執行指令或寫入檔案。
+
+| 檢查項目 | 等級 |
+|---|---|
+| `env`、`headers` 或 `bearerToken` 中的 `fromEnv` 變數未設定或為空 | error |
+| 在 `PATH` 上找不到本機 server 的 `command`（開頭的 `~/` 會被展開） | error |
+| 遠端 server 的主機無法透過 DNS 解析（限時 3 秒；可用 `--no-dns` 略過） | warning |
+| 某個 Agent 的規則拒絕該 server，例如 Claude Code 保留的名稱 | error |
+| 某個 Agent 的項目與 source 衝突，與 `sync mcp --dry-run` 相同 | error |
+| 某個 Agent 的項目尚未寫入或尚未更新 | warning |
+| 該 server 設定了 `targets: []`，只保留在 Skillshare 中 | info |
+
+變數的值永遠不會被印出。只要發現任何 error，指令就會以 1 結束，否則以 0 結束；warning 永遠不會
+造成失敗。未知的 server 名稱是一個 error，並會列出已知的名稱。一個名稱會選取 global 與每個 project 中
+所有同名的 servers，已知名稱也包含 project servers。
+
+在終端機中，project server 的標題會標示它所屬的 project：
+
+```text
+✓ docs
+  · claude: in sync
+✗ docs  (project ~/work/app)
+  ✗ command no-such-mcp-binary was not found on PATH
+  ! claude: not synced yet; run skillshare sync mcp
+```
+
+使用 `--json` 時，報告的結構如下：
+
+```json
+{
+  "servers": [
+    {
+      "name": "docs",
+      "ok": false,
+      "findings": [
+        { "level": "error", "check": "env", "target": "", "message": "bearerToken reads DOCS_TOKEN, which is not set", "subject": "DOCS_TOKEN" },
+        { "level": "warning", "check": "sync", "target": "claude", "message": "not synced yet; run skillshare sync mcp" }
+      ]
+    },
+    {
+      "name": "docs",
+      "project": "/home/me/work/app",
+      "ok": true,
+      "findings": [
+        { "level": "info", "check": "sync", "target": "claude", "message": "in sync" }
+      ]
+    }
+  ],
+  "summary": { "errors": 1, "warnings": 1 }
+}
+```
+
+`check` 是 `env`、`command`、`url`、`dns`、`client-rule`、`sync` 或 `targets` 其中之一。
+`target` 表示 Agent 或帳號；當該項發現是針對 server 本身時則為空。
+`subject` 在 `env`、`command` 與 `dns` 發現中表示變數、指令或主機，其他情況下省略。
+`project` 是該 server 所屬的 `mcp.projects` 根目錄，以絕對路徑表示（開頭的 `~` 會被展開）；
+global server 則省略此欄位。`summary` 會計算報告中的每個 server，包含 project servers。
+
+在 dashboard 中，MCP 頁面上的 **檢查** 按鈕會執行同樣的檢查。它只在點擊時執行，會在 server 清單上方顯示摘要，
+並在每個 server 下方顯示它的 error 或 warning；重新載入頁面後不會保留任何內容。MCP 頁面只列出 global
+servers，因此它的摘要與各列都不包含 project servers，即使與某個 global server 同名也一樣；請用 CLI 檢查
+這些 servers。變數是從啟動 `skillshare ui` 的終端機讀取。
 
 ## 停止管理某個 server {#stop-managing-a-server}
 

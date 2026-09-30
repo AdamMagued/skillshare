@@ -19,6 +19,8 @@ skillshare mcp add local --target codex -- company-mcp --workspace /path/to/work
 skillshare mcp import docs --from claude --target claude --target cursor --sync
 skillshare mcp import docs --file ./provider.json --target claude
 skillshare mcp list --json
+skillshare mcp check
+skillshare mcp check docs --json --no-dns
 skillshare mcp remove docs --sync
 skillshare mcp remove docs --keep-files
 skillshare mcp restore BACKUP_ID --dry-run
@@ -44,6 +46,7 @@ skillshare sync --all
 | `--replace` | add/import 중 기존 source 정의를 명시적으로 교체; import 시 가져온 client의 항목이 다르면 이것도 다시 작성 |
 | `--dry-run`, `-n` | 저장하거나 네이티브 구성을 작성하지 않고 미리보기 |
 | `--json` | 구조화된 출력; sync/preview 보고서에는 이름, 경로, 작업만 포함되며 서버 값은 포함되지 않음 |
+| `--no-dns` | `check`와 함께 사용: 원격 서버의 호스트 조회를 건너뜀. [아래](#check-servers-before-an-agent-starts-them) 참고 |
 | `--no-tui` | 대화형 메뉴 비활성화; `tui: false`, `--json`, 또는 비터미널 입출력에서도 비활성화됨 |
 | `--revision ID` | add/import/remove 또는 `sync mcp`에 일치하는 미리보기 요구 |
 | `--global`, `-g` | global Skillshare 구성 사용 |
@@ -574,6 +577,82 @@ Sync가 작성합니다.
   때문입니다. 서버 자체는 그대로 둡니다.
 - 폴더에 같은 항목을 관리하는 자체 `.skillshare/config.yaml`도 있으면, plan은 이를
   덮어쓰지 않고 충돌로 보고합니다.
+
+## Agent가 시작하기 전에 서버 검사하기 {#check-servers-before-an-agent-starts-them}
+
+```bash
+skillshare mcp check
+skillshare mcp check docs github --json
+skillshare mcp check --no-dns
+```
+
+`mcp check`는 source의 모든 서버 또는 지정한 서버에 대해 "sync된 그대로 동작할까?"에
+답합니다. global 설정에서는 [`mcp.projects`](#manage-several-projects-from-the-global-config)
+아래 각 root의 서버도 검사하며, 각 Agent의 규칙과 sync 상태는 해당 root 기준으로 읽습니다.
+읽기 전용이므로 서버를 시작하거나, HTTP 요청을 보내거나, 명령을 실행하거나, 파일을 쓰지 않습니다.
+
+| 검사 | 수준 |
+|---|---|
+| `env`, `headers`, `bearerToken`의 `fromEnv` 변수가 설정되지 않았거나 비어 있음 | error |
+| 로컬 서버의 `command`를 `PATH`에서 찾을 수 없음 (앞의 `~/`는 확장됨) | error |
+| 원격 서버의 호스트가 DNS로 조회되지 않음 (제한 3초, `--no-dns`로 건너뜀) | warning |
+| Agent의 규칙이 서버를 거부함 (예: Claude Code가 예약한 이름) | error |
+| Agent의 항목이 source와 충돌함 (`sync mcp --dry-run`과 동일) | error |
+| Agent의 항목이 아직 작성되지 않았거나 업데이트되지 않음 | warning |
+| 서버가 `targets: []`를 가지며 Skillshare에만 보관됨 | info |
+
+변수 값은 출력되지 않습니다. error가 하나라도 있으면 1로, 그렇지 않으면 0으로 종료하며,
+warning으로는 실패하지 않습니다. 알 수 없는 서버 이름은 error이며 알려진 이름 목록을 보여줍니다.
+이름은 global과 각 프로젝트에서 그 이름을 가진 모든 서버를 선택하며, 알려진 이름에는 프로젝트
+서버도 포함됩니다.
+
+터미널에서는 프로젝트 서버의 제목에 해당 프로젝트가 표시됩니다:
+
+```text
+✓ docs
+  · claude: in sync
+✗ docs  (project ~/work/app)
+  ✗ command no-such-mcp-binary was not found on PATH
+  ! claude: not synced yet; run skillshare sync mcp
+```
+
+`--json`을 사용하면 보고서는 다음 형태입니다:
+
+```json
+{
+  "servers": [
+    {
+      "name": "docs",
+      "ok": false,
+      "findings": [
+        { "level": "error", "check": "env", "target": "", "message": "bearerToken reads DOCS_TOKEN, which is not set", "subject": "DOCS_TOKEN" },
+        { "level": "warning", "check": "sync", "target": "claude", "message": "not synced yet; run skillshare sync mcp" }
+      ]
+    },
+    {
+      "name": "docs",
+      "project": "/home/me/work/app",
+      "ok": true,
+      "findings": [
+        { "level": "info", "check": "sync", "target": "claude", "message": "in sync" }
+      ]
+    }
+  ],
+  "summary": { "errors": 1, "warnings": 1 }
+}
+```
+
+`check`는 `env`, `command`, `url`, `dns`, `client-rule`, `sync`, `targets` 중 하나입니다.
+`target`은 Agent 또는 계정을 나타내며, 결과가 서버 자체에 관한 것이면 비어 있습니다.
+`subject`는 `env`, `command`, `dns` 결과에서 변수, 명령, 호스트를 나타내며, 그 외에는 생략됩니다.
+`project`는 서버의 `mcp.projects` root를 절대 경로로 나타내며 (앞의 `~`는 확장됨), global 서버에서는
+생략됩니다. `summary`는 프로젝트 서버를 포함해 보고서의 모든 서버를 집계합니다.
+
+대시보드에서는 MCP 페이지의 **검사** 버튼이 같은 검사를 실행합니다. 클릭할 때만 실행되며, 서버 목록
+위에 요약을, 각 서버 아래에 해당 error나 warning을 표시하고, 페이지를 새로 고치면 아무것도 남기지
+않습니다. MCP 페이지는 global 서버만 나열하므로, 요약과 각 행에는 global 서버와 이름이 같은 것이라도
+프로젝트 서버가 포함되지 않습니다. 이런 서버는 CLI로 검사하세요. 변수는 `skillshare ui`를 시작한
+터미널에서 읽습니다.
 
 ## Stop managing a server {#stop-managing-a-server}
 
