@@ -206,7 +206,6 @@ function MCPEditDialog({ data, model, editing, piSetupName, addingOff, addMode, 
     ) : (
       <MCPServerDialog
         off={editing === '' && addingOff}
-        defaultPiExtension={Object.values(servers).find((s) => s.piExtension)?.piExtension}
         initial={editing ? { name: editing, server: piSetupName === editing ? { ...servers[editing], targets: [...targetsOf(editing), 'pi'] } : servers[editing] } : undefined}
         defaultTargets={defaults}
         existingNames={Object.keys(servers)}

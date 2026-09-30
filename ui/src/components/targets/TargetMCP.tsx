@@ -143,7 +143,6 @@ export default function TargetMCP({ name, data }: { name: string; data: MCPList 
         <MCPTargetOrder.Provider value={order}>
           <MCPServerDialog
             initial={{ name: piSetup, server: { ...servers[piSetup], targets: [...targetsOf(piSetup), 'pi'] } }}
-            defaultPiExtension={Object.values(servers).find((s) => s.piExtension)?.piExtension}
             defaultTargets={defaults}
             existingNames={Object.keys(servers)}
             availableTargets={order.filter((x) => data.paths[x])}

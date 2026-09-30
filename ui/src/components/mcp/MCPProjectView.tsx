@@ -98,7 +98,6 @@ function ProjectServerEditor({ data, model, root, offered, editing, addingOff, a
       <MCPServerDialog
         project={root}
         off={editing === '' && addingOff}
-        defaultPiExtension={Object.values(own).find((s) => s.piExtension)?.piExtension}
         initial={editing ? { name: editing, server: own[editing] } : undefined}
         defaultTargets={targets}
         existingNames={Object.keys(servers)}

@@ -182,6 +182,11 @@ describe('MCP server dialog', () => {
     })));
   });
 
+  it('shows the adapter mode when editing an adapter server', () => {
+    renderDialog({ initial: { name: 'docs', server: { command: 'docs', targets: ['pi'], piExtension: 'pi-mcp-adapter' } } });
+    expect(screen.getByRole('combobox', { name: 'Pi MCP mode' })).toHaveTextContent('pi-mcp-adapter');
+  });
+
   it('uses builtin for a new Pi server and previews the project scope', async () => {
     const user = userEvent.setup();
     vi.mocked(mcpApi.render).mockResolvedValue({ rendered: [{ target: 'pi', path: '/project/.pi/mcp.json', content: '{"mcpServers":{}}' }] });

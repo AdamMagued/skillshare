@@ -29,8 +29,9 @@ export interface ServerDraft {
 
 export type DraftPatch = (patch: Partial<ServerDraft>) => void;
 
-export function initialServerDraft(server: MCPServer | undefined, name: string, defaultTargets: string[], defaultPiExtension: string, off: boolean): ServerDraft {
-  const piExtension = server ? server.piExtension ?? defaultPiExtension : defaultPiExtension || 'builtin';
+// A new server starts on Pi's built-in MCP; one being edited keeps its own mode, if any.
+export function initialServerDraft(server: MCPServer | undefined, name: string, defaultTargets: string[], off: boolean): ServerDraft {
+  const piExtension = server ? server.piExtension ?? '' : 'builtin';
   return {
     piExtension, name, http: Boolean(server?.url), directTools: directToolsDraft(server?.directTools),
     modeDrafts: { [piExtension]: server?.piOptions ? JSON.stringify(server.piOptions, null, 2) : '' },

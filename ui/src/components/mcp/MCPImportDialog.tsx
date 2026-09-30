@@ -77,7 +77,7 @@ function importSourceChoices({ paths, importSources, detected, conflict, default
   const initialSources = sources.filter((s) => s.target === initialTarget);
   const inheritedMode = Object.values(servers).find((s) => s.piExtension)?.piExtension;
   const initialSource = initialSources.find((s) => s.path === defaultPath && s.piExtension === inheritedMode) ?? initialSources.find((s) => s.path === defaultPath) ?? initialSources.find((s) => s.piExtension === inheritedMode) ?? initialSources[0];
-  return { sources, initialSource, inheritedMode };
+  return { sources, initialSource };
 }
 
 interface ImportSelection {
@@ -88,21 +88,22 @@ interface ImportSelection {
   targets: string[];
   defaultTargets: string[];
   piExtension: string;
-  inheritedMode: string | undefined;
   previewName: string;
   tab: Source;
 }
 
-function importSelection({ candidates, servers, conflict, picked, targets, defaultTargets, piExtension, inheritedMode, previewName, tab }: ImportSelection) {
+function importSelection({ candidates, servers, conflict, picked, targets, defaultTargets, piExtension, previewName, tab }: ImportSelection) {
   const exists = (c: MCPCandidate) => c.name in servers && c.name !== conflict?.name;
   const importable = candidates.filter((c) => c.problems.length === 0 && !exists(c));
   // Everything importable starts ticked; a conflict import starts with just that entry
   const selected = picked ?? importable.filter((c) => !conflict || c.name === conflict.name).map((c) => c.name);
   const chosen = importable.filter((c) => selected.includes(c.name));
   const modes = [...new Set(chosen.map((c) => c.server.piExtension).filter(Boolean))];
-  const mode = piExtension || inheritedMode || (modes.length === 1 ? modes[0] : chosen.some((c) => c.from === 'pi') ? '' : 'builtin');
+  // A mode picked here applies to every server; otherwise each keeps its own and the rest are built-in.
+  const mode = piExtension || (modes.length === 1 ? modes[0] : 'builtin');
+  const modeOf = (c: MCPCandidate) => piExtension || c.server.piExtension || 'builtin';
   const piChosen = targets.includes('pi') || chosen.some((c) => servers[c.name]?.targets?.includes('pi'));
-  const incompatible = piChosen && chosen.some((c) => (c.server.directTools !== undefined && mode !== 'pi-mcp-adapter') || (Object.keys(c.server.piOptions ?? {}).length > 0 && mode === 'pi-mcp-extension') || Boolean(parsePiOptions(JSON.stringify(c.server.piOptions ?? {}), mode).bad || parsePiOptions(JSON.stringify(c.server.piOptions ?? {}), mode).taken));
+  const incompatible = piChosen && chosen.some((c) => (c.server.directTools !== undefined && modeOf(c) !== 'pi-mcp-adapter') || (Object.keys(c.server.piOptions ?? {}).length > 0 && modeOf(c) === 'pi-mcp-extension') || Boolean(parsePiOptions(JSON.stringify(c.server.piOptions ?? {}), modeOf(c)).bad || parsePiOptions(JSON.stringify(c.server.piOptions ?? {}), modeOf(c)).taken));
   const preview = chosen.find((c) => c.name === previewName) ?? chosen[0];
 
   const showList = tab === 'target' || candidates.length > 1 || candidates.some((c) => c.problems.length || c.warnings.length || exists(c));
@@ -112,8 +113,7 @@ function importSelection({ candidates, servers, conflict, picked, targets, defau
   // A pasted snippet is a new server and may stay in Skillshare only. Importing from an Agent
   // takes over the entry that Agent has, so it still needs somewhere to write.
   const needsTarget = tab === 'target' && targets.length === 0;
-  const needsMode = piChosen && !mode;
-  return { exists, importable, selected, chosen, mode, piChosen, incompatible, preview, showList, inherited, needsTarget, needsMode };
+  return { exists, importable, selected, chosen, mode, modeOf, piChosen, incompatible, preview, showList, inherited, needsTarget };
 }
 
 type ImportQuery = UseQueryResult<{ candidates: MCPCandidate[] }, Error>;
@@ -260,14 +260,14 @@ function ImportTargetNote({ targets, needsTarget }: { targets: string[]; needsTa
   );
 }
 
-function ImportFooter({ adding, count, targets, needsTarget, needsMode, incompatible, saving, onClose, onRun }: { adding: boolean; count: number; targets: string[]; needsTarget: boolean; needsMode: boolean; incompatible: boolean; saving: boolean; onClose: () => void; onRun: () => Promise<void> }) {
+function ImportFooter({ adding, count, targets, needsTarget, incompatible, saving, onClose, onRun }: { adding: boolean; count: number; targets: string[]; needsTarget: boolean; incompatible: boolean; saving: boolean; onClose: () => void; onRun: () => Promise<void> }) {
   const t = useT();
   return (
     <div className="df">
       {/* Name what is missing: a greyed-out button next to "writes 0 config files" reads as a bug. */}
       <ImportTargetNote targets={targets} needsTarget={needsTarget} />
       <Button variant="ghost" onClick={onClose} disabled={saving}>{t('common.cancel')}</Button>
-      <Button variant="primary" loading={saving} disabled={count === 0 || needsTarget || needsMode || incompatible} onClick={onRun}>
+      <Button variant="primary" loading={saving} disabled={count === 0 || needsTarget || incompatible} onClick={onRun}>
         {adding ? <Plus size={15} /> : <Download size={15} />}
         {/* "Add 0 servers" reads as a bug before anything is pasted; the plain verb doesn't. */}
         {importButtonLabel(adding, count, t)}
@@ -292,12 +292,12 @@ function useImportQuery(sourceID: string, selectedSource: MCPImportSource | unde
 
 function ImportPreview({ selection, targets, project, onPreviewName }: { selection: ReturnType<typeof importSelection>; targets: string[]; project?: string; onPreviewName: (name: string) => void }) {
   const t = useT();
-  const { preview, chosen, piChosen, mode } = selection;
+  const { preview, chosen, piChosen, modeOf } = selection;
   if (!preview || targets.length === 0) return null;
   return (
     <div className="ss-fld">
       {chosen.length > 1 && <Select ariaLabel={t('mcp.name')} value={preview.name} onChange={onPreviewName} options={chosen.map((c) => ({ value: c.name, label: c.name }))} />}
-      <MCPConfigView mutation={{ project, name: preview.name, server: { ...preview.server, ...((piChosen || preview.server.piExtension) && mode && { piExtension: mode }), targets } }} />
+      <MCPConfigView mutation={{ project, name: preview.name, server: { ...preview.server, ...((piChosen || preview.server.piExtension) && { piExtension: modeOf(preview) }), targets } }} />
     </div>
   );
 
@@ -311,7 +311,7 @@ export default function MCPImportDialog(props: Props) {
   const tab = source;
   const order = useContext(MCPTargetOrder);
   const availableTargets = offered ?? order.filter((x) => paths[x]);
-  const { sources, initialSource, inheritedMode } = importSourceChoices(props, order);
+  const { sources, initialSource } = importSourceChoices(props, order);
   const [sourceID, setSourceID] = useState(initialSource ? sourceKey(initialSource) : '');
   const selectedSource = sources.find((s) => sourceKey(s) === sourceID);
   const [content, setContent] = useState('');
@@ -333,8 +333,8 @@ export default function MCPImportDialog(props: Props) {
   const query = useImportQuery(sourceID, selectedSource, project, tab, pasted, tomlFrom);
   const candidates = query.data?.candidates ?? [];
 
-  const selection = importSelection({ candidates, servers, conflict, picked, targets, defaultTargets, piExtension, inheritedMode, previewName, tab });
-  const { chosen, mode, piChosen, incompatible, showList, inherited, needsTarget, needsMode } = selection;
+  const selection = importSelection({ candidates, servers, conflict, picked, targets, defaultTargets, piExtension, previewName, tab });
+  const { chosen, mode, modeOf, piChosen, incompatible, showList, inherited, needsTarget } = selection;
   const reset = () => setPicked(null);
 
   const run = async () => {
@@ -344,7 +344,7 @@ export default function MCPImportDialog(props: Props) {
       // A takeover keeps the targets the existing server already has
       const own = servers[c.name]?.targets;
       const write = own ?? (inherited ? undefined : order.filter((x) => targets.includes(x)));
-      const mutation: MCPMutation = { ...(project && { project }), name: c.name, server: { ...c.server, ...((piChosen || c.server.piExtension) && mode && { piExtension: mode }), ...(write && { targets: write }) }, replace: c.name in servers };
+      const mutation: MCPMutation = { ...(project && { project }), name: c.name, server: { ...c.server, ...((piChosen || c.server.piExtension) && { piExtension: modeOf(c) }), ...(write && { targets: write }) }, replace: c.name in servers };
       // Adopting records the tool's identical entry as managed, so the next sync has no conflict there
       if (c.from && (own ?? targets).includes(c.from)) mutation.resolutions = [{ target: c.from, name: c.name, action: 'adopt' }];
       try {
@@ -435,7 +435,7 @@ export default function MCPImportDialog(props: Props) {
           </div>
         )}
       </div>
-      <ImportFooter adding={adding} count={count} targets={targets} needsTarget={needsTarget} needsMode={needsMode} incompatible={incompatible} saving={saving} onClose={onClose} onRun={run} />
+      <ImportFooter adding={adding} count={count} targets={targets} needsTarget={needsTarget} incompatible={incompatible} saving={saving} onClose={onClose} onRun={run} />
     </DialogShell>
   );
 }

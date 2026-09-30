@@ -62,7 +62,6 @@ interface Props {
   initial?: { name: string; server: MCPServer };
   /** Inherited `mcp.targets`, used when the server has none of its own. */
   defaultTargets: string[];
-  defaultPiExtension?: string;
   existingNames: string[];
   availableTargets?: readonly string[];
   /** A root under mcp.projects: the server is saved there instead of in mcp.servers. */
@@ -244,7 +243,7 @@ function ServerFooter({ targets, off, complete, canSave, saving, onView, onClose
 }
 
 /** Add or edit one source server. Saving only changes the source; Sync writes the config files. */
-export default function MCPServerDialog({ initial, defaultTargets, defaultPiExtension = '', existingNames, availableTargets: offered, project, off: offKind = false, onMode, onClose, onSaved }: Props) {
+export default function MCPServerDialog({ initial, defaultTargets, existingNames, availableTargets: offered, project, off: offKind = false, onMode, onClose, onSaved }: Props) {
   const t = useT();
   const { isProjectMode } = useAppContext();
   const order = useContext(MCPTargetOrder);
@@ -253,7 +252,7 @@ export default function MCPServerDialog({ initial, defaultTargets, defaultPiExte
   // The entry point already chose which kind of entry this is, so the dialog never asks again.
   const off = initial ? Boolean(server?.disabled) : offKind;
   const offTargets = mcpOffTargets;
-  const [draft, setDraft] = useState(() => initialServerDraft(server, initial?.name ?? '', defaultTargets, defaultPiExtension, off));
+  const [draft, setDraft] = useState(() => initialServerDraft(server, initial?.name ?? '', defaultTargets, off));
   const patch: DraftPatch = (change) => setDraft((prev) => ({ ...prev, ...change }));
   const { piExtension, directTools, prune, http, url, tokenEnv, headers, env, targets } = draft;
   const setPiOptions = (text: string) => setDraft((prev) => ({ ...prev, modeDrafts: { ...prev.modeDrafts, [prev.piExtension]: text } }));

@@ -30,6 +30,13 @@ describe('MCP project view', () => {
     expect(Boolean(screen.queryByText('Direct tools'))).toBe(piExtension === 'pi-mcp-adapter');
   });
 
+  it('starts a new server on the built-in mode even when this project uses pi-mcp-adapter', async () => {
+    const user = userEvent.setup();
+    view({}, { targets: ['pi'], servers: { docs: { command: 'npx', piExtension: 'pi-mcp-adapter' } } });
+    await user.click(screen.getByRole('button', { name: 'Add server' }));
+    expect(await screen.findByRole('combobox', { name: 'Pi MCP mode' })).toHaveTextContent('Built-in');
+  });
+
   it('hides project adapter defaults when only global adapter servers exist', () => {
     view({ global: { command: 'npx', piExtension: 'pi-mcp-adapter', targets: ['pi'] } }, { targets: ['pi'], directTools: 'search' });
     expect(screen.queryByText('Direct tools')).not.toBeInTheDocument();
