@@ -81,7 +81,7 @@ export default function MCPConfigView({ mutation }: { mutation: MCPMutation }) {
       </div>
       {view.error && <div className="ss-note bad"><span className="flex-1">{(view.error as Error).message}</span></div>}
       <div className="flex items-start gap-4">
-        <div className="flex w-[212px] shrink-0 flex-col gap-0.5" onKeyDown={move}>
+        <div className="mt-2 flex w-[212px] shrink-0 flex-col gap-0.5" onKeyDown={move}>
           {item(SOURCE, <Folder size={16} aria-hidden="true" />, t('mcp.sourceConfig'), sourceHint, sourcePath)}
           <div className="mx-2.5 my-1 border-t border-line-soft" role="separator" />
           {targets.map((target) => {
