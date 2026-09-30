@@ -3,16 +3,15 @@ import { Check, KeyRound, Link2, Plus, SquareTerminal, X } from 'lucide-react';
 import { mcpApi, mcpOffTargets, type MCPServer } from '../../api/mcp';
 import AgentIcon from '../AgentIcon';
 import Button from '../Button';
-import CodeEditor from '../CodeEditor';
 import DialogShell from '../DialogShell';
 import SegmentedControl from '../SegmentedControl';
-import { Checkbox, Select } from '../Input';
+import { Select } from '../Input';
 import { useT } from '../../i18n';
 import { useAppContext } from '../../context/AppContext';
-import PiExtensionField from './PiExtensionField';
+import PiSettingsFields from './PiSettingsFields';
 import DirectToolsField, { directToolsValue } from './DirectToolsField';
 import MCPConfigView from './MCPConfigView';
-import { describeError, targetLabel, piExposures } from './mcpView';
+import { describeError, targetLabel } from './mcpView';
 import { MCPTargetOrder } from './targetOrder';
 import { initialServerDraft, validateServerDraft, type DraftPatch, type EnvRow, type ServerDraft, type ServerValidation } from './mcpServerDraft';
 
@@ -205,23 +204,9 @@ function PiServerFields({ draft, validation, patch, setPiOptions, off, saving, i
   const { options, optionsError, keepsOptions, adapter, piOptions } = validation;
   return (
     <>
-      {!off && <PiExtensionField value={piExtension} onChange={(piExtension) => patch({ piExtension })} disabled={saving} project={isProject} />}
-      {piExtension === 'builtin' && <div className="ss-fld">
-        <Select label={t('mcp.piExposure')} value={String(options.value?.exposure ?? '')} disabled={saving || Boolean(optionsError)} onChange={(value) => {
-          const next = { ...options.value };
-          if (value) next.exposure = value; else delete next.exposure;
-          setPiOptions(JSON.stringify(next, null, 2));
-        }} options={[{ value: '', label: t('mcp.directToolsUnset'), note: `· ${t('mcp.piExposureUnset')}` }, ...piExposures.map((value) => ({ value, label: value, note: `· ${t(`mcp.piExposure.${value}`)}` }))]} />
-        <span className="hp">{t('mcp.piExposureHint')}</span>
-      </div>}
-      {adapter && <DirectToolsField value={directTools} onChange={(directTools) => patch({ directTools })} disabled={saving} />}
-      {keepsOptions && <div className="ss-fld">
-        <label>{t('mcp.piOptions')}</label>
-        <CodeEditor value={piOptions} onChange={setPiOptions} lang="json" placeholder={piExtension === 'builtin' ? '{\n  "timeout": 120,\n  "toolExposure": {"delete_*": "hidden"}\n}' : '{\n  "excludeTools": ["delete_*"]\n}'} ariaLabel={t('mcp.piOptions')} disabled={saving} minHeight="96px" />
-        {optionsError ? <span className="hp !text-bad">{optionsError}</span> : <span className="hp">{t('mcp.piOptionsHint')}</span>}
-        <Checkbox label={t('mcp.piPrune')} checked={prune} onChange={(prune) => patch({ prune })} disabled={saving} />
-        <span className="hp">{t('mcp.piPruneHint')}</span>
-      </div>}
+      <PiSettingsFields mode={piExtension} onMode={off ? undefined : (piExtension) => patch({ piExtension })} optionsText={piOptions} options={options} optionsError={optionsError} onOptions={setPiOptions} keepsOptions={keepsOptions} prune={prune} onPrune={(prune) => patch({ prune })} disabled={saving} project={isProject}>
+        {adapter && <DirectToolsField value={directTools} onChange={(directTools) => patch({ directTools })} disabled={saving} />}
+      </PiSettingsFields>
       {Object.entries(modeDrafts).some(([mode, text]) => mode !== piExtension && text.trim()) && <div className="ss-note inf"><span>{t('mcp.piDraftHint')}</span></div>}
     </>
   );

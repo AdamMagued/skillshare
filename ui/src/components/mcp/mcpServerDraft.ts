@@ -42,6 +42,10 @@ export function initialServerDraft(server: MCPServer | undefined, name: string, 
   };
 }
 
+/** Why Pi's other settings cannot be saved, or '' when they can. */
+export const piOptionsError = (options: ReturnType<typeof parsePiOptions>, t: ReturnType<typeof useT>) =>
+  options.invalid ? t('mcp.piOptionsInvalid') : options.taken ? t('mcp.piOptionsTaken', { field: options.taken }) : options.bad ? t('mcp.piOptionsBad', { field: options.bad }) : '';
+
 export function validateServerDraft(draft: ServerDraft, off: boolean, editing: boolean, existingNames: string[], t: ReturnType<typeof useT>) {
   const { name, targets, piExtension, command, http, url, directTools } = draft;
   const piOptions = draft.modeDrafts[piExtension] ?? '';
@@ -54,7 +58,7 @@ export function validateServerDraft(draft: ServerDraft, off: boolean, editing: b
   const adapter = keepsAdapter && targets.includes('pi');
   const keepsOptions = !off && (keepsAdapter || piExtension === 'builtin');
   const options = keepsOptions ? parsePiOptions(piOptions, piExtension) : {};
-  const optionsError = options.invalid ? t('mcp.piOptionsInvalid') : options.taken ? t('mcp.piOptionsTaken', { field: options.taken }) : options.bad ? t('mcp.piOptionsBad', { field: options.bad }) : '';
+  const optionsError = piOptionsError(options, t);
   const canSave = Boolean(trimmed) && !nameError && (targets.length > 0 || !off) && (off || (http ? url.trim() !== '' : words.length > 0)) && (!targets.includes('pi') || off || Boolean(piExtension)) && (piExtension !== 'pi-mcp-adapter' || directToolsComplete(directTools)) && !optionsError;
   const title = t(off ? (editing ? 'mcp.editOff' : 'mcp.addOff') : (editing ? 'mcp.editServer' : 'mcp.addServer'));
   const complete = Boolean(trimmed) && !nameError && targets.length > 0 && (off || (http ? url.trim() !== '' : words.length > 0));

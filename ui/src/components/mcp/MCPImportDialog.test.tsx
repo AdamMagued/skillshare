@@ -165,6 +165,49 @@ describe('MCP import dialog', () => {
     })));
   });
 
+  it('offers the full Pi settings for one pasted server and saves the edits', async () => {
+    const server = { command: 'docs', piExtension: 'builtin', piOptions: { exposure: 'hidden', toolExposure: { 'get_*': 'direct' } } };
+    vi.mocked(mcpApi.import).mockResolvedValue({ candidates: [{ name: 'docs', server, problems: [], warnings: [] }] });
+    const user = userEvent.setup();
+    renderDialog({ source: 'paste', servers: {}, defaultTargets: ['pi'] });
+    await user.click(screen.getByLabelText('Server snippet'));
+    await user.paste('{"mcpServers":{"docs":{"command":"docs"}}}');
+    const exposure = await screen.findByRole('combobox', { name: 'Tool exposure' });
+    expect(exposure).toHaveTextContent('hidden');
+    await user.click(exposure);
+    await user.click(screen.getByRole('option', { name: /^direct\b/ }));
+    await user.click(screen.getByRole('checkbox', { name: 'Remove cleared settings from Pi' }));
+    const saved = { ...server, piOptions: { exposure: 'direct', toolExposure: { 'get_*': 'direct' } }, piOptionsPrune: true };
+    await waitFor(() => expect(mcpApi.render).toHaveBeenLastCalledWith(expect.objectContaining({ server: expect.objectContaining(saved) })));
+    await user.click(screen.getByRole('button', { name: 'Add 1 server' }));
+    await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith(expect.objectContaining({ server: expect.objectContaining(saved) })));
+  });
+
+  it('blocks adding a pasted server whose Pi settings are not valid', async () => {
+    vi.mocked(mcpApi.import).mockResolvedValue({ candidates: [{ name: 'docs', server: { command: 'docs' }, problems: [], warnings: [] }] });
+    const user = userEvent.setup();
+    renderDialog({ source: 'paste', servers: {}, defaultTargets: ['pi'] });
+    await user.click(screen.getByLabelText('Server snippet'));
+    await user.paste('{"mcpServers":{"docs":{"command":"docs"}}}');
+    await user.click(await screen.findByLabelText('Other Pi settings'));
+    await user.paste('{"exposure":"loud"}');
+    expect(screen.getByRole('button', { name: 'Add 1 server' })).toBeDisabled();
+  });
+
+  it('keeps only the Pi mode for several pasted servers', async () => {
+    vi.mocked(mcpApi.import).mockResolvedValue({ candidates: [
+      { name: 'docs', server: { command: 'docs' }, problems: [], warnings: [] },
+      { name: 'wiki', server: { command: 'wiki' }, problems: [], warnings: [] },
+    ] });
+    const user = userEvent.setup();
+    renderDialog({ source: 'paste', servers: {}, defaultTargets: ['pi'] });
+    await user.click(screen.getByLabelText('Server snippet'));
+    await user.paste('{"mcpServers":{"docs":{"command":"docs"},"wiki":{"command":"wiki"}}}');
+    expect(await screen.findByRole('combobox', { name: 'Pi MCP mode' })).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'Tool exposure' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Other Pi settings')).not.toBeInTheDocument();
+  });
+
   it('says in the dashboard language that a pasted snippet is not valid JSON', async () => {
     vi.mocked(mcpApi.import).mockRejectedValue(new Error('invalid JSON/JSONC; target was not changed'));
     const user = userEvent.setup();
