@@ -21,6 +21,7 @@ skillshare mcp import docs --file ./provider.json --target claude
 skillshare mcp list --json
 skillshare mcp check
 skillshare mcp check docs --json --no-dns
+skillshare mcp check --live --timeout 30s
 skillshare mcp remove docs --sync
 skillshare mcp remove docs --keep-files
 skillshare mcp restore BACKUP_ID --dry-run
@@ -47,6 +48,8 @@ skillshare sync --all
 | `--dry-run`, `-n` | 저장하거나 네이티브 구성을 작성하지 않고 미리보기 |
 | `--json` | 구조화된 출력; sync/preview 보고서에는 이름, 경로, 작업만 포함되며 서버 값은 포함되지 않음 |
 | `--no-dns` | `check`와 함께 사용: 원격 서버의 호스트 조회를 건너뜀. [아래](#check-servers-before-an-agent-starts-them) 참고 |
+| `--live` | `check`와 함께 사용: 각 로컬 서버를 시작하고 각 원격 서버를 호출하는 검사도 수행. [아래](#probe-servers-live) 참고 |
+| `--timeout DURATION` | `check --live`와 함께 사용: 서버별 프로브 제한 시간 (예: `30s`); 기본값 `10s` |
 | `--no-tui` | 대화형 메뉴 비활성화; `tui: false`, `--json`, 또는 비터미널 입출력에서도 비활성화됨 |
 | `--revision ID` | add/import/remove 또는 `sync mcp`에 일치하는 미리보기 요구 |
 | `--global`, `-g` | global Skillshare 구성 사용 |
@@ -589,7 +592,8 @@ skillshare mcp check --no-dns
 `mcp check`는 source의 모든 서버 또는 지정한 서버에 대해 "sync된 그대로 동작할까?"에
 답합니다. global 설정에서는 [`mcp.projects`](#manage-several-projects-from-the-global-config)
 아래 각 root의 서버도 검사하며, 각 Agent의 규칙과 sync 상태는 해당 root 기준으로 읽습니다.
-읽기 전용이므로 서버를 시작하거나, HTTP 요청을 보내거나, 명령을 실행하거나, 파일을 쓰지 않습니다.
+읽기 전용이므로 [`--live`](#probe-servers-live)를 추가하지 않는 한 서버를 시작하거나, HTTP 요청을 보내거나,
+명령을 실행하거나, 파일을 쓰지 않습니다.
 
 | 검사 | 수준 |
 |---|---|
@@ -642,9 +646,11 @@ warning으로는 실패하지 않습니다. 알 수 없는 서버 이름은 erro
 }
 ```
 
-`check`는 `env`, `command`, `url`, `dns`, `client-rule`, `sync`, `targets` 중 하나입니다.
+`check`는 `env`, `command`, `url`, `dns`, `client-rule`, `sync`, `targets`, `live` 중
+하나입니다.
 `target`은 Agent 또는 계정을 나타내며, 결과가 서버 자체에 관한 것이면 비어 있습니다.
-`subject`는 `env`, `command`, `dns` 결과에서 변수, 명령, 호스트를 나타내며, 그 외에는 생략됩니다.
+`subject`는 `env`, `command`, `dns` 결과에서 변수, 명령, 호스트를 나타내고, 성공한 `live` 프로브에서는
+서버가 보고한 이름을, `live` 로그인 warning에서는 resource metadata URL을 나타내며, 그 외에는 생략됩니다.
 `project`는 서버의 `mcp.projects` root를 절대 경로로 나타내며 (앞의 `~`는 확장됨), global 서버에서는
 생략됩니다. `summary`는 프로젝트 서버를 포함해 보고서의 모든 서버를 집계합니다.
 
@@ -653,6 +659,65 @@ warning으로는 실패하지 않습니다. 알 수 없는 서버 이름은 erro
 않습니다. MCP 페이지는 global 서버만 나열하므로, 요약과 각 행에는 global 서버와 이름이 같은 것이라도
 프로젝트 서버가 포함되지 않습니다. 이런 서버는 CLI로 검사하세요. 변수는 `skillshare ui`를 시작한
 터미널에서 읽습니다.
+
+### 서버를 실제로 프로브하기 {#probe-servers-live}
+
+```bash
+skillshare mcp check --live
+skillshare mcp check docs --live --timeout 30s --json
+```
+
+`--live`는 먼저 정적 검사를 실행한 뒤, 선택한 서버 중 error가 없는 각 서버에 접속합니다.
+error가 있는 서버나 비활성화된 항목에는 접속하지 않으며, `info` 결과가 그 이유를 알려줍니다.
+
+- **로컬 (stdio) 서버.** Skillshare는 현재 환경에 서버의 `env`를 더하고, 각 `fromEnv` 값은
+  셸에서 읽어 `command`를 `args`와 함께 시작합니다. 프로젝트 서버는 해당 프로젝트 폴더에서,
+  global 서버는 현재 디렉터리에서 시작합니다. 이는 Agent가 하는 것처럼 서버의 코드를 사용자
+  컴퓨터에서 실행하므로, 신뢰하는 서버에만 `--live`를 사용하세요. Skillshare는
+  `server/discover`를 보냅니다. MCP 프로토콜 error가 아닌 error로 응답하거나 제한 시간의
+  3분의 1 안에 응답하지 않는 서버는 MCP 2026-07-28보다 오래된 것으로 간주되어 대신
+  `initialize` 핸드셰이크를 받습니다. 그런 다음 Skillshare는 `tools/list`를 호출해 도구 수를
+  세고 서버를 중지합니다: stdin을 닫은 뒤, 서버의 프로세스 그룹에 SIGTERM, 이어서 SIGKILL을
+  보냅니다. Windows에서는 프로세스를 종료합니다.
+- **원격 (Streamable HTTP) 서버.** Skillshare는 서버의 `headers`와 `bearerToken`을 사용해
+  `server/discover`를 POST하며, JSON 또는 SSE 응답을 읽습니다. MCP error가 없는 `400`,
+  `404`, `405`는 `initialize`로 대체됩니다. `401`은 warning ("sign-in required")이며,
+  `WWW-Authenticate` 헤더의 resource metadata URL을 함께 표시합니다. Skillshare는 로그인하거나
+  OAuth를 시작하지 않습니다.
+
+각 서버에는 프로브 전체에 대한 하나의 제한 시간이 있습니다: 10초, 또는 `--timeout` (예: `30s`나
+`1m`). 최대 네 개의 서버를 동시에 프로브합니다. `--live` 없이 `--timeout`을 쓰면 error입니다.
+
+| 결과 | 수준 |
+|---|---|
+| 서버가 응답함: 이름과 버전, 프로토콜 버전, 도구 수 | info |
+| 원격 서버가 로그인을 요구함 (HTTP 401) | warning |
+| 명령을 시작할 수 없거나, 일찍 종료되었거나, 제한 시간 안에 응답하지 않음 | error |
+| 프로토콜 error, 지원되지 않는 프로토콜 버전, 또는 그 밖의 HTTP 상태 | error |
+
+로컬 서버가 실패하면 메시지 끝에 해당 서버 stderr의 최대 다섯 줄이 붙습니다. `env`, `headers`,
+`bearerToken`의 값은 모든 메시지에서 제거되며, 네 글자보다 짧은 값은 그대로 남습니다. 값은 작성된
+그대로 전달됩니다: Skillshare는 Pi `!command` 값을 실행하지 않으며 `piOptions`를 읽지 않습니다.
+종료 코드는 같은 규칙을 따르며, error가 하나라도 있으면 1입니다. `--live`는 파일도, 작업 로그
+항목도 쓰지 않습니다.
+
+`--json`을 사용하면 응답한 서버에는 `live` 객체도 추가됩니다:
+
+```json
+{
+  "name": "docs",
+  "ok": true,
+  "findings": [
+    { "level": "info", "check": "live", "target": "", "message": "responds: docs-server 1.4.0, protocol 2026-07-28, 12 tool(s)", "subject": "docs-server" }
+  ],
+  "live": { "protocolVersion": "2026-07-28", "serverInfo": { "name": "docs-server", "version": "1.4.0" }, "tools": 12 }
+}
+```
+
+`serverInfo`는 서버가 스스로에 대해 밝힌 내용이며, 아무것도 이를 검증하지 않습니다. 서버를 프로브하지
+않았거나 프로브가 실패하면 `live`는 생략됩니다.
+
+대시보드의 **검사** 버튼과 해당 API는 정적 검사만 실행합니다. `--live`는 CLI에서만 사용할 수 있습니다.
 
 ## Stop managing a server {#stop-managing-a-server}
 
@@ -724,8 +789,9 @@ plan은 `existing entry is not managed` 충돌을 보고하고, 그 항목에 �
 - 대시보드의 MCP 설정은 브라우저가 `localhost`나 IP 주소로 대시보드를 열 때만
   동작합니다. 리버스 프록시를 포함한 도메인 이름을 통하면 MCP 요청은 403을
   반환합니다. DNS rebinding 공격은 항상 도메인 이름을 사용하기 때문입니다.
-- 자격 증명은 환경 참조를 사용합니다. 시크릿 저장소, OAuth 세션 동기화, 런타임
-  상태 확인, 패키지 설치, 게이트웨이, 레지스트리, 플러그인 동기화는 없습니다.
+- 자격 증명은 환경 참조를 사용합니다. 시크릿 저장소, OAuth 세션 동기화, 지속적인
+  상태 모니터링, 패키지 설치, 게이트웨이, 레지스트리, 플러그인 동기화는 없습니다.
+  서버를 시작하거나 호출하는 명령은 `mcp check --live`뿐입니다.
 - VS Code Insiders, 사용자 지정 프로필, 원격 워크스페이스, 레거시 SSE는 이 버전에서
   지원되지 않습니다.
 - VS Code는 현재 `headers` 안에서 `${env:VARIABLE}`을 치환하지 않으므로

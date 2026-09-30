@@ -21,6 +21,7 @@ skillshare mcp import docs --file ./provider.json --target claude
 skillshare mcp list --json
 skillshare mcp check
 skillshare mcp check docs --json --no-dns
+skillshare mcp check --live --timeout 30s
 skillshare mcp remove docs --sync
 skillshare mcp remove docs --keep-files
 skillshare mcp restore BACKUP_ID --dry-run
@@ -47,6 +48,8 @@ skillshare sync --all
 | `--dry-run`, `-n` | 只預覽，不儲存或寫入原生設定 |
 | `--json` | 結構化輸出；sync/preview 報告只包含名稱、路徑與動作，不含 server 的值 |
 | `--no-dns` | 搭配 `check` 使用：略過遠端 server 的主機名稱解析。參見[下方說明](#check-servers-before-an-agent-starts-them) |
+| `--live` | 搭配 `check` 使用：另外啟動每個本機 server，並呼叫每個遠端 server。參見[下方說明](#probe-servers-live) |
+| `--timeout DURATION` | 搭配 `check --live` 使用：每個 server 探測的時間上限，例如 `30s`；預設為 `10s` |
 | `--no-tui` | 停用互動選單；`tui: false`、`--json` 或非終端機輸入/輸出時也會停用 |
 | `--revision ID` | 要求 add、import、remove 或 `sync mcp` 使用相符的 preview |
 | `--global`, `-g` | 使用 global Skillshare 設定 |
@@ -556,7 +559,7 @@ skillshare mcp check --no-dns
 
 `mcp check` 會針對 source 中的每個 server（或只針對指定的 server）回答「照同步後的樣子能不能正常運作？」。
 在 global config 中，它也會檢查 [`mcp.projects`](#manage-several-projects-from-the-global-config)
-底下每個根目錄的 servers，並依該根目錄讀取每個 Agent 的規則與同步狀態。它是唯讀的：不會啟動 server、
+底下每個根目錄的 servers，並依該根目錄讀取每個 Agent 的規則與同步狀態。它是唯讀的：除非加上 [`--live`](#probe-servers-live)，否則不會啟動 server、
 送出 HTTP 請求、執行指令或寫入檔案。
 
 | 檢查項目 | 等級 |
@@ -609,9 +612,10 @@ skillshare mcp check --no-dns
 }
 ```
 
-`check` 是 `env`、`command`、`url`、`dns`、`client-rule`、`sync` 或 `targets` 其中之一。
+`check` 是 `env`、`command`、`url`、`dns`、`client-rule`、`sync`、`targets` 或 `live` 其中之一。
 `target` 表示 Agent 或帳號；當該項發現是針對 server 本身時則為空。
-`subject` 在 `env`、`command` 與 `dns` 發現中表示變數、指令或主機，其他情況下省略。
+`subject` 在 `env`、`command` 與 `dns` 發現中表示變數、指令或主機；在成功的 `live` 探測中表示 server
+回報的名稱；在 `live` 登入 warning 中表示 resource metadata URL；其他情況下省略。
 `project` 是該 server 所屬的 `mcp.projects` 根目錄，以絕對路徑表示（開頭的 `~` 會被展開）；
 global server 則省略此欄位。`summary` 會計算報告中的每個 server，包含 project servers。
 
@@ -619,6 +623,60 @@ global server 則省略此欄位。`summary` 會計算報告中的每個 server�
 並在每個 server 下方顯示它的 error 或 warning；重新載入頁面後不會保留任何內容。MCP 頁面只列出 global
 servers，因此它的摘要與各列都不包含 project servers，即使與某個 global server 同名也一樣；請用 CLI 檢查
 這些 servers。變數是從啟動 `skillshare ui` 的終端機讀取。
+
+### 即時探測 servers {#probe-servers-live}
+
+```bash
+skillshare mcp check --live
+skillshare mcp check docs --live --timeout 30s --json
+```
+
+`--live` 會先執行靜態檢查，再連線到每個選取且沒有 error 的 server。有 error 的 server 或已停用的項目
+不會被連線；會有一則 `info` 發現說明原因。
+
+- **本機（stdio）servers。** Skillshare 會在你目前的環境中以 `args` 啟動 `command`，並加上該 server 的
+  `env`，其中每個 `fromEnv` 的值都從你的 shell 讀取。project server 會在其 project 資料夾中啟動，global
+  server 則在目前目錄中啟動。這會像 Agent 一樣在你的電腦上執行該 server 的程式碼，所以只對你信任的
+  servers 使用 `--live`。Skillshare 會送出 `server/discover`。若 server 回應的 error 不是 MCP protocol
+  error，或未在逾時時間的三分之一內回應，就會被視為早於 MCP 2026-07-28 的版本，改用 `initialize`
+  handshake。接著 Skillshare 會呼叫 `tools/list` 計算工具數量，然後停止該 server：先關閉 stdin，再對
+  server 的 process group 送出 SIGTERM，然後是 SIGKILL。在 Windows 上則會終止該 process。
+- **遠端（Streamable HTTP）servers。** Skillshare 會帶著該 server 的 `headers` 與 `bearerToken` 以 POST
+  送出 `server/discover`，並讀取 JSON 或 SSE 回應。沒有 MCP error 的 `400`、`404` 或 `405` 會退回使用
+  `initialize`。`401` 是一則 warning，「sign-in required」，並附上 `WWW-Authenticate` header 中的
+  resource metadata URL。Skillshare 永遠不會登入或啟動 OAuth。
+
+每個 server 的整個探測共用一個時間上限：10 秒，或 `--timeout` 指定的值（例如 `30s` 或 `1m`）。最多同時
+探測四個 servers。未搭配 `--live` 使用 `--timeout` 會是一個 error。
+
+| 結果 | 等級 |
+|---|---|
+| server 有回應：它的名稱與版本、protocol 版本以及工具數量 | info |
+| 遠端 server 需要登入（HTTP 401） | warning |
+| 指令無法啟動、提早結束，或未在時限內回應 | error |
+| protocol error、不支援的 protocol 版本，或任何其他 HTTP 狀態 | error |
+
+本機 server 失敗時，訊息結尾會附上最多五行它的 stderr。`env`、`headers` 與 `bearerToken` 的值會從每則
+訊息中移除；短於四個字元的值則維持原樣。值會照原樣傳遞：Skillshare 永遠不會執行 Pi 的 `!command` 值，
+也不會讀取 `piOptions`。結束代碼遵循相同規則，只要發現任何 error 就是 1。`--live` 不會寫入任何檔案，
+也不會留下操作紀錄項目。
+
+使用 `--json` 時，有回應的 server 還會多一個 `live` 物件：
+
+```json
+{
+  "name": "docs",
+  "ok": true,
+  "findings": [
+    { "level": "info", "check": "live", "target": "", "message": "responds: docs-server 1.4.0, protocol 2026-07-28, 12 tool(s)", "subject": "docs-server" }
+  ],
+  "live": { "protocolVersion": "2026-07-28", "serverInfo": { "name": "docs-server", "version": "1.4.0" }, "tools": 12 }
+}
+```
+
+`serverInfo` 是 server 對自己的描述，沒有任何驗證。server 未被探測或探測失敗時，會省略 `live`。
+
+dashboard 的 **檢查** 按鈕與其 API 只執行靜態檢查；`--live` 只能在 CLI 中使用。
 
 ## 停止管理某個 server {#stop-managing-a-server}
 
@@ -689,7 +747,8 @@ dashboard 會讀取目前範圍的 Agent 設定檔，以及 `mcp.projects` 底�
   proxy），MCP 請求會回傳 403，因為 DNS rebinding 攻擊一律使用
   網域名稱。
 - 憑證使用環境參照；沒有機密儲存庫、OAuth session 同步、
-  執行時健康檢查、套件安裝、gateway、registry 或 plugin 同步功能。
+  持續性健康監控、套件安裝、gateway、registry 或 plugin 同步功能。
+  `mcp check --live` 是唯一會啟動或呼叫 server 的指令。
 - 此版本不支援 VS Code Insiders、自訂 profiles、遠端 workspaces 與舊版 SSE。
 - VS Code 目前不會在 `headers` 內代換 `${env:VARIABLE}`
   （[microsoft/vscode#336232](https://github.com/microsoft/vscode/issues/336232)），

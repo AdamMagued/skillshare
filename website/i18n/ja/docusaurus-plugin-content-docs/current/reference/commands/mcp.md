@@ -21,6 +21,7 @@ skillshare mcp import docs --file ./provider.json --target claude
 skillshare mcp list --json
 skillshare mcp check
 skillshare mcp check docs --json --no-dns
+skillshare mcp check --live --timeout 30s
 skillshare mcp remove docs --sync
 skillshare mcp remove docs --keep-files
 skillshare mcp restore BACKUP_ID --dry-run
@@ -47,6 +48,8 @@ skillshare sync --all
 | `--dry-run`, `-n` | 保存もネイティブ設定への書き込みも行わずにプレビュー |
 | `--json` | 構造化出力。sync/preview のレポートには name、path、action が含まれ、サーバーの値は含まれない |
 | `--no-dns` | `check` で使用。リモートサーバーのホスト名の名前解決をスキップする。[下記](#check-servers-before-an-agent-starts-them)を参照 |
+| `--live` | `check` で使用。各ローカルサーバーの起動と各リモートサーバーの呼び出しも行う。[下記](#probe-servers-live)を参照 |
+| `--timeout DURATION` | `check --live` で使用。各サーバーのプローブの制限時間(`30s` など)。デフォルトは `10s` |
 | `--no-tui` | インタラクティブメニューを無効化。`tui: false`、`--json`、または非ターミナルの入出力でも無効になる |
 | `--revision ID` | add/import/remove または `sync mcp` に一致するプレビューを要求する |
 | `--global`, `-g` | global の Skillshare 設定を使う |
@@ -493,7 +496,8 @@ skillshare mcp check --no-dns
 動作するか」を確認します。global config では、
 [`mcp.projects`](#manage-several-projects-from-the-global-config) の下にある各ルートのサーバーもチェックし、
 各 Agent のルールと sync 状態はそのルートについて読み込みます。読み取り専用で、サーバーの起動、
-HTTP リクエストの送信、コマンドの実行、ファイルの書き込みは一切行いません。
+HTTP リクエストの送信、コマンドの実行、ファイルの書き込みは一切行いません。ただし
+[`--live`](#probe-servers-live) を付けた場合は除きます。
 
 | チェック内容 | レベル |
 |---|---|
@@ -546,9 +550,10 @@ HTTP リクエストの送信、コマンドの実行、ファイルの書き込
 }
 ```
 
-`check` は `env`、`command`、`url`、`dns`、`client-rule`、`sync`、`targets` のいずれかです。
+`check` は `env`、`command`、`url`、`dns`、`client-rule`、`sync`、`targets`、`live` のいずれかです。
 `target` は Agent またはアカウントを示し、指摘がサーバー自体に関するものである場合は空になります。
-`subject` は `env`、`command`、`dns` の指摘で変数、コマンド、ホストを示し、それ以外では省略されます。
+`subject` は `env`、`command`、`dns` の指摘では変数、コマンド、ホストを、成功した `live` プローブでは
+サーバーが報告した名前を、`live` のサインイン warning ではリソースメタデータ URL を示し、それ以外では省略されます。
 `project` はサーバーの `mcp.projects` ルートを絶対パスで示し(先頭の `~` は展開される)、global サーバーでは
 省略されます。`summary` は、project のサーバーも含め、レポート内のすべてのサーバーを集計します。
 
@@ -557,6 +562,65 @@ HTTP リクエストの送信、コマンドの実行、ファイルの書き込
 何も残りません。MCP ページには global サーバーしか一覧表示されないため、その概要と各行には project の
 サーバーは含まれません。global サーバーと同じ名前のものも同様です。それらは CLI でチェックしてください。
 変数は `skillshare ui` を起動したターミナルから読み込まれます。
+
+### サーバーをライブでプローブする {#probe-servers-live}
+
+```bash
+skillshare mcp check --live
+skillshare mcp check docs --live --timeout 30s --json
+```
+
+`--live` はまず静的チェックを実行し、その後 error のない選択された各サーバーに接続します。error のある
+サーバーや無効化されたエントリには接続せず、その理由を `info` の指摘で示します。
+
+- **ローカル (stdio) サーバー。** Skillshare は現在の環境で `command` を `args` 付きで起動し、サーバーの
+  `env` を加えます。各 `fromEnv` の値はシェルから読み込まれます。project のサーバーはその project フォルダーで、
+  global サーバーはカレントディレクトリで起動します。これは Agent と同じようにサーバーのコードをあなたの
+  マシン上で実行するため、`--live` は信頼できるサーバーにだけ使ってください。Skillshare は `server/discover` を
+  送信します。MCP プロトコルエラーではない error を返すサーバーや、タイムアウトの 3 分の 1 以内に応答しない
+  サーバーは MCP 2026-07-28 より古いものとみなされ、代わりに `initialize` ハンドシェイクが使われます。
+  その後 Skillshare は `tools/list` を呼び出してツール数を数え、サーバーを停止します。stdin を閉じ、次に
+  サーバーのプロセスグループへ SIGTERM、さらに SIGKILL を送ります。Windows ではプロセスを終了させます。
+- **リモート (Streamable HTTP) サーバー。** Skillshare はサーバーの `headers` と `bearerToken` を付けて
+  `server/discover` を POST し、JSON または SSE のレスポンスを読みます。MCP エラーを伴わない `400`、`404`、
+  `405` の場合は `initialize` にフォールバックします。`401` は warning「sign-in required」となり、
+  `WWW-Authenticate` ヘッダーから得たリソースメタデータ URL が示されます。Skillshare がサインインしたり
+  OAuth を開始したりすることはありません。
+
+各サーバーには、プローブ全体に対して 1 つの制限時間があります。10 秒、または `--timeout` で指定した値
+(`30s` や `1m` など) です。同時にプローブするサーバーは最大 4 つです。`--live` なしの `--timeout` は
+error になります。
+
+| 結果 | レベル |
+|---|---|
+| サーバーが応答した: その名前とバージョン、プロトコルバージョン、ツール数 | info |
+| リモートサーバーがサインインを必要とする (HTTP 401) | warning |
+| コマンドを起動できなかった、早期に終了した、または時間内に応答しなかった | error |
+| プロトコルエラー、未対応のプロトコルバージョン、またはその他の HTTP ステータス | error |
+
+ローカルサーバーが失敗した場合、メッセージの末尾にその stderr が最大 5 行付きます。`env`、`headers`、
+`bearerToken` の値はすべてのメッセージから取り除かれます。4 文字未満の値はそのまま残ります。値は書かれた
+とおりに渡されます。Skillshare は Pi の `!command` の値を実行せず、`piOptions` も読みません。終了コードは
+同じ規則に従い、error が 1 件でもあれば 1 です。`--live` はファイルも操作ログのエントリも書き込みません。
+
+`--json` を指定すると、応答したサーバーには `live` オブジェクトも付きます:
+
+```json
+{
+  "name": "docs",
+  "ok": true,
+  "findings": [
+    { "level": "info", "check": "live", "target": "", "message": "responds: docs-server 1.4.0, protocol 2026-07-28, 12 tool(s)", "subject": "docs-server" }
+  ],
+  "live": { "protocolVersion": "2026-07-28", "serverInfo": { "name": "docs-server", "version": "1.4.0" }, "tools": 12 }
+}
+```
+
+`serverInfo` はサーバーが自己申告した内容で、何も検証されていません。サーバーをプローブしなかった場合や
+プローブが失敗した場合、`live` は省略されます。
+
+ダッシュボードの **チェック** ボタンとその API は静的チェックだけを実行します。`--live` は CLI でのみ
+利用できます。
 
 ## サーバーの管理をやめる {#stop-managing-a-server}
 
@@ -625,7 +689,8 @@ Agent ファイルがすでに使っている名前でサーバーを追加し�
 - ダッシュボードの MCP 設定は、ブラウザがダッシュボードを `localhost` または IP アドレスで開いている場合にのみ機能します。ドメイン名経由（reverse proxy を含む）では、MCP リクエストは 403 を返します。
   なぜなら DNS rebinding 攻撃は常にドメイン名を使うからです。
 - 認証情報は環境変数参照を使用します。secret ストア、OAuth セッション同期、
-  ランタイムヘルスチェック、package のインストール、gateway、レジストリ、plugin の同期はありません。
+  継続的なヘルスモニタリング、package のインストール、gateway、レジストリ、plugin の同期はありません。
+  サーバーを起動したり呼び出したりするコマンドは `mcp check --live` だけです。
 - VS Code Insiders、カスタムプロファイル、リモート workspace、レガシー SSE は、このバージョンでは
   対応していません。
 - VS Code は現在、`headers` 内で `${env:VARIABLE}` を置換しません
