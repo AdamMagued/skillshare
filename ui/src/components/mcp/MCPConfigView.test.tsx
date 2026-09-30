@@ -75,3 +75,11 @@ it('counts only the files Sync writes', async () => {
   showAll();
   expect(await screen.findByText('Sync writes 2 files')).toBeInTheDocument();
 });
+
+it('tags a JSONC file with its format', async () => {
+  vi.mocked(mcpApi.render).mockResolvedValue({ rendered: [{ target: 'kilo', path: '/home/me/.config/kilo/kilo.jsonc', content: 'kilo file' }] });
+  const mutation: MCPMutation = { name: 'docs', server: { command: 'docs', targets: ['kilo'] } };
+  render(<QueryClientProvider client={new QueryClient()}><I18nProvider><MCPConfigView mutation={mutation} /></I18nProvider></QueryClientProvider>);
+  await screen.findByText('kilo file');
+  expect(screen.getByText('JSONC')).toBeInTheDocument();
+});

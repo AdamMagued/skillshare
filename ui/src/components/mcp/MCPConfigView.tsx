@@ -20,7 +20,7 @@ import { useMcpQuery } from '../../hooks/useSharedQueries';
 /** The list item for the Skillshare source; Agents use their target name. */
 const SOURCE = '';
 
-const formatOf = (path: string) => ({ json: 'JSON', toml: 'TOML', yaml: 'YAML', yml: 'YAML' })[path.split('.').pop()?.toLowerCase() ?? ''];
+const formatOf = (path: string) => ({ json: 'JSON', jsonc: 'JSONC', toml: 'TOML', yaml: 'YAML', yml: 'YAML' })[path.split('.').pop()?.toLowerCase() ?? ''];
 
 /**
  * What Sync would write for one server, per Agent. Read only on purpose: the source keeps
