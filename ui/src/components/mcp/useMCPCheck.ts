@@ -2,15 +2,15 @@ import { useState } from 'react';
 import { mcpCheckApi } from '../../api/mcpCheck';
 import type { MCPCheckFinding, MCPCheckReport, MCPCheckServer } from '../../api/mcpCheck';
 
-/** The servers the MCP page lists. A project server may share a global name, so it never counts here. */
-export function globalServers(report?: MCPCheckReport): MCPCheckServer[] {
-  return (report?.servers ?? []).filter((server) => !server.project);
+/** The servers one page lists: global ones without `project`, else one mcp.projects root's. Names repeat across scopes, so each page counts only its own. */
+export function serversFor(report?: MCPCheckReport, project?: string): MCPCheckServer[] {
+  return (report?.servers ?? []).filter((server) => (server.project || undefined) === (project || undefined));
 }
 
 /** What the page shows of a check: errors and warnings. Info findings stay in the CLI. */
-export function problemsByServer(report?: MCPCheckReport): Record<string, MCPCheckFinding[]> {
+export function problemsByServer(report?: MCPCheckReport, project?: string): Record<string, MCPCheckFinding[]> {
   const out: Record<string, MCPCheckFinding[]> = {};
-  for (const server of globalServers(report)) {
+  for (const server of serversFor(report, project)) {
     const problems = server.findings.filter((f) => f.level !== 'info');
     if (problems.length > 0) out[server.name] = problems;
   }

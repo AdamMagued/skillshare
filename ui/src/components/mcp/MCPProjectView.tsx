@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pencil, Plug, Plus, PowerOff, Trash2 } from 'lucide-react';
+import { ListChecks, Pencil, Plug, Plus, PowerOff, Trash2 } from 'lucide-react';
 import { mcpApi, mcpOffTargets, mcpTargets, type MCPMutation, type MCPServer } from '../../api/mcp';
 import AgentIcon from '../AgentIcon';
 import Button from '../Button';
@@ -10,6 +10,7 @@ import { useToast } from '../Toast';
 import { useT } from '../../i18n';
 import { shortenHome } from '../../lib/paths';
 import { DirectToolsSetting, ProjectTargets, useDirectToolsLabel } from './MCPProjectSettings';
+import MCPCheckNote from './MCPCheckNote';
 import MCPImportDialog from './MCPImportDialog';
 import MCPRemoveDialog from './MCPRemoveDialog';
 import MCPServerDialog from './MCPServerDialog';
@@ -17,6 +18,7 @@ import MCPServerList from './MCPServerList';
 import MCPSyncBox from './MCPSyncBox';
 import MCPUnmanagedNote from './MCPUnmanagedNote';
 import { TargetPill } from './TargetPicker';
+import { problemsByServer, useMCPCheck } from './useMCPCheck';
 import { buildMatrix, describeEndpoint, describeError, projectOf, switchTargets, targetLabel, usesPiAdapter, writes } from './mcpView';
 
 type MCPList = Awaited<ReturnType<typeof mcpApi.list>>;
@@ -124,6 +126,7 @@ export default function MCPProjectView({ data, root, offered, onChanged, onRemov
   const [importFrom, setImportFrom] = useState(''); // an Agent file of this project to import from
   const [busy, setBusy] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number; items: ContextMenuItem[] } | null>(null);
+  const check = useMCPCheck();
 
   const model = projectViewModel(data, root, offered);
   const { globals, defaults, targets, servers, shownGlobals, roots, changes, name, unmanaged, own, targetsOf, offTargets, switchable, ownRows, shown } = model;
@@ -180,6 +183,7 @@ export default function MCPProjectView({ data, root, offered, onChanged, onRemov
       <RailLayout pageScroll rail={data.plan && <MCPSyncBox changes={changes} roots={roots} plan={data.plan} />}>
         <ProjectSettings data={data} model={model} offered={offered} pickTargets={pickTargets} onPickTargets={() => setPickTargets(!pickTargets)} busy={busy} save={save} />
 
+        <div className="mt-3 empty:hidden"><MCPCheckNote report={check.report} checkedAt={check.checkedAt} error={check.error} running={check.running} onRun={() => void check.run()} project={root} /></div>
         <div className="mt-3 empty:hidden"><MCPUnmanagedNote entries={unmanaged} onImport={setImportFrom} /></div>
 
         <section className="mt-3 flex flex-col">
@@ -234,11 +238,12 @@ export default function MCPProjectView({ data, root, offered, onChanged, onRemov
         <section className="mt-3 flex flex-col">
           {/* Two named actions rather than one button that then asks which it was. */}
           <div className="ss-sec !items-center"><h2>{t('mcp.projects.onlyHere')}</h2><span className="ss-cnt">{ownRows.length}</span>
-            <Button className="ml-auto" size="sm" variant="ghost" onClick={() => { setAddingOff(true); setAddMode('form'); setEditing(''); }}><PowerOff size={14} />{t('mcp.addOff')}</Button>
+            <Button className="ml-auto" size="sm" variant="ghost" loading={check.running} onClick={() => void check.run()}>{!check.running && <ListChecks size={14} />}{t(check.running ? 'mcp.check.running' : 'mcp.check.button')}</Button>
+            <Button size="sm" variant="ghost" onClick={() => { setAddingOff(true); setAddMode('form'); setEditing(''); }}><PowerOff size={14} />{t('mcp.addOff')}</Button>
             <Button size="sm" variant="secondary" onClick={() => { setAddingOff(false); setAddMode('form'); setEditing(''); }}><Plus size={14} />{t('mcp.addServer')}</Button>
           </div>
           {ownRows.length > 0
-            ? <MCPServerList rows={ownRows} targets={shown} targetsOf={targetsOf} offTargets={offTargets} onToggle={toggleOwn} onMenu={openMenu} disabled={busy} />
+            ? <MCPServerList rows={ownRows} targets={shown} targetsOf={targetsOf} offTargets={offTargets} onToggle={toggleOwn} onMenu={openMenu} disabled={busy} problems={problemsByServer(check.report, root)} />
             : <p className="text-[13px] text-ink-3">{t('mcp.projects.noOnlyHere')}</p>}
         </section>
         <Button className="flush mt-6 self-start" size="sm" variant="ghost" onClick={() => setDropping(true)}><Trash2 size={14} />{t('projects.mcp.stop')}</Button>

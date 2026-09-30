@@ -5,10 +5,13 @@ import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '../../i18n';
 import { mcpApi } from '../../api/mcp';
+import { mcpCheckApi } from '../../api/mcpCheck';
+import type { MCPCheckFinding } from '../../api/mcpCheck';
 import { ToastProvider } from '../Toast';
 import MCPProjectView from './MCPProjectView';
 
 vi.mock('../../api/mcp', async (load) => ({ ...await load<typeof import('../../api/mcp')>(), mcpApi: { save: vi.fn().mockResolvedValue({}), import: vi.fn().mockResolvedValue({ candidates: [] }) } }));
+vi.mock('../../api/mcpCheck', () => ({ mcpCheckApi: { run: vi.fn() } }));
 
 type Data = Parameters<typeof MCPProjectView>[0]['data'];
 
@@ -96,5 +99,32 @@ describe('MCP project view', () => {
   it('counts Pi for a switch only with pi-mcp-adapter, as sync does', () => {
     view({}, { targets: ['opencode', 'pi'], servers: { gone: { disabled: true } } });
     expect(screen.getByRole('button', { name: 'Choose which agents get gone' })).toHaveTextContent('1/3');
+  });
+
+  const env: MCPCheckFinding = { level: 'error', check: 'env', target: '', subject: 'TOKEN', message: 'TOKEN is not set' };
+
+  it("shows only this project's check findings", async () => {
+    const user = userEvent.setup();
+    vi.mocked(mcpCheckApi.run).mockResolvedValueOnce({ summary: { errors: 3, warnings: 0 }, servers: [
+      { name: 'global', ok: false, findings: [env] },
+      { name: 'api', project: '/work/app', ok: false, findings: [env] },
+      { name: 'other', project: '/work/other', ok: false, findings: [env] },
+    ] });
+    view({}, { targets: ['claude'], servers: { api: { command: 'npx' } } });
+    await user.click(screen.getByRole('button', { name: 'Check' }));
+    expect(await screen.findByText('1 server has problems')).toBeInTheDocument();
+    expect(screen.getByText('1 error')).toBeInTheDocument();
+  });
+
+  it('never marks a project server for a global server of the same name', async () => {
+    const user = userEvent.setup();
+    vi.mocked(mcpCheckApi.run).mockResolvedValueOnce({ summary: { errors: 1, warnings: 0 }, servers: [
+      { name: 'docs', ok: false, findings: [env] },
+      { name: 'docs', project: '/work/app', ok: true, findings: [] },
+    ] });
+    view({}, { targets: ['claude'], servers: { docs: { command: 'npx' } } });
+    await user.click(screen.getByRole('button', { name: 'Check' }));
+    expect(await screen.findByText('1 server has no problems')).toBeInTheDocument();
+    expect(screen.queryByText('1 error')).not.toBeInTheDocument();
   });
 });
