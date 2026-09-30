@@ -1016,6 +1016,7 @@
   "install.url.findAgents": "Temukan agent",
   "install.url.installRepo": "Instal repo",
   "install.url.found": "Ditemukan {items}",
+  "install.url.nothingFound": "Tidak ada skill atau agent di {source}. Tidak ada yang dipasang.",
   "install.url.install": "Instal {items}",
   "install.url.onlySkills": "Tidak ada agents. skillshare hanya mencari folder agents/ di tingkat teratas sumber, jadi ini adalah skills dan akan muncul di halaman Skills. Untuk agents di subfolder, tambahkan jalurnya: owner/repo/path/to/folder.",
   "install.url.onlyAgents": "Tidak ada skills di sumber ini. Ini adalah agents dan akan muncul di halaman Agents.",

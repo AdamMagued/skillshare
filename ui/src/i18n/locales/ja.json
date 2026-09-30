@@ -1016,6 +1016,7 @@
   "install.url.findAgents": "エージェントを探す",
   "install.url.installRepo": "リポジトリをインストール",
   "install.url.found": "{items}が見つかりました",
+  "install.url.nothingFound": "{source} にスキルもエージェントも見つかりませんでした。何もインストールされていません。",
   "install.url.install": "{items}をインストール",
   "install.url.onlySkills": "agents が見つかりません。skillshare はソースの最上位にある agents/ フォルダーだけを探すため、これらは skills として Skills ページに表示されます。サブフォルダーの agents を入れるにはパスを付けてください: owner/repo/path/to/folder。",
   "install.url.onlyAgents": "このソースには skills がありません。これらは agents で、Agents ページに表示されます。",

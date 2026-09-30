@@ -1016,6 +1016,7 @@
   "install.url.findAgents": "agent 찾기",
   "install.url.installRepo": "저장소 설치",
   "install.url.found": "{items} 찾음",
+  "install.url.nothingFound": "{source}에서 스킬이나 에이전트를 찾지 못했습니다. 아무것도 설치되지 않았습니다.",
   "install.url.install": "{items} 설치",
   "install.url.onlySkills": "agents를 찾지 못했습니다. skillshare는 소스 최상위의 agents/ 폴더만 찾으므로 이 항목은 skills이며 Skills 페이지에 표시됩니다. 하위 폴더의 agents는 경로를 붙이세요: owner/repo/path/to/folder.",
   "install.url.onlyAgents": "이 소스에는 skills가 없습니다. 이 항목은 agents이며 Agents 페이지에 표시됩니다.",

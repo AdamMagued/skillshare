@@ -127,6 +127,8 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
   const [force, setForce] = useState(false);
   const [skipAudit, setSkipAudit] = useState(false);
   const [found, setFound] = useState<{ source: string; items: DiscoveredSkill[] } | null>(null);
+  // The source whose discovery came back empty; the notice stays until the source changes.
+  const [nothing, setNothing] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState('');
   const [expanded, setExpanded] = useState(false);
@@ -277,7 +279,7 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
   const forceInstall = (b: Blocked) =>
     withBusy('force', () => ('skills' in b.retry ? runBatch({ ...b.retry, force: true }) : runSingle({ ...b.retry, force: true })));
 
-  const applyDiscovery = async (from: string, d: DiscoverResult, opts: Omit<InstallOpts, 'source'>) => {
+  const applyDiscovery = (from: string, d: DiscoverResult) => {
     const skills = d.skills.map((s) => ({ ...s, kind: 'skill' as const }));
     const agents = (d.agents ?? []).map((a) => ({ name: a.name, path: a.path, kind: 'agent' as const }));
     const show = (items: DiscoveredSkill[]) => {
@@ -294,7 +296,12 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
     } else if (skills.length + agents.length > 0) {
       show(skills.length > 0 ? skills : agents);
     } else {
-      await runSingle({ source: from, ...opts });
+      // Installing anyway would copy the whole source in as one skill without a SKILL.md.
+      setSource(from);
+      setFound(null);
+      setNothing(from);
+      setTab('url');
+      setView(null);
     }
   };
 
@@ -324,7 +331,7 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
         }),
       );
     } else {
-      void withBusy('primary', async () => applyDiscovery(src, await api.discover(src, opts.branch), opts));
+      void withBusy('primary', async () => applyDiscovery(src, await api.discover(src, opts.branch)));
     }
   };
 
@@ -338,7 +345,7 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
         await runBatch({ source: r.source, skills: d.skills });
       } else {
         setTrack(false);
-        await applyDiscovery(r.source, d, {});
+        applyDiscovery(r.source, d);
       }
     });
 
@@ -682,6 +689,13 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
           <span className="hp">{t('install.url.sourceHint')}</span>
         </div>
 
+        {nothing === src && !found && !tracking && (
+          <div className="ss-note inf">
+            <Info size={16} />
+            <div className="flex-1">{t('install.url.nothingFound', { source: src })}</div>
+          </div>
+        )}
+
         {found && !tracking && (
           <div>
             <div className="mb-2 flex items-center justify-between gap-3">
@@ -759,7 +773,7 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
               </Field>
               {canTrack && (
                 <Field label={t('install.url.branch')} hint="--branch" icon={<GitBranch size={15} className="shrink-0 text-ink-3" />}>
-                  <input value={branch} onChange={(e) => { setBranch(e.target.value); setFound(null); }} placeholder="main" />
+                  <input value={branch} onChange={(e) => { setBranch(e.target.value); setFound(null); setNothing(null); }} placeholder="main" />
                 </Field>
               )}
               <Field label={t('install.url.name')} hint={`--name · ${t('install.url.nameHint')}`} disabled={tracking || (found !== null && count !== 1)}>

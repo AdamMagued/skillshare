@@ -1016,6 +1016,7 @@
   "install.url.findAgents": "یافتن ایجنت‌ها",
   "install.url.installRepo": "نصب مخزن",
   "install.url.found": "{items} پیدا شد",
+  "install.url.nothingFound": "هیچ skill یا agent در {source} پیدا نشد. چیزی نصب نشد.",
   "install.url.install": "نصب {items}",
   "install.url.onlySkills": "هیچ agent پیدا نشد. skillshare فقط پوشه agents/ را در بالاترین سطح منبع جست‌وجو می‌کند، پس این‌ها skill هستند و در صفحه Skills نمایش داده می‌شوند. برای agentهای یک زیرپوشه، مسیر آن را اضافه کنید: owner/repo/path/to/folder.",
   "install.url.onlyAgents": "این منبع هیچ skill ندارد. این‌ها agent هستند و در صفحه Agents نمایش داده می‌شوند.",

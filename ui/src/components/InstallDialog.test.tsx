@@ -88,6 +88,35 @@ describe('InstallDialog', () => {
     ));
   });
 
+  it('reports an empty source instead of installing it when Find skills discovers nothing', async () => {
+    vi.mocked(api.discover).mockResolvedValue({ needsSelection: false, skills: [], agents: [] });
+    const user = userEvent.setup();
+    renderDialog('url');
+
+    await user.type(screen.getByLabelText(/git url/i), 'acme/notes');
+    await user.click(screen.getByRole('button', { name: /find skills/i }));
+
+    expect(await screen.findByText('No skills or agents found in acme/notes. Nothing was installed.')).toBeInTheDocument();
+    expect(api.install).not.toHaveBeenCalled();
+  });
+
+  it('reports an empty source instead of installing it from a search result', async () => {
+    vi.mocked(api.getHubConfig).mockResolvedValue({ hubs: [{ label: 'Acme', url: 'https://acme.dev/hub.json' }], default: 'Acme' });
+    vi.mocked(api.searchHub).mockResolvedValue({
+      results: [{ name: 'notes', description: '', source: 'acme/notes', stars: 0, owner: 'acme', repo: 'notes' }],
+    });
+    vi.mocked(api.discover).mockResolvedValue({ needsSelection: false, skills: [], agents: [] });
+    const user = userEvent.setup();
+    renderDialog('search');
+
+    await screen.findByText('Acme');
+    await user.type(screen.getByLabelText(/search skills/i), 'notes{Enter}');
+    await user.click(await screen.findByRole('button', { name: /^install$/i }));
+
+    expect(await screen.findByText('No skills or agents found in acme/notes. Nothing was installed.')).toBeInTheDocument();
+    expect(api.install).not.toHaveBeenCalled();
+  });
+
   it('asks which kind to track when the repo has skills and agents', async () => {
     vi.mocked(api.install)
       .mockRejectedValueOnce(new ApiError(400, 'ambiguous', { code: 'install.track_kind_ambiguous', params: { skills: 3, agents: 2 } }))

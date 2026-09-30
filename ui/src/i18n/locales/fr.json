@@ -1016,6 +1016,7 @@
   "install.url.findAgents": "Trouver des agents",
   "install.url.installRepo": "Installer le dépôt",
   "install.url.found": "{items} trouvé(s)",
+  "install.url.nothingFound": "Aucun skill ni agent trouvé dans {source}. Rien n’a été installé.",
   "install.url.install": "Installer {items}",
   "install.url.onlySkills": "Aucun agent trouvé. skillshare cherche uniquement un dossier agents/ à la racine de la source : ce sont donc des skills, visibles sur la page Skills. Pour les agents d’un sous-dossier, ajoutez son chemin : owner/repo/path/to/folder.",
   "install.url.onlyAgents": "Aucun skill dans cette source. Ce sont des agents, visibles sur la page Agents.",

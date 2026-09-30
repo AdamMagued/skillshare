@@ -1016,6 +1016,7 @@
   "install.url.findAgents": "尋找 agents",
   "install.url.installRepo": "安裝 repo",
   "install.url.found": "找到 {items}",
+  "install.url.nothingFound": "在 {source} 中找不到 skill 或 agent，未安裝任何內容。",
   "install.url.install": "安裝 {items}",
   "install.url.onlySkills": "找不到 agents。skillshare 只在來源最上層找 agents/ 資料夾，所以這些是 skills，會出現在 Skills 頁。要安裝子資料夾裡的 agents，請在網址加上路徑：owner/repo/path/to/folder。",
   "install.url.onlyAgents": "這個來源沒有 skills。這些是 agents，會出現在 Agents 頁。",

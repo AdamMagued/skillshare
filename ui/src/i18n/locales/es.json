@@ -1016,6 +1016,7 @@
   "install.url.findAgents": "Buscar agents",
   "install.url.installRepo": "Instalar repo",
   "install.url.found": "Se encontraron {items}",
+  "install.url.nothingFound": "No se encontraron skills ni agents en {source}. No se instaló nada.",
   "install.url.install": "Instalar {items}",
   "install.url.onlySkills": "No se encontraron agents. skillshare solo busca una carpeta agents/ en el nivel superior del origen, así que estos son skills y aparecerán en la página Skills. Para agents de una subcarpeta, añade su ruta: owner/repo/path/to/folder.",
   "install.url.onlyAgents": "No hay skills en este origen. Estos son agents y aparecerán en la página Agents.",
