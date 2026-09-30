@@ -40,6 +40,7 @@
   <a href="#快速开始">快速开始</a> •
   <a href="#功能亮点">功能亮点</a> •
   <a href="#cli-与界面预览">界面截图</a> •
+  <a href="https://github.com/runkids/skillshare-app">桌面应用</a> •
   <a href="https://skillshare.runkids.cc/docs">文档</a>
 </p>
 

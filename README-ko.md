@@ -40,6 +40,7 @@
   <a href="#빠른-시작">빠른 시작</a> •
   <a href="#주요-기능">주요 기능</a> •
   <a href="#cli와-ui-미리보기">스크린샷</a> •
+  <a href="https://github.com/runkids/skillshare-app">데스크톱 앱</a> •
   <a href="https://skillshare.runkids.cc/docs">문서</a>
 </p>
 

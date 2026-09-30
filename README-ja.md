@@ -40,6 +40,7 @@
   <a href="#クイックスタート">クイックスタート</a> •
   <a href="#主な機能">主な機能</a> •
   <a href="#cli-と-ui-のプレビュー">スクリーンショット</a> •
+  <a href="https://github.com/runkids/skillshare-app">デスクトップアプリ</a> •
   <a href="https://skillshare.runkids.cc/docs">ドキュメント</a>
 </p>
 

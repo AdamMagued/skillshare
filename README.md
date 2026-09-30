@@ -41,6 +41,7 @@
   <a href="#quick-start">Quick Start</a> •
   <a href="#highlights">Highlights</a> •
   <a href="#cli-and-ui-preview">Screenshots</a> •
+  <a href="https://github.com/runkids/skillshare-app">Desktop App</a> •
   <a href="https://skillshare.runkids.cc/docs">Docs</a>
 </p>
 
