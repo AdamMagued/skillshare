@@ -36,7 +36,7 @@ skillshare sync --all
 | `--url URL` | `add`용 Streamable HTTP 엔드포인트 |
 | `-- command args...` | `add`용 로컬 실행 파일과 리터럴 인자 |
 | `--disabled` | project mode에서 `add`와 함께 사용: Agent의 global 설정이 정의한 서버를 끕니다. [아래](#turn-off-a-global-server-in-one-project) 참고 |
-| `--pi-extension MODE` | `builtin` (Pi ≥ 0.99.0), `pi-mcp-adapter`, `pi-mcp-extension`. [Pi](#pi-choose-your-mcp-extension) |
+| `--pi-extension MODE` | `builtin`(Pi ≥ 0.99.0, Pi에 전달되는 새 서버의 기본값), `pi-mcp-adapter`, `pi-mcp-extension`. [Pi](#pi-choose-your-mcp-extension) |
 | `--direct-tools VALUE` | `pi-mcp-adapter`를 사용하는 Pi, `add` 또는 `edit`와 함께 사용: `true`, `false`, `search`, 또는 쉼표로 구분한 도구 이름. [아래](#pi-direct-tools) 참고 |
 | `--pi-options JSON` | `builtin` / `pi-mcp-adapter`: per-server JSON. [Pi](#pi-options) |
 | `--pi-options-prune` | `piOptionsPrune: true`; `--pi-options-prune=false` → `false`. [Pi](#pi-options) |
@@ -805,7 +805,7 @@ plan은 `existing entry is not managed` 충돌을 보고하고, 그 항목에 �
 
 ## Pi: MCP 모드 선택 {#pi-choose-your-mcp-extension}
 
-Pi ≥ 0.99.0에는 [MCP가 내장](https://github.com/earendil-works/pi/blob/v0.99.0/packages/coding-agent/docs/mcp.md)되어 있습니다. 새 설정에는 `builtin`을 선택할 수 있고 기존 adapter／extension 설정은 유지됩니다. UI와 터미널에서 세 모드를 선택합니다. 스크립트는 `--pi-extension builtin`, `pi-mcp-adapter`, `pi-mcp-extension`을 명시합니다.
+Pi ≥ 0.99.0에는 [MCP가 내장](https://github.com/earendil-works/pi/blob/v0.99.0/packages/coding-agent/docs/mcp.md)되어 있습니다. 모드 없이 Pi에 전달되는 새 서버는 `builtin`을 사용합니다. `--pi-extension` 없이 실행한 `mcp add`와 `mcp import`는 `piExtension: builtin`을 저장하고, 대시보드의 추가·가져오기 대화상자도 `builtin`으로 시작합니다. 이 기본값은 다른 서버의 모드를 따르지 않으며, 기존 서버는 현재 모드를 유지합니다. UI와 터미널에서 세 모드를 선택합니다. 스크립트에서 다른 모드를 쓰려면 `--pi-extension pi-mcp-adapter` 또는 `pi-mcp-extension`을 지정합니다.
 
 개인 서버와 자격 증명이 있는 서버는 `~/.pi/agent/mcp.json`에 두세요. `.pi/mcp.json`은 신뢰하는 프로젝트에 필요한 서버만 사용합니다. 같은 이름의 project entry는 global entry 전체를 대체합니다. Skillshare는 미리 보기와 백업을 제공하며 파일을 편집합니다. 프로젝트 신뢰, 서버 실행, 확장 설치, OAuth 인증은 처리하지 않습니다.
 

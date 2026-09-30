@@ -36,7 +36,7 @@ skillshare sync --all
 | `--url URL` | `add` 用の Streamable HTTP エンドポイント |
 | `-- command args...` | `add` 用のローカル実行ファイルとリテラルな引数 |
 | `--disabled` | project mode で `add` と併用: Agent の global config が定義するサーバーをオフにする。[下記](#turn-off-a-global-server-in-one-project)を参照 |
-| `--pi-extension MODE` | `builtin` (Pi ≥ 0.99.0), `pi-mcp-adapter`, `pi-mcp-extension`. [Pi](#pi-choose-your-mcp-extension) |
+| `--pi-extension MODE` | `builtin`（Pi ≥ 0.99.0。Pi に届く新しいサーバーの既定値）、`pi-mcp-adapter`、`pi-mcp-extension`。[Pi](#pi-choose-your-mcp-extension) |
 | `--direct-tools VALUE` | `pi-mcp-adapter` を使う Pi で `add` または `edit` と併用: `true`、`false`、`search`、またはカンマ区切りのツール名。[下記](#pi-direct-tools)を参照 |
 | `--pi-options JSON` | `builtin` / `pi-mcp-adapter`: per-server JSON. [Pi](#pi-options) |
 | `--pi-options-prune` | `piOptionsPrune: true`; `--pi-options-prune=false` → `false`. [Pi](#pi-options) |
@@ -703,7 +703,7 @@ Agent ファイルがすでに使っている名前でサーバーを追加し�
 
 ## Pi: MCP モードを選ぶ {#pi-choose-your-mcp-extension}
 
-Pi ≥ 0.99.0 は [MCP を内蔵](https://github.com/earendil-works/pi/blob/v0.99.0/packages/coding-agent/docs/mcp.md)しています。新規設定は `builtin` を選択できます。既存の adapter／extension は維持されます。画面と端末で三つのモードを選べます。スクリプトでは `--pi-extension builtin`、`pi-mcp-adapter`、`pi-mcp-extension` を明示します。
+Pi ≥ 0.99.0 は [MCP を内蔵](https://github.com/earendil-works/pi/blob/v0.99.0/packages/coding-agent/docs/mcp.md)しています。モードを指定せずに Pi に届く新しいサーバーは `builtin` を使います。`--pi-extension` なしの `mcp add` と `mcp import` は `piExtension: builtin` を保存し、ダッシュボードの追加・インポートダイアログも `builtin` から始まります。この既定値は他のサーバーのモードに合わせず、既存のサーバーは現在のモードを維持します。画面と端末で三つのモードを選べます。スクリプトで別のモードにするには `--pi-extension pi-mcp-adapter` または `pi-mcp-extension` を指定します。
 
 個人用や認証情報を持つサーバーは `~/.pi/agent/mcp.json` に配置してください。`.pi/mcp.json` は信頼済みプロジェクトが必要とするサーバーだけに使用します。同名の project entry は global entry 全体を置き換えます。Skillshare はプレビューとバックアップ付きでファイルを編集します。信頼の承認、サーバー起動、拡張のインストール、OAuth 認可は行いません。
 

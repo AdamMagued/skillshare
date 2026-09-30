@@ -36,7 +36,7 @@ skillshare sync --all
 | `--url URL` | `add` 用的 Streamable HTTP 端點 |
 | `-- command args...` | `add` 用的本機執行檔與字面參數 |
 | `--disabled` | Project mode，搭配 `add`：關閉一個由 Agent 的 global config 定義的 server。參見[下方說明](#turn-off-a-global-server-in-one-project) |
-| `--pi-extension MODE` | `builtin` (Pi ≥ 0.99.0), `pi-mcp-adapter`, `pi-mcp-extension`. [Pi](#pi-choose-your-mcp-extension) |
+| `--pi-extension MODE` | `builtin`（Pi ≥ 0.99.0，送往 Pi 的新伺服器預設使用）、`pi-mcp-adapter`、`pi-mcp-extension`。[Pi](#pi-choose-your-mcp-extension) |
 | `--direct-tools VALUE` | Pi 搭配 `pi-mcp-adapter`，搭配 `add` 或 `edit`：`true`、`false`、`search`，或以逗號分隔的工具名稱。參見[下方說明](#pi-direct-tools) |
 | `--pi-options JSON` | `builtin` / `pi-mcp-adapter`: per-server JSON. [Pi](#pi-options) |
 | `--pi-options-prune` | `piOptionsPrune: true`; `--pi-options-prune=false` → `false`. [Pi](#pi-options) |
@@ -762,7 +762,7 @@ dashboard 會讀取目前範圍的 Agent 設定檔，以及 `mcp.projects` 底�
 
 ## Pi：選擇 MCP 模式 {#pi-choose-your-mcp-extension}
 
-Pi ≥ 0.99.0 已[內建 MCP](https://github.com/earendil-works/pi/blob/v0.99.0/packages/coding-agent/docs/mcp.md)。新設定可選 `builtin`；既有 adapter／extension 設定保留原模式。儀表板與終端選單提供三種模式；腳本明確指定 `--pi-extension builtin`、`pi-mcp-adapter` 或 `pi-mcp-extension`。
+Pi ≥ 0.99.0 已[內建 MCP](https://github.com/earendil-works/pi/blob/v0.99.0/packages/coding-agent/docs/mcp.md)。未指定模式而送往 Pi 的新伺服器使用 `builtin`：不帶 `--pi-extension` 的 `mcp add` 與 `mcp import` 會儲存 `piExtension: builtin`，儀表板的新增與匯入對話框也從 `builtin` 開始。這個預設值不會跟隨其他伺服器的模式，既有伺服器保留原模式。儀表板與終端選單提供三種模式；腳本可用 `--pi-extension pi-mcp-adapter` 或 `pi-mcp-extension` 選擇其他模式。
 
 個人及含憑證的 server 請放入 `~/.pi/agent/mcp.json`。僅在受信任的專案，將專案需要的 server 放入 `.pi/mcp.json`。同名 project entry 會完整取代 global entry。Skillshare 直接編輯檔案，提供預覽與備份；不會信任專案、啟動 server、安裝套件或核准 OAuth。
 

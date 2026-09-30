@@ -185,9 +185,11 @@ setups usually go wrong.
 
 ### Pi
 
-Pi >= 0.99.0 includes built-in MCP. New setups can choose `piExtension: builtin`;
-existing adapter/extension setups retain their mode. Scripts explicitly select
-`--pi-extension builtin`, `pi-mcp-adapter`, or `pi-mcp-extension`. All Pi servers in
+Pi >= 0.99.0 includes built-in MCP. A new server that reaches Pi without a mode
+gets `piExtension: builtin` (`mcp add`/`mcp import` without `--pi-extension`, and the
+dashboard's add and import dialogs); it does not copy other servers' mode, and existing
+servers retain theirs. Select `--pi-extension pi-mcp-adapter` or `pi-mcp-extension`
+for a scope that already uses a third-party mode. All Pi servers in
 one scope use one mode. Only third-party modes require `pi install npm:<package>`.
 
 | Mode | Global | Project |

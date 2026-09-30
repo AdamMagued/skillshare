@@ -36,7 +36,7 @@ skillshare sync --all
 | `--url URL` | Streamable HTTP endpoint for `add` |
 | `-- command args...` | Local executable and literal arguments for `add` |
 | `--disabled` | Project mode, with `add`: turn off a server the Agent's global config defines. See [below](#turn-off-a-global-server-in-one-project) |
-| `--pi-extension MODE` | `builtin` (Pi ≥ 0.99.0), `pi-mcp-adapter`, `pi-mcp-extension`. [Pi](#pi-choose-your-mcp-extension) |
+| `--pi-extension MODE` | `builtin` (Pi ≥ 0.99.0, the default for a new server that reaches Pi), `pi-mcp-adapter`, `pi-mcp-extension`. [Pi](#pi-choose-your-mcp-extension) |
 | `--direct-tools VALUE` | Pi with `pi-mcp-adapter`, with `add` or `edit`: `true`, `false`, `search`, or tool names separated by commas. See [below](#pi-direct-tools) |
 | `--pi-options JSON` | `builtin` / `pi-mcp-adapter`: per-server JSON. [Pi](#pi-options) |
 | `--pi-options-prune` | `piOptionsPrune: true`; `--pi-options-prune=false` → `false`. [Pi](#pi-options) |
@@ -829,7 +829,7 @@ and writes no files until you choose for that entry:
 
 ## Pi: choose your MCP mode {#pi-choose-your-mcp-extension}
 
-Pi ≥ 0.99.0 includes [built-in MCP](https://github.com/earendil-works/pi/blob/v0.99.0/packages/coding-agent/docs/mcp.md). Choose `builtin` for new setups; existing adapter and extension definitions keep their mode. The dashboard and terminal selector offer all three modes. Scripts explicitly use `--pi-extension builtin`, `pi-mcp-adapter`, or `pi-mcp-extension`.
+Pi ≥ 0.99.0 includes [built-in MCP](https://github.com/earendil-works/pi/blob/v0.99.0/packages/coding-agent/docs/mcp.md). A new server that reaches Pi without a mode uses `builtin`: `mcp add` and `mcp import` without `--pi-extension` store `piExtension: builtin`, and the dashboard's add and import dialogs start on it. The default does not follow the mode of other servers, and existing servers keep the mode they have. The dashboard and terminal selector offer all three modes; scripts choose another with `--pi-extension pi-mcp-adapter` or `pi-mcp-extension`.
 
 Personal servers and servers with credentials belong in `~/.pi/agent/mcp.json`. Use `.pi/mcp.json` only for servers the project needs, in trusted projects. Project entries replace the entire global entry with the same name. Skillshare edits files directly with preview and backup; it does not trust projects, launch servers, install extensions, or authorize OAuth.
 
