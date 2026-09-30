@@ -30,7 +30,10 @@ export default function MCPConfigView({ mutation }: { mutation: MCPMutation }) {
       <span className="text-[13px] font-semibold">{t('mcp.sourceConfig')}</span>
       <div className="ss-pre"><pre>{JSON.stringify({ [mutation.name ?? 'server']: mutation.server }, null, 2)}</pre></div>
       <div className="flex items-center gap-2.5">
-        <Select className="w-[200px] shrink-0" value={shown} onChange={setPicked} options={targets.map((x) => ({ value: x, label: targetLabel(x) }))} />
+        {/* A picker with one choice picks nothing; name the only Agent instead. */}
+        {targets.length > 1
+          ? <Select className="w-[200px] shrink-0" value={shown} onChange={setPicked} options={targets.map((x) => ({ value: x, label: targetLabel(x) }))} />
+          : shown && <span className="shrink-0 text-[13px] font-semibold">{targetLabel(shown)}</span>}
         {rendered && <span className="min-w-0 flex-1 truncate font-mono text-xs text-ink-3" title={rendered.path}>{shortenHome(rendered.path)}</span>}
         {rendered?.content && <CopyButton value={rendered.content} />}
       </div>

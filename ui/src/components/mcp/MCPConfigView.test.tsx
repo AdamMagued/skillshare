@@ -25,3 +25,11 @@ it('keeps the previous native preview while a changed draft is rendering', async
   resolve({ rendered: [{ target: 'pi', path: '/pi/mcp.json', content: 'updated native preview' }] });
   expect(await screen.findByText('updated native preview')).toBeInTheDocument();
 });
+
+it('names the only Agent instead of offering a one-option picker', async () => {
+  vi.mocked(mcpApi.render).mockResolvedValue({ rendered: [{ target: 'pi', path: '/pi/mcp.json', content: 'native' }] });
+  const mutation: MCPMutation = { name: 'docs', server: { command: 'docs', targets: ['pi'] } };
+  render(<QueryClientProvider client={new QueryClient()}><I18nProvider><MCPConfigView mutation={mutation} /></I18nProvider></QueryClientProvider>);
+  expect(await screen.findByText('native')).toBeInTheDocument();
+  expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+});
