@@ -43,9 +43,13 @@ func switchOnly(target string, entry map[string]any) bool {
 }
 
 // changeRoot is the mcp.projects folder a file plan writes for. Claude Code's off list
-// sits in ~/.claude.json, outside every root, so its native target carries the root.
-func changeRoot(target, path string, roots []string) string {
+// sits in ~/.claude.json, outside every root, so its native target carries the root;
+// in project mode that root is current, the scope itself, which reports as "".
+func changeRoot(target, path, current string, roots []string) string {
 	if root, ok := strings.CutPrefix(target, claudeOffPrefix); ok {
+		if root == current {
+			return ""
+		}
 		return root
 	}
 	for _, root := range roots {
@@ -186,10 +190,10 @@ func (s *Service) loadLedger() (ledger, []byte, error) {
 // forget drops this config's ownership of the servers a draft stops managing, in their own
 // scope only: a global server's entries, or one project's. A plan then reads those Agent
 // entries as the user's own and neither removes nor updates them.
-func (s *Source) forget(state ledger) {
+func (s *Source) forget(state ledger, current string) {
 	roots := sortedKeys(s.Projects)
 	for key, owned := range state.Entries {
-		if owned.Owner == s.ConfigPath && s.unmanaged[changeRoot(owned.Target, owned.Path, roots)+"\x00"+owned.Name] {
+		if owned.Owner == s.ConfigPath && s.unmanaged[changeRoot(owned.Target, owned.Path, current, roots)+"\x00"+owned.Name] {
 			delete(state.Entries, key)
 		}
 	}
@@ -543,7 +547,7 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 		}
 	}
 	// After the files are known, so stopping to manage a server keeps the revision of removing it.
-	source.forget(state)
+	source.forget(state, s.ProjectRoot)
 	maps.Copy(state.Entries, parked)
 	proposal, _ := json.Marshal(struct {
 		Servers     map[string]Server
@@ -644,7 +648,7 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 				managed = true
 				p.state.Entries[key] = owned
 			}
-			change := Change{Target: shown, Path: path, Name: name, Root: changeRoot(target, path, projectRoots)}
+			change := Change{Target: shown, Path: path, Name: name, Root: changeRoot(target, path, s.ProjectRoot, projectRoots)}
 			if change.Switch = switchOnly(target, want); want == nil {
 				change.Switch = switchOnly(target, current)
 			}

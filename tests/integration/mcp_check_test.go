@@ -108,6 +108,25 @@ func TestMCPCheckProjectModeReportsSyncState(t *testing.T) {
 	r.AssertOutputContains(t, "not synced yet")
 }
 
+// A project's Claude switch lives in ~/.claude.json, outside the project, but is still this scope.
+func TestMCPProjectClaudeSwitchStaysInScope(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig("targets: {}\n")
+	root := sb.SetupProjectDir()
+	sb.RunCLIInDir(root, "mcp", "add", "docs", "--target", "claude", "--disabled", "--no-tui", "-p").AssertSuccess(t)
+
+	r := sb.RunCLIInDir(root, "mcp", "check", "docs", "--no-dns", "-p")
+	r.AssertSuccess(t)
+	r.AssertOutputContains(t, "not synced yet")
+
+	sb.RunCLIInDir(root, "sync", "mcp", "-p").AssertSuccess(t)
+	sb.RunCLIInDir(root, "mcp", "remove", "docs", "--keep-files", "--no-tui", "-p").AssertSuccess(t)
+	r = sb.RunCLIInDir(root, "sync", "mcp", "-p", "--dry-run", "--json")
+	r.AssertSuccess(t)
+	r.AssertOutputNotContains(t, `"remove"`)
+}
+
 // tinyMCPServer answers server/discover and tools/list, one JSON-RPC message per line.
 const tinyMCPServer = `#!/bin/sh
 while IFS= read -r line; do

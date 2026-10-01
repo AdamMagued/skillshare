@@ -447,7 +447,7 @@ func (s *Service) MutateBatch(mutations []Mutation, revision string, sync bool) 
 					}
 				}
 			}
-			source.forget(state)
+			source.forget(state, s.ProjectRoot)
 			if err := writeJSONFile(s.statePath(), state); err != nil {
 				return nil, fmt.Errorf("source saved; ownership update failed: %w", err)
 			}

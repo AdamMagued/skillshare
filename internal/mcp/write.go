@@ -198,7 +198,9 @@ func (s *Service) applyPlan(p *Plan) (*Result, error) { return s.applyScoped(p, 
 func (s *Service) applyScoped(p *Plan, root *string) (*Result, error) {
 	result := &Result{Plan: p, Applied: []string{}, BackupIDs: []string{}}
 	roots := sortedKeys(p.source.Projects)
-	inScope := func(target, path string) bool { return root == nil || changeRoot(target, path, roots) == *root }
+	inScope := func(target, path string) bool {
+		return root == nil || changeRoot(target, path, s.ProjectRoot, roots) == *root
+	}
 	blocked := p.Blocked
 	if root != nil {
 		// A conflict elsewhere touches none of this root's files.
