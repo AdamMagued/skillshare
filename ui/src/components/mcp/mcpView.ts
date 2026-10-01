@@ -119,7 +119,7 @@ export const describeError = (t: (key: string, params?: Record<string, string>) 
 /** Pi entry fields Skillshare writes from the server's own settings; the backend refuses them in piOptions. */
 const piOwnFields = new Set(['command', 'args', 'env', 'url', 'headers', 'transport', 'disabled', 'type', 'settings', 'autoEnableCodemode']);
 
-/** pi-mcp-adapter fields Pi's built-in MCP does not read; the backend refuses them. The first three are what tools now holds. */
+/** pi-mcp-adapter fields Pi's built-in MCP does not read; the backend refuses them. The first three are what tools now holds. The adapter's auth is a string; Pi's own (0.99.2) is an object. */
 const adapterToolFields = new Set(['directTools', 'includeTools', 'excludeTools']);
 const adapterFields = new Set(['approveTools', 'auth', 'bearerToken', 'bearerTokenEnv', 'bearerTokenStore', 'caFile', 'debug', 'exposeResources', 'idleTimeout', 'inheritEnv', 'lifecycle', 'protocolVersion', 'requestHeadersCommand', 'requestTimeoutMs', 'searchKeywords', 'socket', 'tasks', 'toolPrefix', 'trace']);
 
@@ -139,12 +139,12 @@ export const parsePiOptions = (text: string, tools = false): { value?: Record<st
     if (taken) return { taken };
     const adapterTools = keys.find((key) => adapterToolFields.has(key));
     if (adapterTools) return { adapterTools };
-    const adapter = keys.find((key) => adapterFields.has(key));
+    const options = value as Record<string, unknown>;
+    const object = (v: unknown): v is Record<string, unknown> => Boolean(v) && typeof v === 'object' && !Array.isArray(v);
+    const adapter = keys.find((key) => adapterFields.has(key) && !(key === 'auth' && object(options.auth)));
     if (adapter) return { adapter };
     const overlap = tools ? keys.find((key) => key === 'toolExposure') : undefined;
     if (overlap) return { overlap };
-    const options = value as Record<string, unknown>;
-    const object = (v: unknown): v is Record<string, unknown> => Boolean(v) && typeof v === 'object' && !Array.isArray(v);
     if ('exposure' in options && !piExposures.includes(options.exposure as string)) return { bad: 'exposure' };
     if ('toolExposure' in options && (!object(options.toolExposure) || Object.values(options.toolExposure).some((v) => !piExposures.includes(v as string)))) return { bad: 'toolExposure' };
     if ('timeout' in options && (typeof options.timeout !== 'number' || options.timeout <= 0)) return { bad: 'timeout' };
@@ -152,12 +152,13 @@ export const parsePiOptions = (text: string, tools = false): { value?: Record<st
     if ('enabled' in options && typeof options.enabled !== 'boolean') return { bad: 'enabled' };
     if ('oauth' in options) {
       if (!object(options.oauth)) return { bad: 'oauth' };
-      for (const key of ['clientId', 'clientSecret', 'callbackUrl', 'scope']) {
+      for (const key of ['clientId', 'clientSecret', 'callbackUrl', 'scope', 'clientName']) {
         if (key in options.oauth && typeof options.oauth[key] !== 'string') return { bad: `oauth.${key}` };
       }
       const port = options.oauth.callbackPort;
       if (port !== undefined && (!Number.isInteger(port) || Number(port) < 1 || Number(port) > 65535)) return { bad: 'oauth.callbackPort' };
     }
+    if ('auth' in options && (!object(options.auth) || typeof options.auth.provider !== 'string' || !options.auth.provider)) return { bad: 'auth.provider' };
     return { value: options };
   } catch {
     return { invalid: true };

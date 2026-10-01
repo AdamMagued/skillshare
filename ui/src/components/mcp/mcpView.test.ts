@@ -171,6 +171,11 @@ describe('parsePiOptions', () => {
       .toEqual([{ adapterTools: 'directTools' }, { adapterTools: 'excludeTools' }, { adapter: 'lifecycle' }]);
   });
 
+  it("keeps Pi 0.99.2's auth object and refuses the adapter's auth string", () => {
+    expect([parsePiOptions('{"auth": {"provider": "github"}, "oauth": {"clientName": "Claude Code"}}'), parsePiOptions('{"auth": "oauth"}'), parsePiOptions('{"auth": {}}'), parsePiOptions('{"oauth": {"clientName": 1}}')])
+      .toEqual([{ value: { auth: { provider: 'github' }, oauth: { clientName: 'Claude Code' } } }, { adapter: 'auth' }, { bad: 'auth.provider' }, { bad: 'oauth.clientName' }]);
+  });
+
   it("refuses only Pi's toolExposure while the server has a tool policy", () => {
     expect([parsePiOptions('{"toolExposure": {"a": "hidden"}}', true), parsePiOptions('{"exposure": "direct"}', true)])
       .toEqual([{ overlap: 'toolExposure' }, { value: { exposure: 'direct' } }]);
