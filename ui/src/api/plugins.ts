@@ -29,13 +29,14 @@ export const syncAction = (b: PluginBinding, host?: PluginInventory['hosts'][num
 };
 /**
  * The command that adds this plugin from its source on another machine, '' when the source is a
- * local directory, which only exists here. Agents are left for whoever runs it to choose.
+ * local directory, which only exists here. Agents are left for whoever runs it to choose. It always
+ * adds globally: run inside a project with its own config, it would otherwise land in that project.
  */
 export const pluginShareCommand = (name: string, p: { source?: string; sourceRef?: string; plugin?: string; entry?: string }) => {
   if (!p.source?.startsWith('https://')) return '';
   const quote = (s: string) => (/^[\w@%+=:,./-]+$/.test(s) ? s : `'${s.replace(/'/g, `'"'"'`)}'`);
   const flags: [string, string | undefined][] = [['--plugin', p.plugin], ['--name', p.plugin && p.plugin !== name ? name : undefined], ['--source-ref', p.sourceRef], ['--entry', p.entry]];
-  return ['skillshare plugin add', quote(p.source), ...flags.filter(([, v]) => v).map(([flag, v]) => `${flag} ${quote(v!)}`)].join(' ');
+  return ['skillshare plugin add', quote(p.source), ...flags.filter(([, v]) => v).map(([flag, v]) => `${flag} ${quote(v!)}`), '-g'].join(' ');
 };
 export interface PluginCandidate { name: string; description: string; version: string; targets: PluginTarget[]; components: string[]; problem?: string; problemKey?: string; problemArgs?: Record<string, string>; targetInfo?: Record<string, { manifest: string; version?: string; logo?: string; entry?: string; components: string[]; problem?: string; problemKey?: string; problemArgs?: Record<string, string> }> }
 export interface PluginDiscovery {

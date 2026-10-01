@@ -135,11 +135,11 @@ describe('PluginsPage', () => {
     // A local directory only exists here, so it is not offered.
     expect(screen.queryByRole('checkbox', { name: 'local' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'plugins.copyShare' }));
-    expect(writeText).toHaveBeenLastCalledWith('skillshare plugin add https://github.com/owner/a.git --plugin a --no-tui && skillshare plugin add https://github.com/owner/b.git --plugin b --no-tui');
+    expect(writeText).toHaveBeenLastCalledWith('skillshare plugin add https://github.com/owner/a.git --plugin a -g --no-tui && skillshare plugin add https://github.com/owner/b.git --plugin b -g --no-tui');
     // Asking drops --no-tui, so each add opens its Agent picker.
     fireEvent.click(screen.getByRole('checkbox', { name: 'plugins.shareAsk' }));
     fireEvent.click(screen.getByRole('button', { name: 'plugins.copyShare' }));
-    expect(writeText).toHaveBeenLastCalledWith('skillshare plugin add https://github.com/owner/a.git --plugin a && skillshare plugin add https://github.com/owner/b.git --plugin b');
+    expect(writeText).toHaveBeenLastCalledWith('skillshare plugin add https://github.com/owner/a.git --plugin a -g && skillshare plugin add https://github.com/owner/b.git --plugin b -g');
   });
   it('opens sharing from a row with only that plugin ticked', async () => {
     vi.mocked(pluginsApi.list).mockResolvedValue({ targetDefinitions: [], packages: {
