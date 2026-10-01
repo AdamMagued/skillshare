@@ -39,6 +39,8 @@ The dashboard supports Clean and Playful styles plus light, dark, and system mod
 
 Do not run an unconfigured Prettier in `ui/` because it creates broad unrelated diffs. When Tailwind utilities conflict with the `ss-*` component layer, inspect the cascade before adding more complex selectors.
 
+The config editor's Beautify and Save actions organize top-level YAML sections: sources and default settings, targets, skills, agents, extras, MCP, plugins, hooks, other settings, ignore, and audit. Sections have blank lines between them; nested mappings and lists retain their order, and unknown keys remain in their original relative order at the end. Comments and anchors are preserved; the `yaml-language-server` schema directive stays at the top of the document, including when repairing a previously misplaced directive. If reordering would change an alias reference, the original section order is retained.
+
 ## Website Boundary
 
 This topic also loads `website/AGENTS.md` for website-specific commands, structure, and deployment rules. Additional boundaries:

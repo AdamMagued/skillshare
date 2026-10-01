@@ -80,7 +80,7 @@ export default function ConfigPage() {
   const configFile = useEditableFile(configData, {
     skipEmpty: true,
     save: async (value) => {
-      const formatted = formatYaml(value);
+      const formatted = formatYaml(value, { organizeConfig: true });
       const res = await api.putConfig(formatted);
       if (res.warnings?.length) {
         toast(t('config.toast.savedWithWarnings', { warnings: res.warnings.join('; ') }), 'warning');
@@ -125,7 +125,7 @@ export default function ConfigPage() {
   // the user sees it before committing.
   const handleBeautify = () => {
     try {
-      const formatted = formatYaml(raw, { expandNested: true });
+      const formatted = formatYaml(raw, { expandNested: true, organizeConfig: true });
       if (formatted === raw) {
         toast(t('config.beautify.noChange'), 'info');
         return;
