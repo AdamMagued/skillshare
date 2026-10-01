@@ -48,7 +48,7 @@ Before starting:
 Then:
 
 1. Generate and review the changelog.
-2. For maintainer-only release notes, follow the newest `specs/RELEASE_NOTES_*.md` and write user-facing prose to `specs/RELEASE_NOTES_<version>.md`.
+2. Write the GitHub release body to `specs/RELEASE_NOTES_<version>.md`, following the newest one. After the draft is built, apply it with `gh release edit vX.Y.Z --notes-file specs/RELEASE_NOTES_<version>.md`; Publish Release keeps it, but rebuilding the draft regenerates the body from `CHANGELOG.md`.
 3. Review the manifest's proposed version and synchronize the Release PR files; do not perform a separate manual version bump.
 4. Commit review edits or merge the Release PR only when explicitly requested. Stage only task-owned files. The automation owns release tagging after verification.
 5. Draft concise GitHub release notes and a social announcement.

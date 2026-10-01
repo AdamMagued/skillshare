@@ -60,15 +60,23 @@ After the Release PR merges, the Release Please workflow tests its merge SHA, cr
 
 Review the draft notes, migration guidance, tag and artifacts. A failed packaging job leaves an unpublished draft. Rerun the failed packaging job or, with authorization, dispatch Build Release Draft for that existing tag; do not create a second tag or change the version to hide a build failure.
 
-### 4. Optional local notes and announcements
+### 4. Release notes and announcements
 
-If the maintainer requests detailed local notes, follow the most recent `specs/RELEASE_NOTES_*.md` and write `specs/RELEASE_NOTES_<version>.md`. The ignored `specs/` files stay local unless the user explicitly asks to commit them. Do not force-add them by default.
+The published GitHub release body is `specs/RELEASE_NOTES_<version>.md`, not the CHANGELOG entry. Follow the most recent `specs/RELEASE_NOTES_*.md` (TL;DR, then one section per area) and verify every claim against source. The ignored `specs/` files stay local unless the user explicitly asks to commit them. Do not force-add them by default.
+
+After the draft is built, replace its body with the notes. The draft is unpublished, so this needs no publication authorization; Publish Release keeps the body:
+
+```bash
+gh release edit vX.Y.Z --notes-file specs/RELEASE_NOTES_X.Y.Z.md
+```
+
+Rebuilding the draft (Build Release Draft) regenerates the body from the CHANGELOG entry, so apply the notes again after any rebuild. If the draft listed external contributors, keep that section.
 
 Draft announcements only when requested. Describe user-visible behavior, add examples and migration guidance, and avoid internal implementation details.
 
 ### 5. Publish only when authorized
 
-Present the concrete draft and verification results. If publication is explicitly authorized, dispatch **Publish Release** with the exact `vX.Y.Z` tag. It verifies downloaded assets and the packaged CLI before publishing, then updates Homebrew and explicitly runs Docker Publish for the pinned tag commit.
+Present the concrete draft and verification results. If publication is explicitly authorized, dispatch **Publish Release** with the exact `vX.Y.Z` tag. It verifies downloaded assets and the packaged CLI before publishing, then updates Homebrew and explicitly runs Docker Publish and Website Pages for the pinned tag commit. The website deploys only here, never on pushes to `main`.
 
 Use this workflow rather than publishing directly from the GitHub draft page, so the complete distribution path runs. For a partial distribution failure, rerun the failed job with the same tag; never retag or publish an older version over the current one.
 
