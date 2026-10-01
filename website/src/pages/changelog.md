@@ -9,6 +9,68 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.23.2] - 2026-10-02
+
+### New Features
+
+#### Hooks
+
+- **Git config hooks** — a hook entry can bind `git` to register named Git config hooks (Git 2.54+) globally or in a project. Skillshare writes the commands to its own include file, adds the `include.path` line, and writes the helper scripts listed under `files`; `{files}` expands to their directory on each machine. Preview, sync, backups and restore work as they do for Agent hooks, and managing hooks never runs them. Linked worktrees share their project's hooks.
+  ```yaml
+  bindings:
+    git:
+      commands:
+        project.check:
+          events: [pre-commit]
+          command: "{files}/check.sh"
+      files:
+        check.sh: |
+          #!/bin/sh
+          exec make check
+  ```
+  ```bash
+  skillshare hooks add git-check --file git-check.yaml -g --dry-run
+  skillshare hooks sync -g
+  ```
+  With Git older than 2.54 the files are still written, and the plan says why the hooks cannot run. `parallel` needs Git 2.55+. When the include target is a symlink or not writable, the plan prints the lines to add by hand. The `git` key always means Git, so an account target named `git` receives no hooks; the plan warns once an entry uses the `git` binding.
+
+#### Doctor
+
+- **Check MCP servers, hooks, plugins and extras** — `skillshare doctor` and the dashboard's Doctor page now check these too, in global and project mode:
+  - MCP: environment variables, commands, client rules and sync state, without DNS lookups or starting servers
+  - Hooks: what `hooks sync` would still change or refuse. Git hooks that cannot run, for example because Git is missing, are reported with the reason instead of as unsynced
+  - Plugins: what `plugin sync` would change, without fetching sources, when a plugin is configured
+  - Extras: config errors, broken links in targets, and drift as `diff` reports it
+  ```bash
+  skillshare doctor --json
+  ```
+
+#### MCP
+
+- **Pi 1.0 OAuth metadata URL** — `piOptions.oauth.authServerMetadataUrl`, which Pi 1.0 uses instead of discovering a server's authorization server, is checked when you save: it must use https, or http on localhost. Pi 1.0 keeps OAuth sign-ins per server name and URL, so after renaming a server or changing its `url`, sign in again in Pi.
+  ```yaml
+  mcp:
+    servers:
+      example:
+        url: https://mcp.example.com/mcp
+        piOptions:
+          oauth:
+            authServerMetadataUrl: https://example.okta.com/.well-known/openid-configuration
+  ```
+
+#### Backups
+
+- **Backup limits and Delete all** — `backup.max_count` and `backup.max_size_mb` in the global config set how many target folder snapshots to keep and their total size (defaults 10 and 500 MB, `0` = no limit). `sync`, the dashboard's sync and `backup --cleanup` apply them; backups older than 30 days are still removed. The dashboard's **Target folders** tab shows the limits, edits them, and adds **Delete all** behind a confirmation. Project snapshots keep the defaults, and file, MCP and hooks backups are not affected.
+  ```yaml
+  backup:
+    max_count: 20
+    max_size_mb: 1000
+  ```
+
+#### Dashboard
+
+- **Share several plugins as one command** — **Share** on the Plugins page, in the header or a plugin's menu, lists the plugins added from an HTTPS source and copies one line that adds the ticked ones in order. Each add uses `--no-tui -g`, so the plugins land in the recipient's global config without a picker per plugin; they choose Agents on the Plugins page afterwards. An option keeps the per-plugin Agent picker. Plugins added from a local directory are left out, since the path only exists on your machine.
+
 ## [0.23.1] - 2026-10-01
 
 ### New Features
