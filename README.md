@@ -381,6 +381,8 @@ Thanks to everyone who helped shape skillshare.
 <a href="https://github.com/7zq12lvm-b"><img src="https://github.com/7zq12lvm-b.png" width="50" style="border-radius:50%" alt="7zq12lvm-b"></a>
 <a href="https://github.com/DarkiT"><img src="https://github.com/DarkiT.png" width="50" style="border-radius:50%" alt="DarkiT"></a>
 <a href="https://github.com/harisonw"><img src="https://github.com/harisonw.png" width="50" style="border-radius:50%" alt="harisonw"></a>
+<a href="https://github.com/wuhaoyujerry"><img src="https://github.com/wuhaoyujerry.png" width="50" style="border-radius:50%" alt="wuhaoyujerry"></a>
+<a href="https://github.com/star-nebula"><img src="https://github.com/star-nebula.png" width="50" style="border-radius:50%" alt="star-nebula"></a>
 
 ---
 
