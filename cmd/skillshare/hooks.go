@@ -72,7 +72,11 @@ func hooksContext(args []string) (*hooks.Service, []string, error) {
 	if mode == modeProject {
 		service.ConfigPath = config.ProjectConfigPath(cwd)
 		service.ProjectRoot = cwd
-	} else if cfg, err := config.Load(); err == nil {
+	} else {
+		cfg, err := config.Load()
+		if err != nil {
+			return nil, nil, err
+		}
 		service.Accounts = hooksAccounts(cfg)
 	}
 	applyModeLabel(mode)

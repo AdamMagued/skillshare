@@ -432,3 +432,13 @@ func TestHooksAccountBindingInProjectRefused(t *testing.T) {
 	r.AssertFailure(t)
 	r.AssertOutputContains(t, `unsupported Agent "codex-2"`)
 }
+
+func TestHooksAccountTargets_ReportsConfigLoadError(t *testing.T) {
+	sb := newHooksSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig("audit:\n  block_threshold: BOGUS\ntargets:\n  codex-2: {agent: codex, config_dir: ~/.codex-2, skills: {enabled: false}}\nhooks:\n  entries:\n    k:\n      bindings:\n        codex-2:\n          events: {Stop: [{hooks: [{type: command, command: x}]}]}\n")
+	r := sb.RunCLI("hooks", "sync", "-g", "--dry-run")
+	r.AssertFailure(t)
+	r.AssertOutputContains(t, "invalid audit.block_threshold")
+	r.AssertOutputNotContains(t, `unsupported Agent "codex-2"`)
+}
