@@ -96,6 +96,18 @@ func TestMCPCheckProjects(t *testing.T) {
 	r.AssertOutputContains(t, "2 server(s) checked: 1 error(s)")
 }
 
+func TestMCPCheckProjectModeReportsSyncState(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig("targets: {}\n")
+	root := sb.SetupProjectDir()
+	sb.RunCLIInDir(root, "mcp", "add", "docs", "--target", "claude", "--url", "https://example.com/mcp", "--no-tui", "-p").AssertSuccess(t)
+
+	r := sb.RunCLIInDir(root, "mcp", "check", "docs", "--no-dns", "-p")
+	r.AssertSuccess(t)
+	r.AssertOutputContains(t, "not synced yet")
+}
+
 // tinyMCPServer answers server/discover and tools/list, one JSON-RPC message per line.
 const tinyMCPServer = `#!/bin/sh
 while IFS= read -r line; do

@@ -565,9 +565,6 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 		}
 	}
 	projectRoots := sortedKeys(source.Projects)
-	if s.ProjectRoot != "" {
-		projectRoots = append(projectRoots, s.ProjectRoot)
-	}
 	piMoves := source.piExtensionSettings
 	keys := make([]fileKey, 0, len(desired))
 	for key := range desired {
