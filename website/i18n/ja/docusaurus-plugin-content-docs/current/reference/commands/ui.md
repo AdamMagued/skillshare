@@ -99,6 +99,8 @@ skillshare ui start --clear-cache
 | **Audit** | Skill と Agent のセキュリティスキャン。重大度別の検出結果を表示。**Rules** タブでは、カテゴリごとにすべてのルールを閲覧できる: ルールをオフにする、重大度を変更する、カテゴリ全体に重大度を適用する、スキャンプロファイル（`default`、`strict`、`permissive`）を選ぶ、カスタム `audit-rules.yaml` のエディタを開く、のいずれかができる |
 | **Settings** | タブ分け: **General**（Source パス、sync モード、外観）、**Backup**（Target フォルダのスナップショット、`AGENTS.md` などのファイルの以前のバージョン、MCP 設定のバックアップ。[`backup`](./backup.md#dashboard) を参照）、**Log**（操作履歴）、**Health**（[`doctor`](/docs/reference/commands/doctor) と同じチェック）、**Extensions**（sync 時のファイル変換）、**Files**（`config.yaml`、`.skillignore`、`.agentignore` の直接編集） |
 
+変更一覧の横の **Discard changes** は、確認後に選択した Git scope の追跡中のファイルと index を最後の commit に戻し、未追跡のファイルとフォルダーを削除します。無視されたファイル、ネストした Git repositories、root scope の `config.yaml` は保持されます。commit の変更や push は行わず、この操作は元に戻せません。**Dry run** はファイルを変更せずプレビューします。最初の commit が必要です。
+
 **Updates** タブでは、プログレスバーに更新の進行状況が表示され、更新中の行が示されます。ブロックされた更新や失敗した更新は別のセクションに表示されます。
 
 `/collect`、`/install`、`/search`、`/trash`、`/analyze`、`/backup`、`/log`、`/doctor` などの古いリンクは、新しい場所にリダイレクトされます。
@@ -160,6 +162,7 @@ Web ダッシュボードは `/api/` に REST API を公開しています。す
 | DELETE | `/api/targets/{name}` | Target を削除 |
 | POST | `/api/sync` | sync を実行（`dryRun`、`force`、`kind`、`project` に対応。`project` は宣言済みの project ルートで、sync をその project の Target に限定する）。`dryRun` が指定されていない限り、まず Target をバックアップする |
 | POST | `/api/git/commit` | Source リポジトリからプッシュせずにローカル git commit を作成 |
+| POST | `/api/git/discard` | 設定された Git scope の未 commit の変更を破棄（global mode のみ、最初の commit が必要）。`dryRun` に対応。無視されたファイル、ネストした Git repositories、root scope の `config.yaml` を保持 |
 | GET | `/api/git/status` | まだプッシュされていないコミット（`ahead`）と、最後の fetch 時点でまだプルしていない upstream のコミット（`behind`）を含む、Source リポジトリの状態。fetch は行わない |
 | POST | `/api/push` | 変更をコミットしてからプッシュ。初回プッシュ時は upstream を設定する。remote にこのリポジトリにないコミットがある場合、`409` とエラーコード `push_rejected` で失敗する。プルしてから再度プッシュする |
 | POST | `/api/pull` | プルしてから、リポジトリのスコープが保持するものを sync する。分岐した履歴はマージされる。`.metadata.json` の競合は自動で解決され、それ以外の競合ではマージを取り消して失敗する。最初のプルがマージできない場合、エラーコード `merge_failed` で失敗する。`force: true` で再試行すると、remote ブランチでローカルファイルを置き換える |

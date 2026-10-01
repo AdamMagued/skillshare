@@ -2734,5 +2734,11 @@
   "hooks.events.afteragentthought": "Después de un bloque de razonamiento",
   "hooks.events.workspaceopen": "Al abrir un espacio de trabajo",
   "hooks.events.preinvocation": "Antes de llamar al modelo",
-  "hooks.events.postinvocation": "Después de cada llamada al modelo"
+  "hooks.events.postinvocation": "Después de cada llamada al modelo",
+  "gitSync.actions.discard": "Descartar cambios",
+  "gitSync.discard.title": "¿Descartar todos los cambios?",
+  "gitSync.discard.message": "¿Descartar todos los cambios sin confirmar del repositorio {scope}? Los archivos rastreados volverán al último commit y los archivos y carpetas no rastreados se eliminarán. Se conservarán los archivos ignorados, los repositorios anidados y config.yaml de root. Esta acción no se puede deshacer.",
+  "gitSync.discard.preview": "Dry run: se restaurarían los archivos rastreados al último commit y se eliminarían los archivos no rastreados.",
+  "gitSync.discard.noCommit": "Crea un primer commit antes de descartar cambios.",
+  "gitSync.toast.discarded": "Cambios descartados"
 }

@@ -99,6 +99,8 @@ skillshare ui start --clear-cache
 | **Audit** | 对 skills 和 agents 的安全扫描，按严重程度列出 findings。**Rules** 标签页按类别浏览每一条规则：可以关闭某一条、更改其严重程度、把某个严重程度应用到整个类别、选择扫描 profile（`default`、`strict`、`permissive`），或打开自定义 `audit-rules.yaml` 的编辑器 |
 | **Settings** | 带标签页：**General**（source 路径、sync 模式、外观）、**Backup**（target 文件夹快照、`AGENTS.md` 等文件的早期版本，以及 MCP 配置备份；参见 [`backup`](./backup.md#dashboard)）、**Log**（操作历史）、**Health**（与 [`doctor`](/docs/reference/commands/doctor) 相同的检查）、**Extensions**（同步时的文件转换）、**Files**（`config.yaml`、`.skillignore` 和 `.agentignore` 的直接编辑器） |
 
+更改列表旁的 **Discard changes** 会在确认后，将所选 Git scope 的所有已跟踪文件和 index 恢复至最后一次 commit，并删除未跟踪的文件和文件夹。忽略的文件、嵌套 Git repositories 和 root scope 的 `config.yaml` 会保留。此操作不会更改 commits 或 push，且无法撤销。**Dry run** 只会预览，不会更改文件。必须先有第一个 commit。
+
 在 **Updates** 标签页中，进度条会显示更新进度，正在更新的行也会标记出来。被阻止或失败的更新会显示在单独的区域。
 
 旧链接如 `/collect`、`/install`、`/search`、`/trash`、`/analyze`、`/backup`、`/log` 和 `/doctor` 会重定向到新位置。
@@ -160,6 +162,7 @@ web dashboard 在 `/api/` 下暴露一个 REST API。所有端点都返回 JSON�
 | DELETE | `/api/targets/{name}` | 移除一个 target |
 | POST | `/api/sync` | 运行 sync（支持 `dryRun`、`force`、`kind`，以及 `project`：一个已声明的项目根目录，用于将 sync 限定在该项目的 targets）。除非设置了 `dryRun`，否则会先备份 targets |
 | POST | `/api/git/commit` | 从 source 仓库创建一个本地 git commit，但不推送 |
+| POST | `/api/git/discard` | 放弃配置 Git scope 的未 commit 更改（仅 global mode，必须先有第一个 commit）。支持 `dryRun`，保留忽略的文件、嵌套 Git repositories 和 root scope 的 `config.yaml` |
 | GET | `/api/git/status` | source 仓库状态，包括尚未推送的提交（`ahead`），以及截至上次 fetch 尚未拉取的 upstream 提交（`behind`）。不会执行 fetch |
 | POST | `/api/push` | 提交任何变更，然后推送。首次推送时会设置 upstream。当 remote 有本仓库没有的提交时，会以 `409` 和错误码 `push_rejected` 失败；先 pull，再重新 push |
 | POST | `/api/pull` | 拉取，然后同步该仓库 scope 所涵盖的内容。分歧的历史会被合并；`.metadata.json` 的冲突会自动解决，其他冲突会失败并撤销合并。当首次 pull 无法合并时，会以错误码 `merge_failed` 失败；用 `force: true` 重试可用 remote 分支替换本地文件 |

@@ -2734,5 +2734,11 @@
   "hooks.events.afteragentthought": "After a thinking block completes",
   "hooks.events.workspaceopen": "When a workspace opens",
   "hooks.events.preinvocation": "Before the model is called",
-  "hooks.events.postinvocation": "After each model call"
+  "hooks.events.postinvocation": "After each model call",
+  "gitSync.actions.discard": "Discard changes",
+  "gitSync.discard.title": "Discard all changes?",
+  "gitSync.discard.message": "Discard all uncommitted changes in the {scope} repository? Tracked files will be restored to the last commit, and untracked files and folders will be deleted. Ignored files, nested repositories, and root config.yaml are kept. This cannot be undone.",
+  "gitSync.discard.preview": "Dry run: would restore tracked files to the last commit and remove untracked files.",
+  "gitSync.discard.noCommit": "Create a first commit before discarding changes.",
+  "gitSync.toast.discarded": "Changes discarded"
 }

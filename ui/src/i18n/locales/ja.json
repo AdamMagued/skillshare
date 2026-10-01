@@ -2734,5 +2734,11 @@
   "hooks.events.afteragentthought": "思考ブロックの完了後",
   "hooks.events.workspaceopen": "ワークスペースを開いたとき",
   "hooks.events.preinvocation": "モデルを呼び出す前",
-  "hooks.events.postinvocation": "各モデル呼び出しの後"
+  "hooks.events.postinvocation": "各モデル呼び出しの後",
+  "gitSync.actions.discard": "変更を破棄",
+  "gitSync.discard.title": "すべての変更を破棄しますか？",
+  "gitSync.discard.message": "{scope} リポジトリの未コミットの変更をすべて破棄しますか？追跡中のファイルは最後のコミットに戻り、未追跡のファイルとフォルダーは削除されます。無視されたファイル、ネストしたリポジトリ、root の config.yaml は保持されます。この操作は元に戻せません。",
+  "gitSync.discard.preview": "Dry run: 追跡中のファイルを最後のコミットに戻し、未追跡のファイルを削除します。",
+  "gitSync.discard.noCommit": "変更を破棄する前に最初のコミットを作成してください。",
+  "gitSync.toast.discarded": "変更を破棄しました"
 }

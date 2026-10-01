@@ -2734,5 +2734,11 @@
   "hooks.events.afteragentthought": "Nach einem Denkblock",
   "hooks.events.workspaceopen": "Wenn ein Arbeitsbereich geöffnet wird",
   "hooks.events.preinvocation": "Bevor das Modell aufgerufen wird",
-  "hooks.events.postinvocation": "Nach jedem Modellaufruf"
+  "hooks.events.postinvocation": "Nach jedem Modellaufruf",
+  "gitSync.actions.discard": "Änderungen verwerfen",
+  "gitSync.discard.title": "Alle Änderungen verwerfen?",
+  "gitSync.discard.message": "Alle nicht committeten Änderungen im Repository {scope} verwerfen? Erfasste Dateien werden auf den letzten Commit zurückgesetzt, nicht erfasste Dateien und Ordner werden gelöscht. Ignorierte Dateien, verschachtelte Repositories und config.yaml im root bleiben erhalten. Dies kann nicht rückgängig gemacht werden.",
+  "gitSync.discard.preview": "Dry run: Erfasste Dateien würden auf den letzten Commit zurückgesetzt und nicht erfasste Dateien entfernt.",
+  "gitSync.discard.noCommit": "Erstelle vor dem Verwerfen einen ersten Commit.",
+  "gitSync.toast.discarded": "Änderungen verworfen"
 }

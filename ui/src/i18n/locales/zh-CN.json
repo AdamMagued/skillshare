@@ -2734,5 +2734,11 @@
   "hooks.events.afteragentthought": "思考段落完成后",
   "hooks.events.workspaceopen": "打开工作区时",
   "hooks.events.preinvocation": "调用模型前",
-  "hooks.events.postinvocation": "每次调用模型后"
+  "hooks.events.postinvocation": "每次调用模型后",
+  "gitSync.actions.discard": "放弃更改",
+  "gitSync.discard.title": "放弃所有更改？",
+  "gitSync.discard.message": "要放弃 {scope} 仓库中所有尚未 commit 的更改吗？已跟踪的文件会恢复至最后一次 commit，未跟踪的文件和文件夹会被删除。忽略的文件、嵌套仓库及 root 的 config.yaml 会保留。此操作无法撤销。",
+  "gitSync.discard.preview": "Dry run：将恢复已跟踪的文件至最后一次 commit，并删除未跟踪的文件。",
+  "gitSync.discard.noCommit": "请先创建第一个 commit，才能放弃更改。",
+  "gitSync.toast.discarded": "已放弃更改"
 }

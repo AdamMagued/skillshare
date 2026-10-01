@@ -2734,5 +2734,11 @@
   "hooks.events.afteragentthought": "پس از پایان بخش تفکر",
   "hooks.events.workspaceopen": "هنگام باز شدن فضای کار",
   "hooks.events.preinvocation": "پیش از فراخوانی مدل",
-  "hooks.events.postinvocation": "پس از هر فراخوانی مدل"
+  "hooks.events.postinvocation": "پس از هر فراخوانی مدل",
+  "gitSync.actions.discard": "حذف تغییرات",
+  "gitSync.discard.title": "همه تغییرات حذف شوند؟",
+  "gitSync.discard.message": "همه تغییرات commit نشده در مخزن {scope} حذف شوند؟ فایل‌های ردیابی‌شده به آخرین commit برمی‌گردند و فایل‌ها و پوشه‌های ردیابی‌نشده حذف می‌شوند. فایل‌های نادیده‌گرفته‌شده، مخزن‌های تو در تو و config.yaml در root حفظ می‌شوند. این عمل قابل بازگشت نیست.",
+  "gitSync.discard.preview": "Dry run: فایل‌های ردیابی‌شده به آخرین commit بازمی‌گردند و فایل‌های ردیابی‌نشده حذف می‌شوند.",
+  "gitSync.discard.noCommit": "پیش از حذف تغییرات، اولین commit را ایجاد کنید.",
+  "gitSync.toast.discarded": "تغییرات حذف شدند"
 }
