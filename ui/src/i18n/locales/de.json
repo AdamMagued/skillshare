@@ -2444,6 +2444,8 @@
   "mcp.piSettingsInfo": "Über die Pi-Einstellungen",
   "mcp.piExposureInfo": "Über die Tool-Sichtbarkeit",
   "mcp.piExposureTip": "Wie Pi die Tools dieses Servers dem Modell anbietet. Ohne Angabe bleibt, was Pi jetzt verwendet. Um einzelne Tools anders zu behandeln, trage sie unten in „Weitere Pi-Einstellungen“ ein.",
+  "mcp.piEnabled": "In Pi aktiviert",
+  "mcp.piEnabledHint": "Aus schreibt enabled: false: Pi behält den Server, verbindet sich aber nicht.",
   "mcp.piExposureNone": "Nicht festgelegt",
   "mcp.piExposureUnset": "Aktuellen Wert behalten; neue Einträge nutzen codemode",
   "mcp.piExposure.codemode": "Werkzeuge gebündelt per Code aufrufen (Pi: Standard)",

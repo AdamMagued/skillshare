@@ -2444,6 +2444,8 @@
   "mcp.piSettingsInfo": "About Pi settings",
   "mcp.piExposureInfo": "About tool exposure",
   "mcp.piExposureTip": "How Pi offers this server's tools to the model. Not set keeps what Pi uses now. To treat single tools differently, list them in Other Pi settings below.",
+  "mcp.piEnabled": "Turned on in Pi",
+  "mcp.piEnabledHint": "Off writes enabled: false: Pi keeps the server but does not connect to it.",
   "mcp.piExposureNone": "Not set",
   "mcp.piExposureUnset": "Keep the current value; new entries use codemode",
   "mcp.piExposure.codemode": "Batch tool calls through code (Pi default)",

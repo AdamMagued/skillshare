@@ -2444,6 +2444,8 @@
   "mcp.piSettingsInfo": "关于 Pi 设置",
   "mcp.piExposureInfo": "关于工具暴露模式",
   "mcp.piExposureTip": "决定 Pi 如何把这个服务器的工具交给模型。不设置就沿用 Pi 当前的做法。要让个别工具不同，请写在下方“其他 Pi 设置”。",
+  "mcp.piEnabled": "在 Pi 中启用",
+  "mcp.piEnabledHint": "关闭时写入 enabled: false：Pi 保留这个 server，但不连接。",
   "mcp.piExposureNone": "不设置",
   "mcp.piExposureUnset": "保留原值；新连接采用 codemode",
   "mcp.piExposure.codemode": "用代码批量调用工具（Pi 默认）",

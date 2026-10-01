@@ -193,6 +193,21 @@ describe('MCP server dialog', () => {
     await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith(expect.objectContaining({ server: expect.objectContaining({ piOptions: { exposure: 'direct', custom: { keep: true } } }) })));
   });
 
+  it("turns a server off in Pi through enabled, and back on by removing it", async () => {
+    const user = userEvent.setup();
+    renderDialog({ initial: { name: 'docs', server: { command: 'docs', targets: ['pi'], piOptions: { timeout: 120 } } } });
+    const enabled = screen.getByRole('checkbox', { name: 'Turned on in Pi' });
+    const json = () => JSON.parse((screen.getByLabelText('Other Pi settings') as HTMLTextAreaElement).value);
+    expect(enabled).toBeChecked();
+    await user.click(enabled);
+    expect(json()).toEqual({ timeout: 120, enabled: false });
+    await user.click(enabled);
+    expect(json()).toEqual({ timeout: 120 });
+    await user.click(enabled);
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith(expect.objectContaining({ server: expect.objectContaining({ piOptions: { timeout: 120, enabled: false } }) })));
+  });
+
   it('empties the JSON when an exposure is set and then cleared, and saves no piOptions', async () => {
     const user = userEvent.setup();
     renderDialog({ initial: { name: 'docs', server: { command: 'docs', targets: ['pi'] } } });

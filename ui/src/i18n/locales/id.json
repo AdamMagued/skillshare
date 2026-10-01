@@ -2444,6 +2444,8 @@
   "mcp.piSettingsInfo": "Tentang pengaturan Pi",
   "mcp.piExposureInfo": "Tentang eksposur alat",
   "mcp.piExposureTip": "Cara Pi menawarkan alat server ini ke model. Jika tidak diatur, Pi tetap memakai cara saat ini. Untuk memperlakukan alat tertentu secara berbeda, tulis di “Pengaturan Pi lainnya” di bawah.",
+  "mcp.piEnabled": "Aktif di Pi",
+  "mcp.piEnabledHint": "Nonaktif menulis enabled: false: Pi menyimpan server tetapi tidak terhubung.",
   "mcp.piExposureNone": "Tidak diatur",
   "mcp.piExposureUnset": "Pertahankan nilai saat ini; entri baru memakai codemode",
   "mcp.piExposure.codemode": "Panggil beberapa alat melalui kode (bawaan Pi)",

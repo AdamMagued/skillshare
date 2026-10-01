@@ -2444,6 +2444,8 @@
   "mcp.piSettingsInfo": "Pi の設定について",
   "mcp.piExposureInfo": "ツール公開モードについて",
   "mcp.piExposureTip": "このサーバーのツールを Pi がモデルにどう渡すかを決めます。未設定なら Pi の現在の動作のままです。ツールごとに変えたい場合は、下の「その他の Pi 設定」に書きます。",
+  "mcp.piEnabled": "Pi で有効",
+  "mcp.piEnabledHint": "オフにすると enabled: false を書き込みます。Pi はサーバーを残しますが接続しません。",
   "mcp.piExposureNone": "設定しない",
   "mcp.piExposureUnset": "現在の値を保持；新規は codemode",
   "mcp.piExposure.codemode": "コードでツールをまとめて呼び出す（Pi の既定）",
