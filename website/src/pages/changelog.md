@@ -55,6 +55,7 @@ All notable changes to skillshare are documented here. For the full commit histo
           context7:            # off in this project only
             disabled: true
   ```
+- **Turn a server off in Pi from the dashboard** — **Turned on in Pi** in a server's Pi settings writes `enabled: false` when you clear it, so Pi keeps the server without connecting to it, and removes it when you check it again. It sits above **Tool exposure** and stays in step with the **Other Pi settings** JSON.
 
 #### Dashboard
 
@@ -87,7 +88,7 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 - **Account shells keep the default home** — when `CLAUDE_CONFIG_DIR`, `CODEX_HOME` or `PI_CODING_AGENT_DIR` pointed at a declared account's `config_dir`, sync, import and the dashboard sent the plain Agent target to that account's home and could prune entries in its default home. The plain target now keeps its default home, and sync warns about the shadowed variable.
 - **Project-mode MCP status is complete again** — in project mode, `mcp check`, the dashboard and the target list dropped pending syncs and conflicts, and `mcp remove --keep-files` did not stop managing a project's Claude off switch, so the next sync removed it anyway.
-- **Pi 0.99.2 settings are kept** — Pi 0.99.2's `auth: {provider: NAME}`, which sends a provider's `/login` token to an HTTP server, was refused in `piOptions` as a `pi-mcp-adapter` setting, and loading or importing a config dropped it. It is now kept and checked: it needs an https `url`, or http on localhost, and global mode, because Pi reads it only from its global file. Only the adapter's string `auth` is still removed. `oauth.clientName` is checked as text, and `description` passes through.
+- **Pi 0.99.2 settings are kept** — Pi 0.99.2's `auth: {provider: NAME}`, which sends a provider's `/login` token to an HTTP server, was refused in `piOptions` as a `pi-mcp-adapter` setting, and loading or importing a config dropped it, and the dashboard's **Other Pi settings** refused it too. It is now kept and checked: it needs an https `url`, or http on localhost, and global mode, because Pi reads it only from its global file. Only the adapter's string `auth` is still removed. `oauth.clientName` is checked as text, and `description` passes through.
   ```bash
   skillshare mcp add docs --url https://example.com/mcp --target pi --pi-options '{"auth":{"provider":"github"}}' --no-tui -g
   ```
