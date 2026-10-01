@@ -87,6 +87,12 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 - **Account shells keep the default home** — when `CLAUDE_CONFIG_DIR`, `CODEX_HOME` or `PI_CODING_AGENT_DIR` pointed at a declared account's `config_dir`, sync, import and the dashboard sent the plain Agent target to that account's home and could prune entries in its default home. The plain target now keeps its default home, and sync warns about the shadowed variable.
 - **Project-mode MCP status is complete again** — in project mode, `mcp check`, the dashboard and the target list dropped pending syncs and conflicts, and `mcp remove --keep-files` did not stop managing a project's Claude off switch, so the next sync removed it anyway.
+- **Pi 0.99.2 settings are kept** — Pi 0.99.2's `auth: {provider: NAME}`, which sends a provider's `/login` token to an HTTP server, was refused in `piOptions` as a `pi-mcp-adapter` setting, and loading or importing a config dropped it. It is now kept and checked: it needs an https `url`, or http on localhost, and global mode, because Pi reads it only from its global file. Only the adapter's string `auth` is still removed. `oauth.clientName` is checked as text, and `description` passes through.
+  ```bash
+  skillshare mcp add docs --url https://example.com/mcp --target pi --pi-options '{"auth":{"provider":"github"}}' --no-tui -g
+  ```
+- **Server names Pi reads as one are refused** — Pi 0.99.2 reads names that differ only in `-` and `_`, such as `my-docs` and `my_docs`, as one server and skips the second with a config error. Skillshare now refuses the second before writing it.
+- **`codemode-deferred` is shown as an older name** — Pi 0.99.2 made it an alias of `codemode`, so the dashboard describes it that way. Existing entries keep working.
 - **Pi's error says how to turn off a server** — a `disabled` entry for Pi that Skillshare cannot write now fails with a message pointing at a complete server with `piOptions: {"enabled": false}`, instead of only listing the clients that support a switch. The MCP docs explain the same.
 
 #### Dashboard
