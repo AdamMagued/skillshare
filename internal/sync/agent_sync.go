@@ -369,6 +369,9 @@ func syncAgentsCopy(agents []resource.DiscoveredResource, targetDir string, dryR
 		}
 	}
 
+	// Copies are tracked so prune removes only what skillshare wrote.
+	copies := loadCopyTracker(targetDir)
+
 	for _, agent := range agents {
 		targetPath := filepath.Join(targetDir, agent.FlatName)
 
@@ -387,6 +390,7 @@ func syncAgentsCopy(agents []resource.DiscoveredResource, targetDir string, dryR
 				if err := os.WriteFile(targetPath, srcData, 0644); err != nil {
 					return nil, fmt.Errorf("failed to write %s: %w", agent.FlatName, err)
 				}
+				copies.record(agent.FlatName)
 			}
 			result.Updated = append(result.Updated, agent.FlatName)
 			continue
@@ -396,6 +400,9 @@ func syncAgentsCopy(agents []resource.DiscoveredResource, targetDir string, dryR
 			// File exists — check if content matches
 			tgtData, readErr := os.ReadFile(targetPath)
 			if readErr == nil && string(tgtData) == string(srcData) && !force {
+				if !dryRun {
+					copies.record(agent.FlatName) // adopts copies made before tracking
+				}
 				result.Linked = append(result.Linked, agent.FlatName)
 				continue
 			}
@@ -404,6 +411,7 @@ func syncAgentsCopy(agents []resource.DiscoveredResource, targetDir string, dryR
 				if err := os.WriteFile(targetPath, srcData, 0644); err != nil {
 					return nil, fmt.Errorf("failed to write %s: %w", agent.FlatName, err)
 				}
+				copies.record(agent.FlatName)
 			}
 			result.Updated = append(result.Updated, agent.FlatName)
 		} else {
@@ -412,11 +420,17 @@ func syncAgentsCopy(agents []resource.DiscoveredResource, targetDir string, dryR
 				if err := os.WriteFile(targetPath, srcData, 0644); err != nil {
 					return nil, fmt.Errorf("failed to write %s: %w", agent.FlatName, err)
 				}
+				copies.record(agent.FlatName)
 			}
 			result.Linked = append(result.Linked, agent.FlatName)
 		}
 	}
 
+	if !dryRun {
+		if err := copies.save(); err != nil {
+			return nil, fmt.Errorf("failed to update agent manifest: %w", err)
+		}
+	}
 	return result, nil
 }
 
@@ -440,6 +454,8 @@ func SyncAgentsTransform(agents []resource.DiscoveredResource, sourceDir, target
 			}
 		}
 	}
+	// Outputs are tracked so prune removes only what skillshare wrote.
+	copies := loadCopyTracker(targetDir)
 
 	for _, agent := range agents {
 		name := ApplyOutputExt(agent.FlatName, spec.OutputExt)
@@ -469,11 +485,13 @@ func SyncAgentsTransform(agents []resource.DiscoveredResource, sourceDir, target
 			// Keeping the old output would leave an unconverted agent active.
 			if readErr == nil {
 				os.Remove(tgtFile)
+				copies.forget(name)
 			}
 			errs = append(errs, fmt.Errorf("%s: %w", agent.FlatName, err))
 			continue
 		}
 		if readErr == nil && bytes.Equal(existing, out) && !force {
+			copies.record(name) // adopts outputs made before tracking
 			result.Linked = append(result.Linked, name)
 			continue
 		}
@@ -484,6 +502,7 @@ func SyncAgentsTransform(agents []resource.DiscoveredResource, sourceDir, target
 			errs = append(errs, fmt.Errorf("%s: write target: %w", agent.FlatName, err))
 			continue
 		}
+		copies.record(name)
 		if readErr == nil {
 			result.Updated = append(result.Updated, name)
 		} else {
@@ -491,6 +510,11 @@ func SyncAgentsTransform(agents []resource.DiscoveredResource, sourceDir, target
 		}
 	}
 
+	if !dryRun {
+		if err := copies.save(); err != nil {
+			errs = append(errs, fmt.Errorf("failed to update agent manifest: %w", err))
+		}
+	}
 	return result, errors.Join(errs...)
 }
 
@@ -519,17 +543,17 @@ func PruneOrphanAgentLinks(targetDir, sourceDir string, agents []resource.Discov
 
 	// Copies stand in for links when file links are unavailable.
 	copies := loadCopyTracker(targetDir)
+	var errs []error
 	removed, err = copies.pruneOrphans(expected, dryRun)
 	if err != nil {
-		return removed, err
+		errs = append(errs, err)
 	}
 	if !dryRun {
 		if err := copies.save(); err != nil {
-			return removed, fmt.Errorf("failed to update agent manifest: %w", err)
+			return removed, errors.Join(append(errs, fmt.Errorf("failed to update agent manifest: %w", err))...)
 		}
 	}
 
-	var errs []error
 	for _, entry := range entries {
 		name := entry.Name()
 
@@ -562,56 +586,36 @@ func PruneOrphanAgentLinks(targetDir, sourceDir string, agents []resource.Discov
 	return removed, errors.Join(errs...)
 }
 
-// PruneOrphanAgentCopies removes copied .md files in targetDir that don't
+// PruneOrphanAgentCopies removes tracked copies in targetDir that don't
 // correspond to any discovered agent. For copy mode only. outputExt is the
-// extension a transform renames outputs to ("" keeps .md); files with it are
-// pruned too, and a stale .md copy of a transformed agent counts as an orphan.
+// extension a transform renames outputs to ("" keeps .md); a stale tracked .md
+// copy of a transformed agent counts as an orphan. Files skillshare never wrote,
+// and copies edited since, are preserved.
 func PruneOrphanAgentCopies(targetDir string, agents []resource.DiscoveredResource, outputExt string, dryRun bool) (removed []string, _ error) {
-	entries, err := os.ReadDir(targetDir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("failed to read agent target directory: %w", err)
-	}
-
 	expected := make(map[string]bool, len(agents))
 	for _, a := range agents {
 		expected[ApplyOutputExt(a.FlatName, outputExt)] = true
 	}
-	outSuffix := ""
-	if outputExt != "" {
-		outSuffix = "." + strings.ToLower(outputExt)
+
+	copies := loadCopyTracker(targetDir)
+	// A copy made before tracking under the pre-transform name is still
+	// identical to its agent; adopt it so the renamed output replaces it.
+	for _, a := range agents {
+		if ApplyOutputExt(a.FlatName, outputExt) == a.FlatName {
+			continue
+		}
+		stale := filepath.Join(targetDir, a.FlatName)
+		if info, err := os.Lstat(stale); err == nil && info.Mode().IsRegular() && contentEqual(a.AbsPath, stale) {
+			copies.record(a.FlatName)
+		}
 	}
-
-	var errs []error
-	for _, entry := range entries {
-		name := entry.Name()
-		lower := strings.ToLower(name)
-
-		if !strings.HasSuffix(lower, ".md") && (outSuffix == "" || !strings.HasSuffix(lower, outSuffix)) {
-			continue
+	removed, err := copies.pruneOrphans(expected, dryRun)
+	if !dryRun {
+		if saveErr := copies.save(); saveErr != nil {
+			err = errors.Join(err, fmt.Errorf("failed to update agent manifest: %w", saveErr))
 		}
-
-		// Skip conventional excludes (user might have README.md etc.)
-		if resource.ConventionalExcludes[name] {
-			continue
-		}
-
-		if expected[name] {
-			continue
-		}
-
-		if !dryRun {
-			if err := os.Remove(filepath.Join(targetDir, name)); err != nil {
-				errs = append(errs, fmt.Errorf("failed to remove orphaned copy %s: %w", name, err))
-				continue
-			}
-		}
-		removed = append(removed, name)
 	}
-
-	return removed, errors.Join(errs...)
+	return removed, err
 }
 
 // FindLocalAgents finds local (non-symlinked) agent files in a target directory.

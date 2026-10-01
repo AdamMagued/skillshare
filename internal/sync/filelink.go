@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -100,6 +101,7 @@ func (t *copyTracker) forget(rel string) {
 // edited ones, and forgets them. It returns the removed names.
 func (t *copyTracker) pruneOrphans(expected map[string]bool, dryRun bool) ([]string, error) {
 	var removed []string
+	var errs []error
 	for key := range t.m.Managed {
 		rel := filepath.FromSlash(key)
 		if expected[rel] {
@@ -108,7 +110,8 @@ func (t *copyTracker) pruneOrphans(expected map[string]bool, dryRun bool) ([]str
 		if t.owns(rel) {
 			if !dryRun {
 				if err := os.Remove(filepath.Join(t.dir, rel)); err != nil {
-					return removed, fmt.Errorf("failed to remove orphaned copy %s: %w", rel, err)
+					errs = append(errs, fmt.Errorf("failed to remove orphaned copy %s: %w", rel, err))
+					continue
 				}
 			}
 			removed = append(removed, rel)
@@ -117,7 +120,7 @@ func (t *copyTracker) pruneOrphans(expected map[string]bool, dryRun bool) ([]str
 			t.forget(rel)
 		}
 	}
-	return removed, nil
+	return removed, errors.Join(errs...)
 }
 
 func (t *copyTracker) save() error {

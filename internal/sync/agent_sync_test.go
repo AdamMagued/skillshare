@@ -587,18 +587,27 @@ func TestSyncAgents_CopyMode_DifferentContent(t *testing.T) {
 	}
 }
 
-func TestPruneOrphanAgentCopies(t *testing.T) {
-	targetDir := t.TempDir()
+// copyModeFixture syncs the named agents into a fresh target in copy mode.
+func copyModeFixture(t *testing.T, names ...string) (sourceDir, targetDir string, agents []resource.DiscoveredResource) {
+	t.Helper()
+	sourceDir = t.TempDir()
+	targetDir = t.TempDir()
+	for _, name := range names {
+		src := filepath.Join(sourceDir, name)
+		os.WriteFile(src, []byte("# "+name), 0644)
+		agents = append(agents, resource.DiscoveredResource{FlatName: name, AbsPath: src})
+	}
+	if _, err := SyncAgents(agents, sourceDir, targetDir, "copy", false, false); err != nil {
+		t.Fatal(err)
+	}
+	return sourceDir, targetDir, agents
+}
 
-	os.WriteFile(filepath.Join(targetDir, "active.md"), []byte("# Active"), 0644)
-	os.WriteFile(filepath.Join(targetDir, "orphan.md"), []byte("# Orphan"), 0644)
+func TestPruneOrphanAgentCopies(t *testing.T) {
+	_, targetDir, agents := copyModeFixture(t, "active.md", "orphan.md")
 	os.WriteFile(filepath.Join(targetDir, "README.md"), []byte("# Readme"), 0644) // conventional, skip
 
-	agents := []resource.DiscoveredResource{
-		{FlatName: "active.md"},
-	}
-
-	removed, err := PruneOrphanAgentCopies(targetDir, agents, "", false)
+	removed, err := PruneOrphanAgentCopies(targetDir, agents[:1], "", false)
 	if err != nil {
 		t.Fatalf("PruneOrphanAgentCopies: %v", err)
 	}
@@ -613,11 +622,82 @@ func TestPruneOrphanAgentCopies(t *testing.T) {
 	}
 }
 
+// An agent file the user put in a copy-mode target was never copied by skillshare.
+func TestPruneOrphanAgentCopies_KeepsUntrackedLocalFile(t *testing.T) {
+	_, targetDir, _ := copyModeFixture(t, "active.md")
+	mine := filepath.Join(targetDir, "mine.md")
+	os.WriteFile(mine, []byte("# Mine"), 0644)
+
+	removed, err := PruneOrphanAgentCopies(targetDir, nil, "", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(removed) != 1 || removed[0] != "active.md" {
+		t.Errorf("expected only the tracked copy removed, got %v", removed)
+	}
+	if _, err := os.Stat(mine); err != nil {
+		t.Error("user's own agent file must be preserved")
+	}
+}
+
+func TestPruneOrphanAgentCopies_KeepsEditedCopy(t *testing.T) {
+	_, targetDir, _ := copyModeFixture(t, "orphan.md")
+	edited := filepath.Join(targetDir, "orphan.md")
+	os.WriteFile(edited, []byte("# Edited by hand"), 0644)
+
+	if _, err := PruneOrphanAgentCopies(targetDir, nil, "", false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(edited); err != nil {
+		t.Error("an edited copy must be preserved")
+	}
+}
+
+// Copies made before tracking existed are adopted while their agent is still synced.
+func TestSyncAgents_CopyAdoptsExistingCopies(t *testing.T) {
+	sourceDir, targetDir, agents := copyModeFixture(t, "tutor.md")
+	RemoveManifest(targetDir)
+
+	if _, err := SyncAgents(agents, sourceDir, targetDir, "copy", false, false); err != nil {
+		t.Fatal(err)
+	}
+	removed, err := PruneOrphanAgentCopies(targetDir, nil, "", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(removed) != 1 {
+		t.Errorf("expected the adopted copy pruned, got %v", removed)
+	}
+}
+
+// A copy made before tracking, still identical to its agent, is a stale
+// pre-transform output once the target emits a renamed file.
+func TestPruneOrphanAgentCopies_RemovesUntrackedPreTransformCopy(t *testing.T) {
+	sourceDir, agents, spec := agentTransformFixture(t)
+	spec.OutputExt = "toml"
+	targetDir := t.TempDir()
+	stale := filepath.Join(targetDir, "tutor.md")
+	os.WriteFile(stale, []byte("body"), 0644)
+	mine := filepath.Join(targetDir, "other.md")
+	os.WriteFile(mine, []byte("mine"), 0644)
+
+	if _, err := SyncAgentsTransform(agents, sourceDir, targetDir, "", spec, false, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PruneOrphanAgentCopies(targetDir, agents, "toml", false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(stale); !os.IsNotExist(err) {
+		t.Error("stale tutor.md should be pruned once the target emits tutor.toml")
+	}
+	if _, err := os.Stat(mine); err != nil {
+		t.Error("an unrelated local file must be preserved")
+	}
+}
+
 func TestPruneOrphanAgentCopies_ReportsRemoveFailure(t *testing.T) {
 	skipUnlessPermissionsEnforced(t)
-	targetDir := t.TempDir()
-
-	os.WriteFile(filepath.Join(targetDir, "orphan.md"), []byte("# Orphan"), 0644)
+	_, targetDir, _ := copyModeFixture(t, "orphan.md")
 	os.Chmod(targetDir, 0555)
 	t.Cleanup(func() { os.Chmod(targetDir, 0755) })
 
@@ -978,16 +1058,18 @@ func TestSyncAgentsTransform_FailureRemovesStaleOutput(t *testing.T) {
 }
 
 func TestPruneOrphanAgentCopies_PrunesTransformedOrphans(t *testing.T) {
+	sourceDir, agents, spec := agentTransformFixture(t)
+	spec.OutputExt = "toml"
 	targetDir := t.TempDir()
-	orphan := filepath.Join(targetDir, "gone.toml")
-	if err := os.WriteFile(orphan, []byte("x"), 0644); err != nil {
+	if _, err := SyncAgentsTransform(agents, sourceDir, targetDir, "", spec, false, false); err != nil {
 		t.Fatal(err)
 	}
+	orphan := filepath.Join(targetDir, "tutor.toml")
 
 	if _, err := PruneOrphanAgentCopies(targetDir, nil, "toml", false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(orphan); !os.IsNotExist(err) {
-		t.Error("orphan gone.toml should be pruned")
+		t.Error("orphan tutor.toml should be pruned")
 	}
 }

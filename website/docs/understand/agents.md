@@ -125,7 +125,7 @@ Agent sync supports all three modes, same as skills:
 |------|----------|
 | **merge** (default) | Per-file symlinks. Local agent files in the target are preserved. On Windows without Developer Mode, agents are copied instead and kept updated and pruned like links ([details](/docs/troubleshooting/windows#file-links-need-windows-developer-mode-copying-instead)). |
 | **symlink** | Entire agents directory symlinked. |
-| **copy** | Agent files copied as real files. |
+| **copy** | Agent files copied as real files. Copies are tracked in `.skillshare-manifest.json`, so orphan cleanup removes only copies skillshare wrote and you have not edited; your own agent files in the target are preserved. |
 
 ```bash
 # Sync everything (skills + agents)

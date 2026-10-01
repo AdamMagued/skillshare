@@ -164,12 +164,15 @@ func TestSync_AgentsExtension_PartialFailureStillPrunes(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
-	createAgentSource(t, sb, map[string]string{"good.md": "ok", "bad.md": "FAIL"})
+	agentsDir := createAgentSource(t, sb, map[string]string{"good.md": "ok", "bad.md": "FAIL", "gone.md": "old"})
 	agentsPath := createAgentTarget(t, sb, "codex")
-	orphan := filepath.Join(agentsPath, "gone.md")
-	if err := os.WriteFile(orphan, []byte("old"), 0644); err != nil {
+	// A copy synced earlier whose source agent was then removed.
+	sb.WriteConfig(agentExtensionConfig(sb, agentsPath, "      mode: copy\n"))
+	sb.RunCLI("sync", "agents").AssertSuccess(t)
+	if err := os.Remove(filepath.Join(agentsDir, "gone.md")); err != nil {
 		t.Fatal(err)
 	}
+	orphan := filepath.Join(agentsPath, "gone.md")
 	ext := writeAgentExtension(t, sb, "picky", "run: [\"sh\", \"-c\", \"grep -q FAIL \\\"$SS_SRC_PATH\\\" && exit 1; cat\"]\n")
 	sb.WriteConfig(agentExtensionConfig(sb, agentsPath, "      extension: "+ext+"\n"))
 

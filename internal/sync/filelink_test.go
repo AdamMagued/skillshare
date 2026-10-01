@@ -273,6 +273,29 @@ func TestSyncExtra_MergeWithoutFileLinksPreservesIdenticalLocalFile(t *testing.T
 	}
 }
 
+// One failed removal must not stop the remaining orphans from being pruned.
+func TestCopyTracker_PruneOrphansContinuesAfterRemoveFailure(t *testing.T) {
+	skipUnlessPermissionsEnforced(t)
+	dir := t.TempDir()
+	locked := filepath.Join(dir, "locked")
+	os.MkdirAll(locked, 0755)
+	os.WriteFile(filepath.Join(locked, "a.md"), []byte("a"), 0644)
+	os.WriteFile(filepath.Join(dir, "b.md"), []byte("b"), 0644)
+	tracker := loadCopyTracker(dir)
+	tracker.record(filepath.Join("locked", "a.md"))
+	tracker.record("b.md")
+	os.Chmod(locked, 0555)
+	t.Cleanup(func() { os.Chmod(locked, 0755) })
+
+	removed, err := tracker.pruneOrphans(nil, false)
+	if err == nil {
+		t.Error("expected an error for the locked copy")
+	}
+	if len(removed) != 1 || removed[0] != "b.md" {
+		t.Errorf("expected b.md pruned despite the failure, got %v", removed)
+	}
+}
+
 func TestCopyTracker_PruneOrphansPreservesOwnershipOnRemoveFailure(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("requires a read-only proc file")
