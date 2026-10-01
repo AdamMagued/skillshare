@@ -697,8 +697,8 @@ type PruneOptions struct {
 	TargetName   string
 	DryRun       bool
 	Force        bool
-	// ManagedOnly removes only entries that are provably skillshare's: symlinks
-	// into the source and manifest-tracked directories. The name heuristic and
+	// ManagedOnly removes only entries that are provably skillshare's: broken
+	// links into the source and manifest-tracked links and directories. The name heuristic and
 	// broken-external-link cleanup are skipped. For directories that are not a
 	// configured target's own path.
 	ManagedOnly bool
