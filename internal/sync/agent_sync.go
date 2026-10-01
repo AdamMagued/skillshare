@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -91,8 +92,10 @@ func linkResolvesToSource(absLink, absSource string) bool {
 // broken, or it resolves inside sourceDir. Live links to other locations, which
 // skillshare never creates, survive.
 func prunableLink(path, sourceDir string) bool {
-	if _, err := os.Stat(path); err != nil {
+	if _, err := os.Stat(path); errors.Is(err, fs.ErrNotExist) {
 		return true
+	} else if err != nil {
+		return false // e.g. permission denied: not proven broken
 	}
 	absDir, err := filepath.Abs(sourceDir)
 	if err != nil {
@@ -526,6 +529,7 @@ func PruneOrphanAgentLinks(targetDir, sourceDir string, agents []resource.Discov
 		}
 	}
 
+	var errs []error
 	for _, entry := range entries {
 		name := entry.Name()
 
@@ -547,12 +551,15 @@ func PruneOrphanAgentLinks(targetDir, sourceDir string, agents []resource.Discov
 		}
 
 		if !dryRun {
-			os.Remove(filepath.Join(targetDir, name))
+			if err := os.Remove(filepath.Join(targetDir, name)); err != nil {
+				errs = append(errs, fmt.Errorf("failed to remove orphaned link %s: %w", name, err))
+				continue
+			}
 		}
 		removed = append(removed, name)
 	}
 
-	return removed, nil
+	return removed, errors.Join(errs...)
 }
 
 // PruneOrphanAgentCopies removes copied .md files in targetDir that don't
@@ -577,6 +584,7 @@ func PruneOrphanAgentCopies(targetDir string, agents []resource.DiscoveredResour
 		outSuffix = "." + strings.ToLower(outputExt)
 	}
 
+	var errs []error
 	for _, entry := range entries {
 		name := entry.Name()
 		lower := strings.ToLower(name)
@@ -595,12 +603,15 @@ func PruneOrphanAgentCopies(targetDir string, agents []resource.DiscoveredResour
 		}
 
 		if !dryRun {
-			os.Remove(filepath.Join(targetDir, name))
+			if err := os.Remove(filepath.Join(targetDir, name)); err != nil {
+				errs = append(errs, fmt.Errorf("failed to remove orphaned copy %s: %w", name, err))
+				continue
+			}
 		}
 		removed = append(removed, name)
 	}
 
-	return removed, nil
+	return removed, errors.Join(errs...)
 }
 
 // FindLocalAgents finds local (non-symlinked) agent files in a target directory.

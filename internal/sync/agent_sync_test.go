@@ -3,6 +3,7 @@ package sync
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"skillshare/internal/resource"
@@ -250,6 +251,61 @@ func TestPruneOrphanAgentLinks_RelativeLinkUnderSymlinkedTarget(t *testing.T) {
 	}
 	if len(removed) != 1 {
 		t.Errorf("expected orphan relative link removed, got %v", removed)
+	}
+}
+
+// skipUnlessPermissionsEnforced skips where chmod cannot deny access.
+func skipUnlessPermissionsEnforced(t *testing.T) {
+	t.Helper()
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("requires POSIX permissions enforced for a non-root user")
+	}
+}
+
+// A link whose referent cannot be read is not proven broken, so it stays.
+func TestPruneOrphanAgentLinks_KeepsLinkItCannotStat(t *testing.T) {
+	skipUnlessPermissionsEnforced(t)
+	sourceDir := t.TempDir()
+	targetDir := t.TempDir()
+
+	locked := filepath.Join(t.TempDir(), "locked")
+	os.MkdirAll(locked, 0755)
+	os.WriteFile(filepath.Join(locked, "mine.md"), []byte("# Mine"), 0644)
+	link := filepath.Join(targetDir, "mine.md")
+	os.Symlink(filepath.Join(locked, "mine.md"), link)
+	os.Chmod(locked, 0)
+	t.Cleanup(func() { os.Chmod(locked, 0755) })
+
+	removed, err := PruneOrphanAgentLinks(targetDir, sourceDir, nil, false)
+	if err != nil {
+		t.Fatalf("PruneOrphanAgentLinks: %v", err)
+	}
+	if len(removed) != 0 {
+		t.Errorf("expected unreadable link kept, removed: %v", removed)
+	}
+	if _, err := os.Lstat(link); err != nil {
+		t.Error("unreadable link should not be removed")
+	}
+}
+
+// A failed removal is an error, not a reported removal.
+func TestPruneOrphanAgentLinks_ReportsRemoveFailure(t *testing.T) {
+	skipUnlessPermissionsEnforced(t)
+	sourceDir := t.TempDir()
+	targetDir := t.TempDir()
+
+	orphan := filepath.Join(sourceDir, "orphan.md")
+	os.WriteFile(orphan, []byte("# Orphan"), 0644)
+	os.Symlink(orphan, filepath.Join(targetDir, "orphan.md"))
+	os.Chmod(targetDir, 0555)
+	t.Cleanup(func() { os.Chmod(targetDir, 0755) })
+
+	removed, err := PruneOrphanAgentLinks(targetDir, sourceDir, nil, false)
+	if err == nil {
+		t.Error("expected an error for the failed removal")
+	}
+	if len(removed) != 0 {
+		t.Errorf("failed removal reported as removed: %v", removed)
 	}
 }
 
@@ -554,6 +610,23 @@ func TestPruneOrphanAgentCopies(t *testing.T) {
 	// README.md should still exist
 	if _, err := os.Stat(filepath.Join(targetDir, "README.md")); err != nil {
 		t.Error("README.md should not be removed")
+	}
+}
+
+func TestPruneOrphanAgentCopies_ReportsRemoveFailure(t *testing.T) {
+	skipUnlessPermissionsEnforced(t)
+	targetDir := t.TempDir()
+
+	os.WriteFile(filepath.Join(targetDir, "orphan.md"), []byte("# Orphan"), 0644)
+	os.Chmod(targetDir, 0555)
+	t.Cleanup(func() { os.Chmod(targetDir, 0755) })
+
+	removed, err := PruneOrphanAgentCopies(targetDir, nil, "", false)
+	if err == nil {
+		t.Error("expected an error for the failed removal")
+	}
+	if len(removed) != 0 {
+		t.Errorf("failed removal reported as removed: %v", removed)
 	}
 }
 
