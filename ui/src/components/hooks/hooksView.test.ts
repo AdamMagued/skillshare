@@ -1,9 +1,41 @@
 import { describe, expect, it } from 'vitest';
-import { hookAccounts, keyLabel, agentOfKey, boundAgents, bindingToDraft, checkBinding, draftToBinding, eventsToRows, hookAgentOf, hookCount, hookMessage, newRow, ownerRoot, rootPlan, rowsToEvents, scopeBackups, scopeChanges, scopeEntries, scopePaths, scopePlan, scopeUnmanaged, switchMode, syncState } from './hooksView';
+import { hookAccounts, keyLabel, agentOfKey, boundAgents, bindingToDraft, checkBinding, draftToBinding, eventsToRows, hookAgentOf, hookCount, hookMessage, newRow, ownerRoot, rootPlan, rowsToEvents, scopeBackups, scopeChanges, scopeEntries, scopePaths, scopePlan, scopeUnmanaged, switchMode, syncState, writes } from './hooksView';
 
 const claudeEvents = {
   PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: './check.sh', timeout: 30, statusMessage: 'checking' }] }],
 };
+
+describe('Git command binding editor', () => {
+  const binding = {
+    commands: { 'tool.check': { events: ['pre-commit', 'pre-push'], command: '{files}/check.sh', parallel: false } },
+    files: { 'check.sh': '#!/bin/sh\nprintf "%s\\n" "$@"\n' },
+  };
+  it('round-trips commands and helper contents through raw YAML', () => {
+    const draft = bindingToDraft('git', binding);
+    expect(draft.mode).toBe('native');
+    expect(draft.native).toContain('commands:');
+    expect(draft.rows).toEqual([]);
+    expect(checkBinding('git', draft)).toMatchObject({ nativeError: false, empty: false });
+    expect(draftToBinding('git', draft)).toEqual(binding);
+  });
+  it('rejects malformed YAML, duplicate keys, a sequence and empty commands', () => {
+    for (const native of ['commands: [', 'commands: {}\ncommands: {}', '- command', 'commands: {}']) {
+      const check = checkBinding('git', { ...bindingToDraft('git', binding), native });
+      expect(check.nativeError || check.empty).toBe(true);
+    }
+  });
+  it('reports inactive ahead of synced while preserving conflict priority', () => {
+    const plan = { revision: '', fingerprint: '', sourcePath: '', blocked: false, changes: [{ target: 'git', path: '/file', name: 'check', action: 'inactive' }] };
+    expect(syncState(plan, 'check', 'git')).toBe('inactive');
+    plan.changes.push({ target: 'git', path: '/file', name: 'check', action: 'conflict' });
+    expect(syncState(plan, 'check', 'git')).toBe('conflict');
+  });
+  it('selects linked-worktree backups by their declared root', () => {
+    const data = { source: { projects: { '/linked': {} } }, backups: [{ path: '/main/.git/config', root: '/linked' }] };
+    expect(scopeBackups(data, '/linked')).toEqual(data.backups);
+    expect(scopeBackups(data)).toEqual([]);
+  });
+});
 
 describe('command events editor', () => {
   it('round-trips a matcher group and keeps fields it has no input for', () => {
@@ -175,5 +207,21 @@ describe('account target keys', () => {
     expect(agentOfKey(accounts, 'claude')).toBe('claude');
     expect(hookAccounts([{ name: 'codex-2', agent: 'codex', kind: 'command' }, { name: 'codex', kind: 'command' }])).toEqual(accounts);
     expect(boundAgents({ bindings: { pi: { code: 'x' }, 'codex-2': { events: {} }, codex: { events: {} } } }, accounts)).toEqual(['codex', 'codex-2', 'pi']);
+  });
+});
+
+
+describe('inactive Git sync decisions', () => {
+  it('never counts a skipped inactive output as a pending write', () => {
+    expect(writes({ action: 'inactive' })).toBe(false);
+  });
+  it('keeps additions pending and synced outputs inactive without pending writes', () => {
+    const change = { target: 'git', path: '/file', name: 'check', action: 'add', inactiveReason: 'Git 2.39 cannot run config hooks' };
+    const plan = { revision: '', fingerprint: '', sourcePath: '', blocked: false, changes: [change] };
+    expect(writes(change)).toBe(true);
+    expect(syncState(plan, 'check', 'git')).toBe('pending');
+    change.action = 'unchanged';
+    expect(writes(change)).toBe(false);
+    expect(syncState(plan, 'check', 'git')).toBe('inactive');
   });
 });
