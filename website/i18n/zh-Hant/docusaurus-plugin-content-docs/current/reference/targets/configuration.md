@@ -242,7 +242,7 @@ targets:
 
 `cli` 只改變由哪個程式安裝與移除 plugin。Skills、agents 與 MCP servers 仍照舊寫入 `config_dir`。
 
-`mode`、`include`、`exclude` 與其他 Target 設定的運作方式與任何 Target 相同。你自己寫的 `skills.path` 或 `agents.path` 會優先於推導出來的路徑。Target 名稱也可以當作 [MCP target](/docs/reference/commands/mcp#accounts) 與 [plugin target](/docs/reference/commands/plugin#accounts) 使用。
+`mode`、`include`、`exclude` 與其他 Target 設定的運作方式與任何 Target 相同。你自己寫的 `skills.path` 或 `agents.path` 會優先於推導出來的路徑。Target 名稱也可以當作 [MCP target](/docs/reference/commands/mcp#accounts) 與 [plugin target](/docs/reference/commands/plugin#accounts) 使用。 也可以當作 [hooks target](/docs/reference/commands/hooks#accounts) 使用。
 
 #### 指示檔案 {#target-instructions}
 

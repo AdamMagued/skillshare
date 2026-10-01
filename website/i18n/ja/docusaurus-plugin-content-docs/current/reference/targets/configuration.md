@@ -244,7 +244,7 @@ targets:
 
 `cli` が変えるのは、plugin のインストールと削除に使うプログラムだけです。Skill、Agent、MCP サーバーはこれまでどおり `config_dir` に書き込まれます。
 
-`mode`、`include`、`exclude` などの Target 設定は、他の Target と同じように機能します。自分で書いた `skills.path` や `agents.path` は、導き出されたパスより優先されます。Target 名は [MCP Target](/docs/reference/commands/mcp#accounts) や [plugin Target](/docs/reference/commands/plugin#accounts) としても使えます。
+`mode`、`include`、`exclude` などの Target 設定は、他の Target と同じように機能します。自分で書いた `skills.path` や `agents.path` は、導き出されたパスより優先されます。Target 名は [MCP Target](/docs/reference/commands/mcp#accounts) や [plugin Target](/docs/reference/commands/plugin#accounts) としても使えます。 [hooks Target](/docs/reference/commands/hooks#accounts) としても使えます。
 
 #### ツールが読むファイル {#target-instructions}
 

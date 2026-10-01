@@ -242,7 +242,7 @@ targets:
 
 `cli` changes only which program installs and removes plugins. Skills, agents and MCP servers are written to `config_dir` as before.
 
-`mode`, `include`, `exclude` and the other target settings work as on any target. A `skills.path` or `agents.path` you write yourself wins over the derived one. The target name can also be used as an [MCP target](/docs/reference/commands/mcp#accounts) and as a [plugin target](/docs/reference/commands/plugin#accounts).
+`mode`, `include`, `exclude` and the other target settings work as on any target. A `skills.path` or `agents.path` you write yourself wins over the derived one. The target name can also be used as an [MCP target](/docs/reference/commands/mcp#accounts), as a [plugin target](/docs/reference/commands/plugin#accounts) and as a [hooks target](/docs/reference/commands/hooks#accounts).
 
 #### Instruction file {#target-instructions}
 

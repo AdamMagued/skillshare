@@ -242,7 +242,7 @@ targets:
 
 `cli`는 plugin을 설치하고 제거하는 프로그램만 바꿉니다. Skill, agent, MCP 서버는 이전처럼 `config_dir`에 기록됩니다.
 
-`mode`, `include`, `exclude` 및 그 밖의 target 설정은 다른 target과 동일하게 동작합니다. 직접 작성한 `skills.path`나 `agents.path`는 파생된 경로보다 우선합니다. target 이름은 [MCP target](/docs/reference/commands/mcp#accounts)과 [plugin target](/docs/reference/commands/plugin#accounts)으로도 사용할 수 있습니다.
+`mode`, `include`, `exclude` 및 그 밖의 target 설정은 다른 target과 동일하게 동작합니다. 직접 작성한 `skills.path`나 `agents.path`는 파생된 경로보다 우선합니다. target 이름은 [MCP target](/docs/reference/commands/mcp#accounts)과 [plugin target](/docs/reference/commands/plugin#accounts)으로도 사용할 수 있습니다. [hooks target](/docs/reference/commands/hooks#accounts)으로도 사용할 수 있습니다.
 
 #### 지침 파일 {#target-instructions}
 
