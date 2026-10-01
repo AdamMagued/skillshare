@@ -236,6 +236,10 @@ func PullWithAuth(repoPath string) (*UpdateInfo, error) {
 // PullWithProgress runs git pull and optionally streams progress lines to
 // onProgress when non-nil.
 func PullWithProgress(repoPath string, extraEnv []string, onProgress func(string)) (*UpdateInfo, error) {
+	return pullWithResolution(repoPath, extraEnv, onProgress, nil)
+}
+
+func pullWithResolution(repoPath string, extraEnv []string, onProgress func(string), resolution *PullResolution) (*UpdateInfo, error) {
 	info := &UpdateInfo{}
 
 	beforeHash, err := GetCurrentFullHash(repoPath)
@@ -253,7 +257,11 @@ func PullWithProgress(repoPath string, extraEnv []string, onProgress func(string
 	}
 	if err := runGitWithProgress(repoPath, args, extraEnv, onProgress); err != nil {
 		conflicts := conflictedFiles(repoPath)
-		if len(conflicts) == 0 || resolveMetadataConflicts(repoPath, conflicts) != nil {
+		var conflictErr error
+		if len(conflicts) > 0 {
+			conflictErr = resolvePullConflicts(repoPath, conflicts, resolution)
+		}
+		if len(conflicts) == 0 || conflictErr != nil {
 			// A conflicted merge would leave markers that a later commit-all picks up.
 			abort := exec.Command("git", "merge", "--abort")
 			abort.Dir = repoPath
@@ -262,7 +270,7 @@ func PullWithProgress(repoPath string, extraEnv []string, onProgress func(string
 				restorePullResidue(repoPath, dirtyBefore)
 			}
 			if len(conflicts) > 0 {
-				return nil, fmt.Errorf("pull stopped: this machine and the remote both changed %s; the merge was undone, resolve it with git in %s", strings.Join(conflicts, ", "), repoPath)
+				return nil, conflictErr
 			}
 			return nil, err
 		}
@@ -350,13 +358,16 @@ func restorePullResidue(dir string, dirtyBefore map[string]bool) {
 
 // conflictedFiles lists the paths an in-progress merge left unmerged.
 func conflictedFiles(dir string) []string {
-	cmd := exec.Command("git", "diff", "--name-only", "--diff-filter=U")
+	cmd := exec.Command("git", "diff", "--name-only", "--diff-filter=U", "-z")
 	cmd.Dir = dir
 	out, err := cmd.Output()
 	if err != nil {
 		return nil
 	}
-	return strings.Fields(string(out))
+	if len(out) == 0 {
+		return nil
+	}
+	return strings.Split(strings.TrimSuffix(string(out), "\x00"), "\x00")
 }
 
 // resolveMetadataConflicts concludes a merge whose only conflicts are

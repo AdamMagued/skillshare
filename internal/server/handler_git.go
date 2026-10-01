@@ -658,7 +658,8 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		DryRun bool `json:"dryRun"`
 		// Force replaces local files with the remote on a first pull instead of merging.
-		Force bool `json:"force"`
+		Force      bool                `json:"force"`
+		Resolution *git.PullResolution `json:"resolution"`
 	}
 	if err := decodeJSON(w, r, &body, defaultJSONBodyLimit); errors.Is(err, errBodyTooLarge) {
 		return
@@ -703,8 +704,12 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 	// later) is attached to the remote default branch first, like the CLI.
 	var info *git.UpdateInfo
 	if git.HasUpstream(src) {
-		info, err = git.PullWithAuth(src)
+		info, err = git.PullWithResolution(src, body.Resolution)
 	} else {
+		if body.Resolution != nil {
+			writeError(w, http.StatusBadRequest, "conflict resolution requires an upstream branch")
+			return
+		}
 		info, err = git.FirstPull(src, body.Force)
 	}
 	if errors.Is(err, git.ErrNoRemoteBranches) {
@@ -713,6 +718,13 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		s.writeOpsLog("pull", "error", start, map[string]any{"dry_run": false, "force": body.Force, "scope": "ui"}, err.Error())
+		var conflict *git.PullConflictError
+		if errors.As(err, &conflict) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusConflict)
+			writeJSON(w, map[string]any{"error": err.Error(), "error_code": "pull_conflict", "error_params": conflict})
+			return
+		}
 		if errors.Is(err, git.ErrMergeFailed) {
 			// The UI offers a force pull for this code.
 			writeCodedError(w, http.StatusConflict, "merge_failed", "git pull failed: "+err.Error(), nil)

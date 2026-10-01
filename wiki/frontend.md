@@ -41,6 +41,8 @@ Do not run an unconfigured Prettier in `ui/` because it creates broad unrelated 
 
 The config editor's Beautify and Save actions organize top-level YAML sections: sources and default settings, targets, skills, agents, extras, MCP, plugins, hooks, other settings, ignore, and audit. Sections have blank lines between them; nested mappings and lists retain their order, and unknown keys remain in their original relative order at the end. Comments and anchors are preserved; the `yaml-language-server` schema directive stays at the top of the document, including when repairing a previously misplaced directive. If reordering would change an alias reference, the original section order is retained.
 
+Git Sync shows both local and remote commit counts when histories diverge and offers **Pull and merge** before pushing. With uncommitted changes and known remote updates, **Commit and pull** saves local changes before merging. A `pull_conflict` response opens a whole-file version comparison: users must choose local or remote for every conflict before applying. Cancel leaves the repository unchanged. The API retries the merge and validates the reviewed local/remote revision hashes; stale choices require a fresh review. Metadata conflicts still merge automatically. Binary files and files over 16 KiB have no text preview. After merging and syncing, users push separately. First-pull `merge_failed` handling and its confirmed force replacement remain separate from this workflow. See `ai_docs/tests/git_ui_conflicts_runbook.md` for verification and an isolated preview fixture.
+
 ## Website Boundary
 
 This topic also loads `website/AGENTS.md` for website-specific commands, structure, and deployment rules. Additional boundaries:

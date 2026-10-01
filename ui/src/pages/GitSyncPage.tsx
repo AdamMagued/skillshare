@@ -13,6 +13,8 @@ import { Select } from '../components/Select';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import { parseStatusLine } from '../components/git/gitView';
+import PullConflictDialog from '../components/git/PullConflictDialog';
+import type { GitPullConflict, GitPullResolution } from '../api/types/git';
 import { useAppContext } from '../context/AppContext';
 import { useT } from '../i18n';
 import { parseRemoteURL } from '../lib/parseRemoteURL';
@@ -46,7 +48,7 @@ export default function GitSyncPage() {
 
   const [message, setMessage] = useState('');
   const [dryRun, setDryRun] = useState(false);
-  const [busy, setBusy] = useState<'commit' | 'push' | 'upload' | 'pull' | 'branch' | 'fetch' | 'nested' | 'scope' | 'discard' | null>(null);
+  const [busy, setBusy] = useState<'commit' | 'commitPull' | 'push' | 'upload' | 'pull' | 'branch' | 'fetch' | 'nested' | 'scope' | 'discard' | null>(null);
   const [runError, setRunError] = useState('');
   // A first pull whose history cannot merge; the error note then offers a force pull.
   const [mergeFailed, setMergeFailed] = useState(false);
@@ -55,6 +57,8 @@ export default function GitSyncPage() {
   // The source folder a pull could not write into; set with a permission error.
   const [lockedPath, setLockedPath] = useState('');
   const [confirmForce, setConfirmForce] = useState(false);
+  const [conflict, setConflict] = useState<GitPullConflict | null>(null);
+  const [reviewConflicts, setReviewConflicts] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [note, setNote] = useState('');
   const [pulled, setPulled] = useState<PullResponse | null>(null);
@@ -69,6 +73,8 @@ export default function GitSyncPage() {
     setBusy(kind);
     setRunError('');
     setMergeFailed(false);
+    setConflict(null);
+    setReviewConflicts(false);
     setPushRejected(false);
     setLockedPath('');
     setNote('');
@@ -79,6 +85,10 @@ export default function GitSyncPage() {
       setMergeFailed(err instanceof ApiError && err.code === 'merge_failed');
       setPushRejected(err instanceof ApiError && err.code === 'push_rejected');
       setLockedPath(err instanceof ApiError && err.code === 'permission_denied' ? String(err.params?.path ?? '') : '');
+      if (err instanceof ApiError && err.code === 'pull_conflict') {
+        setConflict(err.params as unknown as GitPullConflict);
+        setReviewConflicts(true);
+      }
     } finally {
       setBusy(null);
       refresh();
@@ -105,11 +115,19 @@ export default function GitSyncPage() {
     await api.push({});
     toast(t(count === 1 ? 'gitSync.toast.uploaded.one' : 'gitSync.toast.uploaded.other', { count }), 'success');
   });
-  const pull = (force = false) => run('pull', async () => {
+  const pull = (force = false, resolution?: GitPullResolution) => run('pull', async () => {
     setPulled(null);
-    const res = await api.pull({ force });
+    const res = await api.pull(resolution ? { resolution, dryRun } : { force, dryRun });
+    if (res.dryRun) return setNote(res.message ?? '');
     setPulled(res);
     if (res.upToDate) toast(t('gitSync.pull.alreadyUpToDate'), 'info');
+  });
+  const commitAndPull = () => run('commitPull', async () => {
+    const res = await api.gitCommit({ message: message.trim() || undefined, dryRun });
+    if (dryRun) return setNote(res.message);
+    setMessage('');
+    setPulled(null);
+    setPulled(await api.pull({ force: false, dryRun: false }));
   });
   const checkout = (branch: string) => run('branch', async () => {
     const res = await api.gitCheckout(branch);
@@ -156,12 +174,14 @@ export default function GitSyncPage() {
   const platform = remote && remote.platform !== 'other' ? t(`gitSync.platformLabel.${remote.platform}`) : null;
   const branchNames = branches.data ? [...branches.data.local, ...branches.data.remote] : [status.branch];
   const writing = busy !== null;
+  const diverged = status.hasRemote && status.ahead > 0 && status.behind > 0;
+  const pullLabel = diverged ? t('gitSync.actions.pullMerge') : status.behind > 0 ? t(status.behind === 1 ? 'gitSync.actions.pullCommits.one' : 'gitSync.actions.pullCommits.other', { count: status.behind }) : t('gitSync.actions.pull');
 
   return (
     <div className="animate-fade-in">
       {header(status.isRepo && (
         <span data-tour="git-actions" className="flex items-center gap-2.5">
-          {status.hasRemote && !status.isDirty && status.ahead > 0 && (
+          {status.hasRemote && !status.isDirty && status.ahead > 0 && status.behind === 0 && (
             <Button variant="secondary" onClick={() => upload(status.ahead)} loading={busy === 'upload'} disabled={writing || nested.length > 0}>
               {busy !== 'upload' && <ArrowUpFromLine size={16} />}
               {t(status.ahead === 1 ? 'gitSync.actions.pushCommits.one' : 'gitSync.actions.pushCommits.other', { count: status.ahead })}
@@ -169,7 +189,7 @@ export default function GitSyncPage() {
           )}
           <Button variant="secondary" onClick={() => pull()} loading={busy === 'pull'} disabled={writing || !status.hasRemote || status.isDirty} title={!status.hasRemote ? t('gitSync.noRemoteHint') : undefined}>
             {busy !== 'pull' && <ArrowDownToLine size={16} />}
-            {status.behind > 0 ? t(status.behind === 1 ? 'gitSync.actions.pullCommits.one' : 'gitSync.actions.pullCommits.other', { count: status.behind }) : t('gitSync.actions.pull')}
+            {pullLabel}
           </Button>
         </span>
       ))}
@@ -190,12 +210,13 @@ export default function GitSyncPage() {
           </div>
         )}
         {status.configTracked && <div className="ss-note inf"><Info size={16} /><span className="flex-1">{t('gitSync.nested.configTracked')}</span></div>}
+        {diverged && <div className="ss-note warn"><GitBranch size={16} /><span className="flex-1">{t('gitSync.diverged', { ahead: status.ahead, behind: status.behind })}</span></div>}
         {status.isRepo && status.isDirty && status.hasRemote && <div className="ss-note warn"><AlertCircle size={16} /><span className="flex-1">{t('gitSync.pull.blocked')}</span></div>}
         {runError && (
           <div className="ss-note bad">
             <AlertCircle size={16} />
             <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-              <span className="whitespace-pre-wrap break-words">{runError}</span>
+              <span className="whitespace-pre-wrap break-words">{conflict ? t('gitSync.conflict.stopped') : runError}</span>
               {lockedPath && (
                 <>
                   <span>{t('gitSync.pull.permission.hint')}</span>
@@ -207,7 +228,8 @@ export default function GitSyncPage() {
               )}
             </div>
             {mergeFailed && <Button variant="secondary" size="sm" onClick={() => setConfirmForce(true)} disabled={writing}>{t('gitSync.pull.force.button')}</Button>}
-            {pushRejected && <Button variant="secondary" size="sm" onClick={() => pull()} disabled={writing}>{t('gitSync.actions.pull')}</Button>}
+            {conflict && <Button variant="secondary" size="sm" onClick={() => setReviewConflicts(true)} disabled={writing || status.isDirty}>{t('gitSync.conflict.review')}</Button>}
+            {pushRejected && <Button variant="secondary" size="sm" onClick={() => pull()} disabled={writing || status.isDirty}>{pullLabel}</Button>}
             <button type="button" className="ss-ib !h-6 !w-6" aria-label={t('common.close')} onClick={() => setRunError('')}><X size={14} /></button>
           </div>
         )}
@@ -282,9 +304,9 @@ export default function GitSyncPage() {
                 {busy !== 'commit' && <GitCommitHorizontal size={16} />}
                 {t('gitSync.actions.commit')}
               </Button>
-              <Button variant="primary" onClick={() => commit(true)} loading={busy === 'push'} disabled={writing || !status.isDirty || !status.hasRemote || nested.length > 0} title={!status.hasRemote ? t('gitSync.noRemoteHint') : undefined}>
-                {busy !== 'push' && <CloudUpload size={16} />}
-                {t('gitSync.actions.commitPush')}
+              <Button variant="primary" onClick={() => status.behind > 0 ? commitAndPull() : commit(true)} loading={busy === 'push' || busy === 'commitPull'} disabled={writing || !status.isDirty || !status.hasRemote || nested.length > 0} title={!status.hasRemote ? t('gitSync.noRemoteHint') : undefined}>
+                {busy !== 'push' && busy !== 'commitPull' && (status.behind > 0 ? <ArrowDownToLine size={16} /> : <CloudUpload size={16} />)}
+                {t(status.behind > 0 ? 'gitSync.actions.commitPull' : 'gitSync.actions.commitPush')}
               </Button>
             </div>
             {note && <div className="ss-note inf"><Info size={16} /><span className="flex-1">{note}</span></div>}
@@ -316,6 +338,10 @@ export default function GitSyncPage() {
                 <dd>
                   {status.isDirty
                     ? <span className="ss-st warn">{t(files.length === 1 ? 'gitSync.repo.dirty.one' : 'gitSync.repo.dirty.other', { count: files.length })}</span>
+                    : diverged
+                      ? <span className="ss-st warn">{t('gitSync.repo.diverged', { ahead: status.ahead, behind: status.behind })}</span>
+                    : status.hasRemote && status.behind > 0
+                      ? <span className="ss-st warn">{t(status.behind === 1 ? 'gitSync.actions.pullCommits.one' : 'gitSync.actions.pullCommits.other', { count: status.behind })}</span>
                     : status.hasRemote && status.ahead > 0
                       ? <span className="ss-st warn">{t(status.ahead === 1 ? 'gitSync.repo.ahead.one' : 'gitSync.repo.ahead.other', { count: status.ahead })}</span>
                       : <span className="ss-st ok">{t('gitSync.repo.clean')}</span>}
@@ -376,6 +402,15 @@ export default function GitSyncPage() {
         onCancel={() => setConfirmForce(false)}
         onConfirm={() => { setConfirmForce(false); void pull(true); }}
       />
+
+      {reviewConflicts && conflict && (
+        <PullConflictDialog
+          key={`${conflict.localHash}:${conflict.remoteHash}`}
+          conflict={conflict}
+          onCancel={() => setReviewConflicts(false)}
+          onConfirm={(resolution) => { void pull(false, resolution); }}
+        />
+      )}
 
       {setup && (
         <SetupDialog

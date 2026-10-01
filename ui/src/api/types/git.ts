@@ -56,3 +56,21 @@ export interface PullResponse {
   message?: string;
   warnings?: string[];
 }
+
+export interface GitConflictVersion {
+  deleted: boolean;
+  content: string;
+  noPreview: boolean;
+}
+
+export interface GitPullConflict {
+  localHash: string;
+  remoteHash: string;
+  files: { path: string; local: GitConflictVersion; remote: GitConflictVersion }[];
+}
+
+export interface GitPullResolution {
+  localHash: string;
+  remoteHash: string;
+  choices: Record<string, 'local' | 'remote'>;
+}
