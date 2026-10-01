@@ -217,6 +217,18 @@ func (s *Service) host(ctx context.Context, target string) Host {
 	h.Installed, err = parseInventory(agent, data, s.ProjectRoot)
 	if err != nil {
 		h.fail(err)
+		return h
+	}
+	// Marketplaces stays nil when the list cannot be read: planning then keeps a removal
+	// pending instead of guessing that nothing is left to clean up.
+	if markets, err := s.marketplaces(ctx, target); err == nil {
+		h.Marketplaces = markets
+		for name, root := range markets {
+			if strings.HasPrefix(name, "skillshare-") && filepath.Clean(root) == filepath.Join(s.managedRoot(), name) {
+				h.ManagedMarketplaces = append(h.ManagedMarketplaces, name)
+			}
+		}
+		slices.Sort(h.ManagedMarketplaces)
 	}
 	return h
 }
