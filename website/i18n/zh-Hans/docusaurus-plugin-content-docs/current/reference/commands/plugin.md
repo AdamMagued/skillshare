@@ -149,7 +149,7 @@ OpenCode 必须在 PATH 上，以便 Skillshare 能够选择对应版本的 sche
 注册成功并不代表模块已成功加载；请在重新加载后检查 OpenCode。
 
 Import 接受普通的 Pi package 来源和普通的 OpenCode 配置条目。带有资源过滤器/选项的
-条目会被拒绝，以保留这些设置。已导入的 Pi 和 OpenCode v1 packages 会在其原生工具中更新。
+条目会被拒绝，以保留这些设置。已导入的 Pi package 在全局模式下用 `pi update SOURCE` 更新，并保留其设置条目；project 中的则要在 Pi 里更新，因为 `pi update` 也会影响全局 package。已导入的 OpenCode v1 packages 会在其原生工具中更新。
 OpenCode v2 的全局导入可以使用其原生的更新命令；project 导入则必须原生更新，
 因为 v2 的更新命令是全局的。
 
@@ -199,9 +199,11 @@ Skillshare 从不提供原生信任的批准 flags。
 - Codex 原生 project 安装不由此适配器提供。同步选择
   对全局 Codex 安装仍然有效。
 - Codex 没有 update 命令，因此更新会用刷新后的快照再次 add 该 plugin。
-  add 总会启用它，所以在 Codex 中被停用的 plugin 会被跳过并说明原因，其他 Agent 仍会照常更新。导入的 Codex
-  plugin 会在 Codex 启动时刷新其 Git marketplace 时更新，或运行
-  `codex plugin marketplace upgrade NAME`。
+  add 总会启用它，所以在 Codex 中被停用的 plugin 会被跳过。导入的 Codex
+  plugin 会用 `codex plugin marketplace upgrade NAME` 更新，这会重新安装 Codex
+  从该 marketplace 安装的所有 plugin，Codex 启动时也会这样做。
+- 更新遇到无法处理的 target 时会跳过并说明原因；该 plugin 的其他 Agent 仍会照常更新，
+  被跳过的更新会保留为待处理，留给之后的 sync。
 - 已导入的 plugins 保留其原始的 marketplace 身份。`check` 无法为没有 source 的
   已导入 plugin 推断发布可用性。
 - Removal 会保留共享的 marketplace 注册和受管理的快照；它

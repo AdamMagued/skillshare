@@ -204,6 +204,11 @@ func (s *Service) applyChange(ctx context.Context, c Change, b Binding) (resultE
 		}
 	}
 	args, err := s.nativeArgs(c.Target, c.Action, b.ID)
+	upgrade := agent == "codex" && c.Action == "update" && b.Source == ""
+	if upgrade {
+		_, market, _ := strings.Cut(b.ID, "@")
+		args, err = []string{"plugin", "marketplace", "upgrade", market}, nil
+	}
 	if err != nil {
 		return err
 	}
@@ -225,7 +230,8 @@ func (s *Service) applyChange(ctx context.Context, c Change, b Binding) (resultE
 			if c.Action == "disable" && item.Enabled {
 				return fmt.Errorf("plugin is still enabled")
 			}
-			if c.Action == "update" && b.Version != "" && item.Version != b.Version {
+			// An upgraded marketplace sets its own version, which Skillshare never reviewed.
+			if c.Action == "update" && !upgrade && b.Version != "" && item.Version != b.Version {
 				return fmt.Errorf("native update returned version %s; expected %s", item.Version, b.Version)
 			}
 			return nil

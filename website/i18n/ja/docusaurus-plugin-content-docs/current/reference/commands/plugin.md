@@ -123,7 +123,7 @@ OpenCode は、管理下エントリを `opencode.json` または既存の `open
 
 ローカルの OpenCode source は、ビルド済みのエントリ（`main`、文字列のルート export、または `index.js`）と必要なランタイム依存関係をすでに含んでいる必要があります。Skillshare はビルドスクリプトを実行したり、source に依存関係をインストールしたりしません。登録はモジュールが正常にロードされたことの証明ではありません。再読み込み後に OpenCode を確認してください。
 
-インポートは、通常の Pi package source と通常の OpenCode config エントリを受け付けます。resource フィルタ/オプション付きのエントリは、それらの設定を保持するために拒否されます。インポートされた Pi と OpenCode v1 の package は、そのネイティブツール上で更新されます。OpenCode v2 の global インポートはネイティブの update コマンドを使用できますが、v2 の update コマンドは global 向けであるため、project のインポートはネイティブに更新する必要があります。
+インポートは、通常の Pi package source と通常の OpenCode config エントリを受け付けます。resource フィルタ/オプション付きのエントリは、それらの設定を保持するために拒否されます。インポートされた Pi の package は、global モードでは `pi update SOURCE` で更新され、設定エントリは保持されます。project のものは Pi で更新してください。`pi update` は global の package にも及ぶためです。インポートされた OpenCode v1 の package は、そのネイティブツール上で更新されます。OpenCode v2 の global インポートはネイティブの update コマンドを使用できますが、v2 の update コマンドは global 向けであるため、project のインポートはネイティブに更新する必要があります。
 
 ```bash
 skillshare plugin add ./cursor-plugin --target cursor --no-tui
@@ -156,7 +156,8 @@ Copilot と Antigravity CLI のインストールは、reviewed されたロー�
 - 完全な source スナップショットは、plugin のスクリプト、アセット、および安全な相対 symlink（`AGENTS.md → CLAUDE.md` を含む）を保持します。絶対パス、脱出、dangling、循環、`.git` を参照する symlink や特殊ファイルは拒否されます。source は 20,000 ファイルおよび 100 MiB に制限されます。
 - ネイティブインストールは、ランタイムでの有効化を証明するものではありません。Agent を再起動/再読み込みし、その Agent 内で認証または hook trust を完了してください。
 - Codex のネイティブな project インストールは、このアダプタでは提供されません。global の Codex インストールに対する sync 選択は引き続き機能します。
-- Codex には update コマンドがないため、update は更新後のスナップショットからプラグインを再度 add します。add は常にプラグインを有効にするため、Codex で無効化されたプラグインは理由を示してスキップされ、ほかの Agent は通常どおり更新されます。Import した Codex プラグインは、Codex が起動時に Git marketplace を更新したとき、または `codex plugin marketplace upgrade NAME` で更新されます。
+- Codex には update コマンドがないため、update は更新後のスナップショットからプラグインを再度 add します。add は常にプラグインを有効にするため、Codex で無効化されたプラグインはスキップされます。Import した Codex プラグインは `codex plugin marketplace upgrade NAME` で更新されます。これは Codex がその marketplace からインストールしたすべてのプラグインを再インストールするもので、Codex も起動時に同じことを行います。
+- update は対応できない Target を理由を示してスキップし、そのプラグインのほかの Agent は通常どおり更新されます。スキップされた update は保留のまま残り、後の sync で処理されます。
 - インポートされた plugin は元のマーケットプレイス identity を保持します。`check` は、source のないインポート済み plugin についてリリースの有無を推測できません。
 - 削除は共有されたマーケットプレイス登録と管理下スナップショットを保持します。関連のない plugin やネイティブキャッシュを直接削除することはありません。
 

@@ -149,7 +149,7 @@ OpenCode 會在 `opencode.json` 或既有的 `opencode.jsonc` 中，把受管理
 註冊成功不代表模組已成功載入；請在重新載入後檢查 OpenCode。
 
 匯入僅接受一般的 Pi package source 與一般的 OpenCode config 項目。帶有 resource filter/選項的
-項目會被拒絕，以保留這些設定。已匯入的 Pi 與 OpenCode v1 套件會在其原生工具中更新。OpenCode
+項目會被拒絕，以保留這些設定。已匯入的 Pi 套件在全域模式下以 `pi update SOURCE` 更新，並保留其設定項目；專案中的則要在 Pi 裡更新，因為 `pi update` 也會動到全域套件。已匯入的 OpenCode v1 套件會在其原生工具中更新。OpenCode
 v2 的全域匯入可以使用其原生更新指令；專案匯入則必須以原生方式更新，因為 v2 的更新指令是
 全域性的。
 
@@ -196,7 +196,8 @@ Copilot 與 Antigravity CLI 的安裝使用已檢視過的本機快照。匯入�
 - 原生安裝不代表已在執行期啟用。請重新啟動/重新載入該 Agent，並在該 Agent 中完成驗證或
   hook 信任。
 - 此 adapter 不提供 Codex 原生的專案安裝。全域 Codex 安裝的 sync 選擇仍然可用。
-- Codex 沒有 update 指令，因此更新會以重新整理後的快照再次 add 該 plugin。add 一定會啟用它，所以在 Codex 中被停用的 plugin 會被略過並說明原因，其他 Agent 仍會照常更新。匯入的 Codex plugin 會在 Codex 啟動時重新整理其 Git marketplace 時更新，或執行 `codex plugin marketplace upgrade NAME`。
+- Codex 沒有 update 指令，因此更新會以重新整理後的快照再次 add 該 plugin。add 一定會啟用它，所以在 Codex 中被停用的 plugin 會被略過。匯入的 Codex plugin 會以 `codex plugin marketplace upgrade NAME` 更新，這會重新安裝 Codex 從該 marketplace 安裝的所有 plugin，Codex 啟動時也會這麼做。
+- 更新遇到無法處理的 target 時會略過並說明原因；該 plugin 的其他 Agent 仍會照常更新，被略過的更新會保留為待處理，留待之後的 sync。
 - 匯入的 plugin 會保留其原始的 marketplace 身分。對於沒有 source 的匯入 plugin，`check` 無法
   推斷是否有新版本可用。
 - 移除操作會保留共享的 marketplace 註冊與受管理的快照；不會直接刪除無關的 plugin 或原生

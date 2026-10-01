@@ -164,8 +164,10 @@ proof the module loaded successfully; check OpenCode after reload.
 
 Import accepts plain Pi package sources and plain OpenCode config entries.
 Entries with resource filters/options are rejected to preserve those settings.
-Imported Pi and OpenCode v1 packages are updated in their native tool. OpenCode
-v2 global imports can use its native update command; project imports must be
+Imported Pi packages are updated with `pi update SOURCE` in global mode, which
+keeps their settings entry; a project's are updated in Pi, because `pi update`
+also reaches global packages. Imported OpenCode v1 packages are updated in their
+native tool. OpenCode v2 global imports can use its native update command; project imports must be
 updated natively because the v2 update command is global.
 
 ```bash
@@ -218,8 +220,11 @@ never supplies native trust approval flags.
   selection still works for global Codex installations.
 - Codex has no update command, so an update adds the plugin again from the
   refreshed snapshot. Adding always enables it, so a plugin disabled in Codex is
-  skipped with the reason, and its other Agents still update. An imported Codex plugin updates when Codex refreshes its Git
-  marketplace at startup, or with `codex plugin marketplace upgrade NAME`.
+  skipped. An imported Codex plugin is updated with
+  `codex plugin marketplace upgrade NAME`, which reinstalls every plugin Codex
+  installed from that marketplace, as Codex also does when it starts.
+- An update skips a target it cannot reach and says why; the plugin's other
+  Agents still update, and a skipped update stays pending for a later sync.
 - Imported plugins retain their original marketplace identity. `check` cannot
   infer release availability for an imported plugin without a source.
 - Removal retains shared marketplace registrations and managed snapshots; it

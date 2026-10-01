@@ -362,7 +362,7 @@ func (f *fakeAgents) service(t *testing.T) *Service {
 		case command == "--version":
 			return []byte("test"), nil
 		case strings.Contains(command, "--help"):
-			return []byte("--json --scope"), nil
+			return []byte("--json --scope upgrade"), nil
 		case command == "plugin list --json" && bin == "codex":
 			return json.Marshal(map[string]any{"installed": f.installed[bin], "available": []any{}})
 		case command == "plugin list --json":
@@ -417,12 +417,39 @@ func TestCodexUpdateSkipsADisabledPlugin(t *testing.T) {
 	}
 }
 
-func TestCodexUpdateOfAnImportPointsAtMarketplaceUpgrade(t *testing.T) {
+// An imported plugin has no reviewed source; Codex upgrades it with its marketplace.
+func TestCodexUpdateOfAnImportUpgradesItsMarketplace(t *testing.T) {
 	agents := &fakeAgents{installed: map[string][]Installed{"codex": {{PluginID: "demo@team", Installed: true, Enabled: true, Version: "1.0.0"}}}}
 	s := agents.service(t)
 	applyPluginRequest(t, s, Request{Action: "import", From: "codex", Plugin: "demo@team"})
-	p, err := s.Preview(context.Background(), Request{Action: "update", Name: "demo", Targets: []string{"codex"}})
-	if err != nil || p.Blocked || !strings.Contains(p.Changes[0].Message, "codex plugin marketplace upgrade team") {
-		t.Fatalf("%+v %v", p, err)
+	agents.commands = nil
+	applyPluginRequest(t, s, Request{Action: "update", Name: "demo", Targets: []string{"codex"}})
+	if !slices.Equal(agents.commands, []string{"codex plugin marketplace upgrade team"}) {
+		t.Fatalf("commands: %q", agents.commands)
+	}
+}
+
+// A skipped update stays pending, so a later sync still knows the plugin is behind.
+func TestSkippedUpdateStaysPending(t *testing.T) {
+	agents := &fakeAgents{version: "1.0.0"}
+	s := agents.service(t)
+	source := fixture(t)
+	applyPluginRequest(t, s, Request{Action: "add", Source: source, Targets: []string{"codex"}})
+	cfg, err := s.load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	pack := cfg.packages["demo"]
+	b := pack.Bindings["codex"]
+	b.Pending = "update"
+	pack.Bindings["codex"] = b
+	cfg.packages["demo"] = pack
+	if err := s.save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	agents.installed["codex"][0].Enabled = false
+	applyPluginRequest(t, s, Request{Action: "sync"})
+	if cfg, _ = s.load(); cfg.packages["demo"].Bindings["codex"].Pending != "update" {
+		t.Fatalf("pending cleared: %+v", cfg.packages["demo"].Bindings["codex"])
 	}
 }
