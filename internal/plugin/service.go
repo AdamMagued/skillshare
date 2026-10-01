@@ -128,6 +128,21 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 				}
 			}
 		}
+		// Skipped rather than blocked, so the other Agents of an update still go ahead.
+		if c.Action == "update" && agent == "codex" {
+			_, market, _ := strings.Cut(c.ID, "@")
+			if c.Binding.Source == "" {
+				c.Action = "noop"
+				c.Message = fmt.Sprintf("Codex updates Git marketplaces when it starts; to update now, run codex plugin marketplace upgrade %s.", market)
+			}
+			for _, item := range h.Installed {
+				// Codex's add, which updates the plugin, always enables it.
+				if c.Action == "update" && item.ID == c.ID && !item.Enabled {
+					c.Action = "noop"
+					c.Message = "Enable the plugin in Codex before updating it; updating would turn it back on."
+				}
+			}
+		}
 		if c.Action == "blocked" {
 			p.Blocked = true
 		}

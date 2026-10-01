@@ -76,7 +76,7 @@ JSON 输出包含来源路径和原生标识符。不要在来源 URL 中放置�
 | Target | Format | Global | Project | Update |
 |---|---|:---:|:---:|---|
 | Claude Code | `.claude-plugin/plugin.json` | Yes | Yes | Native update |
-| Codex | `.codex-plugin/plugin.json` or Agent Plugins root manifest | Yes | No | Not supported |
+| Codex | `.codex-plugin/plugin.json` or Agent Plugins root manifest | Yes | No | 刷新经审核的来源后再次 add，仅限在 Codex 中为启用状态 |
 | Cursor | `.cursor-plugin/plugin.json` or Agent Plugins root manifest | Yes | No | Replace reviewed local copy |
 | Antigravity Desktop | Root `plugin.json` with an explicit name | Yes | Yes | Replace reviewed local copy |
 | Pi | `package.json` with `pi` resources, or `pi-package` keyword and conventional resource folders | Yes | Yes, with native project trust | Refresh managed source snapshot |
@@ -196,8 +196,12 @@ Skillshare 从不提供原生信任的批准 flags。
   循环以及引用 `.git` 的链接和特殊文件会被拒绝；sources 限制为 20,000 个文件和 100 MiB。
 - 原生安装并不能证明运行时已激活。请重启/重新加载
   该 Agent，并在该 Agent 中完成认证或 hook trust。
-- Codex 原生 project 安装和 plugin 更新不由此适配器提供。同步选择
+- Codex 原生 project 安装不由此适配器提供。同步选择
   对全局 Codex 安装仍然有效。
+- Codex 没有 update 命令，因此更新会用刷新后的快照再次 add 该 plugin。
+  add 总会启用它，所以在 Codex 中被停用的 plugin 会被跳过并说明原因，其他 Agent 仍会照常更新。导入的 Codex
+  plugin 会在 Codex 启动时刷新其 Git marketplace 时更新，或运行
+  `codex plugin marketplace upgrade NAME`。
 - 已导入的 plugins 保留其原始的 marketplace 身份。`check` 无法为没有 source 的
   已导入 plugin 推断发布可用性。
 - Removal 会保留共享的 marketplace 注册和受管理的快照；它

@@ -195,7 +195,8 @@ func (s *Service) applyChange(ctx context.Context, c Change, b Binding) (resultE
 				}
 			}
 		}
-		if c.Action == "update" {
+		// Codex reads a local marketplace in place; its marketplace upgrade is for Git ones.
+		if c.Action == "update" && agent == "claude" {
 			_, market, _ := strings.Cut(b.ID, "@")
 			if _, err := s.run(ctx, c.Target, "plugin", "marketplace", "update", market); err != nil {
 				return err

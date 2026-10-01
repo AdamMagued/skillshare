@@ -43,7 +43,7 @@ func (s *Service) Apply(ctx context.Context, r Request, revision string) (*Resul
 	changed := false
 	for _, c := range p.Changes {
 		if c.Action == "noop" {
-			result.Results = append(result.Results, Outcome{Name: c.Name, Target: c.Target, Status: "unchanged"})
+			result.Results = append(result.Results, Outcome{Name: c.Name, Target: c.Target, Status: "unchanged", Message: c.Message})
 			if r.Action == "sync" && d.packages[c.Name].Bindings[c.Target].Pending != "" {
 				changed = true
 				pack := d.packages[c.Name]

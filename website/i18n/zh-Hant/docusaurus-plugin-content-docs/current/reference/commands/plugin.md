@@ -75,7 +75,7 @@ JSON 輸出包含 source 路徑與原生識別碼。請勿在 source URL 中放�
 | Target | Format | Global | Project | Update |
 |---|---|:---:|:---:|---|
 | Claude Code | `.claude-plugin/plugin.json` | Yes | Yes | 原生更新 |
-| Codex | `.codex-plugin/plugin.json` 或 Agent Plugins 根目錄 manifest | Yes | No | 不支援 |
+| Codex | `.codex-plugin/plugin.json` 或 Agent Plugins 根目錄 manifest | Yes | No | 重新整理已審閱的來源後再次 add，僅限在 Codex 中為啟用狀態 |
 | Cursor | `.cursor-plugin/plugin.json` 或 Agent Plugins 根目錄 manifest | Yes | No | 取代已檢視的本機複本 |
 | Antigravity Desktop | 帶有明確名稱的根目錄 `plugin.json` | Yes | Yes | 取代已檢視的本機複本 |
 | Pi | 含 `pi` resources 的 `package.json`，或帶有 `pi-package` 關鍵字與慣用 resource 資料夾 | Yes | Yes，需原生專案信任 | 重新整理受管理的 source 快照 |
@@ -195,7 +195,8 @@ Copilot 與 Antigravity CLI 的安裝使用已檢視過的本機快照。匯入�
   都會被拒絕；source 上限為 20,000 個檔案與 100 MiB。
 - 原生安裝不代表已在執行期啟用。請重新啟動/重新載入該 Agent，並在該 Agent 中完成驗證或
   hook 信任。
-- 此 adapter 不提供 Codex 原生的專案安裝與 plugin 更新。全域 Codex 安裝的 sync 選擇仍然可用。
+- 此 adapter 不提供 Codex 原生的專案安裝。全域 Codex 安裝的 sync 選擇仍然可用。
+- Codex 沒有 update 指令，因此更新會以重新整理後的快照再次 add 該 plugin。add 一定會啟用它，所以在 Codex 中被停用的 plugin 會被略過並說明原因，其他 Agent 仍會照常更新。匯入的 Codex plugin 會在 Codex 啟動時重新整理其 Git marketplace 時更新，或執行 `codex plugin marketplace upgrade NAME`。
 - 匯入的 plugin 會保留其原始的 marketplace 身分。對於沒有 source 的匯入 plugin，`check` 無法
   推斷是否有新版本可用。
 - 移除操作會保留共享的 marketplace 註冊與受管理的快照；不會直接刪除無關的 plugin 或原生

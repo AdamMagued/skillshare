@@ -82,7 +82,7 @@ the CLI exits nonzero when any target fails. Inspect the result before retrying.
 | Target | Format | Global | Project | Update |
 |---|---|:---:|:---:|---|
 | Claude Code | `.claude-plugin/plugin.json` | Yes | Yes | Native update |
-| Codex | `.codex-plugin/plugin.json` or Agent Plugins root manifest | Yes | No | Not supported |
+| Codex | `.codex-plugin/plugin.json` or Agent Plugins root manifest | Yes | No | Refresh reviewed source and add it again, only if enabled in Codex |
 | Cursor | `.cursor-plugin/plugin.json` or Agent Plugins root manifest | Yes | No | Replace reviewed local copy |
 | Antigravity Desktop | Root `plugin.json` with an explicit name | Yes | Yes | Replace reviewed local copy |
 | Pi | `package.json` with `pi` resources, or `pi-package` keyword and conventional resource folders | Yes | Yes, with native project trust | Refresh managed source snapshot |
@@ -214,8 +214,12 @@ never supplies native trust approval flags.
   cyclic, and `.git`-referencing links and special files are rejected; sources are limited to 20,000 files and 100 MiB.
 - Native installation is not proof of runtime activation. Restart/reload the
   Agent and complete authentication or hook trust in that Agent.
-- Codex native project installation and plugin updates are not provided by this
-  adapter. Sync selection still works for global Codex installations.
+- Codex native project installation is not provided by this adapter. Sync
+  selection still works for global Codex installations.
+- Codex has no update command, so an update adds the plugin again from the
+  refreshed snapshot. Adding always enables it, so a plugin disabled in Codex is
+  skipped with the reason, and its other Agents still update. An imported Codex plugin updates when Codex refreshes its Git
+  marketplace at startup, or with `codex plugin marketplace upgrade NAME`.
 - Imported plugins retain their original marketplace identity. `check` cannot
   infer release availability for an imported plugin without a source.
 - Removal retains shared marketplace registrations and managed snapshots; it
