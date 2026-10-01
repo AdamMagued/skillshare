@@ -1,5 +1,97 @@
 # Changelog
 
+## [0.23.1] - 2026-10-01
+
+### New Features
+
+#### Plugins
+
+- **Update Codex plugins** — `plugin update` now updates a Codex binding. Codex has no update command, so Skillshare refreshes the reviewed snapshot, adds the plugin again, which replaces the installed copy, and checks the installed version. A plugin disabled in Codex is skipped with the reason instead of being turned back on.
+  ```bash
+  skillshare plugin update review --target codex --no-tui
+  ```
+- **Run a compatible CLI for an account** — an account target can set `cli` so its plugin commands run a compatible executable instead of the Agent's own, such as `omo` for a Pi account. It takes a name on `PATH` or an absolute path. If the CLI is missing, the command fails; Skillshare does not fall back to the Agent's CLI.
+  ```bash
+  skillshare target add omo --agent pi --config-dir ~/.omo/agent --cli omo
+  ```
+
+#### Hooks
+
+- **Hooks for account targets** — a global hook binding can name an account target declared with `agent` and `config_dir`, such as a second Codex home. Claude, Codex and Pi accounts use their Agent's native binding format, and sync, import and backups keep the account name.
+  ```yaml
+  targets:
+    codex-2:
+      agent: codex
+      config_dir: ~/.codex-2
+  hooks:
+    entries:
+      check:
+        bindings:
+          codex-2:
+            events:
+              Stop:
+                - hooks:
+                    - type: command
+                      command: "echo checked"
+  ```
+
+#### MCP
+
+- **Turn off a global server for Pi in one project** — a `disabled` entry for a project under `mcp.projects` now reaches Pi. Skillshare writes the global server's `command`, or its `url` without the query, with `enabled: false` to that project's `.pi/mcp.json`; args, env and headers stay out of the file. This replaces the 0.23.0 change that removed `pi` from the targets of `disabled` entries. If a 0.23.0 sync already removed `pi` from such an entry, add it back to `targets`. A project's own config still cannot turn off a global server for Pi.
+  ```yaml
+  mcp:
+    projects:
+      ~/work/project01:
+        servers:
+          context7:            # off in this project only
+            disabled: true
+  ```
+
+#### Dashboard
+
+- **Discard Git Sync changes** — **Discard changes** restores tracked files in the source repository to the last commit and deletes untracked files and folders, after you confirm. Ignored files, nested repositories and the root `config.yaml` are kept, and a dry run shows what would change.
+- **Resolve Git pull conflicts across computers** — when this computer and the remote both changed the same files, Git Sync no longer only stops with the merge undone. **Review conflicts** shows the local and remote version of each file side by side; keep one whole-file version per file, then **Apply choices and pull**. Both commit histories are kept, other files merge normally, and `.metadata.json` conflicts still resolve automatically. If either side gets new commits before you apply, the dialog asks you to choose again. Binary files and files over 16 KiB can be chosen but have no preview.
+- **Pull and merge, Commit and pull** — when both computers have new commits, **Pull** becomes **Pull and merge** and the page explains that both histories are kept before you push. With uncommitted changes while the remote is ahead, **Commit and push** becomes **Commit and pull**.
+
+### Bug Fixes
+
+#### Sync
+
+- **Sync no longer deletes skill links you made yourself** — in merge mode, sync removed any link in a target that pointed into the skills source but was filtered out, including links you created by hand or with another tool, and the removed links could not be restored. A live link is now removed only when Skillshare created it, as recorded in `.skillshare-manifest.json`, or with `--force`; other links are kept and counted as local. Links created before 0.15.0 that are now filtered out are kept as well; remove them by hand or with `--force`.
+- **Agent and extra links to other places are kept** — merge-mode sync and `extras --remove-target --prune` removed every agent `.md` link or extra link that was not expected, including links to files outside the source. Now only broken links and links into the source are removed. A link whose file cannot be read, for example because of permissions, is no longer treated as broken.
+- **Copy-mode agents keep your own files** — in copy and extension modes, sync deleted every agent file in the target that did not match a source agent, including files you put there. Copies are now tracked in a `.skillshare-manifest.json` in that agents folder, and sync removes only copies it wrote that you have not edited. Copies that were already orphaned before upgrading are kept; delete them by hand.
+- **Failed agent prunes are reported** — when sync could not delete an orphaned agent link or copy, it still counted it as pruned. It now shows a warning, and the other orphans are still removed.
+
+#### Plugins
+
+- **One Agent no longer blocks a plugin update** — a plugin installed on several Agents could not update anywhere when one of them could not take the update, such as a plugin disabled in Codex or Copilot, or an imported package. Those Agents are now skipped with the reason, the others update, and the skipped update stays pending. Imported Codex plugins now update through `codex plugin marketplace upgrade`, and imported Pi packages in global mode through `pi update`. A plugin whose Agents hold different versions shows each version.
+- **Claude account targets list their plugins** — a Claude account target could fail with "native plugin list contains an unsupported plugin identifier", for example when the dashboard ran from the home folder, because Claude also lists plugins of other scopes. Those entries are now ignored.
+- **Plugin results are translated** — the dashboard's Plugins page showed last-action statuses and installation messages in English in every language.
+
+#### Hooks
+
+- **Editing a hook from a target tab keeps account bindings** — saving a hook from a target page dropped its bindings for account targets such as `codex-2`, so the next sync removed that account's hook.
+- **Hooks report config errors** — when the global config failed to load, `skillshare hooks` ran without account targets and reported `unsupported Agent "codex-2"` instead of the real error.
+- **Missing account folders are explained** — the dashboard's hook config view showed nothing for an account whose `config_dir` is missing. It now shows a warning for that target.
+
+#### MCP
+
+- **Account shells keep the default home** — when `CLAUDE_CONFIG_DIR`, `CODEX_HOME` or `PI_CODING_AGENT_DIR` pointed at a declared account's `config_dir`, sync, import and the dashboard sent the plain Agent target to that account's home and could prune entries in its default home. The plain target now keeps its default home, and sync warns about the shadowed variable.
+- **Project-mode MCP status is complete again** — in project mode, `mcp check`, the dashboard and the target list dropped pending syncs and conflicts, and `mcp remove --keep-files` did not stop managing a project's Claude off switch, so the next sync removed it anyway.
+- **Pi's error says how to turn off a server** — a `disabled` entry for Pi that Skillshare cannot write now fails with a message pointing at a complete server with `piOptions: {"enabled": false}`, instead of only listing the clients that support a switch. The MCP docs explain the same.
+
+#### Dashboard
+
+- **Beautify keeps config.yaml in order** — **Beautify** and save in **Settings → Files** now keep config sections in a consistent order with a blank line between them, and keep the `# yaml-language-server: $schema=…` line at the top of the file, moving one that was saved in the wrong place.
+
+### Website
+
+- **Desktop app guide** — a new [Desktop App](https://skillshare.runkids.cc/docs/getting-started/desktop-app) page covers installing Skillshare App on macOS, Windows and Linux, in all five documentation languages. The homepage, navigation and README now show the desktop app before the CLI installation. On Apple Silicon Macs:
+  ```bash
+  brew tap runkids/tap
+  brew install --cask skillshare-app
+  ```
+
 ## [0.23.0] - 2026-10-01
 
 ### New Features
