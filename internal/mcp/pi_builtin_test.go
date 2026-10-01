@@ -14,7 +14,7 @@ func TestPiBuiltinRenderAndValidation(t *testing.T) {
 	if err != nil || out["transport"] != nil || out["exposure"] != "deferred" || out["headers"].(map[string]string)["Authorization"] != "Bearer ${TOKEN}" {
 		t.Fatalf("%+v %v", out, err)
 	}
-	for _, options := range []map[string]any{{"exposure": "search"}, {"timeout": 0}, {"toolExposure": map[string]any{"get_*": "search"}}, {"cwd": true}, {"settings": map[string]any{}}} {
+	for _, options := range []map[string]any{{"exposure": "search"}, {"timeout": 0}, {"toolExposure": map[string]any{"get_*": "search"}}, {"cwd": true}, {"settings": map[string]any{}}, {"oauth": map[string]any{"clientName": 1}}, {"auth": map[string]any{}}, {"auth": "github"}} {
 		s.PiOptions = options
 		if err := s.Validate("docs"); err == nil {
 			t.Fatalf("invalid options accepted: %+v", options)
@@ -28,6 +28,50 @@ func TestPiBuiltinRenderAndValidation(t *testing.T) {
 	}
 	if _, err := Render("pi", Server{Command: "echo", Env: map[string]Value{"MODE": {Literal: "!date"}}}); err == nil {
 		t.Fatal("a portable literal must not execute as a Pi secret command")
+	}
+}
+
+// Pi 0.99.2 sends a provider's login token to the server, reads auth only from its global
+// file, and reads names that differ only in - and _ as one server.
+func TestPiFollowsPi0992Rules(t *testing.T) {
+	auth := map[string]any{"auth": map[string]any{"provider": "github"}}
+	for url, ok := range map[string]bool{"https://example.com/mcp": true, "http://localhost:8080/mcp": true, "http://example.com/mcp": false} {
+		if err := (Server{URL: url, PiOptions: auth}).Validate("docs"); (err == nil) != ok {
+			t.Fatalf("%s: %v", url, err)
+		}
+	}
+	if err := (Server{Command: "docs", PiOptions: auth}).Validate("docs"); err == nil {
+		t.Fatal("auth on a stdio server accepted")
+	}
+	// The adapter's auth was a string; loading and import still drop that one.
+	for value, kept := range map[string]bool{`{"provider":"github"}`: true, `"oauth"`: false} {
+		c, err := Import("pi", []byte(`{"mcpServers":{"docs":{"url":"https://example.com/mcp","auth":`+value+`}}}`), "")
+		if err != nil || (c[0].Server.PiOptions["auth"] != nil) != kept {
+			t.Fatalf("import auth %s: %+v %v", value, c, err)
+		}
+	}
+
+	s := testService(t)
+	write := func(servers string) {
+		t.Helper()
+		if err := os.WriteFile(s.ConfigPath, []byte("mcp:\n  targets: [pi]\n  servers:\n"+servers), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("    my-docs:\n      command: docs\n    my_docs:\n      command: docs\n")
+	if _, err := s.Preview(); err == nil || !strings.Contains(err.Error(), "as one server") {
+		t.Fatalf("want a name collision error, got %v", err)
+	}
+	write("    docs:\n      url: https://example.com/mcp\n      piOptions: {auth: {provider: github}}\n")
+	if _, err := s.Preview(); err != nil {
+		t.Fatalf("global auth: %v", err)
+	}
+	if source, err := LoadSource(s.ConfigPath); err != nil || source.Servers["docs"].PiOptions["auth"] == nil || len(source.Notices) > 0 {
+		t.Fatalf("loading dropped Pi's auth: %+v %v", source, err)
+	}
+	s.ProjectRoot = filepath.Join(s.Home, "project")
+	if _, err := s.Preview(); err == nil || !strings.Contains(err.Error(), "global mode") {
+		t.Fatalf("want project auth refused, got %v", err)
 	}
 }
 

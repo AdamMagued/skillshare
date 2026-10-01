@@ -339,6 +339,13 @@ func (s *Service) renderScope(desired map[fileKey]map[string]map[string]any, roo
 				entry["name"] = name
 			}
 			key := fileKey{path, native}
+			if target == "pi" {
+				for other := range desired[key] {
+					if other != name && piServerKey(other) == piServerKey(name) {
+						return fmt.Errorf("pi / %s: Pi reads %s and %s as one server and skips the second; rename one of them", name, other, name)
+					}
+				}
+			}
 			if desired[key] == nil {
 				desired[key] = map[string]map[string]any{}
 			}
@@ -352,6 +359,11 @@ func (s *Service) renderScope(desired map[fileKey]map[string]map[string]any, roo
 		}
 	}
 	return nil
+}
+
+// piServerKey is how Pi compares server names: since 0.99.2, - and _ are the same.
+func piServerKey(name string) string {
+	return strings.ReplaceAll(name, "-", "_")
 }
 
 // forTarget resolves an account to its Agent, in a scope whose files are that account's.
@@ -473,6 +485,8 @@ func (s *Service) checkScope(name, target string, server Server) error {
 		return fmt.Errorf("MCP %s: disabled only applies in project mode, where it turns off a server from the Agent's global config; here, unselect the Agent instead", name)
 	case target == "pi" && strings.Contains(name, "."):
 		return fmt.Errorf("Pi built-in MCP %s: use letters, digits, underscores or hyphens", name)
+	case target == "pi" && s.ProjectRoot != "" && server.PiOptions["auth"] != nil:
+		return fmt.Errorf("Pi built-in MCP %s: Pi reads piOptions.auth only from its global mcp.json; define this server in global mode", name)
 	case target == "grok" && (!grokServerName.MatchString(name) || strings.Contains(name, "__") || strings.HasSuffix(name, "_")):
 		return fmt.Errorf("Grok MCP %s: use a name starting with a letter or underscore, containing only letters, digits, hyphens and single underscores, and not ending in underscore", name)
 	case target == "claude" && slices.Contains(claudeReservedNames, name):

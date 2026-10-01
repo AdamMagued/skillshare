@@ -879,7 +879,8 @@ mcp:
 可用 `pi mcp add` 編輯全域檔案；加 `-l` 寫入 project 檔案。`pi mcp list` 會啟動所有啟用的
 server 檢查連線；`pi mcp login NAME` 需要使用者授權。
 
-Pi 的 server 名稱只接受字母、數字、`_` 和 `-`。Pi 的 project 項目會整筆取代 global
+Pi 的 server 名稱只接受字母、數字、`_` 和 `-`；只差在 `-` 和 `_` 的名稱會被 Pi
+視為同一個 server，因此同步會拒絕第二個。Pi 的 project 項目會整筆取代 global
 中的同名項目；要在單一 project 中關閉 global server，請見
 [Turn off a global server in one project](#turn-off-a-global-server-in-one-project)。
 
@@ -887,13 +888,16 @@ Pi 的 server 名稱只接受字母、數字、`_` 和 `-`。Pi 的 project 項�
 
 `piOptions` 存放 Pi 內建 MCP 的其他單一 server 欄位，只有 Pi 會收到。
 
-- `exposure` 支援 `codemode`（Pi 預設）、`codemode-deferred`、`deferred`、`direct`
-  或 `hidden`。`toolExposure` 把工具名稱或萬用字元對應到上述其中一個值：完整名稱優先，
+- `exposure` 支援 `codemode`（Pi 預設）、`codemode-deferred`（`codemode` 的舊名稱）、
+  `deferred`、`direct` 或 `hidden`。`toolExposure` 把工具名稱或萬用字元對應到上述其中一個值：完整名稱優先，
   其次是第一個符合的萬用字元。匯入與 JSON／YAML 轉換會保留規則順序。`exposure` 也決定
   [`tools`](#tool-policy) 允許清單保留的工具如何提供。建議用 `tools` 取代 `toolExposure`，
   因為它也會套用到其他 Agents；同一個 server 不能同時設定 `tools` 與 `toolExposure`。
-- `timeout`（正數秒）、`cwd`、`enabled` 和 `oauth` 會經過驗證。未知欄位會原樣傳遞，
-  供自訂的 Pi 版本使用。
+- `timeout`（正數秒）、`cwd`、`enabled`、`oauth` 和 `auth` 會經過驗證。`description`
+  等未知欄位會原樣傳遞。
+- `auth: {provider: NAME}` 會把該 provider 的 `/login` token 當成 bearer token 送出。
+  它需要 https 的 `url`（localhost 可用 http），而且只能在 global 模式使用，因為 Pi 只從
+  global 檔案讀取它。
 - 連線欄位請使用主要表單。`directTools`、`includeTools`、`excludeTools` 與其他
   `pi-mcp-adapter` 設定會被拒絕，因為 Pi 內建 MCP 不會讀取它們；請改用 `tools`。
 - `settings` 與 `autoEnableCodemode` 是頂層設定，不是 server 選項：請直接在 Pi
@@ -964,7 +968,7 @@ servers，例如：
 | server 上的 `directTools` | `true` → `piOptions.exposure: direct`；`"search"` → `deferred`；名稱清單 → `piOptions.toolExposure`，並把這些工具設為 `direct` |
 | `mcp.directTools`，或 `mcp.projects` 下某個 project 的 `directTools` | 預設值會依上述方式，寫入每個送往 Pi 且沒有自己值的 server。project 的 `false` 會覆寫 global 的值 |
 | `piOptions.includeTools` / `excludeTools` | `tools.allow` / `tools.deny`；同時設定的 `directTools` 仍會轉為 `piOptions.exposure` |
-| `piOptions` 中其他 `pi-mcp-adapter` 欄位：`approveTools`、`auth`、`bearerToken`、`bearerTokenEnv`、`bearerTokenStore`、`caFile`、`debug`、`exposeResources`、`idleTimeout`、`inheritEnv`、`lifecycle`、`protocolVersion`、`requestHeadersCommand`、`requestTimeoutMs`、`searchKeywords`、`socket`、`tasks`、`toolPrefix`、`trace` | 移除，因為 Pi 內建 MCP 不會讀取它們 |
+| `piOptions` 中其他 `pi-mcp-adapter` 欄位：`approveTools`、字串形式的 `auth`（Pi 自己的 `auth` 物件會保留）、`bearerToken`、`bearerTokenEnv`、`bearerTokenStore`、`caFile`、`debug`、`exposeResources`、`idleTimeout`、`inheritEnv`、`lifecycle`、`protocolVersion`、`requestHeadersCommand`、`requestTimeoutMs`、`searchKeywords`、`socket`、`tasks`、`toolPrefix`、`trace` | 移除，因為 Pi 內建 MCP 不會讀取它們 |
 
 若 `directTools`、`includeTools` 或 `excludeTools` 會覆寫 server 已設定的曝光模式，或不是
 工具名稱清單，就會被捨棄，並顯示各自的 warning。

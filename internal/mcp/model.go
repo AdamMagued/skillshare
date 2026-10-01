@@ -131,6 +131,17 @@ func (s *Server) UnmarshalJSON(data []byte) error {
 // not read. Before 0.23.0 they reached the adapter's file through piOptions.
 var adapterPiOptions = []string{"approveTools", "auth", "bearerToken", "bearerTokenEnv", "bearerTokenStore", "caFile", "debug", "exposeResources", "idleTimeout", "inheritEnv", "lifecycle", "protocolVersion", "requestHeadersCommand", "requestTimeoutMs", "searchKeywords", "socket", "tasks", "toolPrefix", "trace"}
 
+// adapterPiOption reports a pi-mcp-adapter field. The adapter's auth is a string; since
+// 0.99.2, Pi reads its own auth, an object naming a provider.
+func adapterPiOption(key string, object bool) bool {
+	return slices.Contains(adapterPiOptions, key) && !(key == "auth" && object)
+}
+
+func isObject(value any) bool {
+	_, ok := value.(map[string]any)
+	return ok
+}
+
 func deref(n *yaml.Node) *yaml.Node {
 	if n != nil && n.Kind == yaml.AliasNode {
 		return n.Alias
@@ -187,7 +198,7 @@ func migrateServers(servers *yaml.Node, m migration) map[string][]string {
 		}
 		if options := deref(field(server, "piOptions")); options != nil && options.Kind == yaml.MappingNode {
 			for _, key := range adapterPiOptions {
-				if field(options, key) != nil {
+				if n := deref(field(options, key)); n != nil && adapterPiOption(key, n.Kind == yaml.MappingNode) {
 					drop(options, key)
 					found["piOptions."+key] = append(found["piOptions."+key], name)
 				}

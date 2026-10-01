@@ -55,7 +55,7 @@ func validPiExposure(value any) bool {
 	return false
 }
 
-// Known fields follow Pi 0.99.0; unknown per-server fields stay available to custom builds.
+// Known fields follow Pi 0.99.2; unknown per-server fields stay available to custom builds.
 func validatePiBuiltinOptions(name string, options map[string]any) error {
 	if value, ok := options["enabled"]; ok {
 		if _, ok := value.(bool); !ok {
@@ -96,7 +96,7 @@ func validatePiBuiltinOptions(name string, options map[string]any) error {
 		if json.Unmarshal(data, &oauth) != nil || oauth == nil {
 			return bad("oauth")
 		}
-		for _, key := range []string{"clientId", "clientSecret", "callbackUrl", "scope"} {
+		for _, key := range []string{"clientId", "clientSecret", "callbackUrl", "scope", "clientName"} {
 			if value, exists := oauth[key]; exists {
 				if _, ok := value.(string); !ok {
 					return bad("oauth." + key)
@@ -112,7 +112,7 @@ func validatePiBuiltinOptions(name string, options map[string]any) error {
 		}
 		if text, exists := oauth["callbackUrl"].(string); exists {
 			u, err := url.Parse(text)
-			if err != nil || u.Scheme != "http" || (u.Hostname() != "localhost" && u.Hostname() != "127.0.0.1" && u.Hostname() != "::1") || u.RawQuery != "" || u.Fragment != "" || u.User != nil {
+			if err != nil || u.Scheme != "http" || !loopbackHost(u.Hostname()) || u.RawQuery != "" || u.Fragment != "" || u.User != nil {
 				return bad("oauth.callbackUrl")
 			}
 			if port, exists := oauth["callbackPort"]; exists && u.Port() != "" && fmt.Sprint(port) != u.Port() {
@@ -120,7 +120,20 @@ func validatePiBuiltinOptions(name string, options map[string]any) error {
 			}
 		}
 	}
+	if value, ok := options["auth"]; ok {
+		data, _ := json.Marshal(value)
+		var auth struct {
+			Provider string `json:"provider"`
+		}
+		if json.Unmarshal(data, &auth) != nil || auth.Provider == "" {
+			return bad("auth.provider")
+		}
+	}
 	return nil
+}
+
+func loopbackHost(host string) bool {
+	return host == "localhost" || host == "127.0.0.1" || host == "::1"
 }
 
 // Import Pi options recursively without copying literal credentials into the source.

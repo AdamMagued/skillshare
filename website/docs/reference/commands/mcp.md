@@ -972,7 +972,8 @@ connections and authorize OAuth. For simple Pi-only setup, `pi mcp add` edits th
 file; add `-l` for a project. `pi mcp list` checks connections by starting every enabled
 server; `pi mcp login NAME` requires user approval.
 
-Pi server names allow only letters, digits, `_` and `-`. A Pi project entry replaces the
+Pi server names allow only letters, digits, `_` and `-`, and Pi reads names that differ
+only in `-` and `_` as one server, so sync refuses the second. A Pi project entry replaces the
 global entry of the same name; to turn off a global server in one project, see
 [Turn off a global server in one project](#turn-off-a-global-server-in-one-project).
 
@@ -981,15 +982,18 @@ global entry of the same name; to turn off a global server in one project, see
 `piOptions` holds the other per-server fields of Pi's built-in MCP. Only Pi receives
 them.
 
-- `exposure` accepts `codemode` (Pi default), `codemode-deferred`, `deferred`, `direct`
-  or `hidden`. `toolExposure` maps tool names or wildcard patterns to one of those
+- `exposure` accepts `codemode` (Pi default), `codemode-deferred` (an older name for
+  `codemode`), `deferred`, `direct` or `hidden`. `toolExposure` maps tool names or wildcard patterns to one of those
   values: an exact name wins, then the first matching pattern. Skillshare keeps the
   pattern order through import and JSON/YAML conversion. `exposure` also decides how
   the tools a [`tools`](#tool-policy) allow list keeps are offered. Prefer `tools` over
   `toolExposure`, since it also reaches other Agents; a server cannot set both `tools`
   and `toolExposure`.
-- `timeout` (positive seconds), `cwd`, `enabled` and `oauth` are validated. Unknown
-  fields are passed through for custom Pi builds.
+- `timeout` (positive seconds), `cwd`, `enabled`, `oauth` and `auth` are validated. Unknown
+  fields, such as `description`, are passed through.
+- `auth: {provider: NAME}` sends that provider's `/login` token as the bearer token. It
+  needs an https `url`, or http on localhost, and only works in global mode, because Pi
+  reads it only from its global file.
 - Connection fields belong in the main form. `directTools`, `includeTools`,
   `excludeTools` and the other `pi-mcp-adapter` settings are refused, because Pi's
   built-in MCP does not read them; use `tools` instead.
@@ -1064,7 +1068,7 @@ What the next sync does:
 | `directTools` on a server | `true` → `piOptions.exposure: direct`; `"search"` → `deferred`; a list of names → `piOptions.toolExposure` with those tools `direct` |
 | `mcp.directTools`, or a project's `directTools` under `mcp.projects` | The default is written into each server that reaches Pi and has no value of its own, as above. A project's `false` overrides the global value |
 | `piOptions.includeTools` / `excludeTools` | `tools.allow` / `tools.deny`; a `directTools` next to them still becomes `piOptions.exposure` |
-| Other `pi-mcp-adapter` fields in `piOptions`: `approveTools`, `auth`, `bearerToken`, `bearerTokenEnv`, `bearerTokenStore`, `caFile`, `debug`, `exposeResources`, `idleTimeout`, `inheritEnv`, `lifecycle`, `protocolVersion`, `requestHeadersCommand`, `requestTimeoutMs`, `searchKeywords`, `socket`, `tasks`, `toolPrefix`, `trace` | Removed, because Pi's built-in MCP does not read them |
+| Other `pi-mcp-adapter` fields in `piOptions`: `approveTools`, `auth` as a string (Pi's own `auth` object is kept), `bearerToken`, `bearerTokenEnv`, `bearerTokenStore`, `caFile`, `debug`, `exposeResources`, `idleTimeout`, `inheritEnv`, `lifecycle`, `protocolVersion`, `requestHeadersCommand`, `requestTimeoutMs`, `searchKeywords`, `socket`, `tasks`, `toolPrefix`, `trace` | Removed, because Pi's built-in MCP does not read them |
 
 A `directTools`, `includeTools` or `excludeTools` that would overwrite an exposure the
 server already sets, or that is not a list of tool names, is dropped with its own

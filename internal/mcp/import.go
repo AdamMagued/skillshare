@@ -229,7 +229,7 @@ func importNative(target string, data []byte, singleName string, adapter bool) (
 			}
 			directTools, include, exclude := entry["directTools"], list("includeTools"), list("excludeTools")
 			for _, key := range append([]string{"directTools", "includeTools", "excludeTools"}, adapterPiOptions...) {
-				if _, set := entry[key]; set {
+				if value, set := entry[key]; set && (key == "directTools" || key == "includeTools" || key == "excludeTools" || adapterPiOption(key, isObject(value))) {
 					allowed[key] = true
 				}
 			}
@@ -254,7 +254,7 @@ func importNative(target string, data []byte, singleName string, adapter bool) (
 				}
 			}
 			for _, key := range adapterPiOptions {
-				if _, set := entry[key]; set {
+				if value, set := entry[key]; set && adapterPiOption(key, isObject(value)) {
 					c.Warnings = append(c.Warnings, "pi-mcp-adapter setting not imported, because Pi's built-in MCP does not read it: "+key)
 				}
 			}

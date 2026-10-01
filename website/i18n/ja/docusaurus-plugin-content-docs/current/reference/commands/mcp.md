@@ -825,7 +825,7 @@ Pi だけの簡単な設定なら、`pi mcp add` でグローバルファイル�
 書き込みます。`pi mcp list` はすべての有効なサーバーを起動して接続を確認し、`pi mcp login NAME` は
 ユーザーの承認が必要です。
 
-Pi のサーバー名には英数字、`_`、`-` のみを使えます。Pi では project のエントリが同名の global
+Pi のサーバー名には英数字、`_`、`-` のみを使えます。`-` と `_` だけが異なる名前は Pi では同じサーバーとして扱われるため、sync は 2 つ目を拒否します。Pi では project のエントリが同名の global
 エントリを丸ごと置き換えます。1 つの project で global サーバーをオフにするには、
 [1 つの project だけで global サーバーをオフにする](#turn-off-a-global-server-in-one-project)を参照してください。
 
@@ -833,14 +833,16 @@ Pi のサーバー名には英数字、`_`、`-` のみを使えます。Pi で�
 
 `piOptions` は、Pi の内蔵 MCP のその他のサーバー別フィールドを保持します。受け取るのは Pi だけです。
 
-- `exposure` は `codemode`（Pi の既定）、`codemode-deferred`、`deferred`、`direct`、`hidden` を
+- `exposure` は `codemode`（Pi の既定）、`codemode-deferred`（`codemode` の旧名）、`deferred`、`direct`、`hidden` を
   受け付けます。`toolExposure` はツール名またはワイルドカードパターンをこれらの値のいずれかに対応付けます。
   完全一致の名前が優先され、次に最初に一致したパターンが採用されます。Skillshare はインポートと
   JSON／YAML 変換を通じてパターンの順序を保持します。`exposure` は、[`tools`](#tool-policy) の許可リストが
   残したツールの提供方法も決めます。`toolExposure` より `tools` を使うほうがよいでしょう。他の Agent にも
   届くためです。1 つのサーバーで `tools` と `toolExposure` を両方設定することはできません。
-- `timeout`（正の秒数）、`cwd`、`enabled`、`oauth` は検証されます。未知のフィールドはカスタム Pi ビルド向けに
-  そのまま渡されます。
+- `timeout`（正の秒数）、`cwd`、`enabled`、`oauth`、`auth` は検証されます。`description` などの未知の
+  フィールドはそのまま渡されます。
+- `auth: {provider: NAME}` は、そのプロバイダーの `/login` トークンを bearer トークンとして送ります。https の
+  `url`（localhost なら http も可）が必要で、Pi は global ファイルからしか読まないため global モードでのみ使えます。
 - 接続フィールドはメインフォームに入力します。`directTools`、`includeTools`、`excludeTools` など
   `pi-mcp-adapter` の設定は、Pi の内蔵 MCP が読まないため拒否されます。代わりに `tools` を使ってください。
 - トップレベルの `settings` と `autoEnableCodemode` はサーバーのオプションではありません。Pi で直接
@@ -911,7 +913,7 @@ sync がサーバーをこれらの extension から移すとき、`sync mcp --d
 | サーバーの `directTools` | `true` → `piOptions.exposure: direct`、`"search"` → `deferred`、名前のリスト → それらのツールを `direct` にした `piOptions.toolExposure` |
 | `mcp.directTools`、または `mcp.projects` 配下の project の `directTools` | 既定値が、Pi に届き自身の値を持たない各サーバーに上記のとおり書き込まれる。project の `false` はグローバルの値より優先される |
 | `piOptions.includeTools` / `excludeTools` | `tools.allow` / `tools.deny`。一緒に設定した `directTools` は引き続き `piOptions.exposure` になる |
-| `piOptions` 内のその他の `pi-mcp-adapter` フィールド: `approveTools`、`auth`、`bearerToken`、`bearerTokenEnv`、`bearerTokenStore`、`caFile`、`debug`、`exposeResources`、`idleTimeout`、`inheritEnv`、`lifecycle`、`protocolVersion`、`requestHeadersCommand`、`requestTimeoutMs`、`searchKeywords`、`socket`、`tasks`、`toolPrefix`、`trace` | Pi の内蔵 MCP が読まないため削除される |
+| `piOptions` 内のその他の `pi-mcp-adapter` フィールド: `approveTools`、文字列の `auth`（Pi 自身の `auth` オブジェクトは保持）、`bearerToken`、`bearerTokenEnv`、`bearerTokenStore`、`caFile`、`debug`、`exposeResources`、`idleTimeout`、`inheritEnv`、`lifecycle`、`protocolVersion`、`requestHeadersCommand`、`requestTimeoutMs`、`searchKeywords`、`socket`、`tasks`、`toolPrefix`、`trace` | Pi の内蔵 MCP が読まないため削除される |
 
 サーバーがすでに設定している exposure を上書きしてしまう `directTools`、`includeTools`、`excludeTools`、
 またはツール名のリストではないものは、それぞれ独自の warning とともに破棄されます。

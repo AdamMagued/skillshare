@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"net/url"
 	"slices"
 	"strings"
 )
@@ -48,8 +49,8 @@ func (s Server) validatePiOptions(name string) error {
 			return fmt.Errorf("MCP %s: piOptions cannot set %s; Skillshare writes that field from the server's own settings", name, key)
 		}
 	}
-	for _, key := range adapterPiOptions {
-		if _, set := s.PiOptions[key]; set {
+	for _, key := range sortedKeys(s.PiOptions) {
+		if adapterPiOption(key, isObject(s.PiOptions[key])) {
 			return fmt.Errorf("MCP %s: piOptions.%s is a pi-mcp-adapter setting that Pi's built-in MCP does not read", name, key)
 		}
 	}
@@ -58,7 +59,18 @@ func (s Server) validatePiOptions(name string) error {
 			return fmt.Errorf("MCP %s: piOptions.%s is a pi-mcp-adapter setting; use tools.%s", name, key, part)
 		}
 	}
-	return validatePiBuiltinOptions(name, s.PiOptions)
+	if err := validatePiBuiltinOptions(name, s.PiOptions); err != nil {
+		return err
+	}
+	if _, set := s.PiOptions["auth"]; set {
+		// Pi sends the provider's login token as the bearer token, so only to an https
+		// server, or plain http on this machine.
+		u, err := url.Parse(s.URL)
+		if s.URL == "" || err != nil || u.Scheme != "https" && !(u.Scheme == "http" && loopbackHost(u.Hostname())) {
+			return fmt.Errorf("MCP %s: piOptions.auth needs an https url, or http on localhost; Pi sends the provider's login token to it", name)
+		}
+	}
+	return nil
 }
 
 // agentFieldsChanged reports a field outside the ownership hash, such as a piOptions key,
