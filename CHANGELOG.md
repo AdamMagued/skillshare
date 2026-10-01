@@ -83,7 +83,6 @@
   skillshare mcp add docs --url https://example.com/mcp --target pi --pi-options '{"auth":{"provider":"github"}}' --no-tui -g
   ```
 - **Server names Pi reads as one are refused** — Pi 0.99.2 reads names that differ only in `-` and `_`, such as `my-docs` and `my_docs`, as one server and skips the second with a config error. Skillshare now refuses the second before writing it.
-- **`codemode-deferred` is shown as an older name** — Pi 0.99.2 made it an alias of `codemode`, so the dashboard describes it that way. Existing entries keep working.
 - **Pi's error says how to turn off a server** — a `disabled` entry for Pi that Skillshare cannot write now fails with a message pointing at a complete server with `piOptions: {"enabled": false}`, instead of only listing the clients that support a switch. The MCP docs explain the same.
 
 #### Dashboard
