@@ -1430,7 +1430,6 @@
   "mcp.notice.piExtension": "Pi는 이제 내장 MCP를 사용합니다. 다음 sync에서 설정을 업데이트합니다: {names}",
   "mcp.notice.piOptionsPrune": "piOptionsPrune은 더 이상 사용되지 않습니다. 다음 sync에서 제거합니다: {names}",
   "mcp.notice.adapterOptions": "Pi 내장 MCP는 {fields}을(를) 읽지 않습니다. 다음 sync에서 제거합니다: {names}",
-  "mcp.notice.piSwitch": "Pi는 한 프로젝트에서만 서버를 끌 수 없습니다. 다음 sync에서 이 항목들에서 Pi를 제거합니다: {names}",
   "mcp.notice.piTools": "directTools, includeTools, excludeTools는 도구 설정으로 바뀝니다. 다음 sync에서 변환합니다: {names}",
   "mcp.notice.piToolsDropped": "서버가 이미 설정했거나 도구 목록이 아닌 directTools, includeTools, excludeTools는 다음 sync에서 제거됩니다: {names}",
   "mcp.notice.toolPolicy": "{agent}은(는) 도구 정책의 이 부분({parts})을 적용할 수 없습니다: {names}",

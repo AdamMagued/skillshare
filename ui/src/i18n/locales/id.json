@@ -1430,7 +1430,6 @@
   "mcp.notice.piExtension": "Pi sekarang memakai MCP bawaannya; sinkronisasi berikutnya memperbarui konfigurasi: {names}",
   "mcp.notice.piOptionsPrune": "piOptionsPrune tidak dipakai lagi; sinkronisasi berikutnya menghapusnya: {names}",
   "mcp.notice.adapterOptions": "MCP bawaan Pi tidak membaca {fields}; sinkronisasi berikutnya menghapusnya: {names}",
-  "mcp.notice.piSwitch": "Pi tidak bisa mematikan server di satu proyek saja; sinkronisasi berikutnya menghapus Pi dari entri ini: {names}",
   "mcp.notice.piTools": "directTools, includeTools, dan excludeTools menjadi pengaturan alat; sinkronisasi berikutnya mengonversinya: {names}",
   "mcp.notice.piToolsDropped": "Sinkronisasi berikutnya menghapus directTools, includeTools, atau excludeTools yang sudah dicakup server atau yang bukan daftar alat: {names}",
   "mcp.notice.toolPolicy": "{agent} tidak bisa menerapkan bagian kebijakan alat ini ({parts}): {names}",

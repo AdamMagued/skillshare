@@ -1430,7 +1430,6 @@
   "mcp.notice.piExtension": "Pi 现在使用内置 MCP，下次同步会更新配置：{names}",
   "mcp.notice.piOptionsPrune": "piOptionsPrune 已不再使用，下次同步会移除：{names}",
   "mcp.notice.adapterOptions": "Pi 内置 MCP 不会读取 {fields}，下次同步会移除：{names}",
-  "mcp.notice.piSwitch": "Pi 无法在单个项目中关闭 server，下次同步会从这些条目中移除 Pi：{names}",
   "mcp.notice.piTools": "directTools、includeTools 和 excludeTools 会转为工具设置，下次同步会转换：{names}",
   "mcp.notice.piToolsDropped": "server 已涵盖、或不是工具列表的 directTools、includeTools 或 excludeTools，下次同步会移除：{names}",
   "mcp.notice.toolPolicy": "{agent} 无法应用这部分工具策略（{parts}）：{names}",

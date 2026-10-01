@@ -1430,7 +1430,6 @@
   "mcp.notice.piExtension": "O Pi agora usa o MCP integrado; a próxima sincronização atualiza a configuração: {names}",
   "mcp.notice.piOptionsPrune": "piOptionsPrune não é mais usado; a próxima sincronização o remove: {names}",
   "mcp.notice.adapterOptions": "O MCP integrado do Pi não lê {fields}; a próxima sincronização os remove: {names}",
-  "mcp.notice.piSwitch": "O Pi não consegue desligar um servidor em um só projeto; a próxima sincronização remove o Pi destas entradas: {names}",
   "mcp.notice.piTools": "directTools, includeTools e excludeTools viram configurações de ferramentas; a próxima sincronização os converte: {names}",
   "mcp.notice.piToolsDropped": "A próxima sincronização remove directTools, includeTools ou excludeTools que o servidor já cobre ou que não são listas de ferramentas: {names}",
   "mcp.notice.toolPolicy": "{agent} não consegue aplicar esta parte da política de ferramentas ({parts}): {names}",

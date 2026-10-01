@@ -1430,7 +1430,6 @@
   "mcp.notice.piExtension": "Pi nutzt jetzt sein integriertes MCP; der nächste Sync aktualisiert die Konfiguration: {names}",
   "mcp.notice.piOptionsPrune": "piOptionsPrune wird nicht mehr verwendet; der nächste Sync entfernt es: {names}",
   "mcp.notice.adapterOptions": "Das integrierte MCP von Pi liest {fields} nicht; der nächste Sync entfernt sie: {names}",
-  "mcp.notice.piSwitch": "Pi kann einen Server nicht in nur einem Projekt ausschalten; der nächste Sync entfernt Pi aus diesen Einträgen: {names}",
   "mcp.notice.piTools": "directTools, includeTools und excludeTools werden zu Tool-Einstellungen; der nächste Sync wandelt sie um: {names}",
   "mcp.notice.piToolsDropped": "directTools, includeTools oder excludeTools, die der Server schon abdeckt oder die keine Tool-Listen sind, entfernt der nächste Sync: {names}",
   "mcp.notice.toolPolicy": "{agent} kann diesen Teil der Tool-Richtlinie nicht anwenden ({parts}): {names}",
