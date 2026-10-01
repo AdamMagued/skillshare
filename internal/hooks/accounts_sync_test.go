@@ -136,6 +136,25 @@ func TestMissingAccountHomeIsSkipped(t *testing.T) {
 	}
 }
 
+func TestRenderReportsMissingAccountHome(t *testing.T) {
+	e := newEnv(t)
+	dir := filepath.Join(e.home, ".codex-3")
+	e.service.Accounts = map[string]Account{"codex-3": {Agent: "codex", Dir: dir}}
+	files, err := e.service.RenderNative(Mutation{Name: "k", Entry: accountEntry(t, "codex", "codex-3")})
+	must(t, err)
+	byTarget := map[string]RenderedFile{}
+	for _, f := range files {
+		byTarget[f.Target] = f
+	}
+	if f := byTarget["codex"]; f.Error != "" || f.Content == "" {
+		t.Fatalf("default home: %+v", f)
+	}
+	want := "target codex-3: config_dir " + dir + " does not exist on this machine; its hook bindings are skipped"
+	if f, ok := byTarget["codex-3"]; !ok || f.Error != want || f.Path != "" {
+		t.Fatalf("missing account: %+v", files)
+	}
+}
+
 func TestAccountBackupRestores(t *testing.T) {
 	e := accountEnv(t)
 	save(t, e.service, Mutation{Name: "k", Entry: accountEntry(t, "codex-2")})

@@ -54,6 +54,11 @@ func (s *Service) RenderNative(m Mutation) ([]RenderedFile, error) {
 			out = append(out, RenderedFile{Target: target, Error: err.Error()})
 			continue
 		}
+		// A skipped account home writes nothing; say why instead of rendering no file.
+		if len(d.warnings) > 0 {
+			out = append(out, RenderedFile{Target: target, Error: strings.Join(d.warnings, "; ")})
+			continue
+		}
 		base, err := scope.base(target, root)
 		if err != nil {
 			out = append(out, RenderedFile{Target: target, Error: err.Error()})
