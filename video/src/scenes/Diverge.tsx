@@ -7,7 +7,7 @@ import { T, pop, progress } from '../timeline';
 // Two copies of the same skill, side by side: one edited today, one left behind.
 const copies = [
   { x: 290, rot: -2, fill: c.white, tool: 'agents/claudecode-color.svg', badge: c.yellow, tagFill: '#D4F2CF', tagInk: '#1F7A3A', tag: 'v1.1 · edited today ✓', fresh: true },
-  { x: 1030, rot: 2, fill: '#F7E7C4', tool: 'agents/cursor.svg', badge: c.yellow, tagFill: '#FFD6CC', tagInk: c.red, tag: 'v1.0 · 3 months ago', fresh: false },
+  { x: 1030, rot: 2, fill: '#F7E7C4', tool: 'agents/codex-color.svg', badge: c.blueLight, tagFill: '#FFD6CC', tagInk: c.red, tag: 'v1.0 · 3 months ago', fresh: false },
 ];
 const Y = 150;
 const W = 600;

@@ -10,9 +10,9 @@ export type Tool = { name: string; logo: string; fill: string; chaos: [number, n
 export const tools: Tool[] = [
   { name: 'Claude Code', logo: 'agents/claudecode-color.svg', fill: c.yellow, chaos: [330, 380] },
   { name: 'Codex', logo: 'agents/codex-color.svg', fill: c.blueLight, chaos: [1010, 610] },
-  { name: 'Cursor', logo: 'agents/cursor.svg', fill: c.yellow, chaos: [1590, 300] },
+  { name: 'Pi', logo: 'agents/pi-color.svg', fill: c.yellow, chaos: [1590, 300] },
   // Joins later to show that switching tools keeps your setup.
-  { name: 'Gemini CLI', logo: 'agents/geminicli-color.svg', fill: c.blueLight, chaos: [1620, TOOL_Y] },
+  { name: 'Antigravity', logo: 'agents/antigravity-color.svg', fill: c.blueLight, chaos: [1620, TOOL_Y] },
 ];
 
 const ROW3 = [380, 960, 1540];
