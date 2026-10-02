@@ -64,6 +64,7 @@ skillshare は **65以上の AI CLI ツール** に対応しています。`skil
   <a className="target-badge" href="#target-letta">Letta</a>
   <a className="target-badge" href="#target-lingma">Lingma</a>
   <a className="target-badge" href="#target-mcpjam">MCPJam</a>
+  <a className="target-badge" href="#target-muse">Muse Code</a>
   <a className="target-badge" href="#target-mux">Mux</a>
   <a className="target-badge" href="#target-neovate">Neovate</a>
   <a className="target-badge" href="#target-omp">oh-my-pi</a>
@@ -153,6 +154,7 @@ skillshare は **65以上の AI CLI ツール** に対応しています。`skil
 <tr id="target-letta"><td>letta</td><td><code>&#126;/.letta/skills</code></td><td><code>.skills</code></td></tr>
 <tr id="target-lingma"><td>lingma</td><td><code>&#126;/.lingma/skills</code></td><td><code>.lingma/skills</code></td></tr>
 <tr id="target-mcpjam"><td>mcpjam</td><td><code>&#126;/.mcpjam/skills</code></td><td><code>.mcpjam/skills</code></td></tr>
+<tr id="target-muse"><td>muse</td><td><code>&#126;/.config/muse/skills</code></td><td><code>.agents/skills</code></td></tr>
 <tr id="target-mux"><td>mux</td><td><code>&#126;/.mux/skills</code></td><td><code>.mux/skills</code></td></tr>
 <tr id="target-neovate"><td>neovate</td><td><code>&#126;/.neovate/skills</code></td><td><code>.neovate/skills</code></td></tr>
 <tr id="target-omp"><td>omp</td><td><code>&#126;/.omp/agent/skills</code></td><td><code>.omp/skills</code></td></tr>

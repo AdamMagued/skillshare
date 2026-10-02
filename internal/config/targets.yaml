@@ -392,6 +392,15 @@ targets:
     skills:
       global: "~/.mcpjam/skills"
       project: ".mcpjam/skills"
+  - name: muse
+    skills:
+      global: "~/.config/muse/skills"
+      project: ".agents/skills"
+    also_scans:
+      global: ["~/.agents/skills", "~/.claude/skills", "~/.codex/skills"]
+      project: [".codex/skills", ".claude/skills"]
+    instructions:
+      project: "AGENTS.md"
   - name: mux
     skills:
       global: "~/.mux/skills"

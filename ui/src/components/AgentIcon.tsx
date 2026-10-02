@@ -50,6 +50,8 @@ import reasonixColor from '../assets/agents/reasonix-color.svg?url';
 import jazzColor from '../assets/agents/jazz-color.svg?url';
 // mcpjam: Apache-2.0 (LICENSE excludes only /server/services), https://github.com/MCPJam/inspector/blob/main/mcpjam-inspector/client/public/mcp_jam.svg
 import mcpjamColor from '../assets/agents/mcpjam-color.svg?url';
+// muse: https://muse.ai/images/landing/brand/muse-logo.svg
+import museColor from '../assets/agents/muse-color.svg?url';
 // pi: https://pi.dev/logo-auto.svg, cropped to the mark; its colors are the brand's in the MIT repo,
 // https://github.com/earendil-works/pi/blob/main/packages/coding-agent/src/modes/interactive/components/pi-logo.ts
 import piColor from '../assets/agents/pi-color.svg?url';
@@ -84,6 +86,7 @@ const colored: Record<string, string> = {
   lingma: alibabacloudColor,
   lmstudio: lmstudioColor,
   mcpjam: mcpjamColor,
+  muse: museColor,
   omp: ompColor,
   openclaw: openclawColor,
   pi: piColor,

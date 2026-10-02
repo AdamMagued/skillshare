@@ -54,7 +54,7 @@ function ScaledBoard({
 }
 
 // ---------------------------------------------------------------------------
-// Hero board: source logo strung to 8 of the 67 targets.
+// Hero board: source logo strung to 8 of the 78 targets.
 // ---------------------------------------------------------------------------
 
 type Tool = {

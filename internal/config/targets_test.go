@@ -306,6 +306,20 @@ func TestAlsoScans_GooseAndOpenHandsKeepLegacyPaths(t *testing.T) {
 	}
 }
 
+// Muse Code documents $XDG_CONFIG_HOME/muse/skills for account-wide skills and
+// .agents/skills for projects, and also reads universal's ~/.agents/skills.
+func TestDefaultTargets_MusePaths(t *testing.T) {
+	if got, want := DefaultTargets()["muse"].Path, normalizeTargetPath("~/.config/muse/skills"); got != want {
+		t.Errorf("muse default global path = %q, want %q", got, want)
+	}
+	if got, want := ProjectTargets()["muse"].Path, ".agents/skills"; got != want {
+		t.Errorf("muse default project path = %q, want %q", got, want)
+	}
+	if got := alsoScansSpec(t, "muse").Global; !slices.Contains(got, "~/.agents/skills") {
+		t.Errorf("muse also_scans.global = %v, missing universal's ~/.agents/skills", got)
+	}
+}
+
 func TestDetectDir_GooseAndOpenHands(t *testing.T) {
 	// Their skills paths belong to universal, so only the install dir identifies
 	// the tool.
