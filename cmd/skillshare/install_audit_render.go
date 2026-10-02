@@ -251,6 +251,10 @@ func renderInstallWarnings(skillName string, warnings []string, auditVerbose boo
 // renderInstallWarningsWithResult is like renderInstallWarnings but also displays
 // the aggregate risk score from the install result when available.
 func renderInstallWarningsWithResult(skillName string, warnings []string, auditVerbose bool, result *install.InstallResult) {
+	// Nothing to show: no warnings and no audit ran (e.g. --dry-run).
+	if skillName == "" && len(warnings) == 0 && (result == nil || result.AuditSkipped) {
+		return
+	}
 	// Visual separator for single-skill output
 	if skillName == "" {
 		ui.SectionLabel("Audit Findings")

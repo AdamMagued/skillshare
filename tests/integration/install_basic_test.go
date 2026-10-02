@@ -294,6 +294,23 @@ targets: {}
 	}
 }
 
+func TestInstall_DryRun_OmitsEmptyAuditSection(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+	localSkillPath := filepath.Join(sb.Root, "dry-run-skill")
+	os.MkdirAll(localSkillPath, 0755)
+	os.WriteFile(filepath.Join(localSkillPath, "SKILL.md"), []byte("# Dry Run"), 0644)
+
+	result := sb.RunCLI("install", localSkillPath, "--dry-run")
+
+	result.AssertSuccess(t)
+	result.AssertOutputNotContains(t, "Audit Findings")
+}
+
 func TestInstall_InvalidName_Errors(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
