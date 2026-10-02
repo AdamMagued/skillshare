@@ -1,5 +1,5 @@
 <p align="center" style="margin-bottom: 0;">
-  <img src=".github/assets/logo.png" alt="skillshare" width="280">
+  <img src=".github/assets/skillshare-logo-card.png" alt="skillshare" width="280">
 </p>
 
 <h1 align="center" style="margin-top: 0.5rem; margin-bottom: 0.5rem;">skillshare</h1>
@@ -26,8 +26,9 @@
 </p>
 
 <p align="center">
-  <strong>AI CLI の skills、agents、rules、commands などを、ひとつのソースで管理。デスクトップアプリで操作するか、コマンドひとつですべてのツールに同期でき、個人から組織全体まで使えます。</strong><br>
-  Codex、Claude Code、OpenClaw、OpenCode など 60 以上のツールに対応。
+  <strong>あなたの AI コーディング環境を、どこでも。</strong><br>
+  skills、agents、rules、MCP 接続、hooks をひとつの場所で管理。<br>
+  Claude Code、Codex、Cursor、OpenCode などで使えます。
 </p>
 
 <p align="center">
@@ -45,59 +46,16 @@
 
 ## skillshare を使う理由
 
-AI CLI はそれぞれ独自の skills ディレクトリを持っています。
-ひとつを編集して別のツールへのコピーを忘れ、どれが最新か分からなくなります。
+AI ツールを切り替えるたびに、環境を作り直す必要はありません。
+skillshare は skills やほかの AI リソースを、自分で管理できる場所にまとめます。
 
-skillshare はこの問題を解決します。
+- **ツールを変えても skills はそのまま** — 一度編集して、Claude Code、Codex、Cursor など使っているツールに同期。
+- **環境を別のマシンへ** — ソースを Git で管理し、別のマシンに pull。
+- **チームで共有** — プロジェクトのリソースをコードと一緒に管理し、共通の skills を tracked repo で配布。
 
-- **ひとつのソースをすべての agent へ** — `skillshare sync` で Claude、Cursor、Codex など 60 以上のツールに同期
-- **Agent 管理** — カスタム agent を skills と一緒に、agent 対応の target へ同期
-- **skills だけではない** — [extras](https://skillshare.runkids.cc/docs/reference/targets/configuration#extras) で rules、commands、prompts などファイルベースのリソースを管理
-- **MCP 接続** — サーバーの定義は一度だけ。[`sync mcp`](https://skillshare.runkids.cc/docs/how-to/daily-tasks/sharing-mcp) が各 Agent 固有の設定形式に書き込みます
-- **plugin 一式** — plugin の skills、hooks、MCP 設定をまとめたまま、[`plugin`](https://skillshare.runkids.cc/docs/how-to/daily-tasks/sharing-plugins) でインストール先のツールを選択
-- **ネイティブ hooks** — Agent ごとの event 設定や extension コードを管理。プレビュー、有効／無効、復元に対応。 [hooks](https://skillshare.runkids.cc/docs/reference/commands/hooks)
-- **どこからでもインストール** — GitHub、GitLab、Bitbucket、Azure DevOps、Gitea、CNB、またはセルフホストの Git
-- **セキュリティ機能を内蔵** — 使う前に、prompt injection やデータ流出につながる内容がないか skills を監査
-- **チームで使える** — プロジェクトの skills は `.skillshare/` に、組織共通の skills は tracked repo で配布
-- **ローカルで軽量** — 単一バイナリ。registry もテレメトリもなく、完全にオフラインで動作
-- **きめ細かなフィルタリング** — [`.skillignore`](https://skillshare.runkids.cc/docs/how-to/daily-tasks/filtering-skills)、SKILL.md の `targets`、target ごとの include/exclude で、どの skills をどの target に届けるかを制御
+デスクトップアプリまたは CLI でローカルに管理し、[使用前に skills を監査](https://skillshare.runkids.cc/docs/reference/commands/audit)して、[各ツールに届ける内容を選べます](https://skillshare.runkids.cc/docs/how-to/daily-tasks/filtering-skills)。
 
 > ほかのツールから移行しますか？ [移行ガイド](https://skillshare.runkids.cc/docs/how-to/advanced/migration) · [比較](https://skillshare.runkids.cc/docs/understand/philosophy/comparison)
-
-## 仕組み
-
-- macOS / Linux: `~/.config/skillshare/`
-- Windows: `%AppData%\skillshare\`
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Source Directory                         │
-│   ~/.config/skillshare/skills/    ← skills (SKILL.md)       │
-│   ~/.config/skillshare/agents/    ← agents                  │
-│   ~/.config/skillshare/extras/    ← rules, commands, etc.   │
-└─────────────────────────────────────────────────────────────┘
-                              │ sync
-              ┌───────────────┼───────────────┐
-              ▼               ▼               ▼
-       ┌───────────┐   ┌───────────┐   ┌───────────┐
-       │  Claude   │   │  OpenCode │   │ OpenClaw  │   ...
-       └───────────┘   └───────────┘   └───────────┘
-```
-
-| プラットフォーム | Skills のソース | Agents のソース | Extras のソース | リンク方式 |
-|----------|---------------|---------------|---------------|-----------|
-| macOS/Linux | `~/.config/skillshare/skills/` | `~/.config/skillshare/agents/` | `~/.config/skillshare/extras/` | Symlinks |
-| Windows | `%AppData%\skillshare\skills\` | `%AppData%\skillshare\agents\` | `%AppData%\skillshare\extras\` | フォルダーは NTFS Junction（管理者権限は不要）。ファイルのシンボリックリンクには Developer Mode が必要で、ない場合はコピー |
-
-| | 命令型（コマンドごとにインストール） | 宣言型（skillshare） |
-|---|---|---|
-| **単一のソース** | skills を個別にコピー | ひとつのソースから symlink（またはコピー）で配布 |
-| **新しいマシンのセットアップ** | すべてのインストールを手作業でやり直す | 設定を `git clone` して `sync` |
-| **セキュリティ監査** | なし | `audit` を内蔵。install と update の際に自動スキャン |
-| **Web ダッシュボード** | なし | `skillshare ui` |
-| **実行時の依存** | Node.js + npm | なし（単一の Go バイナリ） |
-
-> [詳しい比較 →](https://skillshare.runkids.cc/docs/understand/philosophy/comparison)
 
 ## CLI と UI のプレビュー
 
@@ -180,6 +138,41 @@ alias ss='skillshare'
 skillshare init            # 設定、ソース、検出された target を作成
 skillshare sync            # skills をすべての target に同期
 ```
+
+## 仕組み
+
+- macOS / Linux: `~/.config/skillshare/`
+- Windows: `%AppData%\skillshare\`
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Source Directory                         │
+│   ~/.config/skillshare/skills/    ← skills (SKILL.md)       │
+│   ~/.config/skillshare/agents/    ← agents                  │
+│   ~/.config/skillshare/extras/    ← rules, commands, etc.   │
+└─────────────────────────────────────────────────────────────┘
+                              │ sync
+              ┌───────────────┼───────────────┐
+              ▼               ▼               ▼
+       ┌───────────┐   ┌───────────┐   ┌───────────┐
+       │  Claude   │   │  OpenCode │   │ OpenClaw  │   ...
+       └───────────┘   └───────────┘   └───────────┘
+```
+
+| プラットフォーム | Skills のソース | Agents のソース | Extras のソース | リンク方式 |
+|----------|---------------|---------------|---------------|-----------|
+| macOS/Linux | `~/.config/skillshare/skills/` | `~/.config/skillshare/agents/` | `~/.config/skillshare/extras/` | Symlinks |
+| Windows | `%AppData%\skillshare\skills\` | `%AppData%\skillshare\agents\` | `%AppData%\skillshare\extras\` | フォルダーは NTFS Junction（管理者権限は不要）。ファイルのシンボリックリンクには Developer Mode が必要で、ない場合はコピー |
+
+| | 命令型（コマンドごとにインストール） | 宣言型（skillshare） |
+|---|---|---|
+| **単一のソース** | skills を個別にコピー | ひとつのソースから symlink（またはコピー）で配布 |
+| **新しいマシンのセットアップ** | すべてのインストールを手作業でやり直す | 設定を `git clone` して `sync` |
+| **セキュリティ監査** | なし | `audit` を内蔵。install と update の際に自動スキャン |
+| **Web ダッシュボード** | なし | `skillshare ui` |
+| **実行時の依存** | Node.js + npm | なし（単一の Go バイナリ） |
+
+> [詳しい比較 →](https://skillshare.runkids.cc/docs/understand/philosophy/comparison)
 
 ## 主な機能
 

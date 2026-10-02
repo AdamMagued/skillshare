@@ -1,13 +1,12 @@
 import type {ReactNode, RefObject} from 'react';
 import {useEffect, useRef, useState} from 'react';
 import Link from '@docusaurus/Link';
-import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import Layout from '@theme/Layout';
 import Heading from '@theme/Heading';
-import Translate from '@docusaurus/Translate';
+import Translate, {translate} from '@docusaurus/Translate';
 import {Copy, Check, Monitor, ShieldCheck} from 'lucide-react';
 
-import {COMMAND_COUNT, FEATURE_GROUPS, TARGET_COUNT} from '../data/featureMap';
+import {FEATURE_GROUPS, TARGET_COUNT} from '../data/featureMap';
 import styles from './index.module.css';
 
 // ---------------------------------------------------------------------------
@@ -99,7 +98,7 @@ function SourceLogo() {
       <span className={styles.sparkle} aria-hidden="true">*</span>
       <span className={styles.sparkle} aria-hidden="true">+</span>
       <span className={styles.sparkle} aria-hidden="true">*</span>
-      <img className={styles.logoImg} src="/img/logo.png" alt="skillshare: the source of truth" />
+      <img className={styles.logoImg} src="/img/skillshare-logo.png" alt="skillshare" />
       <span className={`${styles.pin} ${styles.pinBlue}`} style={{left: 102, top: -26}} />
       <span className={`${styles.pin} ${styles.pinBlue}`} style={{left: 102, bottom: -26}} />
     </div>
@@ -121,7 +120,7 @@ function StringBoard({on, toggle, pinned}: ReturnType<typeof usePinned>) {
       </svg>
 
       <SourceLogo />
-      <span className={styles.sourceCaption}>source · ~/.config/skillshare/skills/</span>
+      <span className={styles.sourceCaption}><Translate id="home.board.source">your skills · managed in one place</Translate></span>
 
       {TOOLS.map((t) => (
         <button
@@ -140,7 +139,8 @@ function StringBoard({on, toggle, pinned}: ReturnType<typeof usePinned>) {
       ))}
 
       <span className={styles.note} style={{left: 272, top: 120, width: 130, textAlign: 'center'}}>
-        per-skill symlinks<br />(nothing copied)
+        <Translate id="home.board.edit">edit a skill once</Translate><br />
+        <Translate id="home.board.use">use it in each tool</Translate>
       </span>
       <span className={styles.note} style={{left: 760, top: 330, width: 190}}>
         tools you don't use<br />just hang there, unlinked
@@ -187,7 +187,7 @@ function SyncTerminal({pinned}: {pinned: Tool[]}) {
           <span style={{background: '#ff4d4d'}} />
           <span style={{background: '#fff3a0'}} />
           <span style={{background: '#7bd88f'}} />
-          <span className={styles.termBarText}>this output follows the board</span>
+          <span className={styles.termBarText}><Translate id="home.board.preview">skill sync preview</Translate></span>
         </div>
         <pre className={styles.termBody}>
           <span className={styles.ok}>$</span> skillshare sync{'\n\n'}
@@ -238,11 +238,12 @@ function HeroSection() {
         <div className={styles.heroHead}>
           <div>
             <Heading as="h1" className={styles.heroTitle}>
-              One folder of skills,<br />strung to <span className={styles.mark}>every AI tool.</span>
+              <Translate id="home.hero.title">Your AI coding setup,</Translate><br />
+              <span className={styles.mark}><Translate id="home.hero.everywhere">everywhere.</Translate></span>
             </Heading>
             <p className={styles.heroSubtitle}>
-              skillshare keeps your skills in one place and symlinks them into Claude Code, Cursor, Codex and{' '}
-              {TARGET_COUNT - 3} more. Pin the tools you use. Watch the strings.
+              <Translate id="home.hero.summary">Manage skills, agents, rules, MCP connections and hooks in one place.</Translate>{' '}
+              <Translate id="home.hero.tools">For Claude Code, Codex, Cursor, OpenCode and more.</Translate>
             </p>
             <div className={`${styles.buttons} ${styles.heroActions}`}>
               <Link className="button button--primary button--lg" to="/docs/getting-started/desktop-app">
@@ -426,13 +427,13 @@ function FeatureMapTeaser() {
       <div className="container">
         <div className={styles.teaser}>
           <div className={styles.teaserText}>
-            <span className={`${styles.hand} ${styles.bigNum}`}>{TARGET_COUNT}</span>
-            <span className={styles.teaserTitle}>tools on the board.<br />{COMMAND_COUNT} commands to move them.</span>
+            <Heading as="h2" className={styles.h2Big}><Translate id="home.features.title">More than skills.</Translate></Heading>
+            <span className={styles.teaserTitle}><Translate id="home.features.subtitle">The rest of your AI coding setup.</Translate></span>
             <p className={styles.lead}>
-              Nobody remembers {COMMAND_COUNT} commands. The map pins them by the job you're doing, with a live filter.
+              <Translate id="home.features.summary">Manage agents, rules, MCP connections, hooks and plugins alongside your skills. Find the command for the job.</Translate>
             </p>
             <Link className="button button--primary button--lg" to="/features">
-              Open the feature map
+              <Translate id="home.features.open">Explore the features</Translate>
             </Link>
           </div>
           <Link to="/features" className={`${styles.board} ${styles.teaserBoard}`}>
@@ -462,8 +463,8 @@ function CtaSection() {
         <div className={styles.cta}>
           <div className={styles.tape} style={{top: -14, left: 60, transform: 'rotate(-4deg)'}} aria-hidden="true" />
           <div>
-            <Heading as="h2" className={`${styles.hand} ${styles.ctaTitle}`}>Pin it once. Never copy a skill again.</Heading>
-            <p className={styles.lead}>Free, MIT licensed. Uninstall leaves every tool exactly as it was.</p>
+            <Heading as="h2" className={`${styles.hand} ${styles.ctaTitle}`}><Translate id="home.cta.title">Switch tools. Keep your setup.</Translate></Heading>
+            <p className={styles.lead}><Translate id="home.cta.summary">Free and open source. Manage your setup locally, with the desktop app or CLI.</Translate></p>
           </div>
           <div className={styles.buttons}>
             <Link className="button button--primary button--lg" to="/docs/getting-started/desktop-app">
@@ -480,14 +481,16 @@ function CtaSection() {
 }
 
 export default function Home(): ReactNode {
-  const {siteConfig} = useDocusaurusContext();
   return (
-    <Layout title="AI Skills Manager — Desktop App & CLI" description={siteConfig.tagline}>
+    <Layout
+      title={translate({id: 'home.meta.title', message: 'AI Coding Setup Manager — Skills, Agents, MCP & Hooks'})}
+      description={translate({id: 'home.meta.description', message: 'Your AI coding setup, everywhere. Manage skills, agents, rules, MCP connections and hooks in one place, with the desktop app or CLI.'})}
+    >
       <div className={styles.homePage}>
         <HeroSection />
         <main>
-          <FourMovesSection />
           <FeatureMapTeaser />
+          <FourMovesSection />
           <CtaSection />
         </main>
       </div>
