@@ -52,19 +52,7 @@
     "description": "Homepage product positioning"
   },
   "home.hero.tools": {
-    "message": "適用於 Claude Code、Codex、Cursor、OpenCode 等工具。",
-    "description": "Homepage product positioning"
-  },
-  "home.board.source": {
-    "message": "你的 skills · 集中管理",
-    "description": "Homepage product positioning"
-  },
-  "home.board.edit": {
-    "message": "修改一次 skill",
-    "description": "Homepage product positioning"
-  },
-  "home.board.use": {
-    "message": "在各工具中使用",
+    "message": "適用於 Claude Code、Codex、Pi、OpenCode 等工具。",
     "description": "Homepage product positioning"
   },
   "home.board.preview": {
@@ -102,5 +90,13 @@
   "home.meta.description": {
     "message": "你的 AI coding 環境，隨處可用。透過桌面 App 或 CLI，在同一個地方管理 skills、agents、rules、MCP 連線與 hooks。",
     "description": "Homepage product positioning"
+  },
+  "home.demo.label": {
+    "message": "Skillshare 示範：修改一次，在 AI coding 工具之間同步",
+    "description": "Homepage product demo"
+  },
+  "home.demo.download": {
+    "message": "下載示範影片",
+    "description": "Homepage product demo"
   }
 }

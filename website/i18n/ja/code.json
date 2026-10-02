@@ -48,19 +48,7 @@
     "description": "Homepage product positioning"
   },
   "home.hero.tools": {
-    "message": "Claude Code、Codex、Cursor、OpenCode などで使えます。",
-    "description": "Homepage product positioning"
-  },
-  "home.board.source": {
-    "message": "あなたの skills をひとつの場所で管理",
-    "description": "Homepage product positioning"
-  },
-  "home.board.edit": {
-    "message": "skill を一度編集",
-    "description": "Homepage product positioning"
-  },
-  "home.board.use": {
-    "message": "各ツールで使う",
+    "message": "Claude Code、Codex、Pi、OpenCode などで使えます。",
     "description": "Homepage product positioning"
   },
   "home.board.preview": {
@@ -98,5 +86,13 @@
   "home.meta.description": {
     "message": "あなたの AI コーディング環境を、どこでも。デスクトップアプリまたは CLI で skills、agents、rules、MCP 接続、hooks をひとつの場所で管理。",
     "description": "Homepage product positioning"
+  },
+  "home.demo.label": {
+    "message": "Skillshare デモ：一度編集して、AI コーディングツール間で同期",
+    "description": "Homepage product demo"
+  },
+  "home.demo.download": {
+    "message": "デモ動画をダウンロード",
+    "description": "Homepage product demo"
   }
 }

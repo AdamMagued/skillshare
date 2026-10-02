@@ -53,132 +53,57 @@ function ScaledBoard({
 }
 
 // ---------------------------------------------------------------------------
-// Hero board: source logo strung to 8 of the 67 targets.
+// Product demo and CLI preview.
 // ---------------------------------------------------------------------------
 
-type Tool = {
-  id: string;
-  name: string;
-  path: string;
-  local: number;
-  left: number;
-  top: number;
-  rotate: number;
-  string: string;
-  defaultOn: boolean;
-};
+function HeroVideo() {
+  const ref = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const video = ref.current;
+    if (!video) return undefined;
+    const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const update = () => {
+      if (motion.matches) {
+        video.pause();
+      } else {
+        // Native controls remain available if the browser blocks autoplay.
+        void video.play().catch(() => {});
+      }
+    };
+    update();
+    motion.addEventListener('change', update);
+    return () => motion.removeEventListener('change', update);
+  }, []);
 
-const TOOLS: Tool[] = [
-  {id: 'claude', name: 'Claude Code', path: '~/.claude/skills', local: 3, left: 110, top: 60, rotate: -1.5, string: 'M584 200 Q384 177 185 74', defaultOn: true},
-  {id: 'cursor', name: 'Cursor', path: '~/.cursor/skills', local: 1, left: 390, top: 30, rotate: 1, string: 'M584 200 Q524 162 465 44', defaultOn: true},
-  {id: 'codex', name: 'Codex', path: '~/.agents/skills', local: 2, left: 760, top: 30, rotate: -0.8, string: 'M584 200 Q710 162 835 44', defaultOn: true},
-  {id: 'gemini', name: 'Gemini CLI', path: '~/.gemini/skills', local: 0, left: 1010, top: 80, rotate: 1.6, string: 'M584 200 Q834 187 1085 94', defaultOn: true},
-  {id: 'opencode', name: 'OpenCode', path: '~/.config/opencode/skills', local: 0, left: 90, top: 430, rotate: 1.2, string: 'M584 456 Q374 490 165 444', defaultOn: true},
-  {id: 'copilot', name: 'GitHub Copilot', path: '~/.copilot/skills', local: 0, left: 380, top: 530, rotate: -1, string: 'M584 456 Q520 540 455 544', defaultOn: false},
-  {id: 'windsurf', name: 'Windsurf', path: '~/.codeium/windsurf/skills', local: 1, left: 740, top: 530, rotate: 0.9, string: 'M584 456 Q700 540 815 544', defaultOn: false},
-  {id: 'zed', name: 'Zed', path: '~/.agents/skills', local: 0, left: 1020, top: 440, rotate: -1.4, string: 'M584 456 Q840 495 1095 454', defaultOn: false},
+  return (
+    <video
+      ref={ref}
+      className={styles.heroVideo}
+      controls
+      muted
+      loop
+      playsInline
+      preload="metadata"
+      poster="/img/skillshare-demo-poster.jpg"
+      aria-label={translate({id: 'home.demo.label', message: 'Skillshare demo: edit once, sync across AI coding tools'})}
+    >
+      <source src="/video/skillshare-demo.mp4" type="video/mp4" />
+      <track kind="captions" src="/video/skillshare-demo.en.vtt" srcLang="en" label="English" />
+      <a href="/video/skillshare-demo.mp4"><Translate id="home.demo.download">Download the demo video</Translate></a>
+    </video>
+  );
+}
+
+const SYNC_TARGETS = [
+  {id: 'claude', local: 3},
+  {id: 'cursor', local: 1},
+  {id: 'codex', local: 2},
+  {id: 'gemini', local: 0},
+  {id: 'opencode', local: 0},
 ];
-
 const SKILL_COUNT = 14;
 
-function usePinned() {
-  const [on, setOn] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(TOOLS.map((t) => [t.id, t.defaultOn])),
-  );
-  const toggle = (id: string) => setOn((prev) => ({...prev, [id]: !prev[id]}));
-  const pinned = TOOLS.filter((t) => on[t.id]);
-  return {on, toggle, pinned};
-}
-
-function SourceLogo() {
-  return (
-    <div className={styles.logoWrap}>
-      <div className={styles.logoShadow} aria-hidden="true" />
-      <div className={styles.logoRing} aria-hidden="true" />
-      <span className={styles.sparkle} aria-hidden="true">*</span>
-      <span className={styles.sparkle} aria-hidden="true">+</span>
-      <span className={styles.sparkle} aria-hidden="true">*</span>
-      <img className={styles.logoImg} src="/img/skillshare-logo.png" alt="skillshare" />
-      <span className={`${styles.pin} ${styles.pinBlue}`} style={{left: 102, top: -26}} />
-      <span className={`${styles.pin} ${styles.pinBlue}`} style={{left: 102, bottom: -26}} />
-    </div>
-  );
-}
-
-function StringBoard({on, toggle, pinned}: ReturnType<typeof usePinned>) {
-  return (
-    <ScaledBoard width={1168} height={620} className={styles.heroBoard}>
-      <svg width="1168" height="620" viewBox="0 0 1168 620" className={styles.strings} aria-hidden="true">
-        {TOOLS.map((t, i) => (
-          <path
-            key={t.id}
-            className={`${styles.str} ${on[t.id] ? styles.strOn : styles.strOff}`}
-            d={t.string}
-            style={{animationDelay: `${0.05 + i * 0.1}s`}}
-          />
-        ))}
-      </svg>
-
-      <SourceLogo />
-      <span className={styles.sourceCaption}><Translate id="home.board.source">your skills · managed in one place</Translate></span>
-
-      {TOOLS.map((t) => (
-        <button
-          key={t.id}
-          type="button"
-          className={`${styles.tool} ${on[t.id] ? '' : styles.toolOff}`}
-          style={{left: t.left, top: t.top, transform: `rotate(${t.rotate}deg)`}}
-          onClick={() => toggle(t.id)}
-          aria-pressed={on[t.id]}
-          aria-label={`${on[t.id] ? 'Unpin' : 'Pin'} ${t.name}`}
-        >
-          <span className={styles.pin} />
-          <span className={styles.toolName}>{t.name}</span>
-          <span className={styles.toolPath}>{t.path}</span>
-        </button>
-      ))}
-
-      <span className={styles.note} style={{left: 272, top: 120, width: 130, textAlign: 'center'}}>
-        <Translate id="home.board.edit">edit a skill once</Translate><br />
-        <Translate id="home.board.use">use it in each tool</Translate>
-      </span>
-      <span className={styles.note} style={{left: 760, top: 330, width: 190}}>
-        tools you don't use<br />just hang there, unlinked
-      </span>
-      <Link to="/docs/reference/targets/supported-targets" className={styles.boardLink}>
-        +{TARGET_COUNT - TOOLS.length} more tools on the full board →
-      </Link>
-
-      <div className={styles.counter}>
-        <div className={styles.tape} style={{width: 70, height: 20, top: -10, left: 24, transform: 'rotate(-3deg)'}} aria-hidden="true" />
-        <span className={styles.counterNum}>{pinned.length}</span>
-        <span className={styles.counterLabel}>pinned</span>
-      </div>
-    </ScaledBoard>
-  );
-}
-
-// Small screens: same state, no strings.
-function PinList({on, toggle}: ReturnType<typeof usePinned>) {
-  return (
-    <div className={styles.pinList}>
-      {TOOLS.map((t) => (
-        <button
-          key={t.id}
-          type="button"
-          className={`${styles.pinChip} ${on[t.id] ? styles.pinChipOn : ''}`}
-          onClick={() => toggle(t.id)}
-          aria-pressed={on[t.id]}
-        >
-          <span className={styles.pin} />
-          {t.name}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function SyncTerminal({pinned}: {pinned: Tool[]}) {
+function SyncTerminal() {
   return (
     <div className={styles.termWrap}>
       <div className={styles.tape} style={{top: -14, left: 40, transform: 'rotate(-5deg)'}} aria-hidden="true" />
@@ -192,14 +117,13 @@ function SyncTerminal({pinned}: {pinned: Tool[]}) {
         <pre className={styles.termBody}>
           <span className={styles.ok}>$</span> skillshare sync{'\n\n'}
           <span className={styles.termHead}>Syncing skills</span>{'\n'}
-          {pinned.map((t) => (
+          {SYNC_TARGETS.map((t) => (
             <span key={t.id}>
               <span className={styles.ok}>✓</span> {t.id}: merged ({SKILL_COUNT} linked, {t.local} local, 0 updated, 0 pruned){'\n'}
             </span>
           ))}
-          {pinned.length === 0 && <span className={styles.dim}>no targets pinned — click a tool on the board{'\n'}</span>}
           {'\n'}
-          <span className={styles.dim}>{pinned.length} targets · {SKILL_COUNT} skills</span>
+          <span className={styles.dim}>{SYNC_TARGETS.length} targets · {SKILL_COUNT} skills</span>
         </pre>
       </div>
     </div>
@@ -231,7 +155,6 @@ function CopyButton({text}: {text: string}) {
 // ---------------------------------------------------------------------------
 
 function HeroSection() {
-  const board = usePinned();
   return (
     <header className={styles.hero}>
       <div className="container">
@@ -243,7 +166,7 @@ function HeroSection() {
             </Heading>
             <p className={styles.heroSubtitle}>
               <Translate id="home.hero.summary">Manage skills, agents, rules, MCP connections and hooks in one place.</Translate>{' '}
-              <Translate id="home.hero.tools">For Claude Code, Codex, Cursor, OpenCode and more.</Translate>
+              <Translate id="home.hero.tools">For Claude Code, Codex, Pi, OpenCode and more.</Translate>
             </p>
             <div className={`${styles.buttons} ${styles.heroActions}`}>
               <Link className="button button--primary button--lg" to="/docs/getting-started/desktop-app">
@@ -258,18 +181,13 @@ function HeroSection() {
               <Translate id="home.desktop.platforms">macOS (Apple Silicon) · Windows · Linux</Translate>
             </p>
           </div>
-          <span className={`${styles.hand} ${styles.heroHint}`}>click a tool to pin<br />or unpin it ↓</span>
+          <img className={styles.heroLogo} src="/img/skillshare-logo-card.png" alt="skillshare" />
         </div>
 
-        <div className={styles.onlyWide}>
-          <StringBoard {...board} />
-        </div>
-        <div className={styles.onlyNarrow}>
-          <PinList {...board} />
-        </div>
+        <HeroVideo />
 
         <div className={styles.heroBottom}>
-          <SyncTerminal pinned={board.pinned} />
+          <SyncTerminal />
           <div className={styles.installCol}>
             <Heading as="h2" className={styles.h2}>
               <Translate id="home.desktop.title">Start with the desktop app.</Translate>
@@ -380,7 +298,7 @@ function FourMovesSection() {
               <span className={styles.cardSub}>pr-review → source</span>
             </Card>
             <Card left={930} top={270} width={190} height={60} rotate={-0.8} pinLeft={86}>
-              <span className={styles.cardTitle}>Cursor</span>
+              <span className={styles.cardTitle}>Pi</span>
               <span className={styles.cardSub}>+ 1 local skill kept</span>
             </Card>
             <Card left={930} top={418} width={190} height={60} rotate={1.3} pinLeft={86}>
@@ -391,7 +309,7 @@ function FourMovesSection() {
               sync →<br /><span className={styles.noteCmd}>skillshare sync</span>
             </span>
             <span className={styles.note} style={{left: 760, top: 372, color: 'var(--color-danger)'}}>
-              ← collect<br /><span className={styles.noteCmd}>skillshare collect cursor</span>
+              ← collect<br /><span className={styles.noteCmd}>skillshare collect pi</span>
             </span>
             <span className={styles.note} style={{left: 40, top: 470, width: 300}}>
               merge mode never overwrites a skill the tool already had. that's the whole trick.
