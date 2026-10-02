@@ -28,7 +28,7 @@
 <p align="center">
   <strong>나의 AI 코딩 환경을, 어디서나.</strong><br>
   skills, agents, rules, MCP 연결과 hooks를 한곳에서 관리하세요.<br>
-  Claude Code, Codex, Cursor, OpenCode 등에서 사용할 수 있습니다.
+  Claude Code, Codex, Pi, OpenCode 등에서 사용할 수 있습니다.
 </p>
 
 <p align="center">
@@ -41,6 +41,10 @@
   <a href="https://skillshare.runkids.cc/docs">문서</a>
 </p>
 
+<p align="center">
+  <img src=".github/assets/demo.gif" alt="skillshare demo" width="960">
+</p>
+
 > [!NOTE]
 > **최신 버전**: v0.23.0 — global과 project 범위의 **네이티브 hooks**를 관리·동기화하고, `tools.allow`와 `tools.deny`로 모델이 사용할 **MCP tools**를 선택할 수 있습니다. dashboard에 추가된 **Hooks 페이지**와 **MCP 도구 선택 화면**에서도 설정할 수 있습니다. 전체 새 기능과 수정 사항은 [Releases](https://github.com/runkids/skillshare/releases)와 [변경 내역](https://skillshare.runkids.cc/changelog)에서 확인하세요.
 
@@ -49,7 +53,7 @@
 AI 도구를 바꿀 때마다 환경을 다시 구성할 필요는 없습니다.
 skillshare는 skills와 다른 AI 리소스를 직접 관리할 수 있는 한곳에 모아 줍니다.
 
-- **도구를 바꿔도 skills는 그대로** — 한 번 수정하고 Claude Code, Codex, Cursor 등 사용하는 도구에 동기화하세요.
+- **도구를 바꿔도 skills는 그대로** — 한 번 수정하고 Claude Code, Codex, Pi 등 사용하는 도구에 동기화하세요.
 - **다른 컴퓨터에서도 내 환경 그대로** — 소스를 Git으로 관리하고 다른 컴퓨터에서 pull하세요.
 - **팀과 공유** — 프로젝트 리소스를 코드와 함께 관리하고 공용 skills를 tracked repo로 배포하세요.
 
@@ -58,10 +62,6 @@ skillshare는 skills와 다른 AI 리소스를 직접 관리할 수 있는 한�
 > 다른 도구에서 옮겨 오시나요? [마이그레이션 가이드](https://skillshare.runkids.cc/docs/how-to/advanced/migration) · [비교](https://skillshare.runkids.cc/docs/understand/philosophy/comparison)
 
 ## CLI와 UI 미리보기
-
-<p align="center">
-  <img src=".github/assets/demo.gif" alt="skillshare demo" width="960">
-</p>
 
 | Skill 상세 정보 | 보안 감사 |
 |---|---|
@@ -218,7 +218,7 @@ skillshare sync --all                 # skills, agents, extras, MCP, hooks를 �
 skillshare extras collect rules       # 로컬 파일을 소스로 다시 수집
 ```
 
-**MCP 연결** — 한 번 설정하면 Claude Code, Codex, Cursor, VS Code, OpenCode 등에 적용
+**MCP 연결** — 한 번 설정하면 Claude Code, Codex, Pi, VS Code, OpenCode 등에 적용
 
 ```bash
 skillshare mcp add                    # 안내형 설정. URL을 입력하거나 JSON을 붙여넣기

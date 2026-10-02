@@ -28,7 +28,7 @@
 <p align="center">
   <strong>你的 AI coding 環境，隨處可用。</strong><br>
   在同一個地方管理 skills、agents、rules、MCP 連線與 hooks。<br>
-  適用於 Claude Code、Codex、Cursor、OpenCode 等工具。
+  適用於 Claude Code、Codex、Pi、OpenCode 等工具。
 </p>
 
 <p align="center">
@@ -41,6 +41,10 @@
   <a href="https://skillshare.runkids.cc/docs">文件</a>
 </p>
 
+<p align="center">
+  <img src=".github/assets/demo.gif" alt="skillshare demo" width="960">
+</p>
+
 > [!NOTE]
 > **最新版本**：v0.23.0 — 管理與同步 global 和 project 範圍的**原生 hooks**；用 `tools.allow` 與 `tools.deny` 選擇模型可使用的 **MCP tools**；並透過 dashboard 新增的 **Hooks 頁面**與 **MCP 工具選擇介面**完成設定。完整的新功能與修正見 [Releases](https://github.com/runkids/skillshare/releases) 和[更新紀錄](https://skillshare.runkids.cc/changelog)。
 
@@ -49,7 +53,7 @@
 切換 AI 工具，不該每次都重新設定環境。
 skillshare 把 skills 與其他 AI 資源集中到由你掌控的地方。
 
-- **換工具，繼續用你的 skills** — 修改一次，再同步到 Claude Code、Codex、Cursor 和你使用的其他工具。
+- **換工具，繼續用你的 skills** — 修改一次，再同步到 Claude Code、Codex、Pi 和你使用的其他工具。
 - **換電腦，帶著環境走** — 用 Git 管理資源來源，在另一台電腦上 pull。
 - **和團隊共用** — 專案資源與程式碼一起管理，共用 skills 透過 tracked repo 發布。
 
@@ -58,10 +62,6 @@ skillshare 把 skills 與其他 AI 資源集中到由你掌控的地方。
 > 從其他工具換過來？ [遷移指南](https://skillshare.runkids.cc/docs/how-to/advanced/migration) · [比較](https://skillshare.runkids.cc/docs/understand/philosophy/comparison)
 
 ## CLI 與介面預覽
-
-<p align="center">
-  <img src=".github/assets/demo.gif" alt="skillshare demo" width="960">
-</p>
 
 | Skill 詳細資訊 | 安全稽核 |
 |---|---|
@@ -218,7 +218,7 @@ skillshare sync --all                 # skills、agents、extras、MCP、hooks �
 skillshare extras collect rules       # 把本機檔案收回來源
 ```
 
-**MCP 連線** — 設定一次，Claude Code、Codex、Cursor、VS Code、OpenCode 等工具都能用
+**MCP 連線** — 設定一次，Claude Code、Codex、Pi、VS Code、OpenCode 等工具都能用
 
 ```bash
 skillshare mcp add                    # 引導式設定，輸入 URL 或貼上 JSON

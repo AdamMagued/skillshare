@@ -29,7 +29,7 @@
 <p align="center">
   <strong>Your AI coding setup, everywhere.</strong><br>
   Manage skills, agents, rules, MCP connections and hooks in one place.<br>
-  For Claude Code, Codex, Cursor, OpenCode and more.
+  For Claude Code, Codex, Pi, OpenCode and more.
 </p>
 
 <p align="center">
@@ -42,6 +42,10 @@
   <a href="https://skillshare.runkids.cc/docs">Docs</a>
 </p>
 
+<p align="center">
+  <img src=".github/assets/demo.gif" alt="skillshare demo" width="960">
+</p>
+
 > [!NOTE]
 > **Latest**: v0.23.0 — manage and sync **native hooks** in global and project scope; choose which **MCP tools** reach the model with `tools.allow` and `tools.deny`; and use the dashboard's new **Hooks page** and **MCP tool picker** to configure them. [All releases →](https://github.com/runkids/skillshare/releases)
 
@@ -50,7 +54,7 @@
 Switching AI tools should not mean rebuilding your setup.
 skillshare gives your skills and other AI resources a home you control.
 
-- **Switch tools, keep your skills** — edit once, then sync to Claude Code, Codex, Cursor and the other tools you use.
+- **Switch tools, keep your skills** — edit once, then sync to Claude Code, Codex, Pi and the other tools you use.
 - **Take your setup with you** — version your source in Git and pull it onto another machine.
 - **Share with your team** — keep project resources with your code and distribute shared skills through tracked repositories.
 
@@ -59,10 +63,6 @@ Use the desktop app or CLI to manage everything locally, [audit skills before us
 > Coming from another tool? [Migration Guide](https://skillshare.runkids.cc/docs/how-to/advanced/migration) · [Comparison](https://skillshare.runkids.cc/docs/understand/philosophy/comparison)
 
 ## CLI and UI Preview
-
-<p align="center">
-  <img src=".github/assets/demo.gif" alt="skillshare demo" width="960">
-</p>
 
 | Skill Detail | Security Audit |
 |---|---|
@@ -219,7 +219,7 @@ skillshare sync --all                 # sync skills + agents + extras + MCP + ho
 skillshare extras collect rules       # collect local files back to source
 ```
 
-**MCP connections** —configure once for Claude Code, Codex, Cursor, VS Code, OpenCode and more
+**MCP connections** —configure once for Claude Code, Codex, Pi, VS Code, OpenCode and more
 
 ```bash
 skillshare mcp add                    # guided URL or JSON setup

@@ -28,7 +28,7 @@
 <p align="center">
   <strong>あなたの AI コーディング環境を、どこでも。</strong><br>
   skills、agents、rules、MCP 接続、hooks をひとつの場所で管理。<br>
-  Claude Code、Codex、Cursor、OpenCode などで使えます。
+  Claude Code、Codex、Pi、OpenCode などで使えます。
 </p>
 
 <p align="center">
@@ -41,6 +41,10 @@
   <a href="https://skillshare.runkids.cc/docs">ドキュメント</a>
 </p>
 
+<p align="center">
+  <img src=".github/assets/demo.gif" alt="skillshare demo" width="960">
+</p>
+
 > [!NOTE]
 > **最新バージョン**：v0.23.0 — global と project の両スコープで**ネイティブ hooks** を管理・同期し、`tools.allow` と `tools.deny` でモデルが使える **MCP tools** を選択できます。dashboard に追加された **Hooks ページ**と **MCP ツール選択画面**からも設定できます。新機能と修正の一覧は [Releases](https://github.com/runkids/skillshare/releases) と[変更履歴](https://skillshare.runkids.cc/changelog)をご覧ください。
 
@@ -49,7 +53,7 @@
 AI ツールを切り替えるたびに、環境を作り直す必要はありません。
 skillshare は skills やほかの AI リソースを、自分で管理できる場所にまとめます。
 
-- **ツールを変えても skills はそのまま** — 一度編集して、Claude Code、Codex、Cursor など使っているツールに同期。
+- **ツールを変えても skills はそのまま** — 一度編集して、Claude Code、Codex、Pi など使っているツールに同期。
 - **環境を別のマシンへ** — ソースを Git で管理し、別のマシンに pull。
 - **チームで共有** — プロジェクトのリソースをコードと一緒に管理し、共通の skills を tracked repo で配布。
 
@@ -58,10 +62,6 @@ skillshare は skills やほかの AI リソースを、自分で管理できる
 > ほかのツールから移行しますか？ [移行ガイド](https://skillshare.runkids.cc/docs/how-to/advanced/migration) · [比較](https://skillshare.runkids.cc/docs/understand/philosophy/comparison)
 
 ## CLI と UI のプレビュー
-
-<p align="center">
-  <img src=".github/assets/demo.gif" alt="skillshare demo" width="960">
-</p>
 
 | Skill の詳細 | セキュリティ監査 |
 |---|---|
@@ -218,7 +218,7 @@ skillshare sync --all                 # skills、agents、extras、MCP、hooks �
 skillshare extras collect rules       # ローカルのファイルをソースに取り込む
 ```
 
-**MCP 接続** — 一度の設定で Claude Code、Codex、Cursor、VS Code、OpenCode などに反映
+**MCP 接続** — 一度の設定で Claude Code、Codex、Pi、VS Code、OpenCode などに反映
 
 ```bash
 skillshare mcp add                    # ガイド付き設定。URL を入力するか JSON を貼り付け
