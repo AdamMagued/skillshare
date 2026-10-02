@@ -33,8 +33,10 @@ var clientFormats = map[string]clientFormat{
 	"junie":          {key: "mcpServers", urlKey: "url", globalPath: ".junie/mcp/mcp.json", projectPath: ".junie/mcp/mcp.json"},
 	"kiro":           {key: "mcpServers", urlKey: "url", refPrefix: "${", globalPath: ".kiro/settings/mcp.json", projectPath: ".kiro/settings/mcp.json"},
 	"lmstudio":       {key: "mcpServers", urlKey: "url", globalPath: ".lmstudio/mcp.json"},
-	"warp":           {key: "mcpServers", urlKey: "url", globalPath: ".warp/.mcp.json", projectPath: ".warp/.mcp.json"},
-	"windsurf":       {key: "mcpServers", urlKey: "serverUrl", refPrefix: "${env:", globalPath: ".codeium/windsurf/mcp_config.json"},
+	// Muse Code reads a project's Claude-format .mcp.json, which the claude target writes.
+	"muse":     {key: "mcp_servers", urlKey: "url", refPrefix: "${", globalPath: ".config/muse/settings.json"},
+	"warp":     {key: "mcpServers", urlKey: "url", globalPath: ".warp/.mcp.json", projectPath: ".warp/.mcp.json"},
+	"windsurf": {key: "mcpServers", urlKey: "serverUrl", refPrefix: "${env:", globalPath: ".codeium/windsurf/mcp_config.json"},
 }
 
 func (s *Service) additionalClientPath(target string, format clientFormat) (string, error) {
@@ -128,6 +130,8 @@ func (s *Service) additionalClientPath(target string, format clientFormat) (stri
 		}
 	case "amp":
 		return filepath.Join(xdg, "amp", "settings.json"), nil
+	case "muse":
+		return filepath.Join(xdg, "muse", "settings.json"), nil
 	case "goose":
 		if platform == "windows" {
 			return filepath.Join(appdata, "Block", "goose", "config", "config.yaml"), nil
@@ -200,6 +204,15 @@ func renderAdditionalClient(target string, format clientFormat, s Server) (map[s
 			out["tools"] = allow
 		}
 	}
+	if target == "muse" {
+		out["transport"] = "stdio"
+		if s.Command == "" {
+			out["transport"] = "streamable_http"
+		}
+		// Muse aborts the whole run when a required server fails to start; a server shared
+		// with other tools should only cost Muse that server.
+		out["mode"] = "optional"
+	}
 	if target == "goose" {
 		out["enabled"] = true
 		out["name"] = "server" // The plan supplies the actual portable server name.
@@ -225,6 +238,9 @@ func additionalManagedFields(target string) []string {
 	}
 	if target == "goose" {
 		return []string{"type", "name", "cmd", "args", "envs", "env_keys", "uri", "headers", "enabled", "disabled"}
+	}
+	if target == "muse" {
+		return []string{"transport", "mode", "command", "args", "env", "url", "headers", "enabled"}
 	}
 	return []string{"type", "command", "args", "env", "url", format.urlKey, "headers", "enabled", "disabled"}
 }

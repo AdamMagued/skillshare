@@ -135,7 +135,7 @@ Skillshare config. The schema is `schemas/mcp.schema.json` in the repository.
 
 Client IDs are `claude`, `codex`, `cursor`, `vscode`, `opencode`, `kilocode`,
 `grok`, `antigravity`, `amp`, `claude-desktop`, `cline`, `copilot`, `factory`, `gemini`,
-`goose`, `junie`, `kiro`, `lmstudio`, `warp`, `windsurf`, and `pi`.
+`goose`, `junie`, `kiro`, `lmstudio`, `muse`, `warp`, `windsurf`, and `pi`.
 `grok` means the official xAI Grok CLI. Server names use letters,
 digits, dots, underscores and hyphens. A server must select at least one client
 either directly or through `mcp.targets` before synchronization, unless its own
@@ -198,6 +198,7 @@ Names such as `company-docs` work across all supported clients.
 | [Junie](https://junie.jetbrains.com/docs/junie-cli-mcp-configuration.html) | `~/.junie/mcp/mcp.json` | `.junie/mcp/mcp.json` | `mcpServers` |
 | [Kiro](https://kiro.dev/docs/mcp/configuration/) | `~/.kiro/settings/mcp.json` | `.kiro/settings/mcp.json` | `mcpServers` |
 | [LM Studio](https://lmstudio.ai/docs/app/mcp) | `~/.lmstudio/mcp.json` | Global only | `mcpServers` |
+| [Muse Code](https://dev.meta.ai/docs/muse-code/extending) | `~/.config/muse/settings.json` | Global only; in a project, Muse reads Claude's `.mcp.json` | `mcp_servers` (`mode: optional`) |
 | [Warp](https://docs.warp.dev/agents/capabilities/mcp/) | `~/.warp/.mcp.json` | `.warp/.mcp.json` | `mcpServers` |
 | [Windsurf (Cascade)](https://docs.devin.ai/desktop/cascade/mcp) | `~/.codeium/windsurf/mcp_config.json` | Global only | `mcpServers` |
 

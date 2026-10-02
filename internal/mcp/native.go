@@ -119,6 +119,10 @@ func ParseNative(target string, data []byte) (*Native, error) {
 	} else {
 		if len(data) == 0 {
 			data = []byte("{}\n")
+			if target == "muse" {
+				// Muse refuses to start with a settings file that lacks its schema version.
+				data = []byte("{\n  \"schema_version\": 1\n}\n")
+			}
 			n.data = data
 		}
 		var err error
@@ -200,6 +204,9 @@ func (n *Native) Edit(changes map[string]map[string]any) ([]byte, error) {
 	}
 	key := "/" + nativeKey(n.Target)
 	var patches []map[string]any
+	if n.Target == "muse" && v.Find("/schema_version") == nil {
+		patches = append(patches, map[string]any{"op": "add", "path": "/schema_version", "value": 1})
+	}
 	if v.Find(key) == nil {
 		patches = append(patches, map[string]any{"op": "add", "path": key, "value": map[string]any{}})
 	}

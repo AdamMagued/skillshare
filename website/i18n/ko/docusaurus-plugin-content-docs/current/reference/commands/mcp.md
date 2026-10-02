@@ -132,7 +132,7 @@ source가 한 번 저장되기 전에 검증되며, 이후의 네이티브 파�
 
 Client ID는 `claude`, `codex`, `cursor`, `vscode`, `opencode`, `kilocode`,
 `grok`, `antigravity`, `amp`, `claude-desktop`, `cline`, `copilot`, `factory`, `gemini`,
-`goose`, `junie`, `kiro`, `lmstudio`, `warp`, `windsurf`, `pi`입니다.
+`goose`, `junie`, `kiro`, `lmstudio`, `muse`, `warp`, `windsurf`, `pi`입니다.
 `grok`은 공식 xAI Grok CLI를 의미합니다. 서버 이름은 문자, 숫자, 점, 밑줄, 하이픈을
 사용합니다. 서버는 동기화 전에 직접 또는 `mcp.targets`를 통해 최소 하나의 client를
 선택해야 합니다. 단, 서버 자체의 `targets`가 빈 목록인 경우는 예외입니다.
@@ -194,6 +194,7 @@ client에서 동작합니다.
 | [Junie](https://junie.jetbrains.com/docs/junie-cli-mcp-configuration.html) | `~/.junie/mcp/mcp.json` | `.junie/mcp/mcp.json` | `mcpServers` |
 | [Kiro](https://kiro.dev/docs/mcp/configuration/) | `~/.kiro/settings/mcp.json` | `.kiro/settings/mcp.json` | `mcpServers` |
 | [LM Studio](https://lmstudio.ai/docs/app/mcp) | `~/.lmstudio/mcp.json` | Global only | `mcpServers` |
+| [Muse Code](https://dev.meta.ai/docs/muse-code/extending) | `~/.config/muse/settings.json` | Global only. 프로젝트에서는 Muse가 Claude의 `.mcp.json`을 읽음 | `mcp_servers` (`mode: optional`) |
 | [Warp](https://docs.warp.dev/agents/capabilities/mcp/) | `~/.warp/.mcp.json` | `.warp/.mcp.json` | `mcpServers` |
 | [Windsurf (Cascade)](https://docs.devin.ai/desktop/cascade/mcp) | `~/.codeium/windsurf/mcp_config.json` | Global only | `mcpServers` |
 

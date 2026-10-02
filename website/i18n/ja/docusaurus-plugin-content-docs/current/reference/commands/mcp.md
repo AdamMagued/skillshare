@@ -104,7 +104,7 @@ Add、edit、remove、import では、**Save and sync** または **Save only** 
 
 クライアント ID は `claude`、`codex`、`cursor`、`vscode`、`opencode`、`kilocode`、
 `grok`、`antigravity`、`amp`、`claude-desktop`、`cline`、`copilot`、`factory`、`gemini`、
-`goose`、`junie`、`kiro`、`lmstudio`、`warp`、`windsurf`、`pi` です。
+`goose`、`junie`、`kiro`、`lmstudio`、`muse`、`warp`、`windsurf`、`pi` です。
 `grok` は公式の xAI Grok CLI を意味します。サーバー名には文字、
 数字、ドット、アンダースコア、ハイフンを使用します。サーバーは同期前に、直接または
 `mcp.targets` 経由で少なくとも 1 つのクライアントを選択する必要があります。ただし、サーバー自身の
@@ -166,6 +166,7 @@ Grok の場合、名前は文字またはアンダースコアで始まり、文
 | [Junie](https://junie.jetbrains.com/docs/junie-cli-mcp-configuration.html) | `~/.junie/mcp/mcp.json` | `.junie/mcp/mcp.json` | `mcpServers` |
 | [Kiro](https://kiro.dev/docs/mcp/configuration/) | `~/.kiro/settings/mcp.json` | `.kiro/settings/mcp.json` | `mcpServers` |
 | [LM Studio](https://lmstudio.ai/docs/app/mcp) | `~/.lmstudio/mcp.json` | Global のみ | `mcpServers` |
+| [Muse Code](https://dev.meta.ai/docs/muse-code/extending) | `~/.config/muse/settings.json` | Global のみ。プロジェクトでは Muse が Claude の `.mcp.json` を読む | `mcp_servers` (`mode: optional`) |
 | [Warp](https://docs.warp.dev/agents/capabilities/mcp/) | `~/.warp/.mcp.json` | `.warp/.mcp.json` | `mcpServers` |
 | [Windsurf (Cascade)](https://docs.devin.ai/desktop/cascade/mcp) | `~/.codeium/windsurf/mcp_config.json` | Global のみ | `mcpServers` |
 

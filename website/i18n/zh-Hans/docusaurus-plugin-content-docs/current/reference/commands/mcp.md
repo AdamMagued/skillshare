@@ -134,7 +134,7 @@ Skillshare 配置中。schema 是仓库中的 `schemas/mcp.schema.json`。
 
 Client ID 有 `claude`、`codex`、`cursor`、`vscode`、`opencode`、`kilocode`、
 `grok`、`antigravity`、`amp`、`claude-desktop`、`cline`、`copilot`、`factory`、`gemini`、
-`goose`、`junie`、`kiro`、`lmstudio`、`warp`、`windsurf` 和 `pi`。
+`goose`、`junie`、`kiro`、`lmstudio`、`muse`、`warp`、`windsurf` 和 `pi`。
 `grok` 指的是官方的 xAI Grok CLI。Server 名称使用字母、
 数字、点、下划线和连字符。一个 server 在同步之前，必须
 直接或通过 `mcp.targets` 选择至少一个 client，除非它自己的
@@ -197,6 +197,7 @@ skillshare mcp edit docs --target claude   # 把它加回来
 | [Junie](https://junie.jetbrains.com/docs/junie-cli-mcp-configuration.html) | `~/.junie/mcp/mcp.json` | `.junie/mcp/mcp.json` | `mcpServers` |
 | [Kiro](https://kiro.dev/docs/mcp/configuration/) | `~/.kiro/settings/mcp.json` | `.kiro/settings/mcp.json` | `mcpServers` |
 | [LM Studio](https://lmstudio.ai/docs/app/mcp) | `~/.lmstudio/mcp.json` | 仅限 Global | `mcpServers` |
+| [Muse Code](https://dev.meta.ai/docs/muse-code/extending) | `~/.config/muse/settings.json` | 仅限 Global；项目中 Muse 读取 Claude 的 `.mcp.json` | `mcp_servers` (`mode: optional`) |
 | [Warp](https://docs.warp.dev/agents/capabilities/mcp/) | `~/.warp/.mcp.json` | `.warp/.mcp.json` | `mcpServers` |
 | [Windsurf (Cascade)](https://docs.devin.ai/desktop/cascade/mcp) | `~/.codeium/windsurf/mcp_config.json` | 仅限 Global | `mcpServers` |
 

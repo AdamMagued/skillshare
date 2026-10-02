@@ -103,7 +103,7 @@ Add、edit、remove 與 import 在 **Save and sync** 或 **Save only** 之前會
 
 Client ID 有 `claude`、`codex`、`cursor`、`vscode`、`opencode`、`kilocode`、
 `grok`、`antigravity`、`amp`、`claude-desktop`、`cline`、`copilot`、`factory`、`gemini`、
-`goose`、`junie`、`kiro`、`lmstudio`、`warp`、`windsurf` 與 `pi`。
+`goose`、`junie`、`kiro`、`lmstudio`、`muse`、`warp`、`windsurf` 與 `pi`。
 `grok` 指的是官方的 xAI Grok CLI。Server 名稱使用字母、
 數字、點、底線與連字號。一個 server 必須直接或透過 `mcp.targets`
 選擇至少一個 client 才能同步，除非它自己的 `targets` 是空清單。
@@ -165,6 +165,7 @@ skillshare mcp edit docs --target claude   # 恢復同步
 | [Junie](https://junie.jetbrains.com/docs/junie-cli-mcp-configuration.html) | `~/.junie/mcp/mcp.json` | `.junie/mcp/mcp.json` | `mcpServers` |
 | [Kiro](https://kiro.dev/docs/mcp/configuration/) | `~/.kiro/settings/mcp.json` | `.kiro/settings/mcp.json` | `mcpServers` |
 | [LM Studio](https://lmstudio.ai/docs/app/mcp) | `~/.lmstudio/mcp.json` | 僅限 Global | `mcpServers` |
+| [Muse Code](https://dev.meta.ai/docs/muse-code/extending) | `~/.config/muse/settings.json` | 僅限 Global；專案中 Muse 讀取 Claude 的 `.mcp.json` | `mcp_servers` (`mode: optional`) |
 | [Warp](https://docs.warp.dev/agents/capabilities/mcp/) | `~/.warp/.mcp.json` | `.warp/.mcp.json` | `mcpServers` |
 | [Windsurf (Cascade)](https://docs.devin.ai/desktop/cascade/mcp) | `~/.codeium/windsurf/mcp_config.json` | 僅限 Global | `mcpServers` |
 

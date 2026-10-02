@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-var expandedClients = []string{"amp", "claude-desktop", "cline", "copilot", "factory", "gemini", "goose", "junie", "kiro", "lmstudio", "warp", "windsurf"}
+var expandedClients = []string{"amp", "claude-desktop", "cline", "copilot", "factory", "gemini", "goose", "junie", "kiro", "lmstudio", "muse", "warp", "windsurf"}
 
 func TestExpandedScopeProtection(t *testing.T) {
 	s := testService(t)
@@ -43,7 +43,7 @@ func TestExpandedNativeDialects(t *testing.T) {
 	for _, tc := range []struct{ target, key, kind string }{
 		{"amp", "url", ""}, {"cline", "url", "streamableHttp"}, {"copilot", "url", "http"},
 		{"factory", "url", "http"}, {"gemini", "httpUrl", ""}, {"goose", "uri", "streamable_http"},
-		{"junie", "url", ""}, {"kiro", "url", ""}, {"lmstudio", "url", ""}, {"warp", "url", ""}, {"windsurf", "serverUrl", ""},
+		{"junie", "url", ""}, {"kiro", "url", ""}, {"lmstudio", "url", ""}, {"muse", "url", ""}, {"warp", "url", ""}, {"windsurf", "serverUrl", ""},
 	} {
 		entry, err := Render(tc.target, Server{URL: "https://example.com/mcp"})
 		if err != nil || entry[tc.key] != "https://example.com/mcp" {
@@ -180,7 +180,7 @@ func TestExpandedClientPaths(t *testing.T) {
 		"cline":   ".cline/data/settings/cline_mcp_settings.json",
 		"copilot": ".copilot/mcp-config.json", "factory": ".factory/mcp.json", "gemini": ".gemini/settings.json",
 		"goose": ".config/goose/config.yaml", "junie": ".junie/mcp/mcp.json", "kiro": ".kiro/settings/mcp.json",
-		"lmstudio": ".lmstudio/mcp.json", "warp": ".warp/.mcp.json", "windsurf": ".codeium/windsurf/mcp_config.json",
+		"lmstudio": ".lmstudio/mcp.json", "muse": ".config/muse/settings.json", "warp": ".warp/.mcp.json", "windsurf": ".codeium/windsurf/mcp_config.json",
 	}
 	for target, relative := range want {
 		path, err := s.nativePath(target)
@@ -189,7 +189,7 @@ func TestExpandedClientPaths(t *testing.T) {
 		}
 	}
 	s.ProjectRoot = t.TempDir()
-	for _, target := range []string{"claude-desktop", "cline", "goose", "lmstudio", "windsurf"} {
+	for _, target := range []string{"claude-desktop", "cline", "goose", "lmstudio", "muse", "windsurf"} {
 		if _, err := s.nativePath(target); err == nil {
 			t.Errorf("unsupported project path: %s", target)
 		}
@@ -202,6 +202,32 @@ func TestExpandedClientPaths(t *testing.T) {
 		if err != nil || path != filepath.Join(s.ProjectRoot, relative) {
 			t.Errorf("project %s: %s %v", target, path, err)
 		}
+	}
+}
+
+func TestMuseSettingsDialect(t *testing.T) {
+	entry, err := Render("muse", Server{URL: "https://example.com/mcp"})
+	if err != nil || entry["transport"] != "streamable_http" || entry["mode"] != "optional" {
+		t.Fatalf("remote entry: %v %v", entry, err)
+	}
+	if entry, _ = Render("muse", Server{Command: "tool"}); entry["transport"] != "stdio" {
+		t.Fatalf("local entry: %v", entry)
+	}
+	// Muse fails every command when settings.json has no schema_version.
+	n, err := ParseNative("muse", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := n.Edit(map[string]map[string]any{"docs": entry})
+	if err != nil || !strings.Contains(string(data), `"schema_version": 1`) {
+		t.Fatalf("new settings file: %s %v", data, err)
+	}
+	n, err = ParseNative("muse", []byte(`{"schema_version": 1, "model": "keep"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if data, err = n.Edit(map[string]map[string]any{"docs": entry}); err != nil || strings.Count(string(data), "schema_version") != 1 || !strings.Contains(string(data), "keep") {
+		t.Fatalf("existing settings file: %s %v", data, err)
 	}
 }
 

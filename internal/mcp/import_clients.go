@@ -29,6 +29,15 @@ func normalizeClientImport(target string, entry map[string]any, c *Candidate) {
 			delete(entry, format.urlKey)
 		}
 	}
+	if target == "muse" {
+		switch entry["transport"] {
+		case "stdio":
+			entry["type"] = "stdio"
+		case "streamable_http":
+			entry["type"] = "http"
+		}
+		delete(entry, "transport")
+	}
 	if target == "goose" {
 		if value, ok := entry["cmd"]; ok {
 			entry["command"] = value
