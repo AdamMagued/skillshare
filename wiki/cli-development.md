@@ -37,7 +37,8 @@ Most commands route through `parseModeArgs()` for global (`-g`) or project (`-p`
 
 ## Output and Interaction
 
-- Reuse `internal/ui` and existing Bubble Tea components instead of introducing another prompt framework.
+- Ask inline questions with `internal/ui/prompt.go` (`Select`, `MultiSelect`, `Confirm`, `Input`, built on `huh` with theme colors); keep full-screen Bubble Tea components for browsing lists. Do not add another prompt framework.
+- A question asked without a terminal takes its default. Print each decision with the flag that changes it instead of failing or silently doing less.
 - Preserve dispatch order: structured JSON → TUI when interactive and allowed → empty state → plain text.
 - Structured-output stdout must remain machine-readable; progress, spinners, and diagnostics must not contaminate JSON.
 - When adding or changing a flag, inspect `--help`, completions, website command documentation, and tests.

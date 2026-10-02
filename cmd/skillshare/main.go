@@ -65,7 +65,7 @@ func main() {
 
 	// Resolve theme early so OSC 11 probe overhead happens at startup,
 	// not inside a TUI render loop.
-	if theme.Get().NoColor {
+	if t := theme.Get(); t.NoColor || t.Plain {
 		ui.DisableColors()
 	}
 

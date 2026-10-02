@@ -9,6 +9,7 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/install"
 	"skillshare/internal/projectdir"
+	"skillshare/internal/theme"
 	"skillshare/internal/ui"
 )
 
@@ -156,8 +157,9 @@ func performProjectInit(root string, opts projectInitOptions) error {
 		return fmt.Errorf("failed to check project directory: %w", err)
 	}
 
-	ui.Logo(version)
-	ui.Header("Initializing project-level skills")
+	interactive := runningInInteractiveTTY()
+	detected := detectProjectCLIDirectories(root)
+	printProjectBanner(root, detected, interactive)
 
 	sharedRepoFlow := false
 	if partialInitRepair {
@@ -190,32 +192,32 @@ func performProjectInit(root string, opts projectInitOptions) error {
 				selected = append(selected, config.ProjectTargetEntry{Name: name})
 			}
 		}
-	} else if partialInitRepair {
-		// Partial repair: auto-select all detected targets without prompting
-		detected := detectProjectCLIDirectories(root)
-		selected = make([]config.ProjectTargetEntry, 0, len(detected))
-		for _, d := range detected {
-			selected = append(selected, config.ProjectTargetEntry{Name: d.name})
-		}
+	} else if partialInitRepair || !interactive {
+		// No one to ask: every detected tool, as Enter would choose.
+		selected = projectEntries(detected)
 	} else {
-		detected := detectProjectCLIDirectories(root)
 		available := detected
 		if len(available) == 0 {
-			ui.Warning("No AI CLI directories detected.")
 			available = listAllProjectTargets()
 		}
-
 		var err error
-		selected, err = promptProjectTargets(available)
-		if err != nil {
-			return err
+		if selected, err = promptProjectTargets(available); err != nil {
+			return initCancelled(err)
 		}
 	}
-	if selectedMode == "" && len(opts.targets) == 0 && !sharedRepoFlow && !partialInitRepair && runningInInteractiveTTY() {
-		selectedMode = promptSyncModeSelection()
+	if selectedMode == "" && len(opts.targets) == 0 && !sharedRepoFlow && !partialInitRepair && interactive {
+		mode, err := promptSyncMode()
+		if err != nil {
+			return initCancelled(err)
+		}
+		selectedMode = mode
 	}
 	if selectedMode == "" {
 		selectedMode = "merge"
+	}
+	if !interactive {
+		ui.Answered("Tools", describeTools(entryNames(selected))+" "+theme.Dim().Render("(--targets)"))
+		ui.Answered("Sync", selectedMode+" "+theme.Dim().Render("(--mode)"))
 	}
 	for i := range selected {
 		if m := modeOverrideForTarget(selectedMode, "merge"); m != "" {
@@ -224,7 +226,8 @@ func performProjectInit(root string, opts projectInitOptions) error {
 	}
 
 	if opts.dryRun {
-		ui.Header("Dry run complete (project)")
+		fmt.Println()
+		fmt.Println(theme.Primary().Bold(true).Render("Dry run — nothing was written"))
 		ui.Info("Would create %s/skills/", dirName)
 		ui.Info("Would write config: %s", configPath)
 		return nil
@@ -260,35 +263,82 @@ func performProjectInit(root string, opts projectInitOptions) error {
 		return err
 	}
 
-	ui.Success("Created %s/%s", dirName, projectdir.ConfigFileName)
-	ui.Success("Created %s/skills/", dirName)
-	if !sharedRepoFlow {
-		ui.Success("Added %d target(s)", len(selected))
-	}
 	fmt.Println()
-
-	ui.Header("Initialized successfully (project)")
-	ui.Success("Source: %s/skills/", dirName)
-	ui.Success("Config: %s", configPath)
+	cfgLine := dirName + "/" + projectdir.ConfigFileName
 	if opts.configMode == "local" {
-		ui.Success("Config gitignored (each developer manages own targets)")
+		cfgLine += " " + theme.Dim().Render("(gitignored: each developer manages own targets)")
 	}
-	fmt.Println()
-	ui.Info("Next steps:")
-	if sharedRepoFlow || opts.configMode == "local" {
-		fmt.Printf("  %sskillshare target add <name> <path> -p%s    %s# Add targets to sync%s\n", ui.Yellow, ui.Reset, ui.Dim, ui.Reset)
-		fmt.Printf("  %sskillshare sync -p%s                        %s# Sync skills to targets%s\n", ui.Yellow, ui.Reset, ui.Dim, ui.Reset)
-	} else {
-		fmt.Printf("  %sskillshare install <skill> -p%s    %s# Install a skill%s\n", ui.Yellow, ui.Reset, ui.Dim, ui.Reset)
-		fmt.Printf("  %sskillshare sync%s                  %s# Sync to all targets%s\n", ui.Yellow, ui.Reset, ui.Dim, ui.Reset)
+	ui.Answered("Config", cfgLine)
+	ui.Answered("Skills", dirName+"/skills/")
+	if !sharedRepoFlow {
+		ui.Answered("Tools", describeTools(entryNames(selected)))
 	}
 
+	fmt.Println()
+	fmt.Println(theme.Primary().Bold(true).Render("Next"))
+	cmd := func(c, note string) {
+		fmt.Printf("  %s %s\n", theme.Accent().Render(fmt.Sprintf("%-38s", c)), theme.Dim().Render(note))
+	}
+	if sharedRepoFlow || opts.configMode == "local" {
+		cmd("skillshare target add <name> <path> -p", "add a tool to sync")
+		cmd("skillshare sync -p", "sync skills to your tools")
+	} else {
+		cmd("skillshare install <repo> -p", "add skills to this project")
+		cmd("skillshare sync -p", "sync skills to your tools")
+	}
 	return nil
 }
 
-func detectProjectCLIDirectories(root string) []detectedProjectTarget {
-	ui.Header("Detecting AI CLI directories")
+// printProjectBanner shows the logo with the project and the tools found in it.
+func printProjectBanner(root string, detected []detectedProjectTarget, animate bool) {
+	found := "No AI tools found in this project yet"
+	if n := len(detected); n > 0 {
+		found = "Found " + plural(n, "AI tool") + " here"
+	}
+	fmt.Println()
+	ui.LogoBanner([]string{
+		theme.Primary().Bold(true).Render("skillshare") + " " + theme.Dim().Render("v"+version),
+		theme.Muted().Render("Your AI coding setup, everywhere."),
+		"",
+		"Project " + filepath.Base(root),
+		theme.Dim().Render(found),
+	}, animate)
+	fmt.Println()
+}
 
+// promptSyncMode asks how skills reach the tools; Enter keeps merge.
+func promptSyncMode() (string, error) {
+	mode, err := ui.Select("How should skills reach your tools?", []ui.Option{
+		{Label: "merge     link each skill  " + theme.Dim().Render("(default)"), Value: "merge"},
+		{Label: "copy      real files  " + theme.Dim().Render("· for tools that can't follow links"), Value: "copy"},
+		{Label: "symlink   link the whole folder", Value: "symlink"},
+	}, "merge")
+	if err != nil {
+		return "", err
+	}
+	ui.Answered("Sync", mode+" "+theme.Dim().Render("("+syncModeNotes[mode]+")"))
+	return mode, nil
+}
+
+func projectEntries(targets []detectedProjectTarget) []config.ProjectTargetEntry {
+	entries := make([]config.ProjectTargetEntry, 0, len(targets))
+	for _, t := range targets {
+		entries = append(entries, config.ProjectTargetEntry{Name: t.name})
+	}
+	return entries
+}
+
+func entryNames(entries []config.ProjectTargetEntry) []string {
+	names := make([]string, 0, len(entries))
+	for _, e := range entries {
+		names = append(names, e.Name)
+	}
+	return names
+}
+
+// detectProjectCLIDirectories finds the tools set up in the project. It
+// only reads the disk and prints nothing.
+func detectProjectCLIDirectories(root string) []detectedProjectTarget {
 	grouped := config.GroupedProjectTargets()
 
 	var detected []detectedProjectTarget
@@ -304,11 +354,6 @@ func detectProjectCLIDirectories(root string) []detectedProjectTarget {
 
 		if info, err := os.Stat(fullPath); err == nil && info.IsDir() {
 			entry.exists = true
-			if len(g.Members) > 0 {
-				ui.Success("Found: %s (%s) — %s", g.Name, relPath, strings.Join(g.Members, ", "))
-			} else {
-				ui.Success("Found: %s (%s)", g.Name, relPath)
-			}
 			detected = append(detected, entry)
 			continue
 		}
@@ -318,7 +363,6 @@ func detectProjectCLIDirectories(root string) []detectedProjectTarget {
 			parentPath := filepath.Join(root, parentRel)
 			if _, err := os.Stat(parentPath); err == nil {
 				entry.parentExists = true
-				ui.Info("Found: %s (not initialized)", g.Name)
 				detected = append(detected, entry)
 			}
 		}
@@ -341,47 +385,32 @@ func listAllProjectTargets() []detectedProjectTarget {
 	return available
 }
 
+// promptProjectTargets asks which tools to sync; detected ones start checked.
 func promptProjectTargets(available []detectedProjectTarget) ([]config.ProjectTargetEntry, error) {
-	ui.Header("Select targets to sync")
-
-	items := make([]checklistItemData, len(available))
-	for i, target := range available {
-		label := fmt.Sprintf("%-14s %s", target.name, target.path)
-		if len(target.members) > 0 {
-			label += fmt.Sprintf("  (%s)", strings.Join(target.members, ", "))
+	options := make([]ui.Option, len(available))
+	var checked []string
+	for i, t := range available {
+		note := filepath.ToSlash(t.path)
+		if len(t.members) > 0 {
+			note += " · " + strings.Join(t.members, ", ")
 		}
-		if !target.exists && target.parentExists {
-			label += " (not initialized)"
+		if !t.exists && t.parentExists {
+			note += " · not set up yet"
 		}
-		items[i] = checklistItemData{
-			label:       label,
-			preSelected: target.exists || target.parentExists,
+		options[i] = ui.Option{Label: fmt.Sprintf("%-14s %s", t.name, theme.Dim().Render(note)), Value: t.name}
+		if t.exists || t.parentExists {
+			checked = append(checked, t.name)
 		}
 	}
-
-	selectedIndices, err := runChecklistTUI(checklistConfig{
-		title:    "Select targets to sync",
-		items:    items,
-		itemName: "target",
-	})
-	if err != nil || selectedIndices == nil {
-		return nil, nil
+	names, err := ui.MultiSelect("Sync skills to which tools?", options, checked)
+	if err != nil {
+		return nil, err
 	}
-
-	selected := make([]config.ProjectTargetEntry, 0, len(selectedIndices))
-	names := make([]string, 0, len(selectedIndices))
-	for _, idx := range selectedIndices {
-		name := available[idx].name
+	ui.Answered("Tools", describeTools(names))
+	selected := make([]config.ProjectTargetEntry, 0, len(names))
+	for _, name := range names {
 		selected = append(selected, config.ProjectTargetEntry{Name: name})
-		names = append(names, name)
 	}
-
-	if len(selected) > 0 {
-		ui.Success("Added %d target(s): %s", len(selected), strings.Join(names, ", "))
-	} else {
-		ui.Info("No targets selected")
-	}
-
 	return selected, nil
 }
 
@@ -428,9 +457,6 @@ func createProjectTargetDirs(root string, targets []config.ProjectTargetEntry) e
 // Uses path-based dedup so that e.g. an existing "amp" entry (which maps to .agents/skills)
 // correctly prevents the "agents" group from appearing as "new".
 func reinitProjectWithDiscover(root string, opts projectInitOptions) error {
-	ui.Logo(version)
-	ui.Header("Discovering new targets")
-
 	cfg, err := config.LoadProject(root)
 	if err != nil {
 		return err
@@ -449,7 +475,8 @@ func reinitProjectWithDiscover(root string, opts projectInitOptions) error {
 
 	// Detect AI CLI directories (already grouped by shared paths)
 	detected := detectProjectCLIDirectories(root)
-	if len(detected) == 0 {
+	noneFound := len(detected) == 0
+	if noneFound {
 		detected = listAllProjectTargets()
 	}
 
@@ -497,13 +524,14 @@ func reinitProjectWithDiscover(root string, opts projectInitOptions) error {
 				selected = append(selected, entry)
 			}
 		}
-	} else {
-		// Interactive selection
+	} else if runningInInteractiveTTY() {
 		var err error
-		selected, err = promptProjectTargets(newTargets)
-		if err != nil {
-			return err
+		if selected, err = promptProjectTargets(newTargets); err != nil {
+			return initCancelled(err)
 		}
+	} else if !noneFound {
+		// No one to ask: add every new tool found, as Enter would choose.
+		selected = projectEntries(newTargets)
 	}
 
 	if len(selected) == 0 {

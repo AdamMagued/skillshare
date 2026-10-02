@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"skillshare/internal/theme"
+
+	"github.com/pterm/pterm"
 )
 
 // Deprecated: Use theme.ANSI() instead. These raw escape sequences are
@@ -52,10 +54,11 @@ var (
 	BoldReset = "\033[22m"
 )
 
-// DisableColors blanks every raw escape variable above so output built from
-// them is plain text. main calls it once at startup when the resolved theme
-// has NoColor set, before any output is produced.
+// DisableColors blanks every raw escape variable above (and pterm's colors)
+// so output built from them is plain text. main calls it once at startup when
+// the resolved theme has NoColor or Plain set, before any output is produced.
 func DisableColors() {
+	pterm.DisableColor()
 	for _, v := range []*string{
 		&Reset, &Red, &Green, &Yellow, &Blue, &Magenta, &Cyan, &Orange,
 		&Purple, &BrightRed, &OrangeAlt, &BrightBlue, &Gray, &Dim, &White,
@@ -269,7 +272,7 @@ func LogoAnimated(version string, animate bool) {
 	if version != "" {
 		lines = append(lines, a.Warning+`|___/_|\_\_|_|_|___/_| |_|\__,_|_|  \___|`+a.Reset+`  `+a.Dim+`v`+version+a.Reset+suffix)
 	} else {
-		lines = append(lines, a.Warning+`|___/_|\_\_|_|_|___/_| |_|\__,_|_|  \___|`+a.Reset+`  `+a.Dim+`Sync skills across all AI CLI tools`+a.Reset+suffix)
+		lines = append(lines, a.Warning+`|___/_|\_\_|_|_|___/_| |_|\__,_|_|  \___|`+a.Reset+`  `+a.Dim+`Your AI coding setup, everywhere.`+a.Reset+suffix)
 	}
 
 	if animate {
