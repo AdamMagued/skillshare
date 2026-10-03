@@ -101,6 +101,11 @@ func pullFromRemote(cfg *config.Config, dryRun, force bool) error {
 		if _, err := gitops.FirstPull(source, force); errors.Is(err, gitops.ErrNoRemoteBranches) {
 			spinner.Warn("Remote has no branches yet")
 			ui.Info("  Push your skills first: skillshare push")
+		} else if errors.Is(err, gitops.ErrRemoteTracksConfig) {
+			spinner.Fail("Remote tracks config.yaml")
+			ui.Info("  The remote repository tracks machine-specific config.yaml.")
+			ui.Info("  Untrack it on the remote first via 'skillshare push' from the machine that committed it, then pull.")
+			return err
 		} else if err != nil {
 			spinner.Fail("Pull failed")
 			if errors.Is(err, gitops.ErrMergeFailed) {
