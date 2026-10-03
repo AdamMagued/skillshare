@@ -131,7 +131,10 @@ func focusedButton(button, accent lipgloss.Style) lipgloss.Style {
 	return button.Background(accent.GetForeground()).Foreground(text).Bold(true)
 }
 
-func promptTitle(title string) string { return "? " + title }
+// promptTitle marks a question with an accent "?", matching the "›" cursor.
+func promptTitle(title string) string {
+	return theme.Accent().Render("?") + " " + theme.Primary().Render(title)
+}
 
 func huhOptions(options []Option, checked map[string]bool) []huh.Option[string] {
 	out := make([]huh.Option[string], len(options))
@@ -151,7 +154,7 @@ func promptTheme() *huh.Theme {
 	f := &t.Focused
 	f.Base = lipgloss.NewStyle()
 	f.Card = f.Base
-	f.Title = primary
+	f.Title = lipgloss.NewStyle()
 	f.Description = dim
 	f.ErrorIndicator = theme.Danger().SetString(" *")
 	f.ErrorMessage = theme.Danger()
