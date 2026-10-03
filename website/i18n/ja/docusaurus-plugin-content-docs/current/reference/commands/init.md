@@ -43,7 +43,7 @@ flowchart TD
 |------|------------|
 | Tools | 検出されたすべての AI CLI |
 | Import | それらのツールにある既存の Skill すべて |
-| Git | オン。Skill のみをバージョン管理。remote を設定した場合はすべて（skills、agents、extras） |
+| Git | オン。Skill のみをバージョン管理。remote を設定した場合は skills、agents、extras。Plugins、MCP servers、hooks は各マシンの `config.yaml` に残ります |
 | 組み込み Skill | インストール |
 | Sync | はい |
 

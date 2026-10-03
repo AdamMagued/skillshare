@@ -43,7 +43,7 @@ flowchart TD
 |------|--------|
 | Tools | 감지된 모든 AI CLI |
 | Import | 그 도구들에 이미 있는 모든 skill |
-| Git | 켜짐. skill만 버전 관리하며, remote를 연결하면 전체(skills, agents, extras)를 버전 관리 |
+| Git | 켜짐. skill만 버전 관리하며, remote를 연결하면 skills, agents, extras를 버전 관리합니다. Plugins, MCP servers, hooks는 각 머신의 `config.yaml`에 남습니다 |
 | Built-in skill | 설치 |
 | Sync | 예 |
 

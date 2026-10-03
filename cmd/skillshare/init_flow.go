@@ -400,7 +400,8 @@ func summaryLines(p *initPlan, title, changed string) []string {
 	case !p.git:
 		row("Git", "off "+dim.Render("(deleted skills can't be restored)"), "git")
 	case p.gitScope == "root":
-		row("Git", "everything "+dim.Render("(skills, agents, extras)"), "git")
+		row("Git", "skills, agents, extras", "git")
+		lines = append(lines, fmt.Sprintf("  %-8s %s", "", dim.Render("plugins, MCP and hooks stay in each machine's config.yaml")))
 	default:
 		row("Git", p.gitScope+" only", "git")
 	}
@@ -487,7 +488,7 @@ func changeSetting(p *initPlan, home string) (string, error) {
 			current = "off"
 		}
 		v, err := ui.Select("What should git keep history of?", []ui.Option{
-			{Label: "everything    " + theme.Dim().Render("skills, agents, extras"), Value: "root"},
+			{Label: "skills, agents, extras", Value: "root"},
 			{Label: "skills only", Value: "skills"},
 			{Label: "off", Value: "off"},
 		}, current)
@@ -554,7 +555,7 @@ func describeGit(p *initPlan) string {
 	case !p.git:
 		return "off"
 	case p.gitScope == "root":
-		return "everything"
+		return "skills, agents, extras"
 	default:
 		return p.gitScope + " only"
 	}

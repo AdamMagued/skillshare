@@ -43,7 +43,7 @@ Each answer has a default, so pressing <kbd>Enter</kbd> through every question g
 |----------|---------|
 | Tools | Every detected AI CLI |
 | Import | Every skill those tools already have |
-| Git | On. Versions only the skills, or everything (skills, agents, extras) when a remote is linked |
+| Git | On. Versions only the skills, or skills, agents and extras when a remote is linked. Plugins, MCP servers and hooks stay in each machine's `config.yaml` |
 | Built-in skill | Installed |
 | Sync | Yes |
 

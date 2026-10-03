@@ -43,7 +43,7 @@ flowchart TD
 |------|--------|
 | Tools | 检测到的所有 AI CLI |
 | Import | 这些工具里已有的所有 skills |
-| Git | 开启。只对 skills 做版本控制；绑定 remote 时对全部内容（skills、agents、extras）做版本控制 |
+| Git | 开启。只对 skills 做版本控制；绑定 remote 时对 skills、agents、extras 做版本控制。Plugins、MCP servers 和 hooks 留在各台机器的 `config.yaml` |
 | 内置 skill | 安装 |
 | Sync | 是 |
 
