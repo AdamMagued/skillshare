@@ -53,15 +53,18 @@ skillshare init
 ```
 
 <p>
-  <img src="/img/init-with-mode.png" alt="Interactive init flow" width="720" />
+  <img src="/img/init-demo.png" alt="skillshare init: answered questions, the summary, and the first sync" width="720" />
 </p>
 
-`init` walks you through four choices:
+`init` asks a few short questions, shows a summary, and writes nothing until you confirm:
 
-1. **Source directory** — defaults to `~/.config/skillshare/skills/`. Press Enter to accept.
-2. **Git remote** — paste the URL of your personal skills repo (e.g. `git@github.com:you/skills.git`). If you don't have one yet, create an empty repo on GitHub first; you can also skip and add a remote later.
-3. **Targets** — skillshare detects installed AI CLIs and lists them. Confirm, or deselect any you don't want.
-4. **Built-in skill** — optional. Adds a `/skillshare` command so your AI CLI can invoke skillshare directly.
+1. **How to start** — a new setup on this machine, or [connect your existing skillshare repo](/docs/how-to/sharing/cross-machine-sync#second-machine-setup).
+2. **Tools** — every detected AI CLI is checked. Press Space to leave one out.
+3. **Import** — skills already in those tools are copied into source.
+4. **Git** — on by default, so you can push your skills to a repo later.
+5. **Remote** — paste the URL of your skills repo (e.g. `git@github.com:you/skills.git`), or press Enter to skip and add one later.
+
+The summary also shows the source directory (`~/.config/skillshare/skills/`), the sync mode, and the built-in skill, which adds a `/skillshare` command to your AI CLIs. Choose **Change settings** to edit them, or press <kbd>Esc</kbd> to cancel. After you confirm, `init` offers to sync right away.
 
 ### Choosing a sync mode
 
@@ -168,7 +171,7 @@ skillshare install https://github.com/<your-company>/skills --track --force
 skillshare sync
 ```
 
-`--no-skill` skips the built-in skill prompt; add it later with `skillshare upgrade --skill` if you want it on this machine.
+`--no-skill` leaves out the built-in skill; add it later with `skillshare upgrade --skill` if you want it on this machine.
 
 ---
 

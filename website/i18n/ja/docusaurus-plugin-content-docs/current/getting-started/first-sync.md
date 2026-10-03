@@ -53,15 +53,18 @@ skillshare init
 ```
 
 <p>
-  <img src="/img/init-with-mode.png" alt="Interactive init flow" width="720" />
+  <img src="/img/init-demo.png" alt="skillshare init: 回答済みの質問、サマリー、初回 sync" width="720" />
 </p>
 
-`init` では 4 つの選択を順に行います:
+`init` はいくつかの短い質問をしてサマリーを表示します。確認するまで何も書き込みません:
 
-1. **Source ディレクトリ** — 既定値は `~/.config/skillshare/skills/` です。Enter を押せばそのまま使えます。
-2. **Git リモート** — 個人の Skill リポジトリの URL を貼り付けます（例: `git@github.com:you/skills.git`）。まだ無い場合は、先に GitHub で空のリポジトリを作ってください。スキップして後からリモートを追加することもできます。
-3. **Target** — skillshare がインストール済みの AI CLI を検出して一覧表示します。確認するか、不要なものの選択を外してください。
-4. **Built-in skill** — 任意です。`/skillshare` コマンドを追加し、AI CLI から skillshare を直接呼び出せるようになります。
+1. **始め方** — このマシンで新規セットアップするか、[既存の skillshare リポジトリに接続](/docs/how-to/sharing/cross-machine-sync#second-machine-setup)します。
+2. **ツール** — 検出された AI CLI はすべて選択済みです。Space キーで外せます。
+3. **取り込み** — それらのツールにある既存の Skill を source にコピーします。
+4. **Git** — デフォルトでオン。後で Skill をリポジトリに push できます。
+5. **リモート** — Skill リポジトリの URL を貼り付けます（例: `git@github.com:you/skills.git`）。Enter でスキップして後から追加することもできます。
+
+サマリーには source ディレクトリ（`~/.config/skillshare/skills/`）、sync mode、組み込み Skill（AI CLI に `/skillshare` コマンドを追加）も表示されます。**Change settings** で変更でき、<kbd>Esc</kbd> でキャンセルできます。確認後、`init` はすぐに sync するか尋ねます。
 
 ### Sync モードを選ぶ
 
@@ -168,7 +171,7 @@ skillshare install https://github.com/<your-company>/skills --track --force
 skillshare sync
 ```
 
-`--no-skill` は Built-in skill のプロンプトをスキップします。このマシンでも使いたくなったら、あとから `skillshare upgrade --skill` で追加できます。
+`--no-skill` は Built-in skill をスキップします。このマシンでも使いたくなったら、あとから `skillshare upgrade --skill` で追加できます。
 
 ---
 
