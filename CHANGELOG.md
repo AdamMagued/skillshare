@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.24.0](https://github.com/runkids/skillshare/compare/v0.23.5...v0.24.0) (2026-10-03)
+
+
+### New Features
+
+* **check:** detect changes at local install sources ([#334](https://github.com/runkids/skillshare/issues/334)) ([9847f59](https://github.com/runkids/skillshare/commit/9847f59a3e52f27b7a4c24e106749433931c757e))
+* **extras:** share Markdown memory across agents ([#349](https://github.com/runkids/skillshare/issues/349)) ([6e176dd](https://github.com/runkids/skillshare/commit/6e176ddb0cf036a9feedfadc7f21bfb2300aca5c))
+* **pi:** manage individual extensions per target ([#350](https://github.com/runkids/skillshare/issues/350)) ([ccc0fbd](https://github.com/runkids/skillshare/commit/ccc0fbdf74bc3fe871a92c667494fb2b42a81df6))
+* **push:** add --pull for two-way sync in one command ([#354](https://github.com/runkids/skillshare/issues/354)) ([5d269e8](https://github.com/runkids/skillshare/commit/5d269e8e4c6b7cc1d41d540b1e174dae1634dc16))
+* **video:** feature Pi and Antigravity in the demo ([96f1859](https://github.com/runkids/skillshare/commit/96f1859a4510a84d86344aa1b221d3ae4e3752cd))
+* **video:** rebuild the README demo as an illustrated explainer ([d27ae41](https://github.com/runkids/skillshare/commit/d27ae41f6bd1839b0f036f79cbbc62da74bd4979))
+* **website:** show the demo video on the homepage ([6c8acd0](https://github.com/runkids/skillshare/commit/6c8acd010230e2d30591247512007fb0cb1ee0ac))
+
+
+### Bug Fixes
+
+* **audit:** skip absolute metadata keys on Windows too ([#345](https://github.com/runkids/skillshare/issues/345)) ([b931c2a](https://github.com/runkids/skillshare/commit/b931c2aeca7fa341818da10282fb837c539dd929))
+* **check:** compare project-relative local sources and record install layout ([#337](https://github.com/runkids/skillshare/issues/337)) ([1a1eeee](https://github.com/runkids/skillshare/commit/1a1eeee844036020ba6c48dd100ac87c235a7932))
+* close temp downloads before removing them on error ([#340](https://github.com/runkids/skillshare/issues/340)) ([dadbbc7](https://github.com/runkids/skillshare/commit/dadbbc7649cfcbcdedf2ca79b98ba630adc1a834))
+* **install:** keep file:// URLs slash-form on Windows ([#346](https://github.com/runkids/skillshare/issues/346)) ([95f54f2](https://github.com/runkids/skillshare/commit/95f54f233c87e2132fd9c88863eb90f974c36b60))
+* **install:** keep local installs updatable from any directory and in shape ([#336](https://github.com/runkids/skillshare/issues/336)) ([f28e5e2](https://github.com/runkids/skillshare/commit/f28e5e23f448e476116bee2dbb89aa396dfa774b))
+* **pull:** keep files-only local commits on first pull ([#352](https://github.com/runkids/skillshare/issues/352)) ([6f3d6a3](https://github.com/runkids/skillshare/commit/6f3d6a310ef7857e60fff60bb8f948c7dfa8e763))
+* **trash:** reject POSIX-absolute names on Windows too ([#347](https://github.com/runkids/skillshare/issues/347)) ([968e321](https://github.com/runkids/skillshare/commit/968e3215217f6e57dc0946e1e5616470b582beda))
+* **ui:** show where pull conflict versions differ ([#331](https://github.com/runkids/skillshare/issues/331)) ([9c048ac](https://github.com/runkids/skillshare/commit/9c048ac7ac176a734b7a3d81a1cd6bdbfce9478a))
+* **upgrade:** verify the release archive before replacing the binary ([#335](https://github.com/runkids/skillshare/issues/335)) ([2bf7e66](https://github.com/runkids/skillshare/commit/2bf7e66790912536dedad2d37bec320e500ff44b))
+* **windows:** run in a hidden console when started without one ([#341](https://github.com/runkids/skillshare/issues/341)) ([84bbd40](https://github.com/runkids/skillshare/commit/84bbd40785e4ed5da53a91bd741b6438337c336a))
+* **windows:** stop foreground children when skillshare is terminated ([#343](https://github.com/runkids/skillshare/issues/343)) ([7043ca3](https://github.com/runkids/skillshare/commit/7043ca3ad2c02526bfa1b14e267fcadb565aa665))
+
 ## [0.23.5] - 2026-10-02
 
 ### Bug Fixes
