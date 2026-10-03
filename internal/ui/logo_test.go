@@ -1,7 +1,13 @@
 package ui
 
 import (
+	"bytes"
+	"strings"
 	"testing"
+	"time"
+
+	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/termenv"
 )
 
 func TestLogoColors_FinalFrameUsesLogoColors(t *testing.T) {
@@ -27,6 +33,35 @@ func TestLogoColors_FirstFrameIsNotYetColored(t *testing.T) {
 func TestLogoFrame_HasOneLinePerTwoPixelRows(t *testing.T) {
 	if got, want := len(logoFrame(1, []string{"a"}, true)), len(logoPixels)/2; got != want {
 		t.Errorf("frame has %d lines, want %d", got, want)
+	}
+}
+
+func TestLogoColorsSupported_NeedsAtLeast256Colors(t *testing.T) {
+	orig := lipgloss.ColorProfile()
+	t.Cleanup(func() { lipgloss.SetColorProfile(orig) })
+
+	for profile, want := range map[termenv.Profile]bool{
+		termenv.TrueColor: true,
+		termenv.ANSI256:   true,
+		termenv.ANSI:      false,
+	} {
+		lipgloss.SetColorProfile(profile)
+		if got := logoColorsSupported(); got != want {
+			t.Errorf("profile %v: logoColorsSupported() = %v, want %v", profile, got, want)
+		}
+	}
+}
+
+func TestPlayLogo_HidesCursorWhileAnimating(t *testing.T) {
+	var out bytes.Buffer
+	playLogo(&out, []string{"a"}, func(time.Duration) {})
+
+	got := out.String()
+	if !strings.HasPrefix(got, "\x1b[?25l") {
+		t.Errorf("animation must hide the cursor before the first frame; starts with %q", got[:min(len(got), 12)])
+	}
+	if !strings.HasSuffix(got, "\x1b[?25h") {
+		t.Errorf("animation must show the cursor again at the end; ends with %q", got[max(0, len(got)-12):])
 	}
 }
 

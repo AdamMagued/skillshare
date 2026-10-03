@@ -2,15 +2,19 @@ package ui
 
 import (
 	"fmt"
+	"io"
 	"math"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"skillshare/internal/theme"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/termenv"
 	"golang.org/x/term"
 )
 
@@ -28,8 +32,8 @@ type rgb struct{ r, g, b float64 }
 
 // LogoBanner prints the hand-drawn logo with text lines beside it, centered
 // vertically. On a terminal it first plays a short "light up" animation that
-// spreads color out from the bulb. Without a terminal, without color, or on a
-// narrow terminal it prints only the text lines.
+// spreads color out from the bulb. Without a terminal, without color, with
+// only 16 colors, or on a narrow terminal it prints only the text lines.
 func LogoBanner(lines []string, animate bool) {
 	if !logoFits() {
 		for _, line := range lines {
@@ -41,10 +45,35 @@ func LogoBanner(lines []string, animate bool) {
 		fmt.Print(strings.Join(logoFrame(1, lines, true), "\n") + "\n")
 		return
 	}
+	// Ctrl+C mid-animation must not leave the shell with a hidden cursor.
+	interrupted := make(chan os.Signal, 1)
+	done := make(chan struct{})
+	signal.Notify(interrupted, os.Interrupt, syscall.SIGTERM)
+	defer func() {
+		signal.Stop(interrupted)
+		close(done)
+	}()
+	go func() {
+		select {
+		case <-interrupted:
+			fmt.Print(showCursor + "\n")
+			os.Exit(130)
+		case <-done:
+		}
+	}()
+	playLogo(os.Stdout, lines, time.Sleep)
+}
+
+// playLogo writes the "light up" animation. The cursor is hidden while frames
+// redraw in place (it would otherwise jump up and down the logo's left edge),
+// and each frame goes out in a single write.
+func playLogo(w io.Writer, lines []string, pause func(time.Duration)) {
+	fmt.Fprint(w, hideCursor)
 	rows := len(logoPixels) / 2
 	for step := 0; step <= logoSteps; step++ {
+		var b strings.Builder
 		if step > 0 {
-			fmt.Printf("\x1b[%dA", rows)
+			fmt.Fprintf(&b, "\x1b[%dA", rows)
 		}
 		progress := easeOut(float64(step) / logoSteps)
 		// Text fades in over the last few frames and settles on the final one.
@@ -54,21 +83,29 @@ func LogoBanner(lines []string, animate bool) {
 			frame = logoFrame(progress, dimLines(lines), true)
 		}
 		for _, line := range frame {
-			fmt.Print(line + "\x1b[K\n")
+			b.WriteString(line + "\x1b[K\n")
 		}
+		fmt.Fprint(w, b.String())
 		if step < logoSteps {
-			time.Sleep(logoFrameGap)
+			pause(logoFrameGap)
 		}
 	}
+	fmt.Fprint(w, showCursor)
 }
 
 func logoFits() bool {
 	t := theme.Get()
-	if t.NoColor || t.Plain {
+	if t.NoColor || t.Plain || !logoColorsSupported() {
 		return false
 	}
 	width, _, err := term.GetSize(int(os.Stdout.Fd()))
 	return err == nil && width >= logoMinWidth
+}
+
+// logoColorsSupported reports whether the terminal has at least 256 colors;
+// 16 colors map the logo onto the terminal's own palette and garble it.
+func logoColorsSupported() bool {
+	return lipgloss.ColorProfile() <= termenv.ANSI256
 }
 
 // logoFrame renders the logo at the given animation progress (0..1) with
