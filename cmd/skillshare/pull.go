@@ -52,8 +52,6 @@ func cmdPull(args []string) error {
 
 // pullFromRemote pulls from git remote and syncs to all targets
 func pullFromRemote(cfg *config.Config, dryRun, force bool) error {
-	ui.Header("Pulling from remote")
-
 	pullStart := time.Now()
 	spinner := ui.StartSpinner("Checking repository...")
 
@@ -78,87 +76,132 @@ func pullFromRemote(cfg *config.Config, dryRun, force bool) error {
 
 	if len(strings.TrimSpace(string(output))) > 0 {
 		spinner.Fail("Local changes detected")
-		ui.Info("  Run: skillshare push")
-		ui.Info("  Or:  cd %s && git stash -u", source)
+		ui.Note("Run: skillshare push")
+		ui.Note(fmt.Sprintf("Or:  cd %s && git stash -u", source))
 		return fmt.Errorf("local changes must be pushed or stashed before pulling")
 	}
 
+	width := ui.RowWidth("Pull", "Sync")
 	if dryRun {
 		spinner.Stop()
-		ui.Warning("[dry-run] No changes will be made")
+		ui.Row(ui.MarkNone, "Pull", "would run git pull", width)
+		ui.Row(ui.MarkNone, "Sync", "would run skillshare sync", width)
 		fmt.Println()
-		ui.Info("Would run: git pull")
-		ui.Info("Would run: skillshare sync")
+		ui.DryRun()
 		return nil
 	}
 
-	// First pull (no upstream): fetch, then merge or reset onto the remote
-	// default branch and set upstream (see gitops.FirstPull). Subsequent pulls:
-	// normal git pull.
-	authEnv := gitops.AuthEnvForRepo(source)
+	info, remoteEmpty, err := integrateRemote(source, force, spinner)
+	if err != nil {
+		return err
+	}
+	spinner.Stop()
+	if remoteEmpty {
+		ui.Row(ui.MarkWarn, "Pull", "remote has no branches yet", width)
+		ui.Note("Push your skills first: skillshare push")
+	} else if info != nil {
+		ui.Row(ui.MarkOK, "Pull", pullSummary(info)+ui.Took(time.Since(pullStart)), width)
+		printCommitNotes(info.Commits)
+	}
+
+	return syncPulledScope(cfg)
+}
+
+// integrateRemote brings the remote's history into source. First pull (no
+// upstream): fetch, then merge or reset onto the remote default branch and
+// set upstream (see gitops.FirstPull). Subsequent pulls: normal git pull,
+// which merges. remoteEmpty reports a remote with no branches yet.
+func integrateRemote(source string, force bool, spinner *ui.Spinner) (info *gitops.UpdateInfo, remoteEmpty bool, err error) {
 	if !gitops.HasUpstream(source) {
 		spinner.Update("Fetching from remote...")
-		if _, err := gitops.FirstPull(source, force); errors.Is(err, gitops.ErrNoRemoteBranches) {
-			spinner.Warn("Remote has no branches yet")
-			ui.Info("  Push your skills first: skillshare push")
+		info, err = gitops.FirstPull(source, force)
+		if errors.Is(err, gitops.ErrNoRemoteBranches) {
+			return nil, true, nil
 		} else if errors.Is(err, gitops.ErrRemoteTracksConfig) {
 			spinner.Fail("Remote tracks config.yaml")
-			ui.Info("  The remote repository tracks machine-specific config.yaml.")
-			ui.Info("  Untrack it on the remote first via 'skillshare push' from the machine that committed it, then pull.")
-			return err
+			ui.Note("The remote repository tracks machine-specific config.yaml.")
+			ui.Note("Untrack it on the remote first via 'skillshare push' from the machine that committed it, then pull.")
+			return nil, false, err
 		} else if err != nil {
 			spinner.Fail("Pull failed")
 			if errors.Is(err, gitops.ErrMergeFailed) {
-				ui.Info("  Resolve manually: cd %s && git merge --allow-unrelated-histories <remote branch>", source)
-				ui.Info("  Or force-pull: skillshare pull --force  (replaces local with remote)")
+				ui.Note(fmt.Sprintf("Resolve manually: cd %s && git merge --allow-unrelated-histories <remote branch>", source))
+				ui.Note("Or force-pull: skillshare pull --force  (replaces local with remote)")
 			} else if !isAuthError(err.Error()) {
 				hintGitRemoteError(err.Error()) // auth guidance is already part of err
 			}
-			return err
+			return nil, false, err
 		}
-	} else {
-		spinner.Update("Running git pull...")
-		if _, err := gitops.PullWithEnv(source, authEnv); err != nil {
-			spinner.Fail("git pull failed")
-			fmt.Println(err.Error())
-			hintGitRemoteError(err.Error())
-			return fmt.Errorf("git pull failed: %w", err)
-		}
+		return info, false, nil
 	}
 
-	spinner.Stop()
-	ui.SuccessMsg("Pull complete (%.1fs)", time.Since(pullStart).Seconds())
+	spinner.Update("Running git pull...")
+	if info, err = gitops.PullWithEnv(source, gitops.AuthEnvForRepo(source)); err != nil {
+		spinner.Fail("git pull failed")
+		fmt.Println(err.Error())
+		hintGitRemoteError(err.Error())
+		return nil, false, fmt.Errorf("git pull failed: %w", err)
+	}
+	return info, false, nil
+}
 
-	// Sync what the pulled scope holds (always global — pull operates on the
-	// global source).
-	fmt.Println()
-	switch cfg.GitRoot {
+// syncPulledScope syncs what the git root scope holds (always global — pull
+// operates on the global source). Sync opens with its own blank line, and
+// extras are skipped when none are configured so sync does not print its
+// setup guide. The config is read again because the pull may have changed it.
+func syncPulledScope(cfg *config.Config) error {
+	if pulled, err := config.Load(); err == nil {
+		cfg.Extras = pulled.Extras
+	}
+	for _, args := range pulledScopeSyncArgs(cfg.GitRoot) {
+		if args[0] == "extras" && len(cfg.Extras) == 0 {
+			continue
+		}
+		if err := cmdSync(args); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// pulledScopeSyncArgs returns the `sync` invocations that cover a git root
+// scope, in order. Retry hints print the same commands.
+func pulledScopeSyncArgs(gitRoot string) [][]string {
+	switch gitRoot {
 	case "agents":
-		return cmdSync([]string{"agents", "--global"})
+		return [][]string{{"agents", "--global"}}
 	case "extras":
-		return cmdSync([]string{"extras", "--global"})
+		return [][]string{{"extras", "--global"}}
 	case "root":
-		if err := cmdSync([]string{"--global"}); err != nil {
-			return err
-		}
-		fmt.Println()
-		return cmdSync([]string{"agents", "--global"})
+		return [][]string{{"--global"}, {"agents", "--global"}, {"extras", "--global"}}
 	}
-	return cmdSync([]string{"--global"})
+	return [][]string{{"--global"}}
+}
+
+// pullSummary says what a pull brought in, like update does for a tracked
+// repository.
+func pullSummary(info *gitops.UpdateInfo) string {
+	switch {
+	case info.UpToDate:
+		return "already up to date"
+	case len(info.Commits) == 0:
+		return "checked out the remote branch"
+	}
+	return fmt.Sprintf("%s, %s changed (+%d −%d)",
+		plural(len(info.Commits), "commit"), plural(info.Stats.FilesChanged, "file"),
+		info.Stats.Insertions, info.Stats.Deletions)
 }
 
 func printPullHelp() {
-	fmt.Println(`Usage: skillshare pull [options]
-
-Pull from git remote and sync to all targets.
-
-Options:
-  --dry-run, -n     Preview changes without applying
-  --force, -f       Force-pull (reset local to remote on first pull)
-  --help, -h        Show this help
-
-Examples:
-  skillshare pull                Pull and sync
-  skillshare pull --dry-run      Preview what would happen
-  skillshare pull --force        Discard local, use remote`)
+	printHelp("skillshare pull [options]", "Pull from git remote and sync to all targets.",
+		helpGroup{title: "Options", rows: []helpRow{
+			{"-n, --dry-run", "Preview changes without applying"},
+			{"-f, --force", "Force-pull (reset local to remote on first pull)"},
+		}},
+		helpExamples(
+			helpRow{"skillshare pull", "Pull and sync"},
+			helpRow{"skillshare pull --dry-run", "Preview what would happen"},
+			helpRow{"skillshare pull --force", "Discard local, use remote"},
+		),
+	)
 }

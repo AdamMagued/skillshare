@@ -38,15 +38,9 @@ curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh 
 只有安裝器顯示 PATH 設定提示時，才需要依提示設定後再執行下方指令。沒有 PATH 警告就不需要額外設定。
 
 ```bash
-
-# 初始化
+# 選擇「Connect my existing skillshare repo」並貼上 repo URL。
+# init 會拉下你的 skills，並詢問要不要第一次同步。
 skillshare init
-
-# 從 remote pull
-skillshare pull
-
-# 同步到本機 targets
-skillshare sync
 ```
 
 ### 每日同步工作流程
@@ -62,6 +56,9 @@ skillshare sync
 
 # 在本機做出變更之後
 skillshare push
+
+# 或一步完成雙向同步：合併、push，然後 sync
+skillshare push --pull
 ```
 
 ## 驗證

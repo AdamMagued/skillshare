@@ -107,6 +107,23 @@ func TestCompletion_TargetCLIFlag_AllShells(t *testing.T) {
 	}
 }
 
+func TestCompletion_PushPullFlag_AllShells(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	for shell, flag := range map[string]string{
+		"bash":       `push_flags="--dry-run -n --pull`,
+		"zsh":        "'--pull[",
+		"fish":       "using_command push' -l pull",
+		"powershell": "'push' = '--dry-run', '-n', '--pull'",
+		"nushell":    "--pull                   # Merge remote",
+	} {
+		result := sb.RunCLI("completion", shell)
+		result.AssertSuccess(t)
+		result.AssertOutputContains(t, flag)
+	}
+}
+
 func TestCompletion_Subcommands_AllShells(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
@@ -188,7 +205,7 @@ func TestCompletion_NoArgs_ShowsUsage(t *testing.T) {
 
 	result := sb.RunCLI("completion")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "USAGE")
+	result.AssertOutputContains(t, "Usage  skillshare completion")
 }
 
 func TestCompletion_Install_WritesFile(t *testing.T) {

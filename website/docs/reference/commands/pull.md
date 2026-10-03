@@ -40,7 +40,7 @@ flowchart TD
 
 `pull` operates on the directory selected by the `git_root` config field (default: `skills` source). See [commit — Git Root Scope](./commit.md#git-root-scope) for the scope table. If `git_root` was changed but the git repo still lives in another scope's directory, `pull` prints a "Git root mismatch" error with the exact `git init` / `mv` commands to fix it. See [Changing the scope after init](/docs/reference/targets/configuration#git-root).
 
-After pulling, `pull` syncs what the scope holds: `skills` runs `sync`, `agents` runs `sync agents`, `root` runs both, and `extras` runs `sync extras`.
+After pulling, `pull` syncs what the scope holds: `skills` runs `sync`, `agents` runs `sync agents`, `extras` runs `sync extras`, and `root` runs all three.
 
 Plugins, MCP servers and hooks are settings in `config.yaml`, which no scope tracks, so `pull` neither brings nor applies them. See [Cross-Machine Sync — Plugins, MCP and Hooks](/docs/how-to/sharing/cross-machine-sync#plugins-mcp-hooks).
 
@@ -60,9 +60,9 @@ If you have uncommitted changes, `pull` will fail:
 
 ```bash
 $ skillshare pull
-Local changes detected
+✗ Local changes detected
   Run: skillshare push
-  Or:  cd ~/.config/skillshare/skills && git stash
+  Or:  cd ~/.config/skillshare/skills && git stash -u
 ```
 
 Solutions:
@@ -92,7 +92,7 @@ A conflict in any other file stops the pull, undoes the merge, and names the fil
 
 ```bash
 $ skillshare pull
-git pull failed
+✗ git pull failed
 pull stopped: this machine and the remote both changed my-skill/SKILL.md; the merge was undone, resolve it with git in ~/.config/skillshare/skills
 ```
 
@@ -118,7 +118,7 @@ If there are **merge conflicts**, `pull` fails with a non-zero exit code:
 
 ```bash
 $ skillshare pull
-Pull failed
+✗ Pull failed
   Resolve manually: cd ~/.config/skillshare/skills && git merge --allow-unrelated-histories <remote branch>
   Or force-pull: skillshare pull --force  (replaces local with remote)
 ```

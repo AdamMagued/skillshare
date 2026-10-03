@@ -77,22 +77,27 @@ skillshare init --remote git@github.com:you/my-skills.git
 
 ---
 
-## 第二台機器的設定
+## 第二台機器的設定 {#second-machine-setup}
 
-在新機器上，**同樣的指令就能用**：
+執行 `skillshare init`，選擇 **Connect my existing skillshare repo**，再貼上 repo URL：
+
+<p>
+  <img src="/img/init-connect-demo.png" alt="skillshare init 接上既有的 repo" width="720" />
+</p>
+
+也可以直接傳入 URL：
 
 ```bash
 skillshare init --remote git@github.com:you/my-skills.git
 ```
 
-Init 會自動偵測 remote 上已有現成的 skills 並將它們拉下來。不需要手動 `git clone`。
+Init 會先檢查 repo（不寫入任何東西），再把它拉下來。不需要手動 `git clone`。
 
 :::info 幕後發生了什麼
-1. 建立 source 目錄並初始化 git
-2. 新增 remote 並執行 `git fetch`
-3. 偵測到 remote 有 skills → 重設本機以符合 remote
-4. 設定追蹤分支
-5. 自動偵測並設定本機 targets
+1. 把 repo clone 到暫存資料夾，計算 skills 數量並判斷結構：用 `--git-root root` 推上去的整個資料夾，或放在 `skills/` 資料夾裡的 skills
+2. 這台機器上與 repo 同名的 skills 使用 repo 版本；只存在於這台機器的 skills 會保留，並在下次 `skillshare push` 時加入 repo
+3. 確認後：建立 source、初始化 git、新增 remote、重設為 remote 分支並設定追蹤
+4. 設定偵測到的本機 targets，並詢問要不要第一次同步
 :::
 
 如果你偏好手動控制：
@@ -127,7 +132,17 @@ skillshare push -m "Update my-skill"
 skillshare pull
 ```
 
-就這樣。`pull` 在拉取後會自動執行 `sync`。它會依照 [git root scope](/docs/reference/targets/configuration#git-root) 涵蓋的內容執行 sync：skills，以及 `git_root: root` 時的 agents。Plugins、MCP server 和 hooks 需要下面的額外步驟。
+就這樣。`pull` 在拉取後會自動執行 `sync`。它會依照 [git root scope](/docs/reference/targets/configuration#git-root) 涵蓋的內容執行 sync：預設是 skills，agents / extras scope 同步對應資源，`git_root: root` 則三者都同步。Plugins、MCP server 和 hooks 需要下面的額外步驟。
+
+### 一個指令雙向同步
+
+如果你在多台機器上編輯 skills，請改用這個指令，不必分別執行 `push` 和 `pull`：
+
+```bash
+skillshare push --pull -m "Update my-skill"
+```
+
+它會 commit 你的變更、合併其他機器 push 的內容，接著 push 並 sync targets。遇到衝突時，它會在 push 任何內容之前停止。參見[同時 Push 與 Pull](/docs/reference/commands/push#push-and-pull-together)。
 
 ---
 

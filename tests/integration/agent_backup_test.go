@@ -28,12 +28,20 @@ targets:
       path: ` + claudeAgents + `
 `)
 
-	// Sync agents first so there's something to backup
-	sb.RunCLI("sync", "agents")
+	sb.RunCLI("sync", "agents").AssertSuccess(t)
+	// Create the local agent after sync so its automatic backup cannot be
+	// mistaken for this explicit backup when the commands cross a second.
+	// Synced agents remain symlinks and are not backed up (issue #252).
+	sb.WriteFile(filepath.Join(claudeAgents, "local-helper.md"), "# Local helper")
 
 	result := sb.RunCLI("backup", "agents")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "agent backup")
+	result.AssertAnyOutputContains(t, "claude-agents")
+
+	backups, _ := filepath.Glob(filepath.Join(sb.Home, ".local", "share", "skillshare", "backups", "*", "claude-agents", "local-helper.md"))
+	if len(backups) != 1 {
+		t.Fatalf("expected local-helper.md in one backup, found %v", backups)
+	}
 }
 
 func TestBackup_Agents_DryRun(t *testing.T) {
@@ -152,7 +160,7 @@ func TestBackup_Agents_ProjectMode_CreatesBackup(t *testing.T) {
 	// Backup project agents
 	result = sb.RunCLIInDir(projectDir, "backup", "-p", "agents")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "agent backup")
+	result.AssertAnyOutputContains(t, "Backed up agents of 1 target")
 
 	// Verify backup was created under .skillshare/backups/
 	backupDir := filepath.Join(projectDir, ".skillshare", "backups")

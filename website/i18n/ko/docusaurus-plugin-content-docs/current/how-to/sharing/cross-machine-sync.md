@@ -77,22 +77,27 @@ skillshare init --remote git@github.com:you/my-skills.git
 
 ---
 
-## 두 번째 머신 설정
+## 두 번째 머신 설정 {#second-machine-setup}
 
-새 머신에서는 **동일한 명령이 그대로 동작합니다**:
+`skillshare init`을 실행하고 **Connect my existing skillshare repo**를 선택한 뒤 저장소 URL을 붙여넣습니다:
+
+<p>
+  <img src="/img/init-connect-demo.png" alt="기존 저장소에 연결하는 skillshare init" width="720" />
+</p>
+
+URL을 직접 전달할 수도 있습니다:
 
 ```bash
 skillshare init --remote git@github.com:you/my-skills.git
 ```
 
-Init은 Remote에 기존 Skill이 있음을 자동으로 감지하고 이를 pull합니다. 수동으로 `git clone`할 필요가 없습니다.
+Init은 아무것도 쓰지 않고 먼저 저장소를 확인한 뒤 pull합니다. 수동으로 `git clone`할 필요가 없습니다.
 
 :::info 내부적으로 일어나는 일
-1. Source 디렉터리를 생성하고 git을 초기화합니다
-2. Remote를 추가하고 `git fetch`를 실행합니다
-3. Remote에 Skill이 있음을 감지 → 로컬을 Remote와 일치하도록 재설정합니다
-4. 추적 브랜치를 설정합니다
-5. 로컬 Target을 자동으로 감지하고 설정합니다
+1. 저장소를 임시 폴더에 clone해 Skill 수를 세고 구조를 판단합니다: `--git-root root`로 push한 폴더 전체인지, `skills/` 폴더 안의 Skill인지
+2. 이 머신에서 저장소와 이름이 같은 Skill은 저장소 버전을 사용합니다. 이 머신에만 있는 Skill은 유지되고 다음 `skillshare push` 때 저장소에 추가됩니다
+3. 확인 후: source를 만들고 git을 초기화하고 Remote를 추가한 뒤 원격 브랜치로 재설정하고 추적을 설정합니다
+4. 감지된 로컬 Target을 설정하고 첫 sync를 제안합니다
 :::
 
 수동 제어를 선호한다면:
@@ -127,7 +132,17 @@ skillshare push -m "Update my-skill"
 skillshare pull
 ```
 
-이게 전부입니다. `pull`은 pull 이후 자동으로 `sync`를 실행합니다. [git root scope](/docs/reference/targets/configuration#git-root)에 포함된 것만 sync합니다. skills, 그리고 `git_root: root`일 때는 agents도 포함됩니다. Plugins, MCP 서버, hooks는 아래의 추가 단계가 필요합니다.
+이게 전부입니다. `pull`은 pull 이후 자동으로 `sync`를 실행합니다. [git root scope](/docs/reference/targets/configuration#git-root)에 포함된 것만 sync합니다. 기본값은 skills, agents / extras scope에서는 해당 리소스, `git_root: root`에서는 세 가지 모두입니다. Plugins, MCP 서버, hooks는 아래의 추가 단계가 필요합니다.
+
+### 명령 하나로 양방향 처리
+
+여러 머신에서 skill을 편집한다면 `push`와 `pull` 대신 다음을 실행하세요:
+
+```bash
+skillshare push --pull -m "Update my-skill"
+```
+
+변경 사항을 커밋하고, 다른 머신이 push한 내용을 병합한 뒤 push하고, target을 sync합니다. 충돌이 발생하면 아무것도 push되기 전에 중단됩니다. [Push와 Pull 함께 하기](/docs/reference/commands/push#push-and-pull-together)를 참고하세요.
 
 ---
 
