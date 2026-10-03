@@ -743,7 +743,7 @@ targets:
 	result := sb.RunCLI("init", "--discover")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "No new agents")
+	result.AssertOutputContains(t, "No new AI tools found")
 }
 
 func TestInit_Discover_DoesNotExpandSharedDirectoryTargets(t *testing.T) {
@@ -781,8 +781,8 @@ targets:
 	result := sb.RunCLI("init", "--discover", "--select", "zed")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Agent not detected: zed")
-	result.AssertOutputNotContains(t, "Added 1 agent")
+	result.AssertOutputContains(t, "zed was not found on this machine")
+	result.AssertOutputNotContains(t, "✓ Tools")
 
 	configContent := sb.ReadFile(sb.ConfigPath)
 	if strings.Contains(configContent, "zed:") {
@@ -812,7 +812,7 @@ targets:
 	result := sb.RunCLI("init", "--discover", "--select", "cursor")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Added 1 agent")
+	result.AssertOutputContains(t, "Tools    cursor")
 
 	// Verify config now has cursor
 	configContent := sb.ReadFile(sb.ConfigPath)
@@ -845,7 +845,7 @@ targets:
 	result := sb.RunCLI("init", "--discover", "--select", "cursor", "--mode", "copy")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Added 1 agent")
+	result.AssertOutputContains(t, "Tools    cursor")
 
 	configContent := sb.ReadFile(sb.ConfigPath)
 	if !strings.Contains(configContent, "mode: symlink") {
@@ -874,7 +874,7 @@ targets: {}
 	result := sb.RunCLI("init", "--discover", "--select", "claude,cursor")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Added 2 agent")
+	result.AssertOutputContains(t, "Tools    claude, cursor")
 
 	// Verify config has both
 	configContent := sb.ReadFile(sb.ConfigPath)
@@ -946,7 +946,7 @@ targets:
 	result := sb.RunCLI("init", "--discover", "--select", "claude")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "already in config")
+	result.AssertOutputContains(t, "claude is already set up")
 }
 
 func TestInit_Discover_UnknownAgent(t *testing.T) {
@@ -962,7 +962,7 @@ targets: {}
 	result := sb.RunCLI("init", "--discover", "--select", "unknownagent")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Unknown agent")
+	result.AssertOutputContains(t, "Unknown AI tool: unknownagent")
 }
 
 func TestInit_ModeFlag_SetsDefaultMode(t *testing.T) {

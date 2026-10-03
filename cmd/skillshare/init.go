@@ -878,7 +878,7 @@ func promptAgentSelection(newAgents []agentInfo) ([]string, error) {
 }
 
 // saveAddedAgents adds agents to config and saves
-func saveAddedAgents(cfg *config.Config, names []string, dryRun bool, mode string) error {
+func saveAddedAgents(cfg *config.Config, names []string, asked, dryRun bool, mode string) error {
 	defaultTargets := config.DefaultTargets()
 
 	for _, name := range names {
@@ -888,38 +888,45 @@ func saveAddedAgents(cfg *config.Config, names []string, dryRun bool, mode strin
 		}
 	}
 
-	if dryRun {
-		ui.Warning("Dry run - would add %d agent(s) to config", len(names))
-		for _, name := range names {
-			fmt.Printf("  + %s\n", name)
+	if !dryRun {
+		if err := cfg.Save(); err != nil {
+			return fmt.Errorf("failed to save config: %w", err)
 		}
-		return nil
 	}
-
-	if err := cfg.Save(); err != nil {
-		return fmt.Errorf("failed to save config: %w", err)
-	}
-
-	ui.Success("Added %d agent(s) to config", len(names))
-	for _, name := range names {
-		fmt.Printf("  + %s\n", name)
-	}
-	ui.Info("Run 'skillshare sync' to sync skills to new targets")
-
+	printDiscoverResult(config.ConfigPath(), names, asked, dryRun, "skillshare sync")
 	return nil
+}
+
+// printDiscoverResult reports the tools --discover added in init's style:
+// answered rows, then the command to run next. asked is true when the tools
+// prompt already printed its own Tools row.
+func printDiscoverResult(configPath string, names []string, asked, dryRun bool, syncCmd string) {
+	if !asked {
+		ui.Answered("Tools", describeTools(names))
+	}
+	if dryRun {
+		fmt.Println(theme.Dim().Render("Dry run — nothing was written"))
+		return
+	}
+	ui.Answered("Config", utils.FoldHomePath(configPath))
+	fmt.Println()
+	fmt.Println(theme.Primary().Bold(true).Render("Next"))
+	fmt.Printf("  %s  %s\n", theme.Accent().Render(syncCmd), theme.Dim().Render("sync your skills to "+describeTools(names)))
+}
+
+func discoverFound(n int) {
+	fmt.Println("Found " + plural(n, "new AI tool"))
 }
 
 // reinitWithDiscover detects new agents and allows user to add them to existing config
 func reinitWithDiscover(existingCfg *config.Config, selectArg string, dryRun bool, mode string) error {
-	ui.Header("Discovering new agents")
-
 	newAgents := detectNewAgents(existingCfg)
 	if len(newAgents) == 0 {
-		ui.Info("No new agents detected")
+		fmt.Println("No new AI tools found")
 		return nil
 	}
 
-	ui.Success("Found %d new agent(s)", len(newAgents))
+	discoverFound(len(newAgents))
 
 	// Non-interactive mode with --select
 	if selectArg != "" {
@@ -931,7 +938,8 @@ func reinitWithDiscover(existingCfg *config.Config, selectArg string, dryRun boo
 	for _, agent := range newAgents {
 		selectedNames = append(selectedNames, agent.name)
 	}
-	if runningInInteractiveTTY() {
+	asked := runningInInteractiveTTY()
+	if asked {
 		var err error
 		if selectedNames, err = promptAgentSelection(newAgents); err != nil {
 			return initCancelled(err)
@@ -939,11 +947,11 @@ func reinitWithDiscover(existingCfg *config.Config, selectArg string, dryRun boo
 	}
 
 	if len(selectedNames) == 0 {
-		ui.Info("No agents selected")
+		fmt.Println("No AI tools added")
 		return nil
 	}
 
-	return saveAddedAgents(existingCfg, selectedNames, dryRun, mode)
+	return saveAddedAgents(existingCfg, selectedNames, asked, dryRun, mode)
 }
 
 // addSelectedAgentsByName adds agents specified by --select flag (non-interactive)
@@ -970,11 +978,11 @@ func addSelectedAgentsByName(existingCfg *config.Config, newAgents []agentInfo, 
 		if !availableAgents[name] {
 			// Check if it's already in config
 			if _, exists := existingCfg.Targets[name]; exists {
-				ui.Info("Agent already in config: %s (skipped)", name)
+				ui.Info("%s is already set up (skipped)", name)
 			} else if _, ok := defaultTargets[name]; !ok {
-				ui.Warning("Unknown agent: %s (skipped)", name)
+				ui.Warning("Unknown AI tool: %s (skipped)", name)
 			} else {
-				ui.Warning("Agent not detected: %s (skipped)", name)
+				ui.Warning("%s was not found on this machine (skipped)", name)
 			}
 			continue
 		}
@@ -988,27 +996,15 @@ func addSelectedAgentsByName(existingCfg *config.Config, newAgents []agentInfo, 
 	}
 
 	if len(addedNames) == 0 {
-		ui.Info("No new agents added")
+		fmt.Println("No AI tools added")
 		return nil
 	}
 
-	if dryRun {
-		ui.Warning("Dry run - would add %d agent(s) to config", len(addedNames))
-		for _, name := range addedNames {
-			fmt.Printf("  + %s\n", name)
+	if !dryRun {
+		if err := existingCfg.Save(); err != nil {
+			return fmt.Errorf("failed to save config: %w", err)
 		}
-		return nil
 	}
-
-	if err := existingCfg.Save(); err != nil {
-		return fmt.Errorf("failed to save config: %w", err)
-	}
-
-	ui.Success("Added %d agent(s) to config", len(addedNames))
-	for _, name := range addedNames {
-		fmt.Printf("  + %s\n", name)
-	}
-	ui.Info("Run 'skillshare sync' to sync skills to new targets")
-
+	printDiscoverResult(config.ConfigPath(), addedNames, false, dryRun, "skillshare sync")
 	return nil
 }

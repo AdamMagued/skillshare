@@ -489,13 +489,14 @@ func reinitProjectWithDiscover(root string, opts projectInitOptions) error {
 	}
 
 	if len(newTargets) == 0 {
-		ui.Info("No new targets detected")
+		fmt.Println("No new AI tools found")
 		return nil
 	}
 
-	ui.Success("Found %d new target(s)", len(newTargets))
+	discoverFound(len(newTargets))
 
 	var selected []config.ProjectTargetEntry
+	asked := false
 
 	// Non-interactive: --select (accepts canonical or member names)
 	if opts.selectArg != "" {
@@ -509,9 +510,9 @@ func reinitProjectWithDiscover(root string, opts projectInitOptions) error {
 			target := findGroupedTarget(newTargets, name)
 			if target == nil {
 				if known, ok := config.LookupProjectTarget(name); ok && existingPaths[filepath.FromSlash(known.Path)] {
-					ui.Info("Target already covered: %s (skipped)", name)
+					ui.Info("%s is already set up (skipped)", name)
 				} else {
-					ui.Warning("Target not detected: %s (skipped)", name)
+					ui.Warning("%s was not found in this project (skipped)", name)
 				}
 				continue
 			}
@@ -525,6 +526,7 @@ func reinitProjectWithDiscover(root string, opts projectInitOptions) error {
 			}
 		}
 	} else if runningInInteractiveTTY() {
+		asked = true
 		var err error
 		if selected, err = promptProjectTargets(newTargets); err != nil {
 			return initCancelled(err)
@@ -535,7 +537,7 @@ func reinitProjectWithDiscover(root string, opts projectInitOptions) error {
 	}
 
 	if len(selected) == 0 {
-		ui.Info("No new targets added")
+		fmt.Println("No AI tools added")
 		return nil
 	}
 	if opts.mode != "" {
@@ -547,10 +549,7 @@ func reinitProjectWithDiscover(root string, opts projectInitOptions) error {
 	}
 
 	if opts.dryRun {
-		ui.Warning("Dry run - would add %d target(s) to config", len(selected))
-		for _, t := range selected {
-			fmt.Printf("  + %s\n", t.Name)
-		}
+		printDiscoverResult("", entryNames(selected), asked, true, "")
 		return nil
 	}
 
@@ -565,11 +564,8 @@ func reinitProjectWithDiscover(root string, opts projectInitOptions) error {
 		return err
 	}
 
-	ui.Success("Added %d target(s) to config", len(selected))
-	for _, t := range selected {
-		fmt.Printf("  + %s\n", t.Name)
-	}
-	ui.Info("Run 'skillshare sync' to sync skills to new targets")
+	cfgPath := projectdir.ConfigPath(root)
+	printDiscoverResult(filepath.Base(filepath.Dir(cfgPath))+"/"+projectdir.ConfigFileName, entryNames(selected), asked, false, "skillshare sync -p")
 
 	return nil
 }
